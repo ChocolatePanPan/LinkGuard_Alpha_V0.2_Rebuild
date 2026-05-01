@@ -1,0 +1,44 @@
+# LinkGuard macOS backend dependencies
+# Install:  python3 -m pip install -r macos/requirements.txt
+# Python:   3.11+ recommended on macOS (Apple Silicon: arm64 wheels available)
+#
+# Prerequisites (Homebrew):
+#   brew install python@3.11 ollama ffmpeg
+# (ffmpeg is required by PyAV / av; ollama provides Metal-accelerated LLM runtime)
+
+# --- Web framework ---
+fastapi==0.135.3
+uvicorn==0.44.0
+starlette==1.0.0
+pydantic==2.13.0
+python-multipart==0.0.26   # required by FastAPI for UploadFile / Form
+
+# --- HTTP clients ---
+httpx==0.28.1
+requests==2.33.1
+certifi==2026.2.25
+
+# --- AI / Ollama ---
+ollama==0.6.1
+
+# --- Speech (whisper_server) ---
+faster-whisper==1.2.1
+ctranslate2==4.7.1
+onnxruntime==1.24.4
+av==17.0.0
+numpy==2.4.4
+
+# --- Image (photo_server) ---
+Pillow==12.2.0
+
+# --- MQTT (mqtt_broker) ---
+paho-mqtt==2.1.0
+
+# --- Bonjour / mDNS service discovery ---
+zeroconf==0.148.0
+
+# --- PDF report generation (report_generator.py) ---
+fpdf2==2.8.2
+
+# --- Optional: dev / tests ---
+# pytest==8.3.3
