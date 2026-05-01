@@ -26,17 +26,17 @@ struct BackendServiceSpec: Identifiable, Hashable {
     let isHTTP: Bool            // true → probe via /health; false → TCP connect
     let startDelay: TimeInterval // pre-launch delay, mirrors macos/start_all.sh
 
-    /// Same order/delays as `macos/start_all.sh`.
+    /// Mac HQ already owns 8003 (speech), 8005 (LGAP audio), and 9001 (UDP audio).
+    /// Keep the embedded Python sidecar to services that do not collide with those
+    /// native HQ listeners while still covering AI, TCP bridge, resources, photos,
+    /// MQTT/LoRa, and optional Python Whisper.
     static let all: [BackendServiceSpec] = [
         .init(id: "mqtt_broker",    displayName: "MQTT Client",        scriptName: "mqtt_broker.py",    port: 1883, isHTTP: false, startDelay: 0),
         .init(id: "tcp_server",     displayName: "TCP Aggregator",     scriptName: "tcp_server.py",     port: 9000, isHTTP: false, startDelay: 0),
         .init(id: "gemma4_server",  displayName: "Gemma4 AI",          scriptName: "gemma4_server.py",  port: 8001, isHTTP: true,  startDelay: 2),
         .init(id: "whisper_server", displayName: "Whisper Voice",      scriptName: "whisper_server.py", port: 8002, isHTTP: true,  startDelay: 0),
         .init(id: "photo_server",   displayName: "Photo Server",       scriptName: "photo_server.py",   port: 8004, isHTTP: true,  startDelay: 2),
-        .init(id: "http_server",    displayName: "Briefing HTTP",      scriptName: "http_server.py",    port: 8003, isHTTP: true,  startDelay: 0),
-        .init(id: "stats_server",   displayName: "Stats / LGAP",       scriptName: "stats_server.py",   port: 8005, isHTTP: true,  startDelay: 0),
         .init(id: "resource_server",displayName: "Resource Server",    scriptName: "resource_server.py",port: 8006, isHTTP: true,  startDelay: 0),
-        .init(id: "udp_server",     displayName: "UDP Audio",          scriptName: "udp_server.py",     port: 9001, isHTTP: false, startDelay: 2),
     ]
 }
 
@@ -73,7 +73,7 @@ final class BackendSupervisor: ObservableObject {
 
     /// Where to find the Python scripts. On a packaged build this is
     /// `~/Library/Application Support/LinkGuardHQ/backend`. In a dev build
-    /// running from Xcode, it falls back to a sibling `macos/` folder if
+    /// running from Xcode, it falls back to the repository `macos/` folder if
     /// `~/Library/...` doesn't exist yet.
     @Published var backendDir: URL
     @Published var pythonExecutable: URL?
@@ -128,7 +128,17 @@ final class BackendSupervisor: ObservableObject {
                                           withExtension: nil) {
             return bundled
         }
-        // 3) Dev fallback: ../../../macos relative to the running binary.
+        // 3) Dev fallback: locate the repository from this Swift source path.
+        let sourceFile = URL(fileURLWithPath: #filePath)
+        let sourceRoot = sourceFile
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let sourceMacos = sourceRoot.appendingPathComponent("macos", isDirectory: true)
+        if fm.fileExists(atPath: sourceMacos.path) { return sourceMacos }
+
+        // 4) Last fallback: ../../../macos relative to the running binary.
         let bin = Bundle.main.bundleURL.deletingLastPathComponent()
         return bin.appendingPathComponent("../../../macos", isDirectory: true)
                    .standardizedFileURL

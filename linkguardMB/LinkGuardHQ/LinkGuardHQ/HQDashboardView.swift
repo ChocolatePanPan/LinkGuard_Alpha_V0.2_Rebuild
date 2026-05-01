@@ -250,7 +250,7 @@ struct HQDashboardView: View {
             case .patientWarning: HQPatientWarningView(vm: vm)
             case .aiChat: HQAIChatView(vm: vm)
             #if os(macOS)
-            case .backendServices: HQBackendServicesView(supervisor: vm.backendSupervisor)
+            case .backendServices: HQBackendServicesView(vm: vm, supervisor: vm.backendSupervisor)
             #else
             case .backendServices: Text(L("僅 macOS 支援")).foregroundColor(.secondary)
             #endif
@@ -654,6 +654,33 @@ struct HQDashboardView: View {
                             .font(.caption)
                             .foregroundColor(status.backendConnected ? NV.green : .secondary)
                     }
+                } else if vm.backendMode == .embedded {
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(vm.isBackendConnected ? NV.green : Color.gray)
+                            .frame(width: 8, height: 8)
+                        Text(vm.isBackendConnected ? L("此 Mac 內建後端 127.0.0.1") : L("此 Mac 後端啟動中"))
+                            .font(.caption)
+                            .foregroundColor(vm.isBackendConnected ? NV.green : .secondary)
+                    }
+                    HStack(spacing: 8) {
+                        #if os(macOS)
+                        Button(L("啟動本機後端")) {
+                            vm.ensureMacLocalBackend()
+                        }
+                        .font(.caption)
+                        #endif
+                        Button(L("查看服務")) {
+                            selectedSection = .backendServices
+                        }
+                        .font(.caption)
+                    }
+                    if let error = vm.backendBridge.lastError {
+                        Text(error)
+                            .font(.caption2)
+                            .foregroundColor(NV.danger)
+                            .lineLimit(2)
+                    }
                 } else {
                     HStack(spacing: 6) {
                         if vm.backendBridge.isDiscovering {
@@ -905,6 +932,9 @@ struct HQDashboardView: View {
         case .radio: return NV.green
         case .patientWarning: return NV.warning
         case .aiChat: return NV.command
+        case .backendServices: return NV.green
+        case .decisionHistory: return NV.command
+        case .settings: return NV.info
         }
     }
 

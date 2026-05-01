@@ -6,10 +6,10 @@ import AppKit
 // MARK: - HQ 大儀表板（Phase C）
 // 整合 6 大面板：AI 主機健康度、受困者即時排序、AI 推送模式控制、
 // 全節點清單、AI 對話時間軸、決策審計。
-// 後端依賴 win11/gemma4_server.py port 8001：
+// 後端依賴此 Mac 內建 gemma4_server.py port 8001：
 //   /ai/health, /ai/models, /ai/command/list, /ai/command/cancel/{id},
 //   /ai/command/auto_dispatch
-// host 來源：vm.backendBridge.backendHost（Bonjour 或手動）
+// host 來源：vm.effectiveBackendHost（內建模式固定為 127.0.0.1）
 // 不使用 emoji。
 
 struct HQGrandDashboardView: View {
@@ -25,7 +25,7 @@ struct HQGrandDashboardView: View {
     @AppStorage("ai.modeOverride.perType") private var perTypeOverrideJSON: String = "{}"
 
     private var port: Int { 8001 }
-    private var host: String { vm.backendBridge.backendHost }
+    private var host: String { vm.effectiveBackendHost }
 
     var body: some View {
         ScrollView {

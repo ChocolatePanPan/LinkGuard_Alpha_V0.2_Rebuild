@@ -205,11 +205,7 @@ struct HQSettingsView: View {
         switch backendMode {
         case .embedded:
             #if os(macOS)
-            // Make sure the supervisor is running, then point the bridge at localhost.
-            if supervisor.services.allSatisfy({ $0.status == .stopped }) {
-                supervisor.startAll()
-            }
-            vm.backendBridge.connect(host: "127.0.0.1", port: 9000)
+            vm.ensureMacLocalBackend()
             legacyBackendHost = "127.0.0.1"
             #endif
         case .remote:

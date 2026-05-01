@@ -81,7 +81,8 @@ If you sign with `--options=runtime` (Hardened Runtime), add in
 2. Build `LinkGuardHQ` for **My Mac**.
 3. First launch: open **Settings → Backend** in the sidebar.
 4. Backend Mode = **Embedded** → Setup Assistant should run all four steps.
-5. Open **Backend Services** sidebar item — all 9 services should turn green within ~30 s.
+5. Open **Backend Services** sidebar item — Mac sidecar services should turn green within ~30 s.
+   The HQ app itself owns speech/report `:8003`, LGAP audio `:8005`, and UDP audio `:9001`, so the embedded Python supervisor intentionally does not launch the older Python services that would bind those same ports.
 6. Open **AI 決策歷史** — initial list will be empty until the field app reports something.
 
 ## 7. Switching to remote backend

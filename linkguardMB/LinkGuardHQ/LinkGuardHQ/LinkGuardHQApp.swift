@@ -25,7 +25,7 @@ struct LinkGuardHQApp: App {
                         #if os(macOS)
                         // 嵌入模式時自動啟動 Python 後端 sidecar
                         if viewModel.backendMode == .embedded {
-                            viewModel.backendSupervisor.startAll()
+                            viewModel.ensureMacLocalBackend()
                         }
                         #endif
                     }
