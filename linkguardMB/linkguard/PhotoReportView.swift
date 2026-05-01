@@ -275,7 +275,7 @@ struct PhotoReportView: View {
     private func uploadMedia() {
         let host = serverHost.contains(":") ? "[\(serverHost)]" : serverHost
         guard let url = URL(string: "http://\(host):8014/photo") else {
-            alertMessage = "無法建立上傳網址（host: \(serverHost)）"
+            alertMessage = L("無法建立上傳網址（host: %@）", serverHost)
             showAlert = true
             return
         }
@@ -353,11 +353,11 @@ struct PhotoReportView: View {
                 if let error {
                     let desc = error.localizedDescription
                     if desc.contains("timed out") {
-                        alertMessage = "上傳逾時（\(self.serverHost):8014）：請確認 Mac HQ 已啟動且伺服器運行中"
+                        alertMessage = L("上傳逾時（%@）：請確認 Mac HQ 已啟動且伺服器運行中", "\(self.serverHost):8014")
                     } else if desc.contains("Could not connect") || desc.contains("Connection refused") {
-                        alertMessage = "無法連線（\(self.serverHost):8014）：Mac HQ 照片伺服器未啟動"
+                        alertMessage = L("無法連線（%@）：Mac HQ 照片伺服器未啟動", "\(self.serverHost):8014")
                     } else {
-                        alertMessage = "上傳失敗：\(desc)"
+                        alertMessage = L("上傳失敗：%@", desc)
                     }
                     showAlert = true
                     return
@@ -365,7 +365,8 @@ struct PhotoReportView: View {
                 guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
                     let code = (response as? HTTPURLResponse)?.statusCode ?? -1
                     let body = data.flatMap { String(data: $0, encoding: .utf8) } ?? ""
-                    alertMessage = "伺服器錯誤（HTTP \(code)）\(body.isEmpty ? "" : "：\(body.prefix(200))")"
+                    let detail = body.isEmpty ? "" : L("：%@", String(body.prefix(200)))
+                    alertMessage = L("伺服器錯誤（HTTP %lld）%@", code, detail)
                     showAlert = true
                     return
                 }
