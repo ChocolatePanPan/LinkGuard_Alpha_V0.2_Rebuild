@@ -4,6 +4,8 @@ linkguard_db.py — LinkGuard 統一資料庫模組
 資料庫路徑: ./data/linkguard.db
 """
 
+from __future__ import annotations
+
 import os
 import sqlite3
 import traceback

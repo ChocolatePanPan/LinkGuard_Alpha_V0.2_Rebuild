@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import asyncio
 import builtins
 import json
@@ -67,7 +69,7 @@ from i18n import t, get_locale, set_locale, STRINGS as I18N_STRINGS
 
 # === 設定 ===
 MODEL_NAME = "gemma4-linkguard2.0"
-RUNTIME_MODEL_NAME = "gemma4:26b"
+RUNTIME_MODEL_NAME = os.environ.get("LINKGUARD_OLLAMA_MODEL", "gemma4:latest")
 OLLAMA_HOST = "http://localhost:11434"
 TZ_TW = timezone(timedelta(hours=8))
 
@@ -565,11 +567,15 @@ def _resolve_tier_for_session(session_id: str, complexity_hint: str = "auto") ->
 
 
 def _runtime_model_for_tier(tier: str) -> str:
+    if not DUAL_CFG.get("enabled"):
+        return _get_runtime_model()
     cfg = _get_tier_cfg(tier)
     return cfg.get("name") or _get_runtime_model()
 
 
 def _host_for_tier(tier: str) -> str:
+    if not DUAL_CFG.get("enabled"):
+        return OLLAMA_HOST
     cfg = _get_tier_cfg(tier)
     return cfg.get("host") or OLLAMA_HOST
 

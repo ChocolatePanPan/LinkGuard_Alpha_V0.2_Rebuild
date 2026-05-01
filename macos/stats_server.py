@@ -4,6 +4,8 @@ Port 8005, FastAPI
 提供即時統計 API + 定時推播統計更新
 """
 
+from __future__ import annotations
+
 import asyncio
 import json
 import os

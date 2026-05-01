@@ -4,6 +4,8 @@ Port 8006, FastAPI
 管理救援資源（救護車、醫療包、人員）的即時狀態
 """
 
+from __future__ import annotations
+
 import asyncio
 import json
 import socket
