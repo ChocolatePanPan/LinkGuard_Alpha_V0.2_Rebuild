@@ -733,9 +733,9 @@ class HQBackendBridge: ObservableObject {
             if let temp = weather.temperature {
                 let alert = PWSAlert(
                     alertType: .other,
-                    title: "氣象更新",
-                    content: String(format: "溫度 %.1f°C｜濕度 %.0f%%｜風速 %.1f m/s",
-                                    temp, weather.humidity ?? 0, weather.windSpeed ?? 0),
+                    title: L("氣象更新"),
+                    content: L("溫度 %.1f°C｜濕度 %.0f%%｜風速 %.1f m/s",
+                               temp, weather.humidity ?? 0, weather.windSpeed ?? 0),
                     severity: .info
                 )
                 server?.broadcastPWSAlert(alert)

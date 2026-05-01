@@ -337,7 +337,9 @@ class HQViewModel: ObservableObject {
                 audioUrl: audioUrl
             )
             self.server.broadcastReportSummary(summary)
-            let logTitle = result.sourceType == .briefing ? "固定會報：\(result.senderName)" : "即時廣播：\(result.senderName)"
+            let logTitle = result.sourceType == .briefing
+                ? L("固定會報：%@", result.senderName)
+                : L("即時廣播：%@", result.senderName)
             self.logEvent(type: .briefing, title: logTitle,
                           detail: result.transcription.prefix(50) + "...")
         }
@@ -349,8 +351,8 @@ class HQViewModel: ObservableObject {
             let photoId = photoAlert["photo_id"] as? String ?? ""
             self.server.appendTimelineEvent(TimelineEvent(
                 eventType: .briefing,
-                title: "照片回報：\(photoId)",
-                detail: "from \(sender)（本地接收）",
+                title: L("照片回報：%@", photoId),
+                detail: L("來自 %@（本地接收）", sender),
                 source: "local-photo-server"
             ))
             // 廣播給所有前線裝置
@@ -1229,7 +1231,7 @@ class HQViewModel: ObservableObject {
             #endif
             backendBridge.requestAIDecision(context: context)
         }
-        logEvent(type: .command, title: "請求 AI 決策", detail: context.isEmpty ? "（無額外情境）" : context.prefix(60) + "...")
+        logEvent(type: .command, title: L("請求 AI 決策"), detail: context.isEmpty ? L("（無額外情境）") : context.prefix(60) + "...")
     }
 
     // MARK: - AI 副駕駛指令提案（HITL）

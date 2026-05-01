@@ -551,8 +551,8 @@ class HQCommandServer: ObservableObject {
                     ))
                     self.appendTimelineEvent(TimelineEvent(
                         eventType: .statusReport,
-                        title: "前線裝置連線",
-                        detail: "\(report.deviceID) (\(report.deptCode)) 已連線",
+                        title: L("前線裝置連線"),
+                        detail: L("%@ (%@) 已連線", report.deviceID, report.deptCode),
                         source: report.deviceID
                     ))
                 }
@@ -756,8 +756,8 @@ class HQCommandServer: ObservableObject {
                 self.onPatientReport?(report)
                 self.appendTimelineEvent(TimelineEvent(
                     eventType: .statusReport,
-                    title: "傷員回報：\(report.patientId)",
-                    detail: "位置：\(report.location)",
+                    title: L("傷員回報：%@", report.patientId),
+                    detail: L("位置：%@", report.location),
                     source: connID
                 ))
             }
@@ -776,8 +776,8 @@ class HQCommandServer: ObservableObject {
             DispatchQueue.main.async { [weak self] in
                 self?.appendTimelineEvent(TimelineEvent(
                     eventType: .briefing,
-                    title: "電台 \(ctrl.action == "start" ? "開始廣播" : "結束廣播")",
-                    detail: "發送者：\(ctrl.senderName)",
+                    title: L("電台 %@", ctrl.action == "start" ? L("開始廣播") : L("結束廣播")),
+                    detail: L("發送者：%@", ctrl.senderName),
                     source: connID
                 ))
             }
@@ -802,7 +802,7 @@ class HQCommandServer: ObservableObject {
                 self?.radioReports.insert(report, at: 0)
                 self?.appendTimelineEvent(TimelineEvent(
                     eventType: .briefing,
-                    title: "會報上傳：\(decoded.senderName)",
+                    title: L("會報上傳：%@", decoded.senderName),
                     detail: decoded.transcription.prefix(50) + "...",
                     source: connID
                 ))
@@ -849,8 +849,8 @@ class HQCommandServer: ObservableObject {
                     }
                     self.appendTimelineEvent(TimelineEvent(
                         eventType: .notification,
-                        title: "SOS 緊急呼叫",
-                        detail: "發送者：\(senderName)",
+                        title: L("SOS 緊急呼叫"),
+                        detail: L("發送者：%@", senderName),
                         source: deviceID
                     ))
                     let alert = SOSAlert(id: sosId, deviceID: deviceID,
@@ -873,7 +873,7 @@ class HQCommandServer: ObservableObject {
                 DispatchQueue.main.async { [weak self] in
                     self?.appendTimelineEvent(TimelineEvent(
                         eventType: .notification,
-                        title: "SOS 已取消",
+                        title: L("SOS 已取消"),
                         detail: "SOS ID: \(sosId)",
                         source: connID
                     ))
@@ -896,8 +896,8 @@ class HQCommandServer: ObservableObject {
                     self?.photoAlerts.insert(json, at: 0)
                     self?.appendTimelineEvent(TimelineEvent(
                         eventType: .briefing,
-                        title: "照片回報：\(photoId)",
-                        detail: "from \(sender)",
+                        title: L("照片回報：%@", photoId),
+                        detail: L("來自 %@", sender),
                         source: connID
                     ))
                 }
@@ -952,7 +952,7 @@ class HQCommandServer: ObservableObject {
                 }
                 appendTimelineEvent(TimelineEvent(
                     eventType: .briefing,
-                    title: "文字廣播",
+                    title: L("文字廣播"),
                     detail: "[\(priority)] \(senderName): \(message)",
                     source: connID
                 ))
@@ -1064,7 +1064,7 @@ class HQCommandServer: ObservableObject {
                 }
                 appendTimelineEvent(TimelineEvent(
                     eventType: .pwsAlert,
-                    title: "傷患惡化預警",
+                    title: L("傷患惡化預警"),
                     detail: "\(warning.patientName) [\(warning.triageLevel)] \(warning.warningMessage)",
                     source: connID
                 ))
