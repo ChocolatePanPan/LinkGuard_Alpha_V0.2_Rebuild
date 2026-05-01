@@ -3688,7 +3688,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Communications"
+            "value" : "Messages"
           }
         }
       }
@@ -3698,7 +3698,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Communications Stats"
+            "value" : "Message Stats"
           }
         }
       }
