@@ -291,9 +291,6 @@ class HQViewModel: ObservableObject {
         // Mac-only 主路徑：所有後端/AI 功能預設指向此 Mac 的 sidecar。
         server.backendBridge = backendBridge
         backendBridge.server = server
-        #if os(macOS)
-        ensureMacLocalBackend()
-        #endif
 
         // 初始化雙重語音辨識（WhisperKit + Apple Speech）— 僅 server 模式需要
         if hqRole == .server {

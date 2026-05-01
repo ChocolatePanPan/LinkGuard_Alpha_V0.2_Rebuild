@@ -44,6 +44,13 @@ enum BackendServiceStatus: String {
     case stopped, starting, healthy, unhealthy, crashed
 }
 
+struct BackendProcessMetrics: Equatable, Sendable {
+    let cpu: String
+    let memMB: String
+
+    static let empty = BackendProcessMetrics(cpu: "", memMB: "")
+}
+
 /// Mutable per-service runtime state observed by SwiftUI.
 @MainActor
 final class BackendServiceState: ObservableObject, Identifiable {
@@ -80,10 +87,12 @@ final class BackendSupervisor: ObservableObject {
     @Published var services: [BackendServiceState]
     @Published var allHealthy: Bool = false
     @Published var anyCrashed: Bool = false
+    @Published private var processMetrics: [String: BackendProcessMetrics] = [:]
 
     private var processes: [String: Process] = [:]
     private var stdoutPipes: [String: Pipe] = [:]
     private var healthTimer: Timer?
+    private var metricsTimer: Timer?
 
     init() {
         self.services = BackendServiceSpec.all.map { BackendServiceState(spec: $0) }
@@ -172,12 +181,14 @@ final class BackendSupervisor: ObservableObject {
                 start(spec.id)
             }
             startHealthLoop()
+            startMetricsLoop()
         }
     }
 
     func stopAll() {
         for spec in BackendServiceSpec.all { stop(spec.id) }
         stopHealthLoop()
+        stopMetricsLoop()
     }
 
     func start(_ id: String) {
@@ -236,6 +247,7 @@ final class BackendSupervisor: ObservableObject {
             state.pid = p.processIdentifier
             processes[id] = p
             stdoutPipes[id] = pipe
+            startMetricsLoop()
         } catch {
             state.status = .crashed
             state.lastError = error.localizedDescription
@@ -253,6 +265,8 @@ final class BackendSupervisor: ObservableObject {
         stdoutPipes[id]?.fileHandleForReading.readabilityHandler = nil
         stdoutPipes.removeValue(forKey: id)
         state.pid = nil
+        processMetrics[id] = nil
+        if services.allSatisfy({ $0.pid == nil }) { stopMetricsLoop() }
         recomputeAggregate()
     }
 
@@ -342,12 +356,50 @@ final class BackendSupervisor: ObservableObject {
         anyCrashed = services.contains { $0.status == .crashed }
     }
 
+    private func startMetricsLoop() {
+        guard metricsTimer == nil else { return }
+        metricsTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in self?.refreshProcessMetrics() }
+        }
+        refreshProcessMetrics()
+    }
+
+    private func stopMetricsLoop() {
+        metricsTimer?.invalidate()
+        metricsTimer = nil
+        processMetrics.removeAll()
+    }
+
+    private func refreshProcessMetrics() {
+        let active = services.compactMap { state -> (id: String, pid: Int32)? in
+            guard let pid = state.pid else { return nil }
+            return (state.id, pid)
+        }
+        guard !active.isEmpty else {
+            stopMetricsLoop()
+            return
+        }
+
+        Task.detached { [active] in
+            let collected = active.reduce(into: [String: BackendProcessMetrics]()) { result, item in
+                result[item.id] = Self.collectMetrics(pid: item.pid)
+            }
+            await MainActor.run { [weak self, collected] in
+                guard let self else { return }
+                self.processMetrics = collected
+            }
+        }
+    }
+
     // MARK: - Process metrics (best-effort, optional UI use)
 
     /// Returns ("12.3", "456") for (cpu%, rss-MB) by shelling out to `ps`.
     /// Empty strings if PID unknown or `ps` fails.
-    func metrics(for id: String) -> (cpu: String, memMB: String) {
-        guard let pid = services.first(where: { $0.id == id })?.pid else { return ("", "") }
+    func metrics(for id: String) -> BackendProcessMetrics {
+        processMetrics[id] ?? .empty
+    }
+
+    nonisolated private static func collectMetrics(pid: Int32) -> BackendProcessMetrics {
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/bin/ps")
         p.arguments = ["-o", "%cpu=,rss=", "-p", "\(pid)"]
@@ -361,11 +413,13 @@ final class BackendSupervisor: ObservableObject {
                 .trimmingCharacters(in: .whitespacesAndNewlines)
             let parts = out.split(separator: " ", omittingEmptySubsequences: true)
             guard parts.count >= 2,
-                  let rssKB = Int(parts[1]) else { return (String(parts.first ?? ""), "") }
+                  let rssKB = Int(parts[1]) else {
+                return BackendProcessMetrics(cpu: String(parts.first ?? ""), memMB: "")
+            }
             let rssMB = rssKB / 1024
-            return (String(parts[0]), String(rssMB))
+            return BackendProcessMetrics(cpu: String(parts[0]), memMB: String(rssMB))
         } catch {
-            return ("", "")
+            return .empty
         }
     }
 }
@@ -383,7 +437,7 @@ final class BackendSupervisor: ObservableObject {
     func stop(_ id: String) {}
     func restart(_ id: String) {}
     func restartCrashed() {}
-    func metrics(for id: String) -> (cpu: String, memMB: String) { ("", "") }
+    func metrics(for id: String) -> BackendProcessMetrics { .empty }
 }
 
 @MainActor

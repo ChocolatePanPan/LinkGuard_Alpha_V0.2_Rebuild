@@ -22,12 +22,6 @@ struct LinkGuardHQApp: App {
                     // peer 模式（iPad 預設）不啟動，僅連接 Mac HQ。
                     if viewModel.hqRole == .server {
                         viewModel.startServer()
-                        #if os(macOS)
-                        // 嵌入模式時自動啟動 Python 後端 sidecar
-                        if viewModel.backendMode == .embedded {
-                            viewModel.ensureMacLocalBackend()
-                        }
-                        #endif
                     }
                 }
                 .preferredColorScheme(colorScheme)
