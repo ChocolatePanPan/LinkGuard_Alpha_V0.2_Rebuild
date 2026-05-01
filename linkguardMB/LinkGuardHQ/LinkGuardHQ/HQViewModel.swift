@@ -26,6 +26,16 @@ class HQViewModel: ObservableObject {
     @Published var bluetoothManager = HQBluetoothManager()
     @Published var loraReceivedCommands: [HQLoRaReceivedCommand] = []
     @Published var backendBridge = HQBackendBridge()
+    #if os(macOS)
+    /// 內建 Python 後端管理員 (sidecar)
+    @Published var backendSupervisor = BackendSupervisor()
+    #endif
+    /// 後端模式 (embedded / remote / bonjour) — 透過 AppStorage 持久化
+    @AppStorage("hq.backendMode") var backendModeRaw: String = BackendMode.embedded.rawValue
+    var backendMode: BackendMode {
+        get { BackendMode(rawValue: backendModeRaw) ?? .embedded }
+        set { backendModeRaw = newValue.rawValue }
+    }
     @Published var speechServer = HQSpeechServer()
     @Published var photoServer = HQPhotoServer()
     @Published var udpAudioServer = UDPAudioServer()

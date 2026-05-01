@@ -2500,6 +2500,22 @@ def get_history():
     return api_ok({"history": rows})
 
 
+@app.get("/decisions")
+def list_decisions(limit: int = 50):
+    """供 LinkGuardHQ Decision History 視圖使用的較大量回傳。
+    參數:
+        limit: 1..500 之間,預設 50。
+    回傳:
+        {"decisions": [...], "total": N}
+    """
+    try:
+        limit = max(1, min(int(limit), 500))
+    except (TypeError, ValueError):
+        limit = 50
+    rows = linkguard_db.get_recent_decisions(limit)
+    return api_ok({"decisions": rows, "total": len(rows)})
+
+
 @app.delete("/history")
 def clear_history():
     conn = linkguard_db._get_conn()

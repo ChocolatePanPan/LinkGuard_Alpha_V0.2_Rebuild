@@ -28,6 +28,9 @@ enum HQSection: String, CaseIterable, Identifiable {
     case radio = "電台監聽"
     case patientWarning = "傷患預警"
     case aiChat = "AI 對話"
+    case backendServices = "後端服務"
+    case decisionHistory = "AI 決策歷史"
+    case settings = "設定"
 
     var id: String { rawValue }
 
@@ -56,6 +59,9 @@ enum HQSection: String, CaseIterable, Identifiable {
         case .radio: return "antenna.radiowaves.left.and.right"
         case .patientWarning: return "heart.text.square"
         case .aiChat: return "sparkles"
+        case .backendServices: return "cpu"
+        case .decisionHistory: return "clock.arrow.circlepath"
+        case .settings: return "gearshape.fill"
         }
     }
 }
@@ -243,6 +249,17 @@ struct HQDashboardView: View {
             case .radio: HQRadioView(vm: vm)
             case .patientWarning: HQPatientWarningView(vm: vm)
             case .aiChat: HQAIChatView(vm: vm)
+            #if os(macOS)
+            case .backendServices: HQBackendServicesView(supervisor: vm.backendSupervisor)
+            #else
+            case .backendServices: Text(L("僅 macOS 支援")).foregroundColor(.secondary)
+            #endif
+            case .decisionHistory: HQDecisionHistoryView(vm: vm)
+            #if os(macOS)
+            case .settings: HQSettingsView(vm: vm, supervisor: vm.backendSupervisor)
+            #else
+            case .settings: Text(L("僅 macOS 支援")).foregroundColor(.secondary)
+            #endif
             case nil: dashboardDetailView
             }
         }
