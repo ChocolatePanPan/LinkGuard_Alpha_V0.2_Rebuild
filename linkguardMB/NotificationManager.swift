@@ -9,6 +9,27 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
     private override init() {
         super.init()
         UNUserNotificationCenter.current().delegate = self
+        registerCategories()
+    }
+
+    private func registerCategories() {
+        let openAction = UNNotificationAction(
+            identifier: "OPEN_LINKGUARD",
+            title: "打開 LinkGuard",
+            options: [.foreground]
+        )
+        let categories: Set<UNNotificationCategory> = [
+            UNNotificationCategory(identifier: "SOS_ALERT", actions: [openAction], intentIdentifiers: [], options: [.customDismissAction]),
+            UNNotificationCategory(identifier: "PWS_ALERT", actions: [openAction], intentIdentifiers: [], options: [.customDismissAction]),
+            UNNotificationCategory(identifier: "URGENT_BROADCAST", actions: [openAction], intentIdentifiers: [], options: [.customDismissAction]),
+            UNNotificationCategory(identifier: "PATIENT_WARNING", actions: [openAction], intentIdentifiers: [], options: [.customDismissAction]),
+            UNNotificationCategory(identifier: "PERSONAL_NOTIFICATION", actions: [openAction], intentIdentifiers: [], options: [.customDismissAction]),
+            UNNotificationCategory(identifier: "DEVICE_OFFLINE", actions: [openAction], intentIdentifiers: [], options: [.customDismissAction]),
+            UNNotificationCategory(identifier: "LOW_BATTERY", actions: [openAction], intentIdentifiers: [], options: [.customDismissAction]),
+            UNNotificationCategory(identifier: "COMMAND_ORDER", actions: [openAction], intentIdentifiers: [], options: [.customDismissAction]),
+            UNNotificationCategory(identifier: "DECISION", actions: [openAction], intentIdentifiers: [], options: [.customDismissAction])
+        ]
+        UNUserNotificationCenter.current().setNotificationCategories(categories)
     }
 
     // MARK: - 權限請求
@@ -35,10 +56,65 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         // SOS 使用與撤離命令不同的系統提示音（非 critical）
         content.sound = .default
         content.categoryIdentifier = "SOS_ALERT"
+        content.userInfo = ["victim_id": victimID, "route": "sos"]
         if #available(iOS 15.0, macOS 12.0, *) {
             content.interruptionLevel = .timeSensitive
         }
         schedule(content: content, id: "sos-\(victimID)-\(Date().timeIntervalSince1970)")
+    }
+
+    /// PWS 災防警報
+    func sendPWSAlertNotification(alert: PWSAlert) {
+        let content = UNMutableNotificationContent()
+        content.title = "PWS 警報：\(alert.title)"
+        content.subtitle = alert.severity.label
+        content.body = alert.content
+        content.sound = alert.severity >= .severe ? .defaultCritical : .default
+        content.categoryIdentifier = "PWS_ALERT"
+        content.userInfo = ["alert_id": alert.id, "route": "notifications"]
+        setTimeSensitive(content)
+        schedule(content: content, id: "pws-\(alert.id)")
+    }
+
+    /// HQ 緊急文字廣播
+    func sendUrgentBroadcastNotification(broadcast: TextBroadcast) {
+        let content = UNMutableNotificationContent()
+        content.title = "HQ 緊急廣播"
+        content.subtitle = broadcast.senderName
+        content.body = broadcast.message
+        content.sound = .defaultCritical
+        content.categoryIdentifier = "URGENT_BROADCAST"
+        content.userInfo = ["broadcast_id": broadcast.broadcastId, "route": "notifications"]
+        setTimeSensitive(content)
+        schedule(content: content, id: "broadcast-\(broadcast.broadcastId)")
+    }
+
+    /// 傷患惡化預警
+    func sendPatientWarningNotification(warning: PatientWarning) {
+        let content = UNMutableNotificationContent()
+        content.title = "傷患預警：\(warning.patientId)"
+        content.subtitle = warning.location
+        content.body = warning.message.isEmpty ? "傷患狀態需要立即確認" : warning.message
+        content.sound = warning.warningLevel == "high" ? .defaultCritical : .default
+        content.categoryIdentifier = "PATIENT_WARNING"
+        content.userInfo = ["patient_id": warning.patientId, "route": "notifications"]
+        setTimeSensitive(content)
+        schedule(content: content, id: "patient-warning-\(warning.patientId)-\(Date().timeIntervalSince1970)")
+    }
+
+    /// 個人通知
+    func sendPersonalNotification(_ notification: PersonalNotification) {
+        let content = UNMutableNotificationContent()
+        content.title = notification.title
+        content.subtitle = "LinkGuard"
+        content.body = notification.content
+        content.sound = .default
+        content.categoryIdentifier = "PERSONAL_NOTIFICATION"
+        content.userInfo = ["notification_id": notification.id, "route": "notifications"]
+        if #available(iOS 15.0, macOS 12.0, *) {
+            content.interruptionLevel = .active
+        }
+        schedule(content: content, id: "personal-\(notification.id)")
     }
 
     /// 裝置離線通知
@@ -48,6 +124,7 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         content.body = "\(victimID) 已失去訊號連線"
         content.sound = .default
         content.categoryIdentifier = "DEVICE_OFFLINE"
+        content.userInfo = ["victim_id": victimID, "route": "victims"]
         schedule(content: content, id: "offline-\(victimID)-\(Date().timeIntervalSince1970)")
     }
 
@@ -58,6 +135,7 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         content.body = "\(victimID) 電量僅剩 \(battery)%"
         content.sound = .default
         content.categoryIdentifier = "LOW_BATTERY"
+        content.userInfo = ["victim_id": victimID, "route": "victims"]
         schedule(content: content, id: "battery-\(victimID)-\(Date().timeIntervalSince1970)")
     }
 
@@ -69,6 +147,7 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         content.body = order.detail
         content.sound = order.priority == .critical ? .defaultCritical : .default
         content.categoryIdentifier = "COMMAND_ORDER"
+        content.userInfo = ["command_id": order.id.uuidString, "route": "decision"]
         if #available(iOS 15.0, macOS 12.0, *) {
             content.interruptionLevel = order.priority == .critical ? .timeSensitive : .active
         }
@@ -82,6 +161,7 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         content.body = decision.decision
         content.sound = .defaultCritical
         content.categoryIdentifier = "DECISION"
+        content.userInfo = ["decision_id": decision.id.uuidString, "route": "decision"]
         if #available(iOS 15.0, macOS 12.0, *) {
             content.interruptionLevel = .timeSensitive
         }
@@ -96,6 +176,12 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         UNUserNotificationCenter.current().add(request)
     }
 
+    private func setTimeSensitive(_ content: UNMutableNotificationContent) {
+        if #available(iOS 15.0, macOS 12.0, *) {
+            content.interruptionLevel = .timeSensitive
+        }
+    }
+
     
     
     // MARK: - 前景時也顯示通知
@@ -106,6 +192,36 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         withCompletionHandler completionHandler:
             @escaping (UNNotificationPresentationOptions) -> Void
     ) {
-        completionHandler([.banner, .sound, .badge])
+        completionHandler([.banner, .list, .sound, .badge])
     }
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
+        let content = response.notification.request.content
+        let route = content.userInfo["route"] as? String ?? route(for: content.categoryIdentifier)
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(
+                name: .linkGuardNotificationRouteRequested,
+                object: nil,
+                userInfo: ["route": route]
+            )
+        }
+        completionHandler()
+    }
+
+    private func route(for categoryIdentifier: String) -> String {
+        switch categoryIdentifier {
+        case "SOS_ALERT": return "sos"
+        case "COMMAND_ORDER", "DECISION": return "decision"
+        case "DEVICE_OFFLINE", "LOW_BATTERY": return "victims"
+        default: return "notifications"
+        }
+    }
+}
+
+extension Notification.Name {
+    static let linkGuardNotificationRouteRequested = Notification.Name("linkGuardNotificationRouteRequested")
 }

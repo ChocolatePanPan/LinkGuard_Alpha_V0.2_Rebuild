@@ -81,6 +81,9 @@ struct ContentView: View {
                     cameFromDashboard = false
                 }
             }
+            .onReceive(NotificationCenter.default.publisher(for: .linkGuardNotificationRouteRequested)) { notification in
+                handleNotificationRoute(notification)
+            }
 
             // 返回主頁浮動按鈕
             if cameFromDashboard && selectedTab != .dashboard {
@@ -161,6 +164,20 @@ struct ContentView: View {
         .animation(.easeInOut(duration: 0.3), value: viewModel.latestReinforcementRequest != nil)
         .animation(.easeInOut(duration: 0.3), value: viewModel.urgentBroadcast != nil)
         .animation(.easeInOut(duration: 0.3), value: viewModel.activePatientWarning != nil)
+    }
+
+    private func handleNotificationRoute(_ notification: Notification) {
+        guard let route = notification.userInfo?["route"] as? String else { return }
+        switch route {
+        case "sos":
+            selectedTab = .sos
+        case "decision":
+            selectedTab = .decision
+        case "victims":
+            selectedTab = .victims
+        default:
+            selectedTab = .notifications
+        }
     }
 }
 

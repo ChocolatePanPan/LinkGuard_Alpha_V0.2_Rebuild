@@ -361,6 +361,9 @@ class LinkGuardViewModel: ObservableObject {
                 guard let self else { return }
                 self.pwsAlerts.insert(alert, at: 0)
                 if self.pwsAlerts.count > 100 { self.pwsAlerts = Array(self.pwsAlerts.prefix(100)) }
+                if alert.isActive && self.pastStartupGrace {
+                    NotificationManager.shared.sendPWSAlertNotification(alert: alert)
+                }
             }
         }
         commandClient.onBriefing = { [weak self] briefing in
@@ -381,6 +384,9 @@ class LinkGuardViewModel: ObservableObject {
                 self.personalNotifications.insert(notification, at: 0)
                 if self.personalNotifications.count > 100 { self.personalNotifications = Array(self.personalNotifications.prefix(100)) }
                 self.unreadNotificationCount += 1
+                if self.pastStartupGrace {
+                    NotificationManager.shared.sendPersonalNotification(notification)
+                }
             }
         }
         commandClient.onQuickStatus = { [weak self] qs in
@@ -531,6 +537,7 @@ class LinkGuardViewModel: ObservableObject {
                 if self.textBroadcasts.count > 100 { self.textBroadcasts = Array(self.textBroadcasts.prefix(100)) }
                 if priority == "urgent" && self.pastStartupGrace {
                     self.urgentBroadcast = broadcast
+                    NotificationManager.shared.sendUrgentBroadcastNotification(broadcast: broadcast)
                 }
                 // 自動回覆已讀回條
                 self.commandClient.sendMessageAck(messageId: broadcastId, messageType: "text_broadcast")
@@ -610,6 +617,7 @@ class LinkGuardViewModel: ObservableObject {
                 // 啟動靜默期內只記錄不彈警報
                 guard self.pastStartupGrace else { return }
                 self.activePatientWarning = warning
+                NotificationManager.shared.sendPatientWarningNotification(warning: warning)
                 #if canImport(UIKit)
                 UINotificationFeedbackGenerator().notificationOccurred(.warning)
                 #endif
