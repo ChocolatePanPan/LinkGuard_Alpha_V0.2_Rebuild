@@ -63,7 +63,7 @@ struct HQDecisionView: View {
                             if vm.backendBridge.isRequestingAI {
                                 ProgressView()
                                     .controlSize(.small)
-                                Text(L("AI 生成中…"))
+                                Text(vm.backendBridge.isConnected ? L("AI 生成中…") : L("連接本機後端…"))
                                     .bold()
                             } else {
                                 Image(systemName: "brain")
@@ -80,6 +80,11 @@ struct HQDecisionView: View {
 
                     if !vm.isBackendConnected {
                         Label(L("尚未連線後台伺服器"), systemImage: "exclamationmark.triangle.fill")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    if vm.backendBridge.isRequestingAI && !vm.backendBridge.isConnected {
+                        Label(L("正在連接本機 TCP 後端 127.0.0.1:9000"), systemImage: "hourglass")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
@@ -132,7 +137,7 @@ struct HQDecisionView: View {
                             Spacer()
                             Text(L("目前無受困者資料"))
                                 .font(.subheadline)
-                                .foregroundColor(.secondary)
+                                                Text(vm.backendBridge.isConnected ? L("AI 生成中…") : L("連接本機後端…"))
                             Spacer()
                         }
                         .padding(.vertical, 20)

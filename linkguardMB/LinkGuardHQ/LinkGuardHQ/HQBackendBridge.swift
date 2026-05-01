@@ -370,7 +370,13 @@ class HQBackendBridge: ObservableObject {
 
     /// HQ 主動請求後台 AI 生成決策
     func requestAIDecision(context: String = "") {
-        guard isConnected else { return }
+        guard isConnected else {
+            isRequestingAI = false
+            lastError = isConnecting
+                ? "本機後端正在連線中，請稍候再試"
+                : "本機 TCP 後端尚未連線（127.0.0.1:9000）"
+            return
+        }
         isRequestingAI = true
         lastError = nil
         sendToBackend(type: "request_decision", data: ["voice_text": context], deviceId: "HQ")

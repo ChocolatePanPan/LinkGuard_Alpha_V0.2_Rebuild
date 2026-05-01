@@ -1207,6 +1207,23 @@ class HQViewModel: ObservableObject {
         } else {
             #if os(macOS)
             ensureMacLocalBackend()
+            if backendMode == .embedded, !backendBridge.isConnected {
+                backendBridge.isRequestingAI = true
+                backendBridge.lastError = nil
+                Task { [weak self] in
+                    guard let self else { return }
+                    for _ in 0..<40 {
+                        if self.backendBridge.isConnected {
+                            self.backendBridge.requestAIDecision(context: context)
+                            return
+                        }
+                        try? await Task.sleep(nanoseconds: 250_000_000)
+                    }
+                    self.backendBridge.isRequestingAI = false
+                    self.backendBridge.lastError = "本機 TCP 後端尚未連線（127.0.0.1:9000），請在後端服務頁確認 TCP Aggregator 已啟動"
+                }
+                return
+            }
             #endif
             backendBridge.requestAIDecision(context: context)
         }
