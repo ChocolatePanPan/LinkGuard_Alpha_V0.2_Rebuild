@@ -610,7 +610,7 @@ final class BriefingRecordManager: ObservableObject {
                 uploadResult = result
             } catch {
                 isUploading = false
-                uploadResult = UploadResult(success: false, message: "上傳失敗：\(error.localizedDescription)")
+                uploadResult = UploadResult(success: false, message: L("上傳失敗：%@", error.localizedDescription))
             }
         }
     }
@@ -630,7 +630,7 @@ final class BriefingRecordManager: ObservableObject {
         }
         let host = cleanHost.contains(":") ? "[\(cleanHost)]" : cleanHost
         guard let uploadURL = URL(string: "http://\(host):8003/report") else {
-            return UploadResult(success: false, message: "無效的伺服器位址：\(serverHost)")
+            return UploadResult(success: false, message: L("無效的伺服器位址：%@", serverHost))
         }
         var request = URLRequest(url: uploadURL)
         request.httpMethod = "POST"
@@ -694,11 +694,11 @@ final class BriefingRecordManager: ObservableObject {
         if httpResp.statusCode == 200 {
             if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                let reportId = json["report_id"] as? String {
-                return UploadResult(success: true, message: "上傳成功 (ID: \(reportId))")
+                return UploadResult(success: true, message: L("上傳成功 (ID: %@)", reportId))
             }
             return UploadResult(success: true, message: L("上傳成功"))
         } else {
-            return UploadResult(success: false, message: "伺服器錯誤 (\(httpResp.statusCode))")
+            return UploadResult(success: false, message: L("伺服器錯誤 (%lld)", httpResp.statusCode))
         }
     }
 }
@@ -907,7 +907,7 @@ final class LiveBroadcastManager: ObservableObject {
         let hostStr = cleanHost.contains(":") ? "[\(cleanHost)]" : cleanHost
         guard let uploadURL = URL(string: "http://\(hostStr):8003/report") else {
             print("[LiveBroadcast] ❌ Invalid URL: http://\(hostStr):8003/report (original host: \(host))")
-            return PTTUploadResult(success: false, errorMessage: "無效的伺服器位址：\(host)")
+            return PTTUploadResult(success: false, errorMessage: L("無效的伺服器位址：%@", host))
         }
         var request = URLRequest(url: uploadURL)
         request.httpMethod = "POST"
@@ -1264,7 +1264,7 @@ final class FieldAIChatManager: ObservableObject {
                 pendingEscalationHint = true
                 let sysMsg = AIChatMessage(
                     role: "system",
-                    content: "現場 AI 建議上報，等待 HQ AI 同步確認中…",
+                    content: L("現場 AI 建議上報，等待 HQ AI 同步確認中…"),
                     timestamp: Date()
                 )
                 messages.append(sysMsg)
@@ -1363,7 +1363,7 @@ final class FieldAIChatManager: ObservableObject {
         )
         let msg = AIChatMessage(
             role: "system",
-            content: L("需要上報主模型") + " — 現場 AI 與 HQ AI 共識達成，已提交主模型決策",
+            content: L("需要上報主模型") + " — " + L("現場 AI 與 HQ AI 共識達成，已提交主模型決策"),
             timestamp: Date(),
             isEscalation: true
         )
@@ -1405,7 +1405,7 @@ final class FieldAIChatManager: ObservableObject {
                     activeEscalation?.finalDecision = finalDecision
                     let msg = AIChatMessage(
                         role: "assistant",
-                        content: "【主模型決策回覆】\n\(finalDecision)",
+                        content: "【\(L("主模型決策回覆"))】\n\(finalDecision)",
                         timestamp: Date(),
                         isEscalation: true
                     )
@@ -1415,10 +1415,10 @@ final class FieldAIChatManager: ObservableObject {
                     activeEscalation = nil
                     return
                 } else if status == "failed" {
-                    let errDetail = dataDict["error"] as? String ?? "未知錯誤"
+                    let errDetail = dataDict["error"] as? String ?? L("未知錯誤")
                     let msg = AIChatMessage(
                         role: "system",
-                        content: "主模型處理失敗：\(errDetail)，將使用現場 AI 的判斷",
+                        content: L("主模型處理失敗：%@，將使用現場 AI 的判斷", errDetail),
                         timestamp: Date(),
                         isEscalation: true
                     )
@@ -1432,7 +1432,7 @@ final class FieldAIChatManager: ObservableObject {
             activeEscalation?.status = "timeout"
             let msg = AIChatMessage(
                 role: "system",
-                content: "上報等待逾時，將使用現場 AI 的判斷繼續處理",
+                content: L("上報等待逾時，將使用現場 AI 的判斷繼續處理"),
                 timestamp: Date()
             )
             messages.append(msg)

@@ -589,6 +589,15 @@ final class L10n: ObservableObject {
         "譯文 (%@)": "Translation (%@)",
         "等待 HQ AI 共識": "Awaiting HQ AI Consensus",
         "現場 AI 已建議上報，等待 HQ 指揮官 AI 同步判斷": "Field AI recommends escalation; awaiting HQ commander AI",
+        "打開 LinkGuard": "Open LinkGuard",
+        "無效的伺服器位址：%@": "Invalid server address: %@",
+        "伺服器錯誤 (%lld)": "Server error (%lld)",
+        "現場 AI 建議上報，等待 HQ AI 同步確認中…": "Field AI recommends escalation; awaiting HQ AI confirmation…",
+        "現場 AI 與 HQ AI 共識達成，已提交主模型決策": "Field AI and HQ AI reached consensus; submitted to main model",
+        "主模型決策回覆": "Main Model Decision",
+        "主模型處理失敗：%@，將使用現場 AI 的判斷": "Main model failed: %@. Continuing with field AI judgment",
+        "上報等待逾時，將使用現場 AI 的判斷繼續處理": "Escalation timed out; continuing with field AI judgment",
+        "未知錯誤": "Unknown Error",
     ]
 }
 

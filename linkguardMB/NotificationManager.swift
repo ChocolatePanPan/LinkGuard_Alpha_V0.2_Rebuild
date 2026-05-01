@@ -15,7 +15,7 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
     private func registerCategories() {
         let openAction = UNNotificationAction(
             identifier: "OPEN_LINKGUARD",
-            title: "打開 LinkGuard",
+            title: L("打開 LinkGuard"),
             options: [.foreground]
         )
         let categories: Set<UNNotificationCategory> = [

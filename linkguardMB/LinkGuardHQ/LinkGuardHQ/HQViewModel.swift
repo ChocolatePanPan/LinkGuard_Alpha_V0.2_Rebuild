@@ -898,19 +898,21 @@ class HQViewModel: ObservableObject {
             }
         }
 
-        logEvent(type: .command, title: "發送命令：\(t)", detail: d.isEmpty ? t : d)
+        logEvent(type: .command, title: L("發送命令：%@", t), detail: d.isEmpty ? t : d)
         commandTitle = ""
         commandDetail = ""
     }
 
     func sendQuickCommand(_ template: QuickCommand) {
+        let localizedTitle = L(template.title)
+        let localizedDetail = L(template.detail)
         if hqRole == .peer {
             let cmd = WiFiCommand(
                 id: UUID().uuidString,
                 type: template.type,
                 priority: template.priority,
-                title: template.title,
-                detail: template.detail,
+                title: localizedTitle,
+                detail: localizedDetail,
                 sender: senderName,
                 timestamp: Date().timeIntervalSince1970
             )
@@ -919,8 +921,8 @@ class HQViewModel: ObservableObject {
             server.sendCommand(
                 type: template.type,
                 priority: template.priority,
-                title: template.title,
-                detail: template.detail,
+                title: localizedTitle,
+                detail: localizedDetail,
                 sender: senderName,
                 targetDeviceIDs: effectiveTargetIDs
             )
@@ -930,12 +932,12 @@ class HQViewModel: ObservableObject {
                     cmdId: UUID().uuidString,
                     type: template.type,
                     priority: template.priority,
-                    title: template.title,
-                    detail: template.detail
+                    title: localizedTitle,
+                    detail: localizedDetail
                 )
             }
         }
-        logEvent(type: .command, title: "快速命令：\(template.title)", detail: template.detail)
+        logEvent(type: .command, title: L("快速命令：%@", localizedTitle), detail: localizedDetail)
     }
 
     var canSendCommand: Bool {
@@ -961,7 +963,7 @@ class HQViewModel: ObservableObject {
             server.sendChatFromHQ(chat)
         }
         chatDraft = ""
-        logEvent(type: .chat, title: "HQ 發送訊息", detail: content)
+        logEvent(type: .chat, title: L("HQ 發送訊息"), detail: content)
     }
 
     /// 從訊息文字解析 @ 提及，對比 personnelAssignments 後回傳對應 id 列表
@@ -993,7 +995,7 @@ class HQViewModel: ObservableObject {
         disasterSite = site
         server.disasterSite = site
         server.broadcastDisasterUpdate(site, targetDeviceIDs: effectiveTargetIDs)
-        logEvent(type: .disaster, title: "更新災害狀態", detail: "\(site.buildingName) · \(site.collapseType.label)")
+        logEvent(type: .disaster, title: L("更新災害狀態"), detail: "\(site.buildingName) · \(site.collapseType.label)")
     }
 
     func addRescueZone(_ zone: RescueZone) {
@@ -1026,7 +1028,7 @@ class HQViewModel: ObservableObject {
         }
         server.personnelAssignments = personnelAssignments
         server.broadcastPersonnelAssignment(personnelAssignments, targetDeviceIDs: effectiveTargetIDs)
-        logEvent(type: .personnel, title: "配置人員：\(assignment.name)", detail: "\(assignment.role.label) → \(assignment.assignedZone.isEmpty ? "未指定" : assignment.assignedZone)")
+        logEvent(type: .personnel, title: L("配置人員：%@", assignment.name), detail: "\(assignment.role.label) → \(assignment.assignedZone.isEmpty ? L("未指定") : assignment.assignedZone)")
     }
 
     func removePersonnelAssignment(_ id: String) {
@@ -1034,7 +1036,7 @@ class HQViewModel: ObservableObject {
         let name = personnelAssignments.first(where: { $0.id == id })?.name ?? id
         personnelAssignments.removeAll { $0.id == id }
         server.personnelAssignments = personnelAssignments
-        logEvent(type: .personnel, title: "移除人員：\(name)")
+        logEvent(type: .personnel, title: L("移除人員：%@", name))
     }
 
     // MARK: - PWS 警報
@@ -1043,7 +1045,7 @@ class HQViewModel: ObservableObject {
         pwsAlerts.insert(alert, at: 0)
         server.pwsAlerts = pwsAlerts
         server.broadcastPWSAlert(alert, targetDeviceIDs: effectiveTargetIDs)
-        logEvent(type: .pwsAlert, title: "發布警報：\(alert.title)", detail: "\(alert.alertType.label) · \(alert.severity.label)")
+        logEvent(type: .pwsAlert, title: L("發布警報：%@", alert.title), detail: "\(alert.alertType.label) · \(alert.severity.label)")
     }
 
     func deactivatePWSAlert(_ id: String) {
@@ -1051,7 +1053,7 @@ class HQViewModel: ObservableObject {
             let title = pwsAlerts[idx].title
             pwsAlerts[idx].isActive = false
             server.pwsAlerts = pwsAlerts
-            logEvent(type: .pwsAlert, title: "解除警報：\(title)")
+            logEvent(type: .pwsAlert, title: L("解除警報：%@", title))
         }
     }
 
@@ -1061,7 +1063,7 @@ class HQViewModel: ObservableObject {
         briefings.insert(report, at: 0)
         server.briefings = briefings
         server.broadcastBriefing(report, targetDeviceIDs: effectiveTargetIDs)
-        logEvent(type: .briefing, title: "新增會報：\(report.title)", detail: report.type.label)
+        logEvent(type: .briefing, title: L("新增會報：%@", report.title), detail: report.type.label)
     }
 
     // MARK: - 個人通知
@@ -1070,7 +1072,7 @@ class HQViewModel: ObservableObject {
         personalNotifications.insert(notification, at: 0)
         server.personalNotifications = personalNotifications
         server.sendPersonalNotification(notification)
-        logEvent(type: .notification, title: "發送通知：\(notification.title)", detail: "→ \(notification.targetDeviceID)")
+        logEvent(type: .notification, title: L("發送通知：%@", notification.title), detail: "→ \(notification.targetDeviceID)")
     }
 
     // MARK: - 任務指派
@@ -1083,7 +1085,7 @@ class HQViewModel: ObservableObject {
             server.tasks = tasks
             server.broadcastTaskAssignment(task, targetDeviceIDs: effectiveTargetIDs)
         }
-        logEvent(type: .command, title: "指派任務：\(task.title)", detail: "→ \(task.assigneeName)")
+        logEvent(type: .command, title: L("指派任務：%@", task.title), detail: "→ \(task.assigneeName)")
     }
 
     func cancelTask(_ taskID: String) {
@@ -1106,7 +1108,7 @@ class HQViewModel: ObservableObject {
             server.countdownTimers = countdownTimers
             server.broadcastTimerSync(timer, targetDeviceIDs: effectiveTargetIDs)
         }
-        logEvent(type: .command, title: "啟動計時器：\(title)", detail: "\(durationSeconds / 60) 分鐘")
+        logEvent(type: .command, title: L("啟動計時器：%@", title), detail: L("%lld 分鐘", durationSeconds / 60))
     }
 
     func cancelTimer(_ timerID: String) {
@@ -1117,7 +1119,7 @@ class HQViewModel: ObservableObject {
             server.countdownTimers = countdownTimers
             server.broadcastTimerCancel(timerID, targetDeviceIDs: effectiveTargetIDs)
         }
-        logEvent(type: .command, title: "取消計時器")
+        logEvent(type: .command, title: L("取消計時器"))
     }
 
     // MARK: - 增援請求
@@ -1128,7 +1130,7 @@ class HQViewModel: ObservableObject {
             reinforcementRequests[idx].respondedBy.append("HQ")
             server.reinforcementRequests = reinforcementRequests
             server.broadcastReinforcementResponse(reinforcementRequests[idx])
-            logEvent(type: .command, title: "批准增援：\(request.fromTeam)", detail: request.message)
+            logEvent(type: .command, title: L("批准增援：%@", request.fromTeam), detail: request.message)
         }
     }
 
@@ -1138,7 +1140,7 @@ class HQViewModel: ObservableObject {
             reinforcementRequests[idx].respondedBy.append("HQ")
             server.reinforcementRequests = reinforcementRequests
             server.broadcastReinforcementResponse(reinforcementRequests[idx])
-            logEvent(type: .command, title: "拒絕增援：\(request.fromTeam)", detail: request.message)
+            logEvent(type: .command, title: L("拒絕增援：%@", request.fromTeam), detail: request.message)
         }
     }
 
@@ -1164,7 +1166,7 @@ class HQViewModel: ObservableObject {
         } else {
             server.broadcastDecision(payload, targetDeviceIDs: effectiveTargetIDs)
         }
-        logEvent(type: .command, title: "發送決策", detail: decision)
+        logEvent(type: .command, title: L("發送決策"), detail: decision)
     }
 
     private func applyLocalSTARTTriage(from reports: [PatientReport]) {

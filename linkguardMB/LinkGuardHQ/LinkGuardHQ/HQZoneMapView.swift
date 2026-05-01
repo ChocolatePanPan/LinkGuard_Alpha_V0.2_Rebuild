@@ -260,7 +260,7 @@ struct AddZoneSheet: View {
                             note: note
                         )
                         vm.addRescueZone(zone)
-                        vm.logEvent(type: .zoneUpdate, title: "新增分區：\(name)", detail: status.label)
+                        vm.logEvent(type: .zoneUpdate, title: L("新增分區：%@", name), detail: status.label)
                         dismiss()
                     }
                     .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -342,7 +342,7 @@ struct EditZoneSheet: View {
                         if let site = vm.disasterSite {
                             vm.updateDisasterSite(site)
                         }
-                        vm.logEvent(type: .zoneUpdate, title: "刪除分區：\(zone.name)")
+                        vm.logEvent(type: .zoneUpdate, title: L("刪除分區：%@", zone.name))
                         dismiss()
                     } label: {
                         Label(L("刪除分區"), systemImage: "trash")
@@ -381,7 +381,7 @@ struct EditZoneSheet: View {
         site.zones[idx].assignedPersonnel = personnel
 
         vm.updateDisasterSite(site)
-        vm.logEvent(type: .zoneUpdate, title: "更新分區：\(name)", detail: status.label)
+        vm.logEvent(type: .zoneUpdate, title: L("更新分區：%@", name), detail: status.label)
         dismiss()
     }
 }
