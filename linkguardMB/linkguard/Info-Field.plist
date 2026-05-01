@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- LinkGuard Application Configuration -->
+
+	<!-- Network Monitoring Settings -->
+	<key>LGMonitoringEnabled</key>
+	<true/>
+	<key>LGScanIntervalSeconds</key>
+	<integer>30</integer>
+	<key>LGMaxConnectionsThreshold</key>
+	<integer>100</integer>
+
+	<!-- Alarm Settings -->
+	<key>LGAlarmSoundName</key>
+	<string>alarm</string>
+	<key>LGAlarmSoundExtension</key>
+	<string>mp3</string>
+	<key>LGAlarmLoopCount</key>
+	<integer>-1</integer>
+
+	<!-- Notification Settings -->
+	<key>LGNotificationsEnabled</key>
+	<true/>
+	<key>LGThreatNotificationTitle</key>
+	<string>⚠️ LinkGuard Alert</string>
+	<key>LGWarningNotificationTitle</key>
+	<string>LinkGuard Warning</string>
+
+	<!-- Blocked / Allowed URL Lists (initial defaults) -->
+	<key>LGBlockedURLPatterns</key>
+	<array/>
+	<key>LGAllowedURLPatterns</key>
+	<array/>
+
+	<!-- Logging -->
+	<key>LGLoggingEnabled</key>
+	<true/>
+	<key>LGMaxLogEntries</key>
+	<integer>500</integer>
+
+	<!-- Version Info -->
+	<key>LGConfigVersion</key>
+	<string>1.0</string>
+</dict>
+</plist>
