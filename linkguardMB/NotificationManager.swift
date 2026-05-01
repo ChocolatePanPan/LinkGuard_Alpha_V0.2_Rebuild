@@ -206,7 +206,13 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
             NotificationCenter.default.post(
                 name: .linkGuardNotificationRouteRequested,
                 object: nil,
-                userInfo: ["route": route]
+                userInfo: [
+                    "route": route,
+                    "title": content.title,
+                    "subtitle": content.subtitle,
+                    "body": content.body,
+                    "categoryIdentifier": content.categoryIdentifier
+                ]
             )
         }
         completionHandler()

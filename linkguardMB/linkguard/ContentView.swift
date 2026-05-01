@@ -10,6 +10,7 @@ struct ContentView: View {
     @StateObject private var viewModel = LinkGuardViewModel()
     @State private var selectedTab: AppTab = .dashboard
     @State private var cameFromDashboard = false
+    @State private var externalAlarm: ExternalAlarmPresentation?
 
     var body: some View {
         ZStack {
@@ -158,26 +159,156 @@ struct ContentView: View {
                 .transition(.opacity)
                 .zIndex(96)
             }
+
+            if let alarm = externalAlarm {
+                ExternalAlarmOverlay(
+                    alarm: alarm,
+                    onAcknowledge: { externalAlarm = nil },
+                    onOpenDetails: {
+                        selectedTab = alarm.targetTab
+                        externalAlarm = nil
+                    }
+                )
+                .transition(.opacity)
+                .zIndex(101)
+            }
         }
         .animation(.easeInOut(duration: 0.3), value: viewModel.latestSOSVictim != nil)
         .animation(.easeInOut(duration: 0.3), value: viewModel.latestCriticalCommand != nil)
         .animation(.easeInOut(duration: 0.3), value: viewModel.latestReinforcementRequest != nil)
         .animation(.easeInOut(duration: 0.3), value: viewModel.urgentBroadcast != nil)
         .animation(.easeInOut(duration: 0.3), value: viewModel.activePatientWarning != nil)
+        .animation(.easeInOut(duration: 0.3), value: externalAlarm != nil)
     }
 
     private func handleNotificationRoute(_ notification: Notification) {
         guard let route = notification.userInfo?["route"] as? String else { return }
+        let alarm = ExternalAlarmPresentation(
+            route: route,
+            title: notification.userInfo?["title"] as? String ?? L("LinkGuard 警報"),
+            subtitle: notification.userInfo?["subtitle"] as? String ?? "",
+            body: notification.userInfo?["body"] as? String ?? "",
+            categoryIdentifier: notification.userInfo?["categoryIdentifier"] as? String ?? ""
+        )
+        selectedTab = alarm.targetTab
+        externalAlarm = alarm
+    }
+}
+
+struct ExternalAlarmPresentation: Identifiable, Equatable {
+    let id = UUID()
+    let route: String
+    let title: String
+    let subtitle: String
+    let body: String
+    let categoryIdentifier: String
+
+    var targetTab: AppTab {
         switch route {
-        case "sos":
-            selectedTab = .sos
-        case "decision":
-            selectedTab = .decision
-        case "victims":
-            selectedTab = .victims
-        default:
-            selectedTab = .notifications
+        case "sos": return .sos
+        case "decision": return .decision
+        case "victims": return .victims
+        default: return .notifications
         }
+    }
+
+    var iconName: String {
+        switch categoryIdentifier {
+        case "SOS_ALERT": return "sos"
+        case "COMMAND_ORDER", "DECISION": return "exclamationmark.triangle.fill"
+        case "PATIENT_WARNING": return "waveform.path.ecg"
+        case "PWS_ALERT": return "antenna.radiowaves.left.and.right"
+        default: return "bell.badge.fill"
+        }
+    }
+}
+
+struct ExternalAlarmOverlay: View {
+    let alarm: ExternalAlarmPresentation
+    let onAcknowledge: () -> Void
+    let onOpenDetails: () -> Void
+    @State private var pulse = false
+
+    var body: some View {
+        ZStack {
+            NV.danger
+                .opacity(pulse ? 0.85 : 0.96)
+                .ignoresSafeArea()
+                .animation(.easeInOut(duration: 0.7).repeatForever(autoreverses: true), value: pulse)
+
+            VStack(spacing: 24) {
+                Spacer()
+
+                Image(systemName: alarm.iconName)
+                    .font(.system(size: 80))
+                    .foregroundColor(NV.textOnColor)
+                    .scaleEffect(pulse ? 1.15 : 1.0)
+                    .animation(.easeInOut(duration: 0.7).repeatForever(autoreverses: true), value: pulse)
+
+                Text(alarm.title)
+                    .font(.largeTitle).bold()
+                    .foregroundColor(NV.textOnColor)
+                    .multilineTextAlignment(.center)
+                    .minimumScaleFactor(0.75)
+                    .padding(.horizontal, 24)
+
+                VStack(spacing: 12) {
+                    if !alarm.subtitle.isEmpty {
+                        Text(alarm.subtitle)
+                            .font(.title2).bold()
+                            .foregroundColor(NV.textOnColor)
+                    }
+
+                    Text(alarm.body.isEmpty ? L("請立即查看 LinkGuard 警報內容") : alarm.body)
+                        .font(.title3)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal)
+                        .foregroundColor(NV.textOnColor)
+                }
+                .padding(24)
+                .frame(maxWidth: 520)
+                .frame(maxWidth: .infinity)
+                .background(NV.danger.opacity(0.92))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 20)
+                        .stroke(NV.textOnColor.opacity(0.55), lineWidth: 2)
+                )
+                .cornerRadius(20)
+                .padding(.horizontal, 24)
+
+                Spacer()
+
+                HStack(spacing: 16) {
+                    Button(action: onAcknowledge) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "checkmark.circle.fill").font(.title2)
+                            Text(L("收到")).font(.title2).bold()
+                        }
+                        .foregroundColor(NV.danger)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(NV.textOnColor)
+                        .cornerRadius(16)
+                    }
+
+                    Button(action: onOpenDetails) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "arrow.right.circle.fill").font(.title2)
+                            Text(L("查看詳情")).font(.title2).bold()
+                        }
+                        .foregroundColor(NV.danger)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(NV.textOnColor)
+                        .cornerRadius(16)
+                    }
+                }
+                .padding(.horizontal, 24)
+
+                Spacer().frame(height: 40)
+            }
+        }
+        .onAppear { pulse = true }
     }
 }
 
