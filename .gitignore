@@ -1,0 +1,70 @@
+# === Android build artifacts ===
+LINKGUARD/linkguardMB/Android/app/build/
+LINKGUARD/linkguardMB/Android/build/
+LINKGUARD/linkguardMB/LinkGuardHQ-Android/app/build/
+LINKGUARD/linkguardMB/LinkGuardHQ-Android/build/
+.gradle/
+build/
+*.class
+*.dex
+*.apk
+*.aab
+*.ap_
+local.properties
+
+# === Android IDE ===
+.idea/
+*.iml
+.cxx/
+captures/
+
+# === Xcode / Swift ===
+*.xcuserstate
+xcuserdata/
+DerivedData/
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# === Python ===
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+*.egg-info/
+
+# === General build ===
+bin/
+obj/
+*.o
+*.so
+*.dylib
+*.exe
+*.dll
+
+# === OS generated ===
+.DS_Store
+Thumbs.db
+desktop.ini
+ehthumbs.db
+
+# === IDE / Editor ===
+.vscode/
+*.swp
+*.swo
+*~
+
+# === Reports / logs ===
+LINKGUARD/linkguardMB/Android/build/reports/
+*.log
+
+# Runtime database (auto-generated)
+win11/data/linkguard.db
+
+win11/logs/

@@ -1,0 +1,2427 @@
+import SwiftUI
+
+// MARK: - Main View
+
+enum AppTab: Hashable {
+    case dashboard, victims, sos, disaster, chat, reinforcement, team, commands, notifications, radio, connection, patientForm, decision, translator, photo, personnelAssignment, aiChat, aiReport
+}
+
+struct ContentView: View {
+    @StateObject private var viewModel = LinkGuardViewModel()
+    @State private var selectedTab: AppTab = .dashboard
+    @State private var cameFromDashboard = false
+
+    var body: some View {
+        ZStack {
+            TabView(selection: $selectedTab) {
+                Tab(L("總覽"), systemImage: "gauge.with.dots.needle.33percent", value: AppTab.dashboard) {
+                    DashboardView(vm: viewModel, selectedTab: $selectedTab, cameFromDashboard: $cameFromDashboard)
+                }
+                TabSection(L("通訊")) {
+                    Tab(L("電台"), systemImage: "antenna.radiowaves.left.and.right", value: AppTab.radio) {
+                        RadioView(vm: viewModel)
+                    }
+                    Tab(L("通訊"), systemImage: "bubble.left.and.bubble.right.fill", value: AppTab.chat) {
+                        FieldChatView(vm: viewModel)
+                    }
+                    .badge(viewModel.chatMessages.count)
+                    Tab(L("指揮命令"), systemImage: "brain.head.profile", value: AppTab.decision) {
+                        DecisionView(vm: viewModel)
+                    }
+                    .badge(viewModel.decisions.count + viewModel.unreadCommandCount)
+                    Tab(L("AI 助理"), systemImage: "sparkles", value: AppTab.aiChat) {
+                        FieldAIChatView(vm: viewModel)
+                    }
+                    Tab(L("AI 回報"), systemImage: "text.badge.checkmark", value: AppTab.aiReport) {
+                        FieldAIReportView(vm: viewModel)
+                    }
+                }
+                Tab(L("災情"), systemImage: "building.2", value: AppTab.disaster) {
+                    FieldDisasterView(vm: viewModel)
+                }
+                Tab("SOS", systemImage: "exclamationmark.triangle.fill", value: AppTab.sos) {
+                    SOSRecordListView(vm: viewModel)
+                }
+                .badge(viewModel.unacknowledgedSOSCount)
+                TabSection(L("其他")) {
+                    Tab(L("受困者"), systemImage: "person.fill.questionmark", value: AppTab.victims) {
+                        VictimListView(vm: viewModel)
+                    }
+                    Tab(L("增援"), systemImage: "person.badge.plus", value: AppTab.reinforcement) {
+                        ReinforcementListView(vm: viewModel)
+                    }
+                    .badge(viewModel.pendingReinforcementCount)
+                    Tab(L("團隊"), systemImage: "person.3.sequence.fill", value: AppTab.team) {
+                        TeamListView(vm: viewModel)
+                    }
+                    Tab(L("人員指派"), systemImage: "person.badge.key.fill", value: AppTab.personnelAssignment) {
+                        PersonnelAssignmentView(vm: viewModel)
+                    }
+                    Tab(L("通知"), systemImage: "bell.fill", value: AppTab.notifications) {
+                        FieldNotificationView(vm: viewModel)
+                    }
+                    .badge(viewModel.unreadNotificationCount)
+                    Tab(L("傷員回報"), systemImage: "heart.text.square", value: AppTab.patientForm) {
+                        PatientFormView(vm: viewModel)
+                    }
+                    Tab(L("翻譯"), systemImage: "globe", value: AppTab.translator) {
+                        TranslatorView(vm: viewModel)
+                    }
+                    Tab(L("照片"), systemImage: "photo.on.rectangle.angled", value: AppTab.photo) {
+                        PhotoReportView(vm: viewModel)
+                    }
+                    Tab(L("連線"), systemImage: "link", value: AppTab.connection) {
+                        ConnectionView(vm: viewModel)
+                    }
+                }
+            }
+            .tabViewStyle(.sidebarAdaptable)
+            .onChange(of: selectedTab) { oldValue, newValue in
+                if newValue == .dashboard {
+                    cameFromDashboard = false
+                }
+            }
+
+            // 返回主頁浮動按鈕
+            if cameFromDashboard && selectedTab != .dashboard {
+                VStack {
+                    HStack {
+                        Button {
+                            selectedTab = .dashboard
+                            cameFromDashboard = false
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "chevron.left")
+                                    .font(.caption.bold())
+                                Text(L("主頁"))
+                                    .font(.caption.bold())
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .glassEffect(.regular.tint(NV.green), in: .capsule)
+                        }
+                        .padding(.leading, 16)
+                        .padding(.top, 8)
+                        Spacer()
+                    }
+                    Spacer()
+                }
+                .zIndex(50)
+            }
+
+            // 全螢幕指揮命令覆蓋層
+            if let command = viewModel.latestCriticalCommand {
+                CommandAlertOverlay(command: command) {
+                    viewModel.dismissCommandAlert()
+                }
+                .transition(.opacity)
+                .zIndex(99)
+            }
+
+            // 全螢幕增援請求覆蓋層
+            if let request = viewModel.latestReinforcementRequest {
+                ReinforcementAlertOverlay(
+                    request: request,
+                    onAccept: { viewModel.acceptReinforcement(request) },
+                    onDecline: { viewModel.declineReinforcement(request) }
+                )
+                .transition(.opacity)
+                .zIndex(98)
+            }
+
+            // 全螢幕 SOS 警報覆蓋層
+            if let victim = viewModel.latestSOSVictim {
+                SOSAlertOverlay(victim: victim) {
+                    viewModel.dismissSOSAlert()
+                }
+                .transition(.opacity)
+                .zIndex(100)
+            }
+
+            // 緊急廣播覆蓋層
+            if let broadcast = viewModel.urgentBroadcast {
+                UrgentBroadcastOverlay(broadcast: broadcast) {
+                    viewModel.dismissUrgentBroadcast()
+                }
+                .transition(.opacity)
+                .zIndex(97)
+            }
+
+            // 傷患惡化預警覆蓋層
+            if let warning = viewModel.activePatientWarning {
+                PatientWarningOverlay(warning: warning) {
+                    viewModel.dismissPatientWarning()
+                }
+                .transition(.opacity)
+                .zIndex(96)
+            }
+        }
+        .animation(.easeInOut(duration: 0.3), value: viewModel.latestSOSVictim != nil)
+        .animation(.easeInOut(duration: 0.3), value: viewModel.latestCriticalCommand != nil)
+        .animation(.easeInOut(duration: 0.3), value: viewModel.latestReinforcementRequest != nil)
+        .animation(.easeInOut(duration: 0.3), value: viewModel.urgentBroadcast != nil)
+        .animation(.easeInOut(duration: 0.3), value: viewModel.activePatientWarning != nil)
+    }
+}
+
+// MARK: - Dashboard
+
+struct DashboardView: View {
+    @ObservedObject var vm: LinkGuardViewModel
+    @Binding var selectedTab: AppTab
+    @Binding var cameFromDashboard: Bool
+    @Environment(\.horizontalSizeClass) private var sizeClass
+    @State private var showHandoverSummary = false
+    @State private var showQuickGuide = false
+
+    private var isWide: Bool { sizeClass == .regular }
+    private var gridColumns: [GridItem] {
+        Array(repeating: GridItem(.flexible()), count: isWide ? 4 : 2)
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+
+                    // 標題列
+                    HStack {
+                        VStack(alignment: .leading) {
+                            Text("LinkGuard")
+                                .font(.largeTitle).bold()
+                            Text(L("地震救援指揮系統"))
+                                .font(.subheadline).foregroundColor(.secondary)
+                        }
+                        Spacer()
+                        VStack(alignment: .trailing, spacing: 4) {
+                            HStack(spacing: 8) {
+                                // 快速操作手冊按鈕
+                                Button {
+                                    showQuickGuide = true
+                                } label: {
+                                    Image(systemName: "questionmark.circle")
+                                        .font(.title3)
+                                        .foregroundColor(NV.info)
+                                }
+                                Circle()
+                                    .fill(vm.systemStatus.color)
+                                    .frame(width: 10, height: 10)
+                                Text(vm.systemStatus.text)
+                                    .font(.caption)
+                                    .foregroundColor(vm.systemStatus.color)
+                            }
+                            if vm.commandClient.isConnected {
+                                HStack(spacing: 8) {
+                                    HStack(spacing: 3) {
+                                        Circle()
+                                            .fill(vm.commandClient.hqServerStatus?.audioStreamRunning == true ? NV.green : .gray)
+                                            .frame(width: 7, height: 7)
+                                        Text(L("串流伺服器"))
+                                            .font(.caption2)
+                                            .foregroundColor(.secondary)
+                                    }
+                                    HStack(spacing: 3) {
+                                        Circle()
+                                            .fill(vm.commandClient.hqServerStatus?.udpServerRunning == true ? NV.green : .gray)
+                                            .frame(width: 7, height: 7)
+                                        Text("UDP Server")
+                                            .font(.caption2)
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    .padding([.horizontal, .bottom])
+
+                    // 統計卡片（iPad 4欄，iPhone 2欄）
+                    GlassEffectContainer(spacing: 8) {
+                        LazyVGrid(columns: gridColumns, spacing: 12) {
+                            StatCard(title: L("受困者"),
+                                     value: "\(vm.onlineVictimCount)/\(vm.victims.count)",
+                                     icon: "person.wave.2")
+                            .onTapGesture { cameFromDashboard = true; selectedTab = .victims }
+                            StatCard(title: L("已回報傷患"),
+                                     value: "\(vm.localPatients.count)",
+                                     icon: "heart.text.square")
+                            .onTapGesture { cameFromDashboard = true; selectedTab = .victims }
+                            StatCard(title: "SOS",
+                                     value: "\(vm.sosVictimCount)",
+                                     icon: "exclamationmark.triangle")
+                            .onTapGesture { cameFromDashboard = true; selectedTab = .sos }
+                            StatCard(title: L("團隊"),
+                                     value: "\(vm.onlineTeamCount)/\(vm.teamMembers.count)",
+                                     icon: "person.3.fill")
+                            .onTapGesture { cameFromDashboard = true; selectedTab = .team }
+                            StatCard(title: L("增援"),
+                                     value: "\(vm.pendingReinforcementCount)",
+                                     icon: "person.badge.plus")
+                            .onTapGesture { cameFromDashboard = true; selectedTab = .reinforcement }
+                            StatCard(title: L("訊息"),
+                                     value: "\(vm.chatMessages.count)",
+                                     icon: "bubble.left.and.bubble.right.fill")
+                            .onTapGesture { cameFromDashboard = true; selectedTab = .chat }
+                            StatCard(title: L("命令"),
+                                     value: "\(vm.unreadCommandCount)",
+                                     icon: "megaphone.fill")
+                            .onTapGesture { cameFromDashboard = true; selectedTab = .decision }
+                            StatCard(title: L("任務"),
+                                     value: "\(vm.activeTaskCount)",
+                                     icon: "checklist")
+                        }
+                    }
+                    .padding(.horizontal)
+
+                    // 節點狀態列
+                    HStack(spacing: 12) {
+                        Image(systemName: vm.isBluetoothConnected ? "bluetooth.connected" : "bluetooth")
+                            .foregroundColor(vm.isBluetoothConnected ? NV.green : .gray)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(vm.isBluetoothConnected
+                                 ? "已連接：\(vm.bluetoothDeviceName ?? vm.nodeStatus.nodeID)"
+                                 : L("藍牙未連接"))
+                                .font(.caption)
+                            Text("LoRa \(vm.nodeStatus.loraProfile.label)")
+                                .font(.caption2).foregroundColor(.secondary)
+                        }
+                        Spacer()
+                        if vm.isSimulating {
+                            Text(L("模擬模式"))
+                                .font(.caption2).bold()
+                                .padding(.horizontal, 8).padding(.vertical, 3)
+                                .glassEffect(.regular.tint(NV.simulation))
+                        }
+                    }
+                    .padding()
+                    .glassEffect(.regular, in: .rect(cornerRadius: 12))
+                    .padding(.horizontal)
+
+                    // 快速狀態回報
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text(L("快速狀態回報"))
+                            .font(.headline)
+                            .padding(.horizontal)
+
+                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                            ForEach(QuickStatusType.allCases, id: \.rawValue) { type in
+                                Button {
+                                    vm.sendQuickStatus(type)
+                                } label: {
+                                    HStack(spacing: 6) {
+                                        Image(systemName: type.icon)
+                                        Text(type.label)
+                                            .font(.subheadline).bold()
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 10)
+                                }
+                                .tint(type.color)
+                                .buttonStyle(.borderedProminent)
+                                .disabled(!vm.commandClient.isConnected)
+                            }
+                        }
+                        .padding(.horizontal)
+                    }
+
+                    // SOS 緊急按鈕
+                    VStack(spacing: 10) {
+                        if vm.isSOSActive {
+                            Button {
+                                vm.cancelSOS()
+                            } label: {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "xmark.circle.fill")
+                                    Text(L("取消 SOS"))
+                                        .font(.headline).bold()
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 14)
+                            }
+                            .tint(.orange)
+                            .buttonStyle(.borderedProminent)
+                        } else {
+                            Button {
+                                vm.sendSOS()
+                            } label: {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "sos")
+                                    Text(L("SOS 緊急呼叫"))
+                                        .font(.headline).bold()
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 14)
+                            }
+                            .tint(.red)
+                            .buttonStyle(.borderedProminent)
+                            .disabled(!vm.commandClient.isConnected)
+                        }
+                    }
+                    .padding(.horizontal)
+
+                    // HQ 遠端控制面板（連線 HQ 時顯示）
+                    if vm.commandClient.isConnected {
+                        HQRemoteControlPanel(vm: vm)
+                            .padding(.horizontal)
+                    }
+
+                    // 倒數計時器
+                    if !vm.countdownTimers.isEmpty {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text(L("倒數計時器"))
+                                .font(.headline)
+                                .padding(.horizontal)
+
+                            ForEach(vm.countdownTimers) { timer in
+                                HStack {
+                                    Image(systemName: "timer")
+                                        .foregroundColor(timer.remainingSeconds < 60 ? NV.danger : NV.warning)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(timer.title)
+                                            .font(.subheadline).bold()
+                                        Text(timer.isExpired ? L("已到期") : L("剩餘 %@", timer.remainingText))
+                                            .font(.caption)
+                                            .foregroundColor(timer.isExpired ? NV.danger : .secondary)
+                                    }
+                                    Spacer()
+                                    Text(timer.remainingText)
+                                        .font(.title2).bold().monospacedDigit()
+                                        .foregroundColor(timer.remainingSeconds < 60 ? NV.danger : NV.warning)
+                                }
+                                .padding()
+                                .glassEffect(.regular.tint(timer.remainingSeconds < 60 ? NV.danger.opacity(0.2) : .clear), in: .rect(cornerRadius: 12))
+                            }
+                            .padding(.horizontal)
+                        }
+                    }
+
+                    // 待處理任務
+                    if !vm.tasks.filter(\.isActive).isEmpty {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text(L("待處理任務 (%lld)", vm.activeTaskCount))
+                                .font(.headline)
+                                .padding(.horizontal)
+
+                            ForEach(vm.tasks.filter(\.isActive)) { task in
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        HStack(spacing: 6) {
+                                            Circle().fill(task.taskStatus.color).frame(width: 8, height: 8)
+                                            Text(task.title).font(.subheadline).bold()
+                                        }
+                                        if !task.detail.isEmpty {
+                                            Text(task.detail)
+                                                .font(.caption).foregroundColor(.secondary)
+                                                .lineLimit(2)
+                                        }
+                                        Text("\(task.taskStatus.label) · \(task.timeText)")
+                                            .font(.caption2).foregroundColor(.secondary)
+                                    }
+                                    Spacer()
+                                    if task.taskStatus == .pending {
+                                        Button(L("接受")) {
+                                            vm.updateTaskStatus(task.id, newStatus: .accepted)
+                                        }
+                                        .buttonStyle(.borderedProminent)
+                                        .tint(NV.green)
+                                        .controlSize(.small)
+                                    } else if task.taskStatus == .accepted || task.taskStatus == .inProgress {
+                                        Menu {
+                                            Button(L("執行中")) { vm.updateTaskStatus(task.id, newStatus: .inProgress) }
+                                            Button(L("已完成")) { vm.updateTaskStatus(task.id, newStatus: .completed) }
+                                        } label: {
+                                            Image(systemName: "ellipsis.circle")
+                                        }
+                                    }
+                                }
+                                .padding()
+                                .glassEffect(.regular, in: .rect(cornerRadius: 12))
+                            }
+                            .padding(.horizontal)
+                        }
+                    }
+
+                    // 危險標記警示
+                    if !vm.hazardReports.isEmpty {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text(L("危險標記 (%lld)", vm.hazardReports.count))
+                                .font(.headline)
+                                .padding(.horizontal)
+
+                            ForEach(vm.hazardReports.prefix(3)) { hazard in
+                                HStack(spacing: 10) {
+                                    Image(systemName: "exclamationmark.triangle.fill")
+                                        .foregroundColor(hazard.severityLevel.color)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(hazard.hazard?.label ?? hazard.hazardType)
+                                            .font(.subheadline).bold()
+                                        if !hazard.description.isEmpty {
+                                            Text(hazard.description)
+                                                .font(.caption).foregroundColor(.secondary)
+                                                .lineLimit(1)
+                                        }
+                                        Text("\(hazard.reporterName) · \(hazard.zone.isEmpty ? L("未知區域") : hazard.zone) · \(hazard.timeText)")
+                                            .font(.caption2).foregroundColor(.secondary)
+                                    }
+                                    Spacer()
+                                    Text(hazard.severityLevel.label)
+                                        .font(.caption2).bold()
+                                        .padding(.horizontal, 6).padding(.vertical, 3)
+                                        .foregroundColor(NV.textOnColor)
+                                        .glassEffect(.regular.tint(hazard.severityLevel.color), in: .rect(cornerRadius: 6))
+                                }
+                                .padding()
+                                .glassEffect(.regular, in: .rect(cornerRadius: 12))
+                            }
+                            .padding(.horizontal)
+                        }
+                    }
+
+                    // 受困者即時狀態（iPad 顯示全部，用 Grid；iPhone 顯示前 3 個）
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text(L("受困者即時狀態"))
+                            .font(.headline)
+                            .padding(.horizontal)
+
+                        if vm.victims.isEmpty {
+                            HStack {
+                                Spacer()
+                                VStack(spacing: 8) {
+                                    Image(systemName: "antenna.radiowaves.left.and.right")
+                                        .font(.title).foregroundColor(.secondary)
+                                    Text(L("尚未發現受困者..."))
+                                        .font(.subheadline).foregroundColor(.secondary)
+                                }
+                                Spacer()
+                            }.padding()
+                        } else if isWide {
+                            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                                ForEach(vm.victims) { victim in
+                                    VictimRow(victim: victim)
+                                        .padding(12)
+                                        .glassEffect(.regular, in: .rect(cornerRadius: 12))
+                                }
+                            }
+                            .padding(.horizontal)
+                        } else {
+                            ForEach(vm.victims.prefix(3)) { victim in
+                                VictimRow(victim: victim)
+                                    .padding(.horizontal)
+                            }
+                        }
+                    }
+
+                    // 已回報傷患（表單填寫的詳細傷患資料）
+                    if !vm.localPatients.isEmpty {
+                        VStack(alignment: .leading, spacing: 10) {
+                            HStack {
+                                Text(L("已回報傷患"))
+                                    .font(.headline)
+                                Spacer()
+                                Text("\(vm.localPatients.count)")
+                                    .font(.caption).bold()
+                                    .padding(.horizontal, 6).padding(.vertical, 2)
+                                    .glassEffect(.regular.tint(NV.command), in: .capsule)
+                                Button {
+                                    cameFromDashboard = true
+                                    selectedTab = .victims
+                                } label: {
+                                    Text(L("全部"))
+                                        .font(.caption)
+                                }
+                                .buttonStyle(.plain)
+                                .foregroundColor(NV.info)
+                            }
+                            .padding(.horizontal)
+
+                            ForEach(vm.localPatients.suffix(3).reversed()) { patient in
+                                PatientReportRow(patient: patient)
+                                    .padding(.horizontal, 12).padding(.vertical, 6)
+                                    .glassEffect(.regular, in: .rect(cornerRadius: 12))
+                                    .padding(.horizontal)
+                            }
+                        }
+                    }
+
+                    // 交班摘要
+                    Button {
+                        showHandoverSummary = true
+                    } label: {
+                        HStack {
+                            Image(systemName: "doc.text.fill")
+                            Text(L("產生交班摘要"))
+                                .bold()
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                        }
+                        .padding()
+                        .glassEffect(.regular, in: .rect(cornerRadius: 12))
+                    }
+                    .tint(.primary)
+                    .padding(.horizontal)
+                }
+                .padding(.bottom)
+            }
+            #if os(iOS)
+            .toolbarVisibility(.hidden, for: .navigationBar)
+            #endif
+            .contentMargins(.top, 0, for: .scrollContent)
+            .sheet(isPresented: $showHandoverSummary) {
+                HandoverSummarySheet(vm: vm)
+            }
+            .sheet(isPresented: $showQuickGuide) {
+                QuickGuideView()
+            }
+        }
+    }
+}
+
+// MARK: - HQ 遠端控制面板
+
+/// 快速命令模板（iPad 端定義，對應 HQ 的 quickCommands）
+private struct FieldQuickCommand: Identifiable {
+    let id = UUID()
+    let type: String
+    let priority: Int
+    let title: String
+    let detail: String
+    let icon: String
+    let color: Color
+}
+
+private let fieldQuickCommands: [FieldQuickCommand] = [
+    FieldQuickCommand(type: "search", priority: 0, title: L("開始搜索"),
+                      detail: L("請全體搜索隊伍開始展開各分區搜索作業"),
+                      icon: "magnifyingglass", color: NV.info),
+    FieldQuickCommand(type: "standby", priority: 0, title: L("原地待命"),
+                      detail: L("暫停所有作業，等待進一步指令"),
+                      icon: "pause.circle.fill", color: NV.warning),
+    FieldQuickCommand(type: "evacuation", priority: 2, title: L("全員撤離"),
+                      detail: L("發布撤離命令，所有人員立即撤離至集結點"),
+                      icon: "arrow.uturn.backward.circle.fill", color: NV.danger),
+    FieldQuickCommand(type: "report", priority: 0, title: L("回報現況"),
+                      detail: L("各隊伍請回報目前人員位置及搜索進度"),
+                      icon: "doc.text.fill", color: NV.command),
+    FieldQuickCommand(type: "support", priority: 1, title: L("請求醫療支援"),
+                      detail: L("需要醫療人員至指定地點進行傷患處理"),
+                      icon: "cross.fill", color: NV.danger),
+    FieldQuickCommand(type: "support", priority: 1, title: L("請求重機具"),
+                      detail: L("需要吊車或破碎機至現場協助排除障礙"),
+                      icon: "wrench.and.screwdriver.fill", color: NV.reinforce),
+    FieldQuickCommand(type: "rotate", priority: 0, title: L("輪替休息"),
+                      detail: L("外圍待命隊接手，前線隊伍後撤休息補水"),
+                      icon: "arrow.2.squarepath", color: NV.team),
+    FieldQuickCommand(type: "assembly", priority: 0, title: L("集合點報"),
+                      detail: L("全體人員至集結點集合進行人員清點"),
+                      icon: "person.3.sequence.fill", color: NV.green),
+    FieldQuickCommand(type: "hazard", priority: 1, title: L("危險警告"),
+                      detail: L("偵測到結構不穩/瓦斯外洩，請注意安全"),
+                      icon: "exclamationmark.shield.fill", color: NV.danger),
+    FieldQuickCommand(type: "comm_check", priority: 0, title: L("通訊測試"),
+                      detail: L("各隊伍確認通訊是否正常，依序回報"),
+                      icon: "antenna.radiowaves.left.and.right", color: NV.info),
+]
+
+struct HQRemoteControlPanel: View {
+    @ObservedObject var vm: LinkGuardViewModel
+    @State private var isExpanded = false
+    @State private var timerTitle = ""
+    @State private var timerMinutes = ""
+    @State private var taskTitle = ""
+    @State private var taskDetail = ""
+    @State private var taskAssigneeID = ""
+    @State private var taskAssigneeName = ""
+    @State private var taskZone = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // 標題列（點擊展開/收合）
+            Button {
+                withAnimation(.easeInOut(duration: 0.25)) { isExpanded.toggle() }
+            } label: {
+                HStack {
+                    Image(systemName: "antenna.radiowaves.left.and.right")
+                        .foregroundColor(NV.green)
+                    Text(L("HQ 指揮控制"))
+                        .font(.headline).bold()
+                    Spacer()
+                    Text(L("已連線指揮中心"))
+                        .font(.caption).foregroundColor(NV.green)
+                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                        .font(.caption).foregroundColor(.secondary)
+                }
+            }
+            .tint(.primary)
+
+            if isExpanded {
+                // 快速命令
+                quickCommandSection
+
+                Divider()
+
+                // 倒數計時器
+                timerSection
+
+                Divider()
+
+                // 任務指派
+                taskAssignmentSection
+            }
+        }
+        .padding()
+        .glassEffect(.regular, in: .rect(cornerRadius: 16))
+    }
+
+    // MARK: - 快速命令
+
+    private var quickCommandSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label(L("快速命令"), systemImage: "bolt.fill")
+                .font(.subheadline).bold()
+
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                ForEach(fieldQuickCommands) { qc in
+                    Button {
+                        vm.sendHQQuickCommand(
+                            type: qc.type, priority: qc.priority,
+                            title: qc.title, detail: qc.detail,
+                            sender: "\(vm.nodeStatus.deptCode)-\(vm.nodeStatus.nodeID)"
+                        )
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: qc.icon)
+                            Text(qc.title).font(.caption).bold()
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(qc.color)
+                }
+            }
+        }
+    }
+
+    // MARK: - 倒數計時器
+
+    private var timerSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label(L("倒數計時器"), systemImage: "timer")
+                .font(.subheadline).bold()
+
+            HStack {
+                TextField(L("計時器名稱"), text: $timerTitle)
+                    .textFieldStyle(.roundedBorder)
+                TextField(L("分鐘"), text: $timerMinutes)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 60)
+                    #if os(iOS)
+                    .keyboardType(.numberPad)
+                    #endif
+            }
+
+            Button {
+                let mins = Int(timerMinutes) ?? 5
+                vm.startHQTimer(
+                    title: timerTitle.isEmpty ? L("計時器") : timerTitle,
+                    durationSeconds: mins * 60
+                )
+                timerTitle = ""; timerMinutes = ""
+            } label: {
+                HStack {
+                    Image(systemName: "play.fill")
+                    Text(L("啟動計時器")).bold()
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 6)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(NV.warning)
+
+            // 快速計時按鈕
+            HStack(spacing: 8) {
+                ForEach([5, 10, 15, 30], id: \.self) { mins in
+                    Button(L("%lld 分", mins)) {
+                        vm.startHQTimer(title: L("%lld 分鐘計時", mins), durationSeconds: mins * 60)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(NV.info)
+                }
+            }
+
+            // 進行中計時器（含取消按鈕）
+            ForEach(vm.countdownTimers) { timer in
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(timer.title).font(.caption).bold()
+                        Text(timer.isExpired ? L("已到期") : L("剩餘 %@", timer.remainingText))
+                            .font(.caption2)
+                            .foregroundColor(timer.isExpired ? NV.danger : .secondary)
+                    }
+                    Spacer()
+                    Text(timer.remainingText)
+                        .font(.callout).bold().monospacedDigit()
+                    Button { vm.cancelHQTimer(timer.id) } label: {
+                        Image(systemName: "xmark.circle")
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundColor(NV.danger)
+                }
+            }
+        }
+    }
+
+    // MARK: - 任務指派
+
+    private var taskAssignmentSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label(L("任務指派"), systemImage: "checklist")
+                .font(.subheadline).bold()
+
+            TextField(L("任務標題"), text: $taskTitle)
+                .textFieldStyle(.roundedBorder)
+            TextField(L("任務詳情（選填）"), text: $taskDetail)
+                .textFieldStyle(.roundedBorder)
+            HStack {
+                TextField(L("指派對象 ID"), text: $taskAssigneeID)
+                    .textFieldStyle(.roundedBorder)
+                TextField(L("對象名稱"), text: $taskAssigneeName)
+                    .textFieldStyle(.roundedBorder)
+            }
+            TextField(L("區域"), text: $taskZone)
+                .textFieldStyle(.roundedBorder)
+
+            Button {
+                vm.assignHQTask(
+                    title: taskTitle, detail: taskDetail,
+                    assigneeID: taskAssigneeID, assigneeName: taskAssigneeName,
+                    zone: taskZone
+                )
+                taskTitle = ""; taskDetail = ""; taskAssigneeID = ""
+                taskAssigneeName = ""; taskZone = ""
+            } label: {
+                HStack {
+                    Image(systemName: "paperplane.fill")
+                    Text(L("指派任務")).bold()
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 6)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(NV.warning)
+            .disabled(taskTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        }
+    }
+}
+
+// MARK: - 統計卡片
+
+struct StatCard: View {
+    let title: String
+    let value: String
+    let icon: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Image(systemName: icon)
+                .font(.title3)
+            Text(value)
+                .font(.title2).bold()
+            Text(title)
+                .font(.caption).foregroundColor(.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+        }
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(height: 110)
+        .glassEffect(.regular, in: .rect(cornerRadius: 12))
+    }
+}
+
+// MARK: - 交班摘要
+
+struct HandoverSummarySheet: View {
+    @ObservedObject var vm: LinkGuardViewModel
+    @Environment(\.dismiss) private var dismiss
+    @State private var summaryText = ""
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                Text(summaryText)
+                    .font(.system(.body, design: .monospaced))
+                    .padding()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .navigationTitle(L("交班摘要"))
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(L("關閉")) { dismiss() }
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        #if canImport(UIKit)
+                        UIPasteboard.general.string = summaryText
+                        #elseif canImport(AppKit)
+                        NSPasteboard.general.setString(summaryText, forType: .string)
+                        #endif
+                    } label: {
+                        Image(systemName: "doc.on.doc")
+                    }
+                }
+            }
+            .onAppear { summaryText = vm.generateHandoverSummary() }
+        }
+    }
+}
+
+// MARK: - Victim List
+
+/// 統一選取識別：可能是 BLE/LoRa 受困者裝置（VictimNode），也可能是表單回報的傷患（PatientReport）
+private enum VictimSelection: Hashable {
+    case device(String)   // VictimNode.id
+    case patient(String)  // PatientReport.patientId
+}
+
+struct VictimListView: View {
+    @ObservedObject var vm: LinkGuardViewModel
+    @State private var selection: VictimSelection?
+
+    var body: some View {
+        NavigationSplitView {
+            List(selection: $selection) {
+                // 裝置受困者：BLE/LoRa 偵測到的心率/SOS 訊號
+                Section {
+                    if vm.victims.isEmpty {
+                        Text(L("尚未發現受困者..."))
+                            .font(.caption).foregroundColor(.secondary)
+                    } else {
+                        ForEach(vm.victims) { victim in
+                            VictimRow(victim: victim)
+                                .tag(VictimSelection.device(victim.id))
+                        }
+                    }
+                } header: {
+                    Label(L("裝置受困者（即時訊號）"), systemImage: "antenna.radiowaves.left.and.right")
+                }
+
+                // 已回報傷患：搜救人員填表上傳的詳細傷患資料
+                Section {
+                    if vm.localPatients.isEmpty {
+                        Text(L("尚未回報傷患..."))
+                            .font(.caption).foregroundColor(.secondary)
+                    } else {
+                        ForEach(vm.localPatients.reversed()) { patient in
+                            PatientReportRow(patient: patient)
+                                .tag(VictimSelection.patient(patient.patientId))
+                        }
+                    }
+                } header: {
+                    Label(L("已回報傷患（表單填寫）"), systemImage: "heart.text.square")
+                }
+            }
+            .navigationTitle(L("受困者列表"))
+            #if os(iOS)
+            .toolbarVisibility(.hidden, for: .navigationBar)
+            #endif
+            .contentMargins(.top, 0, for: .scrollContent)
+            .safeAreaInset(edge: .top) {
+                HStack {
+                    Text(L("受困者列表"))
+                        .font(.title2).bold()
+                    Spacer()
+                    Text("\(vm.victims.count + vm.localPatients.count)")
+                        .font(.caption).bold()
+                        .padding(.horizontal, 8).padding(.vertical, 3)
+                        .glassEffect(.regular.tint(NV.command), in: .capsule)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+            }
+        } detail: {
+            switch selection {
+            case .device(let id):
+                if let victim = vm.victims.first(where: { $0.id == id }) {
+                    VictimDetailView(victim: victim)
+                } else {
+                    placeholder
+                }
+            case .patient(let pid):
+                if let patient = vm.localPatients.first(where: { $0.patientId == pid }) {
+                    PatientReportDetailView(patient: patient)
+                } else {
+                    placeholder
+                }
+            case .none:
+                placeholder
+            }
+        }
+    }
+
+    private var placeholder: some View {
+        ContentUnavailableView(L("選擇受困者"),
+            systemImage: "person.wave.2",
+            description: Text(L("從列表中選擇一位受困者查看詳細資訊")))
+    }
+}
+
+// MARK: - 已回報傷患 Row / Detail
+
+private struct PatientReportRow: View {
+    let patient: PatientReport
+
+    private var priorityInfo: (label: String, color: Color) {
+        // 重現後端 START 邏輯（簡化版）作為前線速判
+        if patient.breathingRate == -1 { return (L("黑色"), .gray) }
+        if patient.breathingRate > 30 || patient.capillaryRefill > 2 { return (L("紅色"), NV.danger) }
+        if !patient.canFollowCommands { return (L("黃色"), NV.warning) }
+        return (L("綠色"), NV.green)
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            VStack(spacing: 2) {
+                Image(systemName: "heart.text.square.fill")
+                    .font(.title3)
+                    .foregroundColor(priorityInfo.color)
+                Text(priorityInfo.label)
+                    .font(.caption2).bold()
+                    .foregroundColor(priorityInfo.color)
+            }
+            .frame(width: 44)
+
+            VStack(alignment: .leading, spacing: 2) {
+                HStack {
+                    Text(patient.name.isEmpty ? patient.patientId : patient.name)
+                        .font(.subheadline).bold()
+                    if let age = patient.age {
+                        Text("· \(age)\(L("歲"))")
+                            .font(.caption).foregroundColor(.secondary)
+                    }
+                    Spacer()
+                }
+                Text(patient.location.isEmpty ? L("位置未填") : patient.location)
+                    .font(.caption).foregroundColor(.secondary)
+                    .lineLimit(1)
+                HStack(spacing: 8) {
+                    Label(patient.breathingRate == -1 ? L("無呼吸") : "\(patient.breathingRate)/min",
+                          systemImage: "lungs.fill")
+                        .font(.caption2)
+                    if !patient.notes.isEmpty {
+                        Image(systemName: "note.text")
+                            .font(.caption2)
+                            .foregroundColor(NV.info)
+                    }
+                }
+                .foregroundColor(.secondary)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+private struct PatientReportDetailView: View {
+    let patient: PatientReport
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(patient.name.isEmpty ? patient.patientId : patient.name)
+                        .font(.title2).bold()
+                    HStack(spacing: 8) {
+                        if !patient.nationalId.isEmpty {
+                            Text(patient.nationalId).font(.caption).foregroundColor(.secondary)
+                        }
+                        if !patient.birthDate.isEmpty {
+                            Text(patient.birthDate).font(.caption).foregroundColor(.secondary)
+                        }
+                        if let age = patient.age {
+                            Text("\(age)\(L("歲"))").font(.caption).foregroundColor(.secondary)
+                        }
+                    }
+                }
+                .padding(.horizontal)
+
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                    DetailStatCard(icon: "lungs.fill", title: L("呼吸速率"),
+                                   value: patient.breathingRate == -1 ? L("無呼吸") : "\(patient.breathingRate)/min")
+                    DetailStatCard(icon: "drop.fill", title: L("微血管回填"),
+                                   value: patient.capillaryRefill == -1 ? L("無脈搏") : String(format: "%.1fs", patient.capillaryRefill))
+                    DetailStatCard(icon: "person.fill.questionmark", title: L("意識"),
+                                   value: patient.canFollowCommands ? L("可聽令") : L("無法聽令"))
+                    DetailStatCard(icon: "mappin.and.ellipse", title: L("位置"),
+                                   value: patient.location.isEmpty ? "—" : patient.location)
+                }
+                .padding(.horizontal)
+
+                if let lat = patient.gpsLat, let lon = patient.gpsLon {
+                    HStack {
+                        Image(systemName: "location.fill").foregroundColor(NV.info)
+                        Text(String(format: "GPS: %.5f, %.5f", lat, lon))
+                            .font(.system(.caption, design: .monospaced))
+                    }
+                    .padding(.horizontal)
+                }
+
+                if !patient.notes.isEmpty {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Label(L("備註"), systemImage: "note.text")
+                            .font(.headline)
+                        Text(patient.notes)
+                            .font(.body)
+                            .padding()
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .glassEffect(.regular, in: .rect(cornerRadius: 10))
+                    }
+                    .padding(.horizontal)
+                }
+            }
+            .padding(.vertical)
+            .frame(maxWidth: 700)
+            .frame(maxWidth: .infinity)
+        }
+        .navigationTitle(patient.name.isEmpty ? patient.patientId : patient.name)
+    }
+}
+
+struct VictimDetailView: View {
+    let victim: VictimNode
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 24) {
+                // 狀態頭部
+                VStack(spacing: 12) {
+                    Image(systemName: victim.isSOS ? "sos" : "person.fill")
+                        .font(.system(size: 48))
+                        .foregroundColor(victim.isSOS ? NV.danger : (victim.isOnline ? NV.green : .gray))
+                        .frame(width: 80, height: 80)
+                        .glassEffect(
+                            .regular.tint(victim.isSOS ? NV.danger : (victim.isOnline ? NV.green : .gray)),
+                            in: .circle
+                        )
+                    Text(victim.id)
+                        .font(.title).bold()
+                    HStack(spacing: 8) {
+                        Text(victim.isOnline ? L("線上") : L("離線"))
+                            .font(.caption).bold()
+                            .foregroundColor(victim.isOnline ? NV.green : .gray)
+                        if victim.isSOS {
+                            Text("SOS")
+                                .font(.caption).bold()
+                                .padding(.horizontal, 8).padding(.vertical, 3)
+                                .foregroundColor(NV.textOnColor)
+                                .glassEffect(.regular.tint(NV.danger), in: .rect(cornerRadius: 6))
+                        }
+                    }
+                }
+                .padding(.top, 24)
+
+                // 詳細資訊 Grid
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
+                    DetailStatCard(icon: "heart.fill", title: L("心率"),
+                                   value: victim.heartRateText)
+                    DetailStatCard(icon: "location.fill", title: L("估計距離"),
+                                   value: "~\(victim.distanceText)")
+                    DetailStatCard(icon: "antenna.radiowaves.left.and.right", title: "RSSI",
+                                   value: "\(Int(victim.rssi)) dBm")
+                    DetailStatCard(icon: "chart.bar.fill", title: "SNR",
+                                   value: String(format: "%.1f dB", victim.snr))
+                    DetailStatCard(icon: "battery.50", title: L("電量"),
+                                   value: "\(victim.battery)%")
+                    DetailStatCard(icon: "clock", title: L("最後更新"),
+                                   value: victim.lastSeenText)
+                }
+                .padding(.horizontal, 24)
+            }
+            .frame(maxWidth: 600)
+            .frame(maxWidth: .infinity)
+        }
+        .navigationTitle(victim.id)
+        .contentMargins(.top, 0, for: .scrollContent)
+    }
+}
+
+struct DetailStatCard: View {
+    let icon: String
+    let title: String
+    let value: String
+
+    var body: some View {
+        VStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.title2)
+            Text(value)
+                .font(.title3).bold()
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+            Text(title)
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .lineLimit(1)
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 110)
+        .padding(.horizontal)
+        .glassEffect(.regular, in: .rect(cornerRadius: 14))
+    }
+}
+
+struct VictimRow: View {
+    let victim: VictimNode
+
+    var body: some View {
+        HStack(spacing: 12) {
+            // 狀態指示
+            Image(systemName: victim.isSOS ? "sos" : "person.fill")
+                .foregroundColor(victim.isSOS ? NV.danger : (victim.isOnline ? NV.green : .gray))
+                .font(.system(size: 16))
+                .frame(width: 40, height: 40)
+                .glassEffect(
+                    .regular.tint(victim.isSOS ? NV.danger : (victim.isOnline ? NV.green : .gray)),
+                    in: .circle
+                )
+
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
+                    Text(victim.id).font(.headline)
+                    if victim.isSOS {
+                        Text("SOS")
+                            .font(.caption2).bold()
+                            .padding(.horizontal, 6).padding(.vertical, 2)
+                            .foregroundColor(NV.textOnColor)
+                            .glassEffect(.regular.tint(NV.danger), in: .rect(cornerRadius: 4))
+                    }
+                }
+                HStack(spacing: 8) {
+                    // 心率
+                    Label(victim.heartRateText, systemImage: "heart.fill")
+                        .font(.caption)
+                        .foregroundColor(victim.heartRate > 0 ? NV.heartRate : .secondary)
+                    // 距離
+                    Label("~\(victim.distanceText)", systemImage: "location")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+
+            Spacer()
+
+            VStack(alignment: .trailing, spacing: 4) {
+                Text(victim.isOnline ? L("線上") : L("離線"))
+                    .font(.caption2).bold()
+                    .foregroundColor(victim.isOnline ? NV.green : .gray)
+                Text("\(Int(victim.rssi)) dBm")
+                    .font(.caption2)
+                    .foregroundColor(victim.signalColor)
+                HStack(spacing: 2) {
+                    Image(systemName: "battery.25")
+                        .font(.caption2)
+                    Text("\(victim.battery)%")
+                        .font(.caption2)
+                }
+                .foregroundColor(victim.battery <= 20 ? NV.danger : .secondary)
+                Text(victim.lastSeenText)
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+// MARK: - SOS Record List
+
+struct SOSRecordListView: View {
+    @ObservedObject var vm: LinkGuardViewModel
+
+    var body: some View {
+        NavigationStack {
+            List {
+                // SOS 紀錄
+                Section {
+                    HStack {
+                        Text(L("SOS 警報"))
+                            .font(.title2).bold()
+                        Spacer()
+                    }
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
+                    .padding(.horizontal, 0)
+                }
+
+                if vm.sosRecords.isEmpty {
+                    Section {
+                        Text(L("目前沒有 SOS 紀錄"))
+                            .foregroundColor(.secondary)
+                    }
+                } else {
+                    Section(header: Text(L("SOS 紀錄"))) {
+                        ForEach(vm.sosRecords) { record in
+                            SOSRecordRow(record: record) {
+                                vm.acknowledgeRecord(record)
+                            }
+                        }
+                    }
+                }
+            }
+            .navigationTitle(L("SOS 警報"))
+            #if os(iOS)
+            .toolbarVisibility(.hidden, for: .navigationBar)
+            #endif
+            .contentMargins(.top, 0, for: .scrollContent)
+        }
+    }
+}
+
+struct SOSRecordRow: View {
+    let record: SOSRecord
+    var onAcknowledge: (() -> Void)?
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: record.isAcknowledged
+                  ? "checkmark.circle.fill"
+                  : "exclamationmark.triangle.fill")
+                .foregroundColor(record.isAcknowledged ? NV.green : NV.danger)
+                .font(.title3)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(record.victimID).font(.headline)
+                HStack(spacing: 4) {
+                    Text(record.timeText)
+                    Text("·")
+                    Text(record.heartRate > 0 ? "\(record.heartRate) bpm" : "-- bpm")
+                    Text("·")
+                    Text("~\(record.distance)")
+                }
+                .font(.caption).foregroundColor(.secondary)
+            }
+
+            Spacer()
+
+            VStack(alignment: .trailing, spacing: 6) {
+                Text("\(Int(record.rssi)) dBm")
+                    .font(.caption2).foregroundColor(.secondary)
+
+                if !record.isAcknowledged {
+                    Button(L("確認")) { onAcknowledge?() }
+                        .font(.caption2).bold()
+                        .buttonStyle(.glass)
+                }
+            }
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+// MARK: - 指揮中心命令列表
+
+struct CommandListView: View {
+    @ObservedObject var vm: LinkGuardViewModel
+
+    var body: some View {
+        NavigationStack {
+            List {
+                // 標題列
+                Section {
+                    HStack {
+                        Text(L("指揮中心命令"))
+                            .font(.title2).bold()
+                        Spacer()
+                        Button(L("全部已讀")) {
+                            vm.markAllCommandsAsRead()
+                        }
+                        .font(.subheadline)
+                        .disabled(vm.unreadCommandCount == 0)
+                    }
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 16))
+                }
+
+                if vm.commandOrders.isEmpty {
+                    Section {
+                        HStack {
+                            Spacer()
+                            VStack(spacing: 8) {
+                                Image(systemName: "megaphone")
+                                    .font(.title).foregroundColor(.secondary)
+                                Text(L("等待指揮中心命令..."))
+                                    .font(.subheadline).foregroundColor(.secondary)
+                            }
+                            Spacer()
+                        }
+                        .padding()
+                    }
+                } else {
+                    Section(header: Text(L("指揮命令"))) {
+                        ForEach(vm.commandOrders) { order in
+                            CommandOrderRow(order: order) {
+                                vm.markCommandAsRead(order)
+                            }
+                        }
+                    }
+                }
+            }
+            #if os(iOS)
+            .toolbarVisibility(.hidden, for: .navigationBar)
+            #endif
+            .contentMargins(.top, 0, for: .scrollContent)
+        }
+    }
+}
+
+struct CommandOrderRow: View {
+    let order: CommandOrder
+    var onMarkRead: (() -> Void)?
+
+    var body: some View {
+        HStack(spacing: 12) {
+            // 優先等級圖示
+            Image(systemName: order.priority.icon)
+                .foregroundColor(order.priority.color)
+                .font(.title3)
+
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
+                    Text(order.title).font(.headline)
+                    if !order.isRead {
+                        Circle()
+                            .fill(NV.info)
+                            .frame(width: 8, height: 8)
+                    }
+                }
+                Text(order.detail)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .lineLimit(2)
+                HStack(spacing: 4) {
+                    Image(systemName: order.type.icon)
+                    Text(L(order.type.rawValue))
+                    Text("·")
+                    Text(order.sender)
+                    Text("·")
+                    Text(order.timeText)
+                }
+                .font(.caption2)
+                .foregroundColor(.gray)
+            }
+
+            Spacer()
+
+            VStack(alignment: .trailing, spacing: 6) {
+                Text(order.priority.label)
+                    .font(.caption2).bold()
+                    .padding(.horizontal, 6).padding(.vertical, 2)
+                    .foregroundColor(NV.textOnColor)
+                    .glassEffect(.regular.tint(order.priority.color), in: .rect(cornerRadius: 4))
+
+                if !order.isRead {
+                    Button(L("已讀")) { onMarkRead?() }
+                        .font(.caption2).bold()
+                        .buttonStyle(.glass)
+                }
+            }
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+// MARK: - 連線管理
+
+struct ConnectionView: View {
+    @ObservedObject var vm: LinkGuardViewModel
+    @AppStorage("appColorScheme") private var appColorScheme = "dark"
+    @EnvironmentObject var l10n: L10n
+    @State private var deptInput = ""
+    @State private var pairInput = ""
+    @State private var nodeIDInput = ""
+    @State private var manualIP = ""
+    @State private var manualPort = "8930"
+
+    var body: some View {
+        NavigationStack {
+            List {
+                // 藍牙連線
+                Section(header: Text(L("藍牙連線"))) {
+                    HStack {
+                        Image(systemName: vm.isBluetoothConnected ? "bluetooth.connected" : "bluetooth")
+                            .foregroundColor(vm.isBluetoothConnected ? NV.green : .gray)
+                            .font(.title2)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(vm.isBluetoothConnected ? L("已連接") : L("未連接"))
+                                .font(.headline)
+                            if let name = vm.bluetoothDeviceName {
+                                Text(name)
+                                    .font(.caption).foregroundColor(.secondary)
+                            }
+                        }
+                        Spacer()
+                        if vm.isBluetoothConnected {
+                            Button(L("斷開")) { vm.disconnectDevice() }
+                                .font(.caption)
+                                .buttonStyle(.glass(.regular.tint(NV.danger)))
+                        }
+                    }
+
+                    if !vm.isBluetoothConnected {
+                        Button {
+                            vm.scanForDevices()
+                        } label: {
+                            HStack {
+                                if vm.bluetoothManager.isScanning {
+                                    ProgressView().padding(.trailing, 4)
+                                }
+                                Text(vm.bluetoothManager.isScanning ? L("掃描中…") : L("掃描 LinkGuard 裝置"))
+                            }
+                        }
+                        .buttonStyle(.glass)
+                    }
+
+                    ForEach(vm.bluetoothManager.discoveredDevices) { device in
+                        Button {
+                            vm.connectToDevice(device)
+                        } label: {
+                            HStack {
+                                Image(systemName: "wave.3.right")
+                                    .foregroundColor(NV.green)
+                                VStack(alignment: .leading) {
+                                    Text(device.name)
+                                    Text("\(device.rssi) dBm")
+                                        .font(.caption2).foregroundColor(.secondary)
+                                }
+                                Spacer()
+                                Text(L("連接"))
+                                    .font(.caption).foregroundColor(NV.green)
+                            }
+                        }
+                    }
+                }
+
+                // 副指揮連接
+                Section(header: Text(L("副指揮連接"))) {
+                    HStack {
+                        Image(systemName: vm.commandClient.isConnected ? "wifi" : "wifi.slash")
+                            .foregroundColor(vm.commandClient.isConnected ? NV.green : .gray)
+                            .font(.title2)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(vm.commandClient.isConnected ? L("已連線") : L("搜尋中…"))
+                                .font(.headline)
+                                .foregroundColor(vm.commandClient.isConnected ? NV.green : .primary)
+                            if let name = vm.commandClient.serverName {
+                                Text(name)
+                                    .font(.caption).foregroundColor(.secondary)
+                            } else {
+                                Text(L("自動搜尋 Bonjour 指揮中心"))
+                                    .font(.caption).foregroundColor(.secondary)
+                            }
+                        }
+                        Spacer()
+                        Circle()
+                            .fill(vm.commandClient.isConnected ? NV.green : NV.warning)
+                            .frame(width: 10, height: 10)
+                    }
+
+                    // 伺服器狀態（連線後即時顯示）
+                    if vm.commandClient.isConnected {
+                        HStack(spacing: 12) {
+                            HStack(spacing: 4) {
+                                Circle()
+                                    .fill(vm.commandClient.hqServerStatus?.audioStreamRunning == true ? NV.green : .gray)
+                                    .frame(width: 8, height: 8)
+                                Text(L("串流伺服器"))
+                                    .font(.caption)
+                                Text(vm.commandClient.hqServerStatus?.audioStreamRunning == true ? L("運行中") : L("離線"))
+                                    .font(.caption).foregroundColor(.secondary)
+                            }
+                            Spacer()
+                            HStack(spacing: 4) {
+                                Circle()
+                                    .fill(vm.commandClient.hqServerStatus?.udpServerRunning == true ? NV.green : .gray)
+                                    .frame(width: 8, height: 8)
+                                Text("UDP Server")
+                                    .font(.caption)
+                                Text(vm.commandClient.hqServerStatus?.udpServerRunning == true ? L("運行中") : L("離線"))
+                                    .font(.caption).foregroundColor(.secondary)
+                            }
+                        }
+                    }
+
+                    // 手動連線
+                    if !vm.commandClient.isConnected {
+                        HStack {
+                            TextField(L("指揮中心 IP"), text: $manualIP)
+                                .textFieldStyle(.roundedBorder)
+                                #if os(iOS)
+                                .keyboardType(.decimalPad)
+                                #endif
+                            TextField("Port", text: $manualPort)
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: 70)
+                                #if os(iOS)
+                                .keyboardType(.numberPad)
+                                #endif
+                            Button(L("連線")) {
+                                let ip = manualIP.trimmingCharacters(in: .whitespacesAndNewlines)
+                                let port = UInt16(manualPort) ?? 8930
+                                guard !ip.isEmpty else { return }
+                                vm.commandClient.connectToIP(ip, port: port)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(manualIP.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        }
+                    }
+                }
+
+                // 節點設定
+                Section(header: Text(L("搜救節點設定"))) {
+                    // 節點 ID
+                    HStack {
+                        Text(L("節點 ID"))
+                        Spacer()
+                        TextField("RT-XXX", text: $nodeIDInput)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 120)
+                            #if os(iOS)
+                            .autocapitalization(.allCharacters)
+                            #endif
+                        Button(L("更新")) {
+                            vm.changeNodeID(nodeIDInput)
+                        }
+                        .font(.caption)
+                        .buttonStyle(.glass)
+                        .disabled(nodeIDInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    }
+
+                    // 配對碼
+                    HStack {
+                        Text(L("配對碼"))
+                        Spacer()
+                        TextField("0000", text: $pairInput)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 100)
+                            #if os(iOS)
+                            .autocapitalization(.allCharacters)
+                            #endif
+                        Button(L("更新")) {
+                            vm.changePairCode(pairInput)
+                        }
+                        .font(.caption)
+                        .buttonStyle(.glass)
+                        .disabled(pairInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    }
+
+                    // 部門碼
+                    HStack {
+                        Text(L("部門碼"))
+                        Spacer()
+                        TextField("EMT", text: $deptInput)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 80)
+                            #if os(iOS)
+                            .autocapitalization(.allCharacters)
+                            #endif
+                        Button(L("更新")) {
+                            vm.changeDeptCode(deptInput)
+                        }
+                        .font(.caption)
+                        .buttonStyle(.glass)
+                        .disabled(deptInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    }
+
+                    // LoRa 檔位
+                    HStack {
+                        Text(L("LoRa 檔位"))
+                        Spacer()
+                        Picker("", selection: Binding(
+                            get: { vm.nodeStatus.loraLevel },
+                            set: { vm.changeLoRaLevel($0) }
+                        )) {
+                            ForEach(loraProfiles, id: \.level) { p in
+                                Text(p.label).tag(p.level)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                    }
+                }
+
+                // 模擬模式
+                Section(header: Text(L("模擬模式")),
+                        footer: Text(L("在沒有硬體時模擬受困者訊號、SOS 警報等即時資料變化，適用於 Demo 展示。"))) {
+                    Toggle(isOn: Binding(
+                        get: { vm.isSimulating },
+                        set: { _ in vm.toggleSimulation() }
+                    )) {
+                        HStack {
+                            Image(systemName: "play.circle.fill")
+                                .foregroundColor(NV.simulation)
+                            Text(L("即時模擬"))
+                        }
+                    }
+                }
+
+                // WiFi 命令模式
+                Section(header: Text(L("WiFi 命令模式")),
+                        footer: Text(L("透過 WiFi NTP 時間同步，所有連到同一網路的裝置會在相同時間點收到相同的指揮命令。不需要 LoRa 硬體。"))) {
+                    Toggle(isOn: Binding(
+                        get: { vm.isWiFiCommandMode },
+                        set: { _ in vm.toggleWiFiCommandMode() }
+                    )) {
+                        HStack {
+                            Image(systemName: "wifi")
+                                .foregroundColor(NV.info)
+                            Text(L("WiFi 命令同步"))
+                        }
+                    }
+                }
+
+                // 系統資訊
+                Section(header: Text(L("系統資訊"))) {
+                    InfoRow(label: L("節點 ID"), value: vm.nodeStatus.nodeID)
+                    InfoRow(label: L("配對碼"), value: vm.nodeStatus.pairCode)
+                    InfoRow(label: L("部門碼"), value: vm.nodeStatus.deptCode)
+                    InfoRow(label: L("節點電量"), value: vm.nodeStatus.voltage > 0
+                           ? "\(vm.nodeStatus.battery)% (\(String(format: "%.2f", vm.nodeStatus.voltage))V)"
+                           : "\(vm.nodeStatus.battery)%")
+                    InfoRow(label: L("LoRa 檔位"), value: vm.nodeStatus.loraProfile.label)
+                    InfoRow(label: L("運行時間"), value: vm.uptimeText)
+                    InfoRow(label: L("受困者總數"), value: "\(vm.victims.count)")
+                    InfoRow(label: L("線上受困者"), value: "\(vm.onlineVictimCount)")
+                    InfoRow(label: L("SOS 求救中"), value: "\(vm.sosVictimCount)")
+                }
+
+                // 語言切換
+                Section(header: Text(L("語言 / Language"))) {
+                    Picker(L("語言"), selection: $l10n.language) {
+                        Text(L("中文")).tag("zh-Hant")
+                        Text("EN").tag("en")
+                    }
+                    .pickerStyle(.segmented)
+                }
+
+                // 外觀模式
+                Section(header: Text(L("外觀"))) {
+                    Picker(L("主題"), selection: $appColorScheme) {
+                        Text(L("深色")).tag("dark")
+                        Text(L("淺色")).tag("light")
+                        Text(L("跟隨系統")).tag("system")
+                    }
+                    .pickerStyle(.segmented)
+                }
+            }
+            .navigationTitle(L("連線管理"))
+            #if os(iOS)
+            .toolbarVisibility(.hidden, for: .navigationBar)
+            #endif
+            .contentMargins(.top, 0, for: .scrollContent)
+            .onAppear {
+                deptInput = vm.nodeStatus.deptCode
+                pairInput = vm.nodeStatus.pairCode
+                nodeIDInput = vm.nodeStatus.nodeID
+            }
+        }
+    }
+}
+
+struct InfoRow: View {
+    let label: String
+    let value: String
+
+    var body: some View {
+        HStack {
+            Text(label).foregroundColor(.secondary)
+            Spacer()
+            Text(value).bold()
+        }
+    }
+}
+
+// MARK: - SOS 全螢幕警報
+
+struct SOSAlertOverlay: View {
+    let victim: VictimNode
+    let onDismiss: () -> Void
+    @State private var pulse = false
+
+    var body: some View {
+        ZStack {
+            // 脈衝背景
+            NV.danger
+                .opacity(pulse ? 0.85 : 0.95)
+                .ignoresSafeArea()
+                .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: pulse)
+
+            VStack(spacing: 24) {
+                Spacer()
+
+                // SOS 圖示
+                Image(systemName: "sos")
+                    .font(.system(size: 80))
+                    .foregroundColor(NV.textOnColor)
+                    .scaleEffect(pulse ? 1.15 : 1.0)
+                    .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: pulse)
+
+                Text(L("SOS 求救警報"))
+                    .font(.largeTitle).bold()
+                    .foregroundColor(NV.textOnColor)
+
+                // 受困者資訊卡
+                VStack(spacing: 12) {
+                    Text(victim.id)
+                        .font(.title).bold()
+
+                    HStack(spacing: 24) {
+                        VStack(spacing: 4) {
+                            Image(systemName: "heart.fill")
+                                .font(.title2).foregroundColor(NV.heartRate)
+                            Text(victim.heartRateText)
+                                .font(.headline)
+                        }
+                        VStack(spacing: 4) {
+                            Image(systemName: "location.fill")
+                                .font(.title2).foregroundColor(NV.info)
+                            Text("~\(victim.distanceText)")
+                                .font(.headline)
+                        }
+                        VStack(spacing: 4) {
+                            Image(systemName: "antenna.radiowaves.left.and.right")
+                                .font(.title2).foregroundColor(NV.green)
+                            Text("\(Int(victim.rssi)) dBm")
+                                .font(.headline)
+                        }
+                    }
+
+                    HStack(spacing: 16) {
+                        Label("\(victim.battery)%", systemImage: "battery.25")
+                            .font(.subheadline)
+                        Text(victim.isOnline ? L("線上") : L("離線"))
+                            .font(.subheadline).bold()
+                            .foregroundColor(victim.isOnline ? NV.green : .gray)
+                    }
+                }
+                .padding(24)
+                .frame(maxWidth: 500)
+                .frame(maxWidth: .infinity)
+                .background(.ultraThinMaterial)
+                .cornerRadius(20)
+                .padding(.horizontal, 24)
+
+                Spacer()
+
+                // 確認按鈕
+                Button(action: onDismiss) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.title2)
+                        Text(L("收到"))
+                            .font(.title2).bold()
+                    }
+                    .foregroundColor(NV.danger)
+                    .frame(maxWidth: 400)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(NV.textOnColor)
+                    .cornerRadius(16)
+                    .padding(.horizontal, 24)
+                }
+
+                Spacer().frame(height: 40)
+            }
+        }
+        .onAppear { pulse = true }
+    }
+}
+
+// MARK: - 指揮命令全螢幕警報
+
+struct CommandAlertOverlay: View {
+    let command: CommandOrder
+    let onDismiss: () -> Void
+    @State private var pulse = false
+
+    /// 最高級命令用紅色，其餘用命令色
+    private var alertColor: Color {
+        command.priority == .critical ? NV.danger : NV.command
+    }
+
+    var body: some View {
+        ZStack {
+            // 脈衝背景
+            alertColor
+                .opacity(pulse ? 0.85 : 0.95)
+                .ignoresSafeArea()
+                .animation(.easeInOut(duration: 0.5).repeatForever(autoreverses: true), value: pulse)
+
+            VStack(spacing: 24) {
+                Spacer()
+
+                // 命令圖示
+                Image(systemName: command.priority == .critical
+                      ? "exclamationmark.triangle.fill"
+                      : "megaphone.fill")
+                    .font(.system(size: 80))
+                    .foregroundColor(NV.textOnColor)
+                    .scaleEffect(pulse ? 1.2 : 1.0)
+                    .animation(.easeInOut(duration: 0.5).repeatForever(autoreverses: true), value: pulse)
+
+                Text(command.priority == .critical ? L("緊急命令") : L("指揮中心命令"))
+                    .font(.largeTitle).bold()
+                    .foregroundColor(NV.textOnColor)
+
+                // 命令資訊卡
+                VStack(spacing: 12) {
+                    HStack(spacing: 8) {
+                        Image(systemName: command.type.icon)
+                            .font(.title3)
+                        Text(L(command.type.rawValue))
+                            .font(.headline)
+                    }
+
+                    Text(command.title)
+                        .font(.title2).bold()
+
+                    Text(command.detail)
+                        .font(.body)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal)
+
+                    HStack(spacing: 16) {
+                        Label(command.sender, systemImage: "building.2")
+                            .font(.subheadline)
+                        Label(command.priority.label, systemImage: command.priority.icon)
+                            .font(.subheadline).bold()
+                            .foregroundColor(command.priority.color)
+                        Text(command.timeText)
+                            .font(.subheadline)
+                    }
+                }
+                .padding(24)
+                .frame(maxWidth: 500)
+                .frame(maxWidth: .infinity)
+                .background(.ultraThinMaterial)
+                .cornerRadius(20)
+                .padding(.horizontal, 24)
+
+                Spacer()
+
+                // 確認按鈕
+                Button(action: onDismiss) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.title2)
+                        Text(L("收到"))
+                            .font(.title2).bold()
+                    }
+                    .foregroundColor(alertColor)
+                    .frame(maxWidth: 400)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(NV.textOnColor)
+                    .cornerRadius(16)
+                    .padding(.horizontal, 24)
+                }
+
+                Spacer().frame(height: 40)
+            }
+        }
+        .onAppear { pulse = true }
+    }
+}
+
+// MARK: - 增援請求列表
+
+struct ReinforcementListView: View {
+    @ObservedObject var vm: LinkGuardViewModel
+    @State private var showCompose = false
+    @State private var composeMessage = ""
+    @State private var composeLocation = ""
+
+    var body: some View {
+        NavigationStack {
+            List {
+                // 標題列
+                Section {
+                    HStack {
+                        Text(L("增援請求"))
+                            .font(.title2).bold()
+                        Spacer()
+                        Button {
+                            showCompose = true
+                        } label: {
+                            Image(systemName: "plus.circle.fill")
+                                .font(.title3)
+                        }
+                    }
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 16))
+                }
+
+                if vm.reinforcementRequests.isEmpty {
+                    Section {
+                        HStack {
+                            Spacer()
+                            VStack(spacing: 8) {
+                                Image(systemName: "person.badge.plus")
+                                    .font(.title).foregroundColor(.secondary)
+                                Text(L("目前沒有增援請求"))
+                                    .font(.subheadline).foregroundColor(.secondary)
+                            }
+                            Spacer()
+                        }.padding()
+                    }
+                } else {
+                    // 待處理（別人發的）
+                    let pending = vm.reinforcementRequests.filter { !$0.isFromSelf && $0.status == .pending }
+                    if !pending.isEmpty {
+                        Section(header: Text(L("待回應"))) {
+                            ForEach(pending) { req in
+                                ReinforcementRequestRow(request: req,
+                                    onAccept: { vm.acceptReinforcement(req) },
+                                    onDecline: { vm.declineReinforcement(req) })
+                            }
+                        }
+                    }
+
+                    // 所有請求
+                    Section(header: Text(L("全部請求"))) {
+                        ForEach(vm.reinforcementRequests) { req in
+                            ReinforcementRequestRow(request: req)
+                        }
+                    }
+                }
+            }
+            #if os(iOS)
+            .toolbarVisibility(.hidden, for: .navigationBar)
+            #endif
+            .contentMargins(.top, 0, for: .scrollContent)
+            .sheet(isPresented: $showCompose) {
+                NavigationStack {
+                    Form {
+                        Section(header: Text(L("增援資訊"))) {
+                            TextField(L("描述（如：需要醫療支援）"), text: $composeMessage)
+                            TextField(L("位置（如：A 棟 3F）"), text: $composeLocation)
+                        }
+                    }
+                    .navigationTitle(L("呼叫增援"))
+                    #if os(iOS)
+                    .navigationBarTitleDisplayMode(.inline)
+                    #endif
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button(L("取消")) { showCompose = false }
+                        }
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button(L("發送")) {
+                                vm.sendReinforcementRequest(
+                                    message: composeMessage, location: composeLocation)
+                                composeMessage = ""
+                                composeLocation = ""
+                                showCompose = false
+                            }
+                            .disabled(composeMessage.isEmpty)
+                        }
+                        #if os(iOS)
+                        ToolbarItemGroup(placement: .keyboard) {
+                            Spacer()
+                            Button(L("完成")) {
+                                UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                            }
+                        }
+                        #endif
+                    }
+                }
+                .presentationDetents([.medium])
+            }
+        }
+    }
+}
+
+struct ReinforcementRequestRow: View {
+    let request: ReinforcementRequest
+    var onAccept: (() -> Void)?
+    var onDecline: (() -> Void)?
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: request.status.icon)
+                .foregroundColor(request.status.color)
+                .font(.title3)
+
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
+                    Text(request.isFromSelf ? L("你的請求") : L("來自 %@", request.fromTeam))
+                        .font(.headline)
+                    if request.status == .pending && !request.isFromSelf {
+                        Circle().fill(NV.reinforce).frame(width: 8, height: 8)
+                    }
+                }
+                Text(request.message)
+                    .font(.subheadline).foregroundColor(.secondary)
+                    .lineLimit(2)
+                HStack(spacing: 4) {
+                    if !request.location.isEmpty {
+                        Label(request.location, systemImage: "location.fill")
+                    }
+                    Text("·")
+                    Text(request.timeText)
+                }
+                .font(.caption2).foregroundColor(.gray)
+
+                if !request.respondedBy.isEmpty {
+                    Text(L("回應：%@", request.respondedBy.joined(separator: ", ")))
+                        .font(.caption2).foregroundColor(NV.team)
+                }
+            }
+
+            Spacer()
+
+            VStack(alignment: .trailing, spacing: 6) {
+                Text(L(request.status.rawValue))
+                    .font(.caption2).bold()
+                    .padding(.horizontal, 6).padding(.vertical, 2)
+                    .foregroundColor(NV.textOnColor)
+                    .glassEffect(.regular.tint(request.status.color), in: .rect(cornerRadius: 4))
+
+                if request.status == .pending && !request.isFromSelf {
+                    HStack(spacing: 6) {
+                        Button(L("加入")) { onAccept?() }
+                            .font(.caption2).bold()
+                            .buttonStyle(.glass(.regular.tint(NV.green)))
+                        Button(L("拒絕")) { onDecline?() }
+                            .font(.caption2).bold()
+                            .buttonStyle(.glass(.regular.tint(NV.danger)))
+                    }
+                }
+            }
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+// MARK: - 團隊列表
+
+struct TeamListView: View {
+    @ObservedObject var vm: LinkGuardViewModel
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    HStack {
+                        Text(L("分隊通訊群組"))
+                            .font(.title2).bold()
+                        Spacer()
+                    }
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 16))
+                }
+
+                if vm.teamMembers.isEmpty {
+                    Section {
+                        HStack {
+                            Spacer()
+                            VStack(spacing: 8) {
+                                Image(systemName: "person.3.fill")
+                                    .font(.title).foregroundColor(.secondary)
+                                Text(L("尚未發現其他搜救節點"))
+                                    .font(.subheadline).foregroundColor(.secondary)
+                            }
+                            Spacer()
+                        }.padding()
+                    }
+                } else {
+                    Section(header: Text(L("線上 (%lld)", vm.onlineTeamCount))) {
+                        ForEach(vm.teamMembers.filter(\.isOnline)) { member in
+                            TeamMemberRow(member: member)
+                        }
+                    }
+                    let offline = vm.teamMembers.filter { !$0.isOnline }
+                    if !offline.isEmpty {
+                        Section(header: Text(L("離線"))) {
+                            ForEach(offline) { member in
+                                TeamMemberRow(member: member)
+                            }
+                        }
+                    }
+                }
+            }
+            .navigationTitle(L("分隊通訊群組"))
+            #if os(iOS)
+            .toolbarVisibility(.hidden, for: .navigationBar)
+            #endif
+            .contentMargins(.top, 0, for: .scrollContent)
+        }
+    }
+}
+
+struct TeamMemberRow: View {
+    let member: TeamMember
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "person.crop.circle.badge.checkmark")
+                .foregroundColor(member.isOnline ? NV.team : .gray)
+                .font(.title3)
+                .frame(width: 40, height: 40)
+                .glassEffect(
+                    .regular.tint(member.isOnline ? NV.team : .gray),
+                    in: .circle
+                )
+
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
+                    Text(member.id).font(.headline)
+                    Text(member.deptCode)
+                        .font(.caption2).bold()
+                        .padding(.horizontal, 6).padding(.vertical, 2)
+                        .foregroundColor(NV.textOnColor)
+                        .glassEffect(.regular.tint(NV.team), in: .rect(cornerRadius: 4))
+                }
+                HStack(spacing: 8) {
+                    Label(L("%lld 受困者", member.victimCount), systemImage: "person.wave.2")
+                        .font(.caption).foregroundColor(.secondary)
+                    Label("~\(member.lastSeenText)", systemImage: "clock")
+                        .font(.caption).foregroundColor(.secondary)
+                }
+            }
+
+            Spacer()
+
+            VStack(alignment: .trailing, spacing: 4) {
+                Text(member.isOnline ? L("線上") : L("離線"))
+                    .font(.caption2).bold()
+                    .foregroundColor(member.isOnline ? NV.green : .gray)
+                Text("\(Int(member.rssi)) dBm")
+                    .font(.caption2).foregroundColor(member.signalColor)
+                HStack(spacing: 2) {
+                    Image(systemName: "battery.25").font(.caption2)
+                    Text("\(member.battery)%").font(.caption2)
+                }
+                .foregroundColor(member.battery <= 20 ? NV.danger : .secondary)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+// MARK: - 增援請求全螢幕覆蓋層
+
+struct ReinforcementAlertOverlay: View {
+    let request: ReinforcementRequest
+    let onAccept: () -> Void
+    let onDecline: () -> Void
+    @State private var pulse = false
+
+    var body: some View {
+        ZStack {
+            NV.reinforce
+                .opacity(pulse ? 0.85 : 0.95)
+                .ignoresSafeArea()
+                .animation(.easeInOut(duration: 0.6).repeatForever(autoreverses: true), value: pulse)
+
+            VStack(spacing: 24) {
+                Spacer()
+
+                Image(systemName: "person.badge.plus")
+                    .font(.system(size: 80))
+                    .foregroundColor(NV.textOnColor)
+                    .scaleEffect(pulse ? 1.1 : 1.0)
+                    .animation(.easeInOut(duration: 0.6).repeatForever(autoreverses: true), value: pulse)
+
+                Text(L("增援請求"))
+                    .font(.largeTitle).bold()
+                    .foregroundColor(NV.textOnColor)
+
+                VStack(spacing: 12) {
+                    Text("來自 \(request.fromTeam)")
+                        .font(.title2).bold()
+
+                    Text(request.message)
+                        .font(.body)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal)
+
+                    if !request.location.isEmpty {
+                        Label(request.location, systemImage: "location.fill")
+                            .font(.headline)
+                    }
+
+                    Text(request.timeText)
+                        .font(.subheadline).foregroundColor(.secondary)
+                }
+                .padding(24)
+                .frame(maxWidth: 500)
+                .frame(maxWidth: .infinity)
+                .background(.ultraThinMaterial)
+                .cornerRadius(20)
+                .padding(.horizontal, 24)
+
+                Spacer()
+
+                // 雙按鈕：加入 / 拒絕
+                HStack(spacing: 16) {
+                    Button(action: onDecline) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "xmark.circle.fill").font(.title2)
+                            Text(L("拒絕")).font(.title2).bold()
+                        }
+                        .foregroundColor(NV.danger)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(NV.textOnColor)
+                        .cornerRadius(16)
+                    }
+
+                    Button(action: onAccept) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "checkmark.circle.fill").font(.title2)
+                            Text(L("加入")).font(.title2).bold()
+                        }
+                        .foregroundColor(NV.green)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(NV.textOnColor)
+                        .cornerRadius(16)
+                    }
+                }
+                .padding(.horizontal, 24)
+
+                Spacer().frame(height: 40)
+            }
+        }
+        .onAppear { pulse = true }
+    }
+}
+
+// MARK: - Preview
+
+#Preview {
+    ContentView()
+}
+
+// MARK: - 緊急廣播覆蓋層
+
+struct UrgentBroadcastOverlay: View {
+    let broadcast: TextBroadcast
+    let onDismiss: () -> Void
+    @State private var pulse = false
+
+    var body: some View {
+        ZStack {
+            Color.orange
+                .opacity(pulse ? 0.9 : 0.95)
+                .ignoresSafeArea()
+                .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: pulse)
+
+            VStack(spacing: 24) {
+                Spacer()
+
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 60))
+                    .foregroundColor(NV.textOnColor)
+                    .scaleEffect(pulse ? 1.15 : 1.0)
+                    .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: pulse)
+
+                Text(L("緊急廣播"))
+                    .font(.largeTitle).bold()
+                    .foregroundColor(NV.textOnColor)
+
+                Text(broadcast.message)
+                    .font(.title2)
+                    .foregroundColor(NV.textOnColor)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 32)
+
+                Text(L("來自: %@", broadcast.senderName))
+                    .font(.subheadline)
+                    .foregroundColor(NV.textOnColor.opacity(0.8))
+
+                Spacer()
+
+                Button(action: onDismiss) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.title2)
+                        Text(L("確認"))
+                            .font(.title2).bold()
+                    }
+                    .foregroundColor(.orange)
+                    .padding(.horizontal, 48)
+                    .padding(.vertical, 14)
+                    .background(.white)
+                    .cornerRadius(16)
+                }
+
+                Spacer().frame(height: 40)
+            }
+        }
+        .onAppear { pulse = true }
+    }
+}
+
+// MARK: - 傷患惡化預警覆蓋層
+
+struct PatientWarningOverlay: View {
+    let warning: PatientWarning
+    let onDismiss: () -> Void
+
+    private var levelColor: Color {
+        switch warning.warningLevel {
+        case "high": return NV.danger
+        case "medium": return .orange
+        default: return .yellow
+        }
+    }
+
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.6).ignoresSafeArea()
+
+            VStack(spacing: 20) {
+                Image(systemName: "waveform.path.ecg")
+                    .font(.system(size: 48))
+                    .foregroundColor(levelColor)
+
+                Text(L("傷患惡化預警"))
+                    .font(.title).bold()
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Label(L("患者: %@", warning.patientId), systemImage: "person.fill")
+                    Label(L("檢傷等級: %@", warning.priority), systemImage: "cross.case.fill")
+                    Label(L("位置: %@", warning.location), systemImage: "location.fill")
+                    Label(L("已等候: %lld 分鐘", warning.minutesSinceTriage), systemImage: "clock")
+                }
+                .font(.body)
+
+                Text(warning.message)
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
+
+                Button(action: onDismiss) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.title3)
+                        Text(L("已知悉"))
+                            .font(.title3).bold()
+                    }
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 40)
+                    .padding(.vertical, 12)
+                    .background(levelColor)
+                    .cornerRadius(14)
+                }
+            }
+            .padding(32)
+            .frame(maxWidth: 500)
+            .background(.ultraThinMaterial)
+            .cornerRadius(24)
+            .padding(24)
+        }
+    }
+}

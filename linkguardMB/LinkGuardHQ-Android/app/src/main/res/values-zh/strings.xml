@@ -1,0 +1,506 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">LinkGuard 指揮中心</string>
+
+    <!-- ===== Dashboard / Top Bar ===== -->
+    <string name="server_running">伺服器運行中</string>
+    <string name="server_stopped">伺服器已停止</string>
+
+    <!-- ===== Tab Names ===== -->
+    <string name="tab_overview">總覽</string>
+    <string name="tab_command">命令</string>
+    <string name="tab_field_units">外勤</string>
+    <string name="tab_personnel_overview">人員總覽</string>
+    <string name="tab_victims">受困者</string>
+    <string name="tab_disaster">災情</string>
+    <string name="tab_chat">通訊</string>
+    <string name="tab_personnel">人員</string>
+    <string name="tab_pws">PWS</string>
+    <string name="tab_briefing">會報</string>
+    <string name="tab_notification">通知</string>
+    <string name="tab_patient_report">傷員回報</string>
+    <string name="tab_decision">指揮決策</string>
+    <string name="tab_timeline">事件日誌</string>
+    <string name="tab_zone_map">分區地圖</string>
+    <string name="tab_reports">會報儀表板</string>
+    <string name="tab_stats">統計儀表板</string>
+    <string name="tab_resources">資源管理</string>
+    <string name="tab_photo_wall">照片牆</string>
+    <string name="tab_task_assign">任務指派</string>
+    <string name="tab_broadcast">文字廣播</string>
+    <string name="tab_radio">電台</string>
+    <string name="tab_patient_warning">傷患警告</string>
+    <string name="tab_ai_chat">AI 對話</string>
+
+    <!-- ===== Overview Tab ===== -->
+    <string name="stat_field_units">外勤單位</string>
+    <string name="stat_victims">受困者</string>
+    <string name="stat_sos">SOS</string>
+    <string name="backend_ai_server">後台 AI 伺服器</string>
+    <string name="connected_host">已連線 · %s</string>
+    <string name="not_connected">未連線</string>
+    <string name="backend_ip_hint">後台 IP（如 192.168.50.34）</string>
+    <string name="btn_connect">連線</string>
+    <string name="searching">搜尋中…</string>
+    <string name="auto_search_backend">🔍 自動搜尋後台</string>
+    <string name="connect_arrow">連線 →</string>
+    <string name="error_prefix">錯誤：%s</string>
+    <string name="btn_disconnect">斷開後台</string>
+    <string name="label_field_units">外勤單位</string>
+    <string name="waiting_field_units">等待外勤單位連線...</string>
+    <string name="ensure_same_wifi">請確認伺服器已啟動且與外勤裝置處於同一 WiFi 網路</string>
+    <string name="victim_overview">受困者總覽</string>
+
+    <!-- ===== Field Unit Detail ===== -->
+    <string name="online">在線</string>
+    <string name="offline">離線</string>
+    <string name="label_battery">電量</string>
+    <string name="label_ble">BLE 連線</string>
+    <string name="ble_connected">已連線</string>
+    <string name="ble_not_connected">未連線</string>
+    <string name="label_victims">受困者</string>
+    <string name="label_sos">SOS</string>
+    <string name="label_last_report">最後回報</string>
+    <string name="detected_victims">偵測到的受困者:</string>
+
+    <!-- lastReportText -->
+    <string name="time_just_now">剛剛</string>
+    <string name="time_seconds_ago">%d 秒前</string>
+    <string name="time_minutes_ago">%d 分鐘前</string>
+    <string name="time_hours_ago">%d 小時前</string>
+
+    <!-- ===== Command Tab ===== -->
+    <string name="send_command">發送命令</string>
+    <string name="broadcast_to_units">將命令廣播至 %d 個外勤單位</string>
+    <string name="label_command_type">命令類型</string>
+    <string name="label_priority">優先級</string>
+    <string name="label_command_title">命令標題</string>
+    <string name="label_command_detail">命令說明</string>
+    <string name="label_sender">發送者</string>
+    <string name="btn_broadcast_command">廣播命令</string>
+    <string name="btn_send_to_devices">發送至 %d 台裝置</string>
+    <string name="quick_commands">快捷命令</string>
+    <string name="countdown_timer">倒數計時器</string>
+    <string name="label_tag">標籤</string>
+    <string name="label_minutes">分鐘</string>
+    <string name="default_timer">計時器</string>
+    <string name="start_timer">啟動計時器</string>
+    <string name="command_history">命令歷史</string>
+    <string name="no_sent_commands">尚無已發送命令</string>
+
+    <!-- ===== Disaster Tab ===== -->
+    <string name="disaster_status">災害狀態</string>
+    <string name="building_info">建物資訊</string>
+    <string name="label_building_name">建物名稱</string>
+    <string name="label_address">地址</string>
+    <string name="section_other">其他</string>
+    <string name="label_rally_point">集結點</string>
+    <string name="label_notes">備註</string>
+    <string name="label_collapse_type">倒塌類型</string>
+    <string name="label_above_floors">地上樓層數</string>
+    <string name="label_below_floors">地下樓層數</string>
+    <string name="section_floors">樓層狀態</string>
+    <string name="floor_label_format">%s</string>
+    <string name="section_hazards">場地危害</string>
+    <string name="no_hazards">尚無已知危害</string>
+    <string name="section_entry_points">進入點</string>
+    <string name="no_entry_points">尚無進入點</string>
+    <string name="add_entry_point">新增進入點</string>
+    <string name="label_entry_name">名稱</string>
+    <string name="label_entry_desc">描述</string>
+    <string name="label_accessible">可通行</string>
+    <string name="label_blocked">已封鎖</string>
+    <string name="generate_floors">產生樓層</string>
+    <string name="floor_above_format">%dF</string>
+    <string name="floor_below_format">B%d</string>
+    <string name="save_broadcast_disaster">儲存並廣播災情狀態</string>
+    <string name="send_to_n_devices">發送至 %d 台裝置</string>
+    <string name="resource_item_name">項目名稱</string>
+    <string name="resource_total">總數</string>
+    <string name="resource_available">可用數</string>
+    <string name="add_resource">新增物資</string>
+    <string name="resource_inventory">物資清單</string>
+    <string name="no_resources">尚無物資紀錄</string>
+    <string name="resource_ratio">%1$d / %2$d</string>
+    <string name="btn_delete">刪除</string>
+    <string name="zone_note_hint">分區備註</string>
+    <string name="zone_hazard">危害標記</string>
+    <string name="n_persons">%d 人</string>
+
+    <!-- ===== Chat Tab ===== -->
+    <string name="input_message_hint">輸入訊息…</string>
+
+    <!-- ===== Personnel Tab ===== -->
+    <string name="personnel_assignment">人員配置</string>
+    <string name="assigned_count">已配置 %d 人</string>
+    <string name="no_personnel">尚未配置人員</string>
+    <string name="add_personnel">新增人員</string>
+    <string name="label_name">姓名</string>
+    <string name="label_role">角色</string>
+    <string name="label_zone">分區</string>
+    <string name="label_floor">樓層</string>
+    <string name="btn_confirm">確認</string>
+    <string name="btn_cancel">取消</string>
+
+    <!-- ===== PWS Tab ===== -->
+    <string name="pws_alerts">PWS 警報</string>
+    <string name="no_pws_alerts">目前無 PWS 警報</string>
+    <string name="pws_active">活躍</string>
+    <string name="source_prefix">來源: %s</string>
+    <string name="add_pws_alert">新增 PWS 警報</string>
+    <string name="label_title">標題</string>
+    <string name="label_content">內容</string>
+    <string name="label_type">類型</string>
+    <string name="label_severity">嚴重程度</string>
+
+    <!-- ===== Briefing Tab ===== -->
+    <string name="briefing_system">會報系統</string>
+    <string name="no_briefings">尚未建立會報</string>
+    <string name="add_briefing">新增會報</string>
+    <string name="label_author">作者</string>
+    <string name="label_section_title">段落標題</string>
+    <string name="label_section_content">段落內容</string>
+
+    <!-- ===== Notification Tab ===== -->
+    <string name="personal_notifications">個人通知</string>
+    <string name="count_items">%d 則</string>
+    <string name="no_personal_notifications">尚未發送個人通知</string>
+    <string name="send_notification">發送個人通知</string>
+    <string name="label_target_device">目標裝置</string>
+    <string name="no_online_units">無在線外勤單位</string>
+    <string name="btn_send">發送</string>
+
+    <!-- ===== Timeline Tab ===== -->
+    <string name="event_log">事件日誌</string>
+    <string name="btn_clear">清除</string>
+    <string name="filter_all">全部</string>
+    <string name="no_events">尚無事件記錄</string>
+    <string name="events_auto_log">系統操作將自動記錄在此</string>
+
+    <!-- ===== Zone Map Tab ===== -->
+    <string name="zone_map">分區地圖</string>
+    <string name="stat_total_zones">總分區</string>
+    <string name="stat_searching">搜救中</string>
+    <string name="stat_cleared">已清除</string>
+    <string name="stat_dangerous">危險區</string>
+    <string name="no_zones">尚未建立搜救分區</string>
+    <string name="tap_add_zone">點擊 ＋ 新增分區</string>
+    <string name="persons_count">%d 人</string>
+    <string name="add_rescue_zone">新增搜救分區</string>
+    <string name="label_zone_name">分區名稱</string>
+    <string name="btn_add">新增</string>
+
+    <!-- ===== Reports Tab ===== -->
+    <string name="report_dashboard">會報儀表板</string>
+    <string name="n_reports">%d 筆報告</string>
+    <string name="no_reports">尚無會報紀錄</string>
+    <string name="reports_hint">前線裝置錄製的會報將顯示在此</string>
+    <string name="device_prefix">裝置：%s</string>
+    <string name="collapse_text">收起 ▲</string>
+    <string name="expand_text">展開 ▼</string>
+
+    <!-- ===== Stats Dashboard Tab ===== -->
+    <string name="stats_dashboard">統計儀表板</string>
+    <string name="realtime_data">即時數據</string>
+    <string name="stat_field_unit_count">外勤單位</string>
+    <string name="stat_victim_count">受困者</string>
+    <string name="stat_sos_count">SOS</string>
+    <string name="stat_online_victims">線上受困者</string>
+    <string name="stat_team_members">團隊成員</string>
+    <string name="stat_sos_victims">SOS受困者</string>
+    <string name="field_unit_status">外勤單位狀態</string>
+    <string name="no_connected_units">尚無連線的外勤單位</string>
+    <string name="unit_stats_format">受困者: %1$d  SOS: %2$d  電量: %3$d%%</string>
+
+    <!-- ===== Resource Tab ===== -->
+    <string name="resource_management">資源管理</string>
+    <string name="human_resources">人力資源</string>
+    <string name="stat_field_teams">外勤隊伍</string>
+    <string name="stat_team_online">團隊在線</string>
+    <string name="battery_monitor">電量監控</string>
+    <string name="supply_records">物資紀錄</string>
+    <string name="label_water_food">飲水/糧食</string>
+    <string name="label_medical">醫療物資</string>
+    <string name="label_equipment">裝備/器材</string>
+
+    <!-- ===== Photo Wall Tab ===== -->
+    <string name="photo_wall">照片牆</string>
+    <string name="status_connected">已連線</string>
+    <string name="status_disconnected">未連線</string>
+    <string name="n_photos">%d 張照片</string>
+    <string name="no_photos">尚無照片</string>
+    <string name="photos_hint">前線裝置拍攝的照片會透過 photo_server 中繼顯示在此</string>
+    <string name="btn_close">關閉</string>
+    <string name="photo_detail">照片詳情</string>
+    <string name="photographer_prefix">拍攝者: %s</string>
+    <string name="caption_prefix">說明: %s</string>
+    <string name="time_prefix">時間: %s</string>
+
+    <!-- ===== Task Assignment Tab ===== -->
+    <string name="task_assignment">任務指派</string>
+    <string name="n_tasks">%d 項任務</string>
+    <string name="no_tasks">尚未指派任務</string>
+    <string name="add_task">新增任務</string>
+    <string name="label_task_title">任務標題</string>
+    <string name="label_task_content">任務內容</string>
+    <string name="label_assign_target">指派對象</string>
+    <string name="btn_assign">指派</string>
+
+    <!-- ===== Broadcast Tab ===== -->
+    <string name="text_broadcast">文字廣播</string>
+    <string name="n_broadcasts">%d 則廣播</string>
+    <string name="send_new_broadcast">發送新廣播</string>
+    <string name="priority_prefix">優先級：</string>
+    <string name="priority_normal">一般</string>
+    <string name="priority_urgent">緊急</string>
+    <string name="label_broadcast_message">廣播訊息</string>
+    <string name="btn_send_broadcast">發送廣播</string>
+    <string name="no_broadcasts">尚未發送廣播</string>
+    <string name="label_urgent">緊急</string>
+    <string name="read_receipt">已讀 %1$d/%2$d</string>
+
+    <!-- ===== Radio Tab ===== -->
+    <string name="radio_monitor">電台監聽</string>
+    <string name="field_device">前線裝置</string>
+    <string name="broadcasting">正在廣播中…</string>
+    <string name="standby">待命中</string>
+    <string name="waiting_ptt">等待前線 PTT 廣播</string>
+    <string name="hq_voice_transcription">HQ 語音轉錄</string>
+    <string name="recording_press_stop">錄製中…按下停止</string>
+    <string name="whisper_transcribing">Whisper 轉錄中…</string>
+    <string name="press_to_transcribe">按下開始語音轉錄</string>
+    <string name="backend_not_connected">⚠ 未連接後台</string>
+    <string name="latest_transcription">最近轉錄：</string>
+    <string name="voice_transcription_log">語音轉錄紀錄</string>
+    <string name="n_entries">%d 筆</string>
+    <string name="no_transcription_log">尚無轉錄紀錄</string>
+    <string name="stop_recording">停止錄音</string>
+    <string name="start_recording">開始錄音</string>
+
+    <!-- ===== Patient Warning Tab ===== -->
+    <string name="patient_warning">傷患惡化預警</string>
+    <string name="n_critical">%d 危急</string>
+    <string name="n_warnings">%d 則預警</string>
+    <string name="no_patient_warnings">目前無傷患惡化預警</string>
+    <string name="level_critical">危急</string>
+    <string name="level_moderate">中度</string>
+    <string name="level_mild">輕度</string>
+    <string name="level_deceased">死亡</string>
+    <string name="source_device">來源: %s</string>
+
+    <!-- ===== SOS Overlay ===== -->
+    <string name="sos_emergency">🚨 SOS 緊急警報</string>
+    <string name="sos_unacknowledged">%d 個未確認的 SOS 警報</string>
+    <string name="btn_acknowledge">確認</string>
+    <string name="btn_acknowledge_all">全部確認</string>
+
+    <!-- ===== Decision Tab ===== -->
+    <string name="ai_decision_suggest">AI 決策建議</string>
+    <string name="ai_context_hint">補充情境（選填）</string>
+    <string name="ai_analyzing">AI 分析中…</string>
+    <string name="request_ai_decision">請求 AI 決策</string>
+    <string name="backend_not_connected_plain">尚未連線後台伺服器</string>
+    <string name="command_decision">指揮決策</string>
+    <string name="no_decisions">尚無決策 · 等待指揮中心發送</string>
+    <string name="decision_count">共 %d 筆 · 最新在前</string>
+    <string name="waiting_decisions">等待指揮中心透過網路發送決策...</string>
+    <string name="label_decision">決策</string>
+    <string name="trigger_patient">傷員回報觸發</string>
+    <string name="trigger_voice">語音回報觸發</string>
+    <string name="trigger_manual">手動觸發</string>
+    <string name="trigger_hq_request">AI 建議觸發</string>
+    <string name="trigger_ai">AI 自動觸發</string>
+    <string name="trigger_prefix">觸發: %s</string>
+    <string name="patient_list">傷員列表（%d 人）</string>
+    <string name="priority_red">紅 · 立即</string>
+    <string name="priority_black">黑 · 死亡</string>
+    <string name="priority_green">綠 · 輕傷</string>
+    <string name="priority_yellow">黃 · 延遲</string>
+    <string name="priority_unclassified">未分類</string>
+
+    <!-- ===== Patient Form Tab ===== -->
+    <string name="patient_report">傷員回報</string>
+    <string name="patient_id_auto">傷員 ID 將自動產生（格式：P + 時間戳）</string>
+    <string name="label_location">位置</string>
+    <string name="location_hint">例：B棟 3F 西側走廊</string>
+    <string name="label_breathing_rate">呼吸頻率（次/分）</string>
+    <string name="breathing_rate_hint">-1 = 無呼吸</string>
+    <string name="label_capillary_refill">微血管回充時間（秒）</string>
+    <string name="capillary_refill_hint">-1 = 無脈搏</string>
+    <string name="can_follow_commands">能否遵從指令</string>
+    <string name="yes_text">是</string>
+    <string name="no_text">否</string>
+    <string name="fill_location_error">請填寫位置</string>
+    <string name="patient_submitted">傷員資料已送出（ID: %s）</string>
+    <string name="submit_patient">送出傷員資料</string>
+
+    <!-- ===== Victim Overview Tab ===== -->
+    <string name="victim_overview_title">受困者總覽</string>
+    <string name="stat_total">總計</string>
+    <string name="stat_online">上線</string>
+    <string name="stat_sos_label">SOS</string>
+    <string name="stat_critical">緊急</string>
+    <string name="search_victim_hint">搜尋受困者 ID / 裝置</string>
+    <string name="filter_online_only">僅上線</string>
+    <string name="filter_sos_only">僅 SOS</string>
+    <string name="sort_priority">優先級</string>
+    <string name="sort_heart_rate">心率</string>
+    <string name="sort_signal">訊號</string>
+    <string name="sort_battery">電量</string>
+    <string name="no_victim_data">目前無受困者資料</string>
+    <string name="patient_report_badge">傷患回報</string>
+    <string name="status_online"> 上線中</string>
+    <string name="status_offline"> 離線</string>
+    <string name="treatment_status">處置狀態</string>
+    <string name="report_device">回報裝置: </string>
+    <string name="label_location_colon">位置: </string>
+    <string name="description_record">傷勢描述 / 處置紀錄</string>
+    <string name="save_description">儲存描述</string>
+    <string name="save_note">儲存備註</string>
+
+    <!-- ===== Personnel Overview Tab ===== -->
+    <string name="personnel_overview">人員總覽</string>
+    <string name="stat_field_devices">外勤裝置</string>
+    <string name="stat_team_members_label">團隊成員</string>
+    <string name="stat_assignment">人員配置</string>
+    <string name="search_personnel_hint">搜尋人員/裝置/部門</string>
+    <string name="section_field_devices">外勤裝置</string>
+    <string name="no_matching_devices">無符合條件的外勤裝置</string>
+    <string name="section_team_lora">團隊成員（LoRa 節點）</string>
+    <string name="no_matching_team">無符合條件的團隊成員</string>
+    <string name="section_assignment">人員配置</string>
+    <string name="no_assignment">尚無人員配置</string>
+    <string name="n_victims">%d 受困者</string>
+    <string name="n_team_members">%d 隊員</string>
+
+    <!-- ===== Device Target Selector ===== -->
+    <string name="mode_broadcast">全體廣播</string>
+    <string name="mode_selected">指定裝置</string>
+    <string name="no_connected_devices">目前無連線裝置</string>
+    <string name="selected_count">已選 %1$d / %2$d</string>
+    <string name="select_all">全選</string>
+    <string name="deselect_all">取消全選</string>
+
+    <!-- ===== Enum Labels: CollapseType ===== -->
+    <string name="collapse_partial">部分倒塌</string>
+    <string name="collapse_pancake">層疊式倒塌</string>
+    <string name="collapse_lean">傾斜倒塌</string>
+    <string name="collapse_v_shape">V型倒塌</string>
+    <string name="collapse_none">未倒塌</string>
+    <string name="collapse_unknown">未知</string>
+
+    <!-- ===== Enum Labels: FloorCondition ===== -->
+    <string name="floor_collapsed">完全倒塌</string>
+    <string name="floor_partial">部分倒塌</string>
+    <string name="floor_accessible">可進入</string>
+    <string name="floor_cleared">已清除</string>
+    <string name="floor_restricted">限制進入</string>
+    <string name="floor_unknown">未知</string>
+
+    <!-- ===== Enum Labels: ZoneStatus ===== -->
+    <string name="zone_active">搜救中</string>
+    <string name="zone_standby">待命</string>
+    <string name="zone_cleared">已清除</string>
+    <string name="zone_dangerous">危險區</string>
+    <string name="zone_restricted">限制區</string>
+
+    <!-- ===== Enum Labels: HazardType ===== -->
+    <string name="hazard_gas_leak">瓦斯洩漏</string>
+    <string name="hazard_fire">火災</string>
+    <string name="hazard_flooding">淹水</string>
+    <string name="hazard_structural">結構不穩</string>
+    <string name="hazard_electrical">電氣危害</string>
+    <string name="hazard_chemical">化學品洩漏</string>
+
+    <!-- ===== Enum Labels: PersonnelRole ===== -->
+    <string name="role_search">搜索</string>
+    <string name="role_rescue">救援</string>
+    <string name="role_medical">醫療</string>
+    <string name="role_logistics">後勤</string>
+    <string name="role_safety">安全官</string>
+    <string name="role_commander">指揮</string>
+    <string name="role_support">支援</string>
+
+    <!-- ===== Enum Labels: PWSAlertType ===== -->
+    <string name="pws_earthquake">地震</string>
+    <string name="pws_aftershock">餘震</string>
+    <string name="pws_tsunami">海嘯</string>
+    <string name="pws_typhoon">颱風</string>
+    <string name="pws_flood">洪水</string>
+    <string name="pws_landslide">土石流</string>
+    <string name="pws_other">其他</string>
+
+    <!-- ===== Enum Labels: PWSSeverity ===== -->
+    <string name="severity_info">資訊</string>
+    <string name="severity_minor">輕微</string>
+    <string name="severity_moderate">中等</string>
+    <string name="severity_severe">嚴重</string>
+    <string name="severity_extreme">極端</string>
+
+    <!-- ===== Enum Labels: BriefingType ===== -->
+    <string name="briefing_initial">初期報告</string>
+    <string name="briefing_progress">進度報告</string>
+    <string name="briefing_shift">交接報告</string>
+    <string name="briefing_final">結案報告</string>
+
+    <!-- ===== Enum Labels: CommandPriority ===== -->
+    <string name="cmd_priority_routine">一般</string>
+    <string name="cmd_priority_urgent">緊急</string>
+    <string name="cmd_priority_critical">最高</string>
+
+    <!-- ===== Enum Labels: CommandType ===== -->
+    <string name="cmd_search_area">搜索區域指派</string>
+    <string name="cmd_standby">原地待命</string>
+    <string name="cmd_support">支援請求</string>
+    <string name="cmd_status_report">狀態回報</string>
+    <string name="cmd_evacuation">撤離命令</string>
+
+    <!-- ===== Enum Labels: VictimStatus ===== -->
+    <string name="vstatus_pending">未處理</string>
+    <string name="vstatus_on_scene">現場處理中</string>
+    <string name="vstatus_waiting_ambulance">等待救護車</string>
+    <string name="vstatus_en_route">送醫途中</string>
+    <string name="vstatus_hospitalized">已送醫</string>
+    <string name="vstatus_rescued">已脫困</string>
+    <string name="vstatus_deceased">死亡確認</string>
+
+    <!-- ===== Enum Labels: VictimPriority ===== -->
+    <string name="vpriority_unset">未設定</string>
+    <string name="vpriority_low">低</string>
+    <string name="vpriority_medium">中</string>
+    <string name="vpriority_high">高</string>
+    <string name="vpriority_critical">緊急</string>
+
+    <!-- ===== Enum Labels: TaskStatus ===== -->
+    <string name="task_pending">待處理</string>
+    <string name="task_in_progress">進行中</string>
+    <string name="task_completed">已完成</string>
+    <string name="task_cancelled">已取消</string>
+
+    <!-- ===== Enum Labels: RadioSourceType ===== -->
+    <string name="radio_live">即時</string>
+    <string name="radio_upload">上傳</string>
+
+    <!-- ===== Content Descriptions ===== -->
+    <string name="cd_stop">停止</string>
+    <string name="cd_remove">移除</string>
+    <string name="cd_send">發送</string>
+    <string name="cd_add_personnel">新增人員</string>
+    <string name="cd_add_alert">新增警報</string>
+    <string name="cd_add_briefing">新增會報</string>
+    <string name="cd_add_zone">新增分區</string>
+    <string name="cd_delete">刪除</string>
+
+    <!-- ===== HQ 連線 ===== -->
+    <string name="hq_connection">HQ 連線</string>
+    <string name="hq_role_server">伺服器</string>
+    <string name="hq_role_peer">節點</string>
+    <string name="hq_mode_server_desc">本裝置作為 HQ 伺服器（前線裝置連線至此）</string>
+    <string name="hq_mode_peer_desc">連線到其他 HQ 伺服器（Mac / iPad / Android）</string>
+    <string name="hq_peer_connected">已連線至 %s</string>
+    <string name="hq_peer_not_connected">尚未連線任何 HQ</string>
+    <string name="hq_searching_servers">正在搜尋 HQ 伺服器…</string>
+    <string name="hq_auto_search">自動搜尋 HQ</string>
+    <string name="hq_no_servers_found">此網路上未找到 HQ 伺服器</string>
+    <string name="hq_disconnect_peer">斷開連線</string>
+</resources>

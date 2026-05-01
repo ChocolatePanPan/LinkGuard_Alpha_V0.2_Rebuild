@@ -1,0 +1,38 @@
+{
+  "configurations" : [
+    {
+      "id" : "505F64B9-E9B7-4C9B-9791-F708A43D3914",
+      "name" : "Test Scheme Action",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "performanceAntipatternCheckerEnabled" : true,
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:linkguard.xcodeproj",
+      "identifier" : "79381A5E2F6EBF8100FE8D95",
+      "name" : "linkguard"
+    }
+  },
+  "testTargets" : [
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:linkguard.xcodeproj",
+        "identifier" : "79381A6B2F6EBF8300FE8D95",
+        "name" : "linkguardTests"
+      }
+    },
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:linkguard.xcodeproj",
+        "identifier" : "79381A752F6EBF8300FE8D95",
+        "name" : "linkguardUITests"
+      }
+    }
+  ],
+  "version" : 1
+}
