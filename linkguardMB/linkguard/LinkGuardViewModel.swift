@@ -264,6 +264,7 @@ class LinkGuardViewModel: ObservableObject {
             .store(in: &cancellables)
         setupBLECallbacks()
         setupWiFiClient()
+        setupAppLifecycleRecovery()
         NotificationManager.shared.requestAuthorization()
         // 載入本地傷患資料
         if let saved: [PatientReport] = PersistenceManager.shared.load(key: "localPatients") {
@@ -674,6 +675,31 @@ class LinkGuardViewModel: ObservableObject {
             Task { @MainActor in
                 self?.sendLocationUpdate()
             }
+        }
+    }
+
+    private func setupAppLifecycleRecovery() {
+        #if canImport(UIKit)
+        NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.resumeRealtimeConnectionsAfterForeground()
+            }
+            .store(in: &cancellables)
+
+        NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.sendStatusReport()
+            }
+            .store(in: &cancellables)
+        #endif
+    }
+
+    private func resumeRealtimeConnectionsAfterForeground() {
+        GlobalRadioListener.shared.activate()
+        if !commandClient.isConnected {
+            commandClient.startBrowsing()
         }
     }
 
