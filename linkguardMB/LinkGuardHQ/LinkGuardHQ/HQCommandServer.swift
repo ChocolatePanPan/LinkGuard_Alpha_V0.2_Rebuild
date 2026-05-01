@@ -1028,7 +1028,7 @@ class HQCommandServer: ObservableObject {
             }
 
         case "translate_request":
-            // 中繼翻譯請求到 Windows 後台（gemma4 /translate）。
+            // 中繼翻譯請求到 Mac-local 後台（gemma4 /translate）。
             // 在 data 內帶上 requesting_device_id，以便後台回應時能路由回原請求裝置。
             if let payloadData = msg.payload.data(using: .utf8),
                var json = try? JSONSerialization.jsonObject(with: payloadData) as? [String: Any] {
@@ -1082,7 +1082,7 @@ class HQCommandServer: ObservableObject {
     // MARK: - 翻譯請求
 
     private func requestTranslation(text: String, sourceLang: String, targetLang: String, forDevice deviceId: String, connID: String) async {
-        // 先嘗試 HTTP 直連 gemma4 翻譯（後台在 :8001/translate）
+        // 先嘗試 HTTP 直連 gemma4 翻譯（Mac-local 後台在 :8001/translate）
         if let httpResult = await httpTranslateViaGemma4(text: text, sourceLang: sourceLang, targetLang: targetLang) {
             let result = HQTranslationResult(
                 original: text,
@@ -1135,7 +1135,7 @@ class HQCommandServer: ObservableObject {
         }
     }
 
-    /// 透過 HTTP 直連 gemma4_server /translate 端點
+    /// 透過 HTTP 直連 Mac-local gemma4_server /translate 端點
     private func httpTranslateViaGemma4(text: String, sourceLang: String, targetLang: String) async -> String? {
         // 嘗試已知的後台位址：先用 bridge 紀錄的 host，再用 localhost
         let bridgeHost: String = await MainActor.run { [weak self] in

@@ -26,22 +26,29 @@ struct BackendServiceSpec: Identifiable, Hashable {
     let isHTTP: Bool            // true → probe via /health; false → TCP connect
     let startDelay: TimeInterval // pre-launch delay, mirrors macos/start_all.sh
 
-    /// Same order/delays as `macos/start_all.sh`.
+    /// Mac HQ already owns 8003 (speech), 8005 (LGAP audio), and 9001 (UDP audio).
+    /// Keep the embedded Python sidecar to services that do not collide with those
+    /// native HQ listeners while still covering AI, TCP bridge, resources, photos,
+    /// MQTT/LoRa, and optional Python Whisper.
     static let all: [BackendServiceSpec] = [
         .init(id: "mqtt_broker",    displayName: "MQTT Client",        scriptName: "mqtt_broker.py",    port: 1883, isHTTP: false, startDelay: 0),
         .init(id: "tcp_server",     displayName: "TCP Aggregator",     scriptName: "tcp_server.py",     port: 9000, isHTTP: false, startDelay: 0),
         .init(id: "gemma4_server",  displayName: "Gemma4 AI",          scriptName: "gemma4_server.py",  port: 8001, isHTTP: true,  startDelay: 2),
         .init(id: "whisper_server", displayName: "Whisper Voice",      scriptName: "whisper_server.py", port: 8002, isHTTP: true,  startDelay: 0),
         .init(id: "photo_server",   displayName: "Photo Server",       scriptName: "photo_server.py",   port: 8004, isHTTP: true,  startDelay: 2),
-        .init(id: "http_server",    displayName: "Briefing HTTP",      scriptName: "http_server.py",    port: 8003, isHTTP: true,  startDelay: 0),
-        .init(id: "stats_server",   displayName: "Stats / LGAP",       scriptName: "stats_server.py",   port: 8005, isHTTP: true,  startDelay: 0),
         .init(id: "resource_server",displayName: "Resource Server",    scriptName: "resource_server.py",port: 8006, isHTTP: true,  startDelay: 0),
-        .init(id: "udp_server",     displayName: "UDP Audio",          scriptName: "udp_server.py",     port: 9001, isHTTP: false, startDelay: 2),
     ]
 }
 
 enum BackendServiceStatus: String {
     case stopped, starting, healthy, unhealthy, crashed
+}
+
+struct BackendProcessMetrics: Equatable, Sendable {
+    let cpu: String
+    let memMB: String
+
+    static let empty = BackendProcessMetrics(cpu: "", memMB: "")
 }
 
 /// Mutable per-service runtime state observed by SwiftUI.
@@ -73,17 +80,19 @@ final class BackendSupervisor: ObservableObject {
 
     /// Where to find the Python scripts. On a packaged build this is
     /// `~/Library/Application Support/LinkGuardHQ/backend`. In a dev build
-    /// running from Xcode, it falls back to a sibling `macos/` folder if
+    /// running from Xcode, it falls back to the repository `macos/` folder if
     /// `~/Library/...` doesn't exist yet.
     @Published var backendDir: URL
     @Published var pythonExecutable: URL?
     @Published var services: [BackendServiceState]
     @Published var allHealthy: Bool = false
     @Published var anyCrashed: Bool = false
+    @Published private var processMetrics: [String: BackendProcessMetrics] = [:]
 
     private var processes: [String: Process] = [:]
     private var stdoutPipes: [String: Pipe] = [:]
     private var healthTimer: Timer?
+    private var metricsTimer: Timer?
 
     init() {
         self.services = BackendServiceSpec.all.map { BackendServiceState(spec: $0) }
@@ -128,7 +137,17 @@ final class BackendSupervisor: ObservableObject {
                                           withExtension: nil) {
             return bundled
         }
-        // 3) Dev fallback: ../../../macos relative to the running binary.
+        // 3) Dev fallback: locate the repository from this Swift source path.
+        let sourceFile = URL(fileURLWithPath: #filePath)
+        let sourceRoot = sourceFile
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let sourceMacos = sourceRoot.appendingPathComponent("macos", isDirectory: true)
+        if fm.fileExists(atPath: sourceMacos.path) { return sourceMacos }
+
+        // 4) Last fallback: ../../../macos relative to the running binary.
         let bin = Bundle.main.bundleURL.deletingLastPathComponent()
         return bin.appendingPathComponent("../../../macos", isDirectory: true)
                    .standardizedFileURL
@@ -162,12 +181,14 @@ final class BackendSupervisor: ObservableObject {
                 start(spec.id)
             }
             startHealthLoop()
+            startMetricsLoop()
         }
     }
 
     func stopAll() {
         for spec in BackendServiceSpec.all { stop(spec.id) }
         stopHealthLoop()
+        stopMetricsLoop()
     }
 
     func start(_ id: String) {
@@ -226,6 +247,7 @@ final class BackendSupervisor: ObservableObject {
             state.pid = p.processIdentifier
             processes[id] = p
             stdoutPipes[id] = pipe
+            startMetricsLoop()
         } catch {
             state.status = .crashed
             state.lastError = error.localizedDescription
@@ -243,6 +265,8 @@ final class BackendSupervisor: ObservableObject {
         stdoutPipes[id]?.fileHandleForReading.readabilityHandler = nil
         stdoutPipes.removeValue(forKey: id)
         state.pid = nil
+        processMetrics[id] = nil
+        if services.allSatisfy({ $0.pid == nil }) { stopMetricsLoop() }
         recomputeAggregate()
     }
 
@@ -332,12 +356,50 @@ final class BackendSupervisor: ObservableObject {
         anyCrashed = services.contains { $0.status == .crashed }
     }
 
+    private func startMetricsLoop() {
+        guard metricsTimer == nil else { return }
+        metricsTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in self?.refreshProcessMetrics() }
+        }
+        refreshProcessMetrics()
+    }
+
+    private func stopMetricsLoop() {
+        metricsTimer?.invalidate()
+        metricsTimer = nil
+        processMetrics.removeAll()
+    }
+
+    private func refreshProcessMetrics() {
+        let active = services.compactMap { state -> (id: String, pid: Int32)? in
+            guard let pid = state.pid else { return nil }
+            return (state.id, pid)
+        }
+        guard !active.isEmpty else {
+            stopMetricsLoop()
+            return
+        }
+
+        Task.detached { [active] in
+            let collected = active.reduce(into: [String: BackendProcessMetrics]()) { result, item in
+                result[item.id] = Self.collectMetrics(pid: item.pid)
+            }
+            await MainActor.run { [weak self, collected] in
+                guard let self else { return }
+                self.processMetrics = collected
+            }
+        }
+    }
+
     // MARK: - Process metrics (best-effort, optional UI use)
 
     /// Returns ("12.3", "456") for (cpu%, rss-MB) by shelling out to `ps`.
     /// Empty strings if PID unknown or `ps` fails.
-    func metrics(for id: String) -> (cpu: String, memMB: String) {
-        guard let pid = services.first(where: { $0.id == id })?.pid else { return ("", "") }
+    func metrics(for id: String) -> BackendProcessMetrics {
+        processMetrics[id] ?? .empty
+    }
+
+    nonisolated private static func collectMetrics(pid: Int32) -> BackendProcessMetrics {
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/bin/ps")
         p.arguments = ["-o", "%cpu=,rss=", "-p", "\(pid)"]
@@ -351,11 +413,13 @@ final class BackendSupervisor: ObservableObject {
                 .trimmingCharacters(in: .whitespacesAndNewlines)
             let parts = out.split(separator: " ", omittingEmptySubsequences: true)
             guard parts.count >= 2,
-                  let rssKB = Int(parts[1]) else { return (String(parts.first ?? ""), "") }
+                  let rssKB = Int(parts[1]) else {
+                return BackendProcessMetrics(cpu: String(parts.first ?? ""), memMB: "")
+            }
             let rssMB = rssKB / 1024
-            return (String(parts[0]), String(rssMB))
+            return BackendProcessMetrics(cpu: String(parts[0]), memMB: String(rssMB))
         } catch {
-            return ("", "")
+            return .empty
         }
     }
 }
@@ -373,7 +437,7 @@ final class BackendSupervisor: ObservableObject {
     func stop(_ id: String) {}
     func restart(_ id: String) {}
     func restartCrashed() {}
-    func metrics(for id: String) -> (cpu: String, memMB: String) { ("", "") }
+    func metrics(for id: String) -> BackendProcessMetrics { .empty }
 }
 
 @MainActor

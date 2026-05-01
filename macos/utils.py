@@ -3,6 +3,8 @@ utils.py — LinkGuard 共用工具模組
 提供跨服務共用的工具函式，避免程式碼重複。
 """
 
+from __future__ import annotations
+
 import json
 import os
 import socket

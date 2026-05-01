@@ -66,5 +66,6 @@ LINKGUARD/linkguardMB/Android/build/reports/
 
 # Runtime database (auto-generated)
 win11/data/linkguard.db
+macos/data/
 
 win11/logs/

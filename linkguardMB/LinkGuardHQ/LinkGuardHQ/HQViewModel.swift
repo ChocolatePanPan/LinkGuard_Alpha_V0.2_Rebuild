@@ -155,7 +155,12 @@ class HQViewModel: ObservableObject {
         peerClient.serverStatus?.fieldUnitCount ?? 0
     }
     var isBackendConnected: Bool {
-        hqRole == .peer ? peerBackendConnected : backendBridge.isConnected
+        #if os(macOS)
+        if hqRole == .server, backendMode == .embedded {
+            return backendBridge.isConnected || embeddedBackendHasStarted
+        }
+        #endif
+        return hqRole == .peer ? peerBackendConnected : backendBridge.isConnected
     }
 
     /// 實際可達的後端 host（peer 模式下取主 HQ 透過 peerClient 同步來的 host）。
@@ -164,8 +169,17 @@ class HQViewModel: ObservableObject {
         if hqRole == .peer {
             return peerClient.serverStatus?.backendHost ?? ""
         }
+        #if os(macOS)
+        if backendMode == .embedded { return "127.0.0.1" }
+        #endif
         return backendBridge.backendHost
     }
+
+    #if os(macOS)
+    private var embeddedBackendHasStarted: Bool {
+        backendSupervisor.services.contains { $0.status != .stopped }
+    }
+    #endif
 
     // MARK: - 受困者總覽（含優先級、處置狀態）
 
@@ -274,8 +288,9 @@ class HQViewModel: ObservableObject {
     // MARK: - 初始化
 
     init() {
-        // Mac-only 主路徑：預設不啟用 Windows bridge 自動探索與資料轉發。
-        server.backendBridge = nil
+        // Mac-only 主路徑：所有後端/AI 功能預設指向此 Mac 的 sidecar。
+        server.backendBridge = backendBridge
+        backendBridge.server = server
 
         // 初始化雙重語音辨識（WhisperKit + Apple Speech）— 僅 server 模式需要
         if hqRole == .server {
@@ -749,6 +764,9 @@ class HQViewModel: ObservableObject {
 
     /// 啟動所有本地伺服器（server 模式專用）
     private func startAllLocalServers() {
+        #if os(macOS)
+        ensureMacLocalBackend()
+        #endif
         server.statusSnapshotProvider = { [weak self] in
             self?.buildServerStatusSnapshot() ?? HQServerStatusSnapshot(
                 speechServerRunning: false, speechProcessedCount: 0,
@@ -767,6 +785,23 @@ class HQViewModel: ObservableObject {
         photoServer.start()
         server.startLocalStatsTimer()
     }
+
+    #if os(macOS)
+    /// Ensures every backend/AI feature uses the Mac-local Python sidecar.
+    func ensureMacLocalBackend() {
+        guard hqRole == .server, backendMode == .embedded else { return }
+        server.backendBridge = backendBridge
+        backendBridge.server = server
+
+        if backendSupervisor.services.allSatisfy({ $0.status == .stopped }) {
+            backendSupervisor.startAll()
+        }
+
+        if backendBridge.backendHost != "127.0.0.1" || (!backendBridge.isConnected && !backendBridge.isConnecting) {
+            backendBridge.connect(host: "127.0.0.1", port: 9000)
+        }
+    }
+    #endif
 
     /// 建立伺服器狀態快照（供 peer 同步）
     private func buildServerStatusSnapshot() -> HQServerStatusSnapshot {
@@ -1170,6 +1205,26 @@ class HQViewModel: ObservableObject {
         if hqRole == .peer {
             peerClient.requestAIDecision(context: context)
         } else {
+            #if os(macOS)
+            ensureMacLocalBackend()
+            if backendMode == .embedded, !backendBridge.isConnected {
+                backendBridge.isRequestingAI = true
+                backendBridge.lastError = nil
+                Task { [weak self] in
+                    guard let self else { return }
+                    for _ in 0..<40 {
+                        if self.backendBridge.isConnected {
+                            self.backendBridge.requestAIDecision(context: context)
+                            return
+                        }
+                        try? await Task.sleep(nanoseconds: 250_000_000)
+                    }
+                    self.backendBridge.isRequestingAI = false
+                    self.backendBridge.lastError = "本機 TCP 後端尚未連線（127.0.0.1:9000），請在後端服務頁確認 TCP Aggregator 已啟動"
+                }
+                return
+            }
+            #endif
             backendBridge.requestAIDecision(context: context)
         }
         logEvent(type: .command, title: "請求 AI 決策", detail: context.isEmpty ? "（無額外情境）" : context.prefix(60) + "...")

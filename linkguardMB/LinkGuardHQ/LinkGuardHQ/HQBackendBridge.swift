@@ -41,11 +41,12 @@ func makeBackendURL(host rawHost: String, port: Int, path: String) -> URL? {
 
 // MARK: - HQ 後台橋接器（選用）
 
-/// 連接 Mac HQ 到外部 Backend TCP Server (port 9000)（選用，Mac 本身即主伺服器）
-/// 可將前線數據轉發至外部後台，並接收後台的決策/氣象/節點資訊回傳前線
+/// 連接 Mac HQ 到 Backend TCP Server (port 9000)。
+/// Embedded 模式下目標是此 Mac 的 127.0.0.1 sidecar；Remote/Bonjour 模式仍可連外部後台。
 @MainActor
 class HQBackendBridge: ObservableObject {
     @Published var isConnected = false
+    @Published var isConnecting = false
     @Published var backendHost: String = ""
     @Published var lastError: String?
     @Published var backendDecisions: [BackendDecision] = []
@@ -105,6 +106,7 @@ class HQBackendBridge: ObservableObject {
     func connect(host: String, port: UInt16 = 9000) {
         backendHost = host
         lastError = nil
+        isConnecting = true
 
         let nwHost = NWEndpoint.Host(host)
         guard let nwPort = NWEndpoint.Port(rawValue: port) else {
@@ -119,6 +121,7 @@ class HQBackendBridge: ObservableObject {
                 guard let self else { return }
                 switch state {
                 case .ready:
+                    self.isConnecting = false
                     self.isConnected = true
                     self.lastError = nil
                     self.receiveBuffer = Data()
@@ -127,10 +130,12 @@ class HQBackendBridge: ObservableObject {
                     self.sendHello()
                 case .failed(let error):
                     print("[Bridge] 連線失敗: \(error)")
+                    self.isConnecting = false
                     self.isConnected = false
                     self.lastError = error.localizedDescription
                     self.scheduleReconnect()
                 case .cancelled:
+                    self.isConnecting = false
                     self.isConnected = false
                     self.stopPing()
                 default:
@@ -150,6 +155,7 @@ class HQBackendBridge: ObservableObject {
         connection?.cancel()
         connection = nil
         isConnected = false
+        isConnecting = false
         print("[Bridge] 已斷開後台連線")
     }
 
@@ -275,6 +281,7 @@ class HQBackendBridge: ObservableObject {
         stopAutoDiscovery()
         lastError = nil
         backendHost = "" // 待 pong 帶回 server_ip 後填入
+        isConnecting = true
 
         let params = NWParameters.tcp
         connection = NWConnection(to: endpoint, using: params)
@@ -283,6 +290,7 @@ class HQBackendBridge: ObservableObject {
                 guard let self else { return }
                 switch state {
                 case .ready:
+                    self.isConnecting = false
                     self.isConnected = true
                     self.lastError = nil
                     self.receiveBuffer = Data()
@@ -302,12 +310,14 @@ class HQBackendBridge: ObservableObject {
                     self.sendHello()
                 case .failed(let error):
                     print("[Bridge] Bonjour 連線失敗: \(error)")
+                    self.isConnecting = false
                     self.isConnected = false
                     self.backendHost = ""
                     self.lastError = error.localizedDescription
                     // 重新啟動探索
                     self.startAutoDiscovery()
                 case .cancelled:
+                    self.isConnecting = false
                     self.isConnected = false
                     self.stopPing()
                 default:
@@ -360,7 +370,13 @@ class HQBackendBridge: ObservableObject {
 
     /// HQ 主動請求後台 AI 生成決策
     func requestAIDecision(context: String = "") {
-        guard isConnected else { return }
+        guard isConnected else {
+            isRequestingAI = false
+            lastError = isConnecting
+                ? "本機後端正在連線中，請稍候再試"
+                : "本機 TCP 後端尚未連線（127.0.0.1:9000）"
+            return
+        }
         isRequestingAI = true
         lastError = nil
         sendToBackend(type: "request_decision", data: ["voice_text": context], deviceId: "HQ")
@@ -488,11 +504,11 @@ class HQBackendBridge: ObservableObject {
         sendToBackend(type: "translate_request", data: data, deviceId: deviceId)
     }
 
-    /// 將照片二進位轉發到 Windows photo_server
+    /// 將照片二進位轉發到 Mac-local photo_server
     func forwardPhotoToBackend(photoData: Data, metadata: [String: String]) {
-        guard isConnected, !backendHost.isEmpty else { return }
-        guard let url = makeBackendURL(host: backendHost, port: 8004, path: "/photo") else {
-            print("[Bridge] 照片轉發失敗：URL 無效 host=\(backendHost)")
+        let targetHost = backendHost.isEmpty ? "127.0.0.1" : backendHost
+        guard let url = makeBackendURL(host: targetHost, port: 8004, path: "/photo") else {
+            print("[Bridge] 照片轉發失敗：URL 無效 host=\(targetHost)")
             return
         }
 
@@ -523,16 +539,16 @@ class HQBackendBridge: ObservableObject {
             if let error {
                 print("[Bridge] 照片轉發失敗: \(error)")
             } else {
-                print("[Bridge] 照片已轉發到 Windows photo_server")
+                print("[Bridge] 照片已轉發到 Mac photo_server")
             }
         }.resume()
     }
 
-    /// 將會報音訊轉發到 Windows http_server
+    /// 將會報音訊轉發到 Mac-local report endpoint
     func forwardReportToBackend(audioData: Data, metadata: [String: String]) {
-        guard isConnected, !backendHost.isEmpty else { return }
-        guard let url = makeBackendURL(host: backendHost, port: 8003, path: "/report") else {
-            print("[Bridge] 會報轉發失敗：URL 無效 host=\(backendHost)")
+        let targetHost = backendHost.isEmpty ? "127.0.0.1" : backendHost
+        guard let url = makeBackendURL(host: targetHost, port: 8003, path: "/report") else {
+            print("[Bridge] 會報轉發失敗：URL 無效 host=\(targetHost)")
             return
         }
 
@@ -561,7 +577,7 @@ class HQBackendBridge: ObservableObject {
             if let error {
                 print("[Bridge] 會報轉發失敗: \(error)")
             } else {
-                print("[Bridge] 會報已轉發到 Windows http_server")
+                print("[Bridge] 會報已轉發到 Mac report endpoint")
             }
         }.resume()
     }
