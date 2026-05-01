@@ -94,7 +94,7 @@ struct HQGrandDashboardView: View {
     // MARK: - Panel 1: AI 主機健康度
 
     private var aiHealthPanel: some View {
-        panelCard(title: "AI 主機健康度", icon: "cpu") {
+        panelCard(title: L("AI 主機健康度"), icon: "cpu") {
             if let h = aiHealth {
                 VStack(alignment: .leading, spacing: 8) {
                     ForEach(h.hosts, id: \.name) { host in
@@ -145,7 +145,7 @@ struct HQGrandDashboardView: View {
     // MARK: - Panel 2: 受困者即時排序
 
     private var rankedPatientsPanel: some View {
-        panelCard(title: "受困者即時排序（Top 10）", icon: "person.fill.questionmark") {
+        panelCard(title: L("受困者即時排序（Top 10）"), icon: "person.fill.questionmark") {
             let top = Array(vm.backendBridge.rankedPatients.prefix(10))
             if top.isEmpty {
                 Text(L("無資料"))
@@ -280,7 +280,7 @@ struct HQGrandDashboardView: View {
     // MARK: - Panel 4: 全節點清單
 
     private var nodeListPanel: some View {
-        panelCard(title: "全節點清單", icon: "antenna.radiowaves.left.and.right") {
+        panelCard(title: L("全節點清單"), icon: "antenna.radiowaves.left.and.right") {
             let nodes = vm.backendBridge.loraNodes
             if nodes.isEmpty {
                 Text(L("無 LoRa 節點資料"))
@@ -313,7 +313,7 @@ struct HQGrandDashboardView: View {
     // MARK: - Panel 5: AI 對話時間軸
 
     private var conversationTimelinePanel: some View {
-        panelCard(title: "AI 對話時間軸（最近）", icon: "bubble.left.and.bubble.right") {
+        panelCard(title: L("AI 對話時間軸（最近）"), icon: "bubble.left.and.bubble.right") {
             if pendingCommands.isEmpty {
                 Text(L("尚無待審/進行中提案"))
                     .font(.caption).foregroundColor(.secondary)
@@ -390,7 +390,7 @@ struct HQGrandDashboardView: View {
     // MARK: - Panel 6: 決策審計（簡版：用 backendDecisions）
 
     private var decisionAuditPanel: some View {
-        panelCard(title: "決策審計（最近 20 筆）", icon: "list.bullet.clipboard") {
+        panelCard(title: L("決策審計（最近 20 筆）"), icon: "list.bullet.clipboard") {
             let entries = Array(vm.backendBridge.backendDecisions.prefix(20))
             if entries.isEmpty {
                 Text(L("無決策紀錄"))

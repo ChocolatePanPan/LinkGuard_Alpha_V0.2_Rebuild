@@ -79,7 +79,7 @@ struct HQSettingsView: View {
                 get: { l10n.language },
                 set: { l10n.language = $0 }
             )) {
-                Text("繁體中文").tag("zh-Hant")
+                Text(L("繁體中文")).tag("zh-Hant")
                 Text("English").tag("en")
             }
         }

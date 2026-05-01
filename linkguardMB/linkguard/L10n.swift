@@ -559,6 +559,9 @@ final class L10n: ObservableObject {
         "決策 AI": "Decision AI",
         "需要上報主模型": "Escalation to main model needed",
         "AI 判斷需上報": "AI recommends escalation",
+        "已回報傷患": "Reported Patients",
+        "已回報傷患（表單填寫）": "Reported Patients (Forms)",
+        "已回報傷患：%lld 名": "Reported Patients: %lld",
 
         // --- Round 2: additional UI translations (interpolations / errors / labels) ---
         "未知裝置": "Unknown Device",

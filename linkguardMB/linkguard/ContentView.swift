@@ -2385,7 +2385,7 @@ struct ReinforcementAlertOverlay: View {
                     .foregroundColor(NV.textOnColor)
 
                 VStack(spacing: 12) {
-                    Text("來自 \(request.fromTeam)")
+                    Text(L("來自 %@", request.fromTeam))
                         .font(.title2).bold()
 
                     Text(request.message)

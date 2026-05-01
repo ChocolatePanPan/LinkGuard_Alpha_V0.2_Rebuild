@@ -993,25 +993,25 @@ struct HQDashboardView: View {
                 // 統計卡片
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()),
                                      GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                    HQStatCard(title: "前線裝置", value: "\(vm.connectedCount)",
+                    HQStatCard(title: L("前線裝置"), value: "\(vm.connectedCount)",
                                icon: "iphone.radiowaves.left.and.right", color: NV.green)
-                    HQStatCard(title: "受困者", value: "\(vm.totalVictimCount)",
+                    HQStatCard(title: L("受困者"), value: "\(vm.totalVictimCount)",
                                icon: "person.wave.2", color: NV.info)
                     HQStatCard(title: "SOS", value: "\(vm.sosCount)",
                                icon: "exclamationmark.triangle.fill", color: NV.danger)
-                    HQStatCard(title: "已發命令", value: "\(vm.commandHistory.count)",
+                    HQStatCard(title: L("已發命令"), value: "\(vm.commandHistory.count)",
                                icon: "megaphone.fill", color: NV.command)
-                    HQStatCard(title: "PWS 警報", value: "\(vm.pwsAlerts.filter(\.isActive).count)",
+                    HQStatCard(title: L("PWS 警報"), value: "\(vm.pwsAlerts.filter(\.isActive).count)",
                                icon: "exclamationmark.shield", color: NV.warning)
-                    HQStatCard(title: "人員配置", value: "\(vm.personnelAssignments.count)",
+                    HQStatCard(title: L("人員配置"), value: "\(vm.personnelAssignments.count)",
                                icon: "person.3.fill", color: NV.team)
-                    HQStatCard(title: "通訊", value: "\(vm.chatMessages.count)",
+                    HQStatCard(title: L("通訊"), value: "\(vm.chatMessages.count)",
                                icon: "bubble.left.and.bubble.right.fill", color: NV.info)
-                    HQStatCard(title: "會報", value: "\(vm.briefings.count)",
+                    HQStatCard(title: L("會報"), value: "\(vm.briefings.count)",
                                icon: "doc.text.fill", color: NV.reinforce)
-                    HQStatCard(title: "任務", value: "\(vm.activeTaskCount)",
+                    HQStatCard(title: L("任務"), value: "\(vm.activeTaskCount)",
                                icon: "checklist", color: NV.warning)
-                    HQStatCard(title: "後台", value: vm.isBackendConnected ? L("已連線") : L("離線"),
+                    HQStatCard(title: L("後台"), value: vm.isBackendConnected ? L("已連線") : L("離線"),
                                icon: "server.rack", color: vm.isBackendConnected ? NV.green : .gray)
                 }
                 .padding(.horizontal)

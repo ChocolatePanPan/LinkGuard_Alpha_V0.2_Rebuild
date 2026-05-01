@@ -500,6 +500,11 @@ final class L10n: ObservableObject {
         "載入中…": "Loading…",
         "無資料": "No Data",
         "%@ 正在廣播": "%@ broadcasting",
+        "AI 主機健康度": "AI Host Health",
+        "受困者即時排序（Top 10）": "Victim Live Ranking (Top 10)",
+        "全節點清單": "All Node List",
+        "決策審計（最近 20 筆）": "Decision Audit (Latest 20)",
+        "繁體中文": "Traditional Chinese",
         // Quick commands
         "開始搜索": "Start Search",
         "原地待命": "Stand By",
