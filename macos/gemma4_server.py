@@ -144,6 +144,8 @@ _AI_PROFILE_DEFAULTS = {
     "e2b_five": {"model": "gemma4:e2b", "workers": 5},
 }
 
+_OLLAMA_MODEL_CACHE: dict[str, tuple[float, set[str]]] = {}
+
 
 def _ai_runtime_profile() -> str:
     raw = os.environ.get("LINKGUARD_AI_PROFILE") or DUAL_CFG.get("runtime_profile") or ""
@@ -215,19 +217,116 @@ def _ollama_response_text(response) -> str:
         return ""
 
 
+def _ollama_installed_models(host: str) -> set[str]:
+    now = time.monotonic()
+    cached = _OLLAMA_MODEL_CACHE.get(host)
+    if cached and now - cached[0] < 15:
+        return cached[1]
+
+    client = ollama.Client(host=host)
+    listing = client.list()
+    raw_models = []
+    if isinstance(listing, dict):
+        raw_models = listing.get("models") or []
+    else:
+        raw_models = getattr(listing, "models", []) or []
+
+    names: set[str] = set()
+    for item in raw_models:
+        if isinstance(item, dict):
+            name = item.get("name") or item.get("model")
+        else:
+            name = getattr(item, "name", None) or getattr(item, "model", None)
+        if name:
+            names.add(str(name))
+
+    _OLLAMA_MODEL_CACHE[host] = (now, names)
+    return names
+
+
+def _model_fallback_candidates(requested_model: str) -> list[str]:
+    candidates: list[str] = []
+
+    def add(name: object):
+        value = str(name or "").strip()
+        if value and value not in candidates:
+            candidates.append(value)
+
+    add(requested_model)
+
+    tiers = DUAL_CFG.get("tiers") if isinstance(DUAL_CFG, dict) else {}
+    if isinstance(tiers, dict):
+        for cfg in tiers.values():
+            if not isinstance(cfg, dict):
+                continue
+            if cfg.get("name") == requested_model:
+                for fallback in cfg.get("fallback") or []:
+                    add(fallback)
+        for cfg in tiers.values():
+            if isinstance(cfg, dict):
+                add(cfg.get("name"))
+
+    add(os.environ.get("LINKGUARD_OLLAMA_FALLBACK_MODEL"))
+    add(RUNTIME_MODEL_NAME)
+    add("gemma4:latest")
+    add("gemma4:26b")
+    return candidates
+
+
+def _resolve_available_ollama_model(host: str, requested_model: str,
+                                    emit_warning: bool = True) -> tuple[str, bool]:
+    try:
+        installed = _ollama_installed_models(host)
+    except Exception as e:
+        if emit_warning:
+            logger.warning(f"[AI] 無法查詢 Ollama 模型清單，沿用 {requested_model}: {e}")
+        return requested_model, False
+
+    if not installed:
+        return requested_model, False
+
+    for candidate in _model_fallback_candidates(requested_model):
+        if candidate in installed:
+            if emit_warning and candidate != requested_model:
+                logger.warning(f"[AI] 模型 {requested_model} 未安裝，改用 {candidate}")
+            return candidate, candidate != requested_model
+
+    preferred = sorted(installed)[0]
+    if emit_warning:
+        logger.warning(f"[AI] 模型 {requested_model} 與 fallback 都未安裝，改用 {preferred}")
+    return preferred, preferred != requested_model
+
+
+def _effective_ai_runtime_status(host: str = OLLAMA_HOST) -> dict:
+    requested = _parallel_model_name(_get_runtime_model())
+    resolved, fallback = _resolve_available_ollama_model(host, requested, emit_warning=False)
+    configured_workers = _parallel_worker_count()
+    return {
+        "requested_model": requested,
+        "runtime_model": resolved,
+        "model_fallback": fallback,
+        "configured_parallel_workers": configured_workers,
+        "parallel_workers": 1 if fallback else configured_workers,
+    }
+
+
 async def _run_profiled_chat(host: str, chat_kwargs: dict,
                              think: Optional[bool] = False) -> tuple[object, dict]:
     workers = _parallel_worker_count()
-    model = _parallel_model_name(str(chat_kwargs.get("model") or ""))
+    requested_model = _parallel_model_name(str(chat_kwargs.get("model") or ""))
+    model, used_fallback = _resolve_available_ollama_model(host, requested_model)
+    effective_workers = 1 if used_fallback else workers
     base_kwargs = dict(chat_kwargs)
     base_kwargs["model"] = model
     profile = _ai_runtime_profile()
 
-    if workers <= 1:
+    if effective_workers <= 1:
         response = await asyncio.to_thread(_ollama_chat_sync, host, base_kwargs, think)
         return response, {
             "ai_profile": profile or "single",
+            "requested_model": requested_model,
             "runtime_model": model,
+            "model_fallback": used_fallback,
             "parallel_workers": 1,
             "parallel_successes": 1,
         }
@@ -237,7 +336,7 @@ async def _run_profiled_chat(host: str, chat_kwargs: dict,
         return await asyncio.to_thread(_ollama_chat_sync, host, kwargs, think)
 
     results = await asyncio.gather(
-        *[_worker(i) for i in range(workers)], return_exceptions=True
+        *[_worker(i) for i in range(effective_workers)], return_exceptions=True
     )
     successes = [r for r in results if not isinstance(r, Exception)]
     if not successes:
@@ -249,8 +348,10 @@ async def _run_profiled_chat(host: str, chat_kwargs: dict,
     response = max(successes, key=lambda r: len(_ollama_response_text(r)))
     return response, {
         "ai_profile": profile or "parallel",
+        "requested_model": requested_model,
         "runtime_model": model,
-        "parallel_workers": workers,
+        "model_fallback": used_fallback,
+        "parallel_workers": effective_workers,
         "parallel_successes": len(successes),
     }
 
@@ -1501,7 +1602,9 @@ async def generate(req: GenerateRequest):
         "escalation_status": escalation_status,  # pending|queued|processing|done|failed|not_required|peer_offline
         "queue_position": queue_position,
         "request_id": request_id,
+        "requested_model": profile_info.get("requested_model"),
         "runtime_model": profile_info.get("runtime_model", runtime_model),
+        "model_fallback": profile_info.get("model_fallback", False),
         "ai_profile": profile_info.get("ai_profile"),
         "parallel_workers": profile_info.get("parallel_workers", 1),
         "parallel_successes": profile_info.get("parallel_successes", 1),
@@ -2013,7 +2116,9 @@ async def hq_chat(req: ChatRequest):
     result = {
         "reply": reply,
         "model": active_model,
+        "requested_model": profile_info.get("requested_model"),
         "runtime_model": profile_info.get("runtime_model", runtime_model),
+        "model_fallback": profile_info.get("model_fallback", False),
         "ai_profile": profile_info.get("ai_profile"),
         "parallel_workers": profile_info.get("parallel_workers", 1),
         "parallel_successes": profile_info.get("parallel_successes", 1),
@@ -2308,7 +2413,9 @@ async def hq_chat_with_tools(req: ChatRequest):
     return api_ok({
         "reply": final_reply,
         "model": active_model,
+        "requested_model": profile_info.get("requested_model"),
         "runtime_model": profile_info.get("runtime_model", runtime_model),
+        "model_fallback": profile_info.get("model_fallback", False),
         "ai_profile": profile_info.get("ai_profile"),
         "parallel_workers": profile_info.get("parallel_workers", 1),
         "parallel_successes": profile_info.get("parallel_successes", 1),
@@ -2905,6 +3012,7 @@ def triage_deactivate(req: DeactivateRequest):
 @app.get("/health")
 def health():
     ollama_ok = False
+    runtime_status = _effective_ai_runtime_status()
     try:
         client = ollama.Client(host=OLLAMA_HOST)
         client.list()
@@ -2916,9 +3024,12 @@ def health():
         extras={
             "ollama_connected": ollama_ok,
             "active_model": MODEL_NAME,
-            "runtime_model": _get_runtime_model(),
+            "requested_model": runtime_status["requested_model"],
+            "runtime_model": runtime_status["runtime_model"],
+            "model_fallback": runtime_status["model_fallback"],
             "ai_profile": _ai_runtime_profile() or "single",
-            "parallel_workers": _parallel_worker_count(),
+            "configured_parallel_workers": runtime_status["configured_parallel_workers"],
+            "parallel_workers": runtime_status["parallel_workers"],
         },
     )
 
@@ -3552,13 +3663,17 @@ def update_dual_config(req: DualConfigUpdate):
 @app.get("/dual/status")
 def dual_status():
     """查詢雙模型運作狀態。"""
+    runtime_status = _effective_ai_runtime_status()
     return api_ok({
         "enabled": DUAL_CFG.get("enabled", False),
         "local_role": DUAL_CFG.get("local_role", "unknown"),
-        "local_model": _get_runtime_model(),
+        "local_model": runtime_status["runtime_model"],
+        "requested_model": runtime_status["requested_model"],
+        "model_fallback": runtime_status["model_fallback"],
         "ai_profile": _ai_runtime_profile() or "single",
-        "parallel_workers": _parallel_worker_count(),
-        "parallel_model": _parallel_model_name(_get_runtime_model()),
+        "configured_parallel_workers": runtime_status["configured_parallel_workers"],
+        "parallel_workers": runtime_status["parallel_workers"],
+        "parallel_model": runtime_status["runtime_model"],
         "local_ip": get_local_ip(),
         "peer_host": DUAL_CFG.get("peer_host", ""),
         "peer_port": DUAL_CFG.get("peer_port", 8001),
