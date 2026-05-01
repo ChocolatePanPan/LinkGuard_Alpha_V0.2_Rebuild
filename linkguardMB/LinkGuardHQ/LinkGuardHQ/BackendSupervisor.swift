@@ -40,6 +40,62 @@ struct BackendServiceSpec: Identifiable, Hashable {
     ]
 }
 
+enum LocalAIModelProfile: String, CaseIterable, Identifiable {
+    case singleE4B = "e4b"
+    case single26B = "26b"
+    case dualE4B = "e4b_dual"
+    case fiveE2B = "e2b_five"
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .singleE4B: return "E4B"
+        case .single26B: return "26B"
+        case .dualE4B: return "E4B + E4B（雙執行緒）"
+        case .fiveE2B: return "E2B × 5（五並行）"
+        }
+    }
+
+    var runtimeModel: String {
+        switch self {
+        case .singleE4B, .dualE4B: return "gemma4:e4b"
+        case .single26B: return "gemma4:26b"
+        case .fiveE2B: return "gemma4:e2b"
+        }
+    }
+
+    var parallelWorkers: Int {
+        switch self {
+        case .singleE4B, .single26B: return 1
+        case .dualE4B: return 2
+        case .fiveE2B: return 5
+        }
+    }
+
+    var summary: String {
+        switch self {
+        case .singleE4B:
+            return "單一 E4B，低延遲、適合一般指揮對話。"
+        case .single26B:
+            return "單一 26B，深度分析優先，耗用資源較高。"
+        case .dualE4B:
+            return "同時啟動 2 個 E4B 推理 worker，取較完整回覆。"
+        case .fiveE2B:
+            return "同時啟動 5 個 E2B 推理 worker，適合快速多並行回覆。"
+        }
+    }
+
+    var environment: [String: String] {
+        [
+            "LINKGUARD_AI_PROFILE": rawValue,
+            "LINKGUARD_OLLAMA_MODEL": runtimeModel,
+            "LINKGUARD_AI_PARALLEL_MODEL": runtimeModel,
+            "LINKGUARD_AI_PARALLEL_WORKERS": "\(parallelWorkers)",
+        ]
+    }
+}
+
 enum BackendServiceStatus: String {
     case stopped, starting, healthy, unhealthy, crashed
 }
@@ -210,6 +266,12 @@ final class BackendSupervisor: ObservableObject {
         p.executableURL = python
         p.arguments = [script.path]
         p.currentDirectoryURL = backendDir
+        if id == "gemma4_server" {
+            let profile = applyStoredAIModelProfile(restartIfRunning: false)
+            var environment = ProcessInfo.processInfo.environment
+            profile.environment.forEach { environment[$0.key] = $0.value }
+            p.environment = environment
+        }
 
         // Forward stdout & stderr into the per-service ring buffer.
         let pipe = Pipe()
@@ -281,6 +343,43 @@ final class BackendSupervisor: ObservableObject {
 
     func restartCrashed() {
         for s in services where s.status == .crashed { restart(s.id) }
+    }
+
+    @discardableResult
+    func applyStoredAIModelProfile(restartIfRunning: Bool = false) -> LocalAIModelProfile {
+        let raw = UserDefaults.standard.string(forKey: "ai.modelProfile") ?? LocalAIModelProfile.singleE4B.rawValue
+        let profile = LocalAIModelProfile(rawValue: raw) ?? .singleE4B
+        writeAIModelProfile(profile)
+        if restartIfRunning,
+           services.first(where: { $0.id == "gemma4_server" })?.pid != nil {
+            restart("gemma4_server")
+        }
+        return profile
+    }
+
+    private func writeAIModelProfile(_ profile: LocalAIModelProfile) {
+        let configURL = backendDir.appendingPathComponent("dual_config.json")
+        var config: [String: Any] = [:]
+        if let data = try? Data(contentsOf: configURL),
+           let object = try? JSONSerialization.jsonObject(with: data),
+           let dictionary = object as? [String: Any] {
+            config = dictionary
+        }
+        config["enabled"] = false
+        config["runtime_profile"] = profile.rawValue
+        config["local_model"] = profile.runtimeModel
+        config["parallel"] = [
+            "enabled": profile.parallelWorkers > 1,
+            "model": profile.runtimeModel,
+            "workers": profile.parallelWorkers,
+        ]
+
+        do {
+            let data = try JSONSerialization.data(withJSONObject: config, options: [.prettyPrinted, .sortedKeys])
+            try data.write(to: configURL, options: .atomic)
+        } catch {
+            services.first(where: { $0.id == "gemma4_server" })?.lastError = "AI profile write failed: \(error.localizedDescription)"
+        }
     }
 
     @objc private func handleTerminate() { stopAll() }

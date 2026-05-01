@@ -20,6 +20,7 @@ struct HQSettingsView: View {
     @AppStorage("hq.remoteHost") private var remoteHost: String = ""
     @AppStorage("backendHost") private var legacyBackendHost: String = ""
     @AppStorage("ai.modeOverride.global") private var aiModeGlobal: String = "auto"
+    @AppStorage("ai.modelProfile") private var aiModelProfileRaw: String = LocalAIModelProfile.singleE4B.rawValue
     @AppStorage("voice.engine") private var voiceEngine: String = "whisperkit"
     @AppStorage("voice.modelSize") private var voiceModelSize: String = "large-v3"
 
@@ -27,6 +28,10 @@ struct HQSettingsView: View {
 
     private var backendMode: BackendMode {
         BackendMode(rawValue: backendModeRaw) ?? .embedded
+    }
+
+    private var aiModelProfile: LocalAIModelProfile {
+        LocalAIModelProfile(rawValue: aiModelProfileRaw) ?? .singleE4B
     }
 
     var body: some View {
@@ -140,6 +145,36 @@ struct HQSettingsView: View {
                 Text(L("鎖定 (Locked)")).tag("locked")
             }
             .pickerStyle(.segmented)
+
+            Picker(L("模型大小"), selection: $aiModelProfileRaw) {
+                ForEach(LocalAIModelProfile.allCases) { profile in
+                    Text(profile.displayName).tag(profile.rawValue)
+                }
+            }
+            .pickerStyle(.menu)
+
+            Text(aiModelProfile.summary)
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            #if os(macOS)
+            HStack {
+                Button {
+                    supervisor.applyStoredAIModelProfile(restartIfRunning: true)
+                } label: {
+                    Label(L("套用並重啟 AI"), systemImage: "arrow.triangle.2.circlepath")
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(backendMode != .embedded)
+
+                Spacer()
+
+                Text("\(aiModelProfile.runtimeModel) · \(aiModelProfile.parallelWorkers) worker")
+                    .font(.caption.monospaced())
+                    .foregroundColor(.secondary)
+            }
+            #endif
+
             Text(L("Auto = AI 直接派發 / Manual = AI 提案、需人員核可 / Locked = 不允許 AI 介入。"))
                 .font(.caption)
                 .foregroundColor(.secondary)

@@ -9,6 +9,12 @@
     "confidence_threshold": 0.7,
     "peer_timeout_sec": 30,
     "peer_ping_interval_sec": 10,
+    "runtime_profile": "e4b",
+    "parallel": {
+        "enabled": false,
+        "model": "gemma4:e4b",
+        "workers": 1
+    },
     "escalation_rules": {
         "min_red_patients_for_auto_escalate": 3,
         "resource_utilization_threshold": 0.8,

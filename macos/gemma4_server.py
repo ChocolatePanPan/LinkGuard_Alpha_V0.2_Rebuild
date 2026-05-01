@@ -136,6 +136,124 @@ def record_ai_activity(action: str, target: str = "", detail: str = "", status: 
         "status": status,
     })
 
+
+_AI_PROFILE_DEFAULTS = {
+    "e4b": {"model": "gemma4:e4b", "workers": 1},
+    "26b": {"model": "gemma4:26b", "workers": 1},
+    "e4b_dual": {"model": "gemma4:e4b", "workers": 2},
+    "e2b_five": {"model": "gemma4:e2b", "workers": 5},
+}
+
+
+def _ai_runtime_profile() -> str:
+    raw = os.environ.get("LINKGUARD_AI_PROFILE") or DUAL_CFG.get("runtime_profile") or ""
+    return str(raw).strip().lower()
+
+
+def _configured_runtime_model(default: str = RUNTIME_MODEL_NAME) -> str:
+    explicit = os.environ.get("LINKGUARD_OLLAMA_MODEL")
+    if explicit:
+        return explicit.strip()
+    env_profile = os.environ.get("LINKGUARD_AI_PROFILE")
+    if env_profile:
+        profile = _AI_PROFILE_DEFAULTS.get(env_profile.strip().lower())
+        if profile:
+            return str(profile["model"])
+    parallel = DUAL_CFG.get("parallel") if isinstance(DUAL_CFG, dict) else {}
+    if isinstance(parallel, dict) and parallel.get("model"):
+        return str(parallel["model"]).strip()
+    profile = _AI_PROFILE_DEFAULTS.get(_ai_runtime_profile())
+    if profile:
+        return str(profile["model"])
+    return default
+
+
+def _parallel_worker_count() -> int:
+    raw = os.environ.get("LINKGUARD_AI_PARALLEL_WORKERS")
+    if raw is None:
+        parallel = DUAL_CFG.get("parallel") if isinstance(DUAL_CFG, dict) else {}
+        if isinstance(parallel, dict):
+            raw = parallel.get("workers")
+    if raw is None:
+        raw = _AI_PROFILE_DEFAULTS.get(_ai_runtime_profile(), {}).get("workers", 1)
+    try:
+        return max(1, min(int(raw), 5))
+    except (TypeError, ValueError):
+        return 1
+
+
+def _parallel_model_name(default_model: str = "") -> str:
+    explicit = os.environ.get("LINKGUARD_AI_PARALLEL_MODEL")
+    if explicit:
+        return explicit.strip()
+    env_profile = os.environ.get("LINKGUARD_AI_PROFILE")
+    if env_profile:
+        profile = _AI_PROFILE_DEFAULTS.get(env_profile.strip().lower())
+        if profile:
+            return str(profile["model"])
+    parallel = DUAL_CFG.get("parallel") if isinstance(DUAL_CFG, dict) else {}
+    if isinstance(parallel, dict) and parallel.get("model"):
+        return str(parallel["model"]).strip()
+    profile = _AI_PROFILE_DEFAULTS.get(_ai_runtime_profile())
+    if profile:
+        return str(profile["model"])
+    return default_model or _configured_runtime_model()
+
+
+def _ollama_chat_sync(host: str, chat_kwargs: dict, think: Optional[bool] = False):
+    client = ollama.Client(host=host)
+    try:
+        return client.chat(**chat_kwargs, think=think)
+    except TypeError:
+        return client.chat(**chat_kwargs)
+
+
+def _ollama_response_text(response) -> str:
+    try:
+        return response.message.content or ""
+    except Exception:
+        return ""
+
+
+async def _run_profiled_chat(host: str, chat_kwargs: dict,
+                             think: Optional[bool] = False) -> tuple[object, dict]:
+    workers = _parallel_worker_count()
+    model = _parallel_model_name(str(chat_kwargs.get("model") or ""))
+    base_kwargs = dict(chat_kwargs)
+    base_kwargs["model"] = model
+    profile = _ai_runtime_profile()
+
+    if workers <= 1:
+        response = await asyncio.to_thread(_ollama_chat_sync, host, base_kwargs, think)
+        return response, {
+            "ai_profile": profile or "single",
+            "runtime_model": model,
+            "parallel_workers": 1,
+            "parallel_successes": 1,
+        }
+
+    async def _worker(index: int):
+        kwargs = dict(base_kwargs)
+        return await asyncio.to_thread(_ollama_chat_sync, host, kwargs, think)
+
+    results = await asyncio.gather(
+        *[_worker(i) for i in range(workers)], return_exceptions=True
+    )
+    successes = [r for r in results if not isinstance(r, Exception)]
+    if not successes:
+        first_error = next((r for r in results if isinstance(r, Exception)), None)
+        if isinstance(first_error, Exception):
+            raise first_error
+        raise RuntimeError("all parallel AI workers failed")
+
+    response = max(successes, key=lambda r: len(_ollama_response_text(r)))
+    return response, {
+        "ai_profile": profile or "parallel",
+        "runtime_model": model,
+        "parallel_workers": workers,
+        "parallel_successes": len(successes),
+    }
+
 # === 雙模型異步升級狀態 ===
 
 # 小模型側：追蹤 in-flight 升級請求
@@ -502,6 +620,9 @@ def _get_runtime_model() -> str:
     """回傳本機 Ollama 實際要跑的模型名。雙模型模式啟用時依角色決定。"""
     if DUAL_CFG.get("enabled") and DUAL_CFG.get("local_model"):
         return DUAL_CFG["local_model"]
+    configured = _configured_runtime_model()
+    if configured:
+        return configured
     entry = MODEL_REGISTRY.get(_get_active_model())
     if entry and entry.get("model"):
         return entry["model"]
@@ -1257,7 +1378,6 @@ async def generate(req: GenerateRequest):
     active_model = _get_active_model()
     runtime_model = _get_runtime_model()
     model_options = _get_model_options()
-    client = ollama.Client(host=OLLAMA_HOST)
     t0 = time.monotonic()
     chat_kwargs = dict(
         model=runtime_model,
@@ -1267,11 +1387,7 @@ async def generate(req: GenerateRequest):
         ],
         options={**model_options, "temperature": 0.2, "num_predict": 1024},
     )
-    try:
-        response = client.chat(**chat_kwargs, think=False)
-    except TypeError:
-        # 舊版 ollama SDK 不支援 think 參數
-        response = client.chat(**chat_kwargs)
+    response, profile_info = await _run_profiled_chat(OLLAMA_HOST, chat_kwargs, think=False)
     decision = (response.message.content or "").strip()
     local_ms = int((time.monotonic() - t0) * 1000)
 
@@ -1364,10 +1480,7 @@ async def generate(req: GenerateRequest):
             ],
             options={**model_options, "temperature": 0.0, "num_predict": 512},
         )
-        try:
-            reason_response = client.chat(**reason_chat_kwargs, think=False)
-        except TypeError:
-            reason_response = client.chat(**reason_chat_kwargs)
+        reason_response, _ = await _run_profiled_chat(OLLAMA_HOST, reason_chat_kwargs, think=False)
         reason_raw = (reason_response.message.content or "").strip()
         reasoning = _clean_reasoning_output(reason_raw)
 
@@ -1388,6 +1501,10 @@ async def generate(req: GenerateRequest):
         "escalation_status": escalation_status,  # pending|queued|processing|done|failed|not_required|peer_offline
         "queue_position": queue_position,
         "request_id": request_id,
+        "runtime_model": profile_info.get("runtime_model", runtime_model),
+        "ai_profile": profile_info.get("ai_profile"),
+        "parallel_workers": profile_info.get("parallel_workers", 1),
+        "parallel_successes": profile_info.get("parallel_successes", 1),
     }
     if escalation_info:
         result["escalation_info"] = escalation_info
@@ -1809,7 +1926,6 @@ async def hq_chat(req: ChatRequest):
                 messages.append({"role": m.role, "content": m.content})
     messages.append({"role": "user", "content": user_msg})
 
-    client = ollama.Client(host=runtime_host)
     t0 = time.monotonic()
     chat_kwargs = dict(
         model=runtime_model,
@@ -1817,15 +1933,9 @@ async def hq_chat(req: ChatRequest):
         options={**model_options, "temperature": 0.4, "num_predict": 768},
     )
 
-    def _call_ollama():
-        try:
-            return client.chat(**chat_kwargs, think=False)
-        except TypeError:
-            return client.chat(**chat_kwargs)
-
     record_ai_activity("HQ對話", target=f"local:{runtime_model}", detail=user_msg[:120])
     try:
-        response = await asyncio.to_thread(_call_ollama)
+        response, profile_info = await _run_profiled_chat(runtime_host, chat_kwargs, think=False)
     except ConnectionError as e:
         logger.warning(f"[CHAT] Ollama 連線失敗: {e}")
         record_ai_activity("HQ對話", target=f"local:{runtime_model}",
@@ -1903,7 +2013,10 @@ async def hq_chat(req: ChatRequest):
     result = {
         "reply": reply,
         "model": active_model,
-        "runtime_model": runtime_model,
+        "runtime_model": profile_info.get("runtime_model", runtime_model),
+        "ai_profile": profile_info.get("ai_profile"),
+        "parallel_workers": profile_info.get("parallel_workers", 1),
+        "parallel_successes": profile_info.get("parallel_successes", 1),
         "tier": tier,
         "elapsed_ms": elapsed_ms,
         "session_id": session_id,
@@ -2128,7 +2241,6 @@ async def hq_chat_with_tools(req: ChatRequest):
             messages.append({"role": m.role, "content": m.content})
     messages.append({"role": "user", "content": user_msg})
 
-    client = ollama.Client(host=OLLAMA_HOST)
     t0 = time.monotonic()
     chat_kwargs = dict(
         model=runtime_model,
@@ -2136,14 +2248,8 @@ async def hq_chat_with_tools(req: ChatRequest):
         options={**model_options, "temperature": 0.4, "num_predict": 1024},
     )
 
-    def _call_ollama():
-        try:
-            return client.chat(**chat_kwargs, think=False)
-        except TypeError:
-            return client.chat(**chat_kwargs)
-
     try:
-        response = await asyncio.to_thread(_call_ollama)
+        response, profile_info = await _run_profiled_chat(OLLAMA_HOST, chat_kwargs, think=False)
     except ConnectionError as e:
         logger.warning(f"[CHAT/TOOLS] Ollama 連線失敗: {e}")
         api_error(
@@ -2202,7 +2308,10 @@ async def hq_chat_with_tools(req: ChatRequest):
     return api_ok({
         "reply": final_reply,
         "model": active_model,
-        "runtime_model": runtime_model,
+        "runtime_model": profile_info.get("runtime_model", runtime_model),
+        "ai_profile": profile_info.get("ai_profile"),
+        "parallel_workers": profile_info.get("parallel_workers", 1),
+        "parallel_successes": profile_info.get("parallel_successes", 1),
         "elapsed_ms": elapsed_ms,
         "proposals": proposals,
         "session_id": session_id,
@@ -2807,6 +2916,9 @@ def health():
         extras={
             "ollama_connected": ollama_ok,
             "active_model": MODEL_NAME,
+            "runtime_model": _get_runtime_model(),
+            "ai_profile": _ai_runtime_profile() or "single",
+            "parallel_workers": _parallel_worker_count(),
         },
     )
 
@@ -3444,6 +3556,9 @@ def dual_status():
         "enabled": DUAL_CFG.get("enabled", False),
         "local_role": DUAL_CFG.get("local_role", "unknown"),
         "local_model": _get_runtime_model(),
+        "ai_profile": _ai_runtime_profile() or "single",
+        "parallel_workers": _parallel_worker_count(),
+        "parallel_model": _parallel_model_name(_get_runtime_model()),
         "local_ip": get_local_ip(),
         "peer_host": DUAL_CFG.get("peer_host", ""),
         "peer_port": DUAL_CFG.get("peer_port", 8001),
