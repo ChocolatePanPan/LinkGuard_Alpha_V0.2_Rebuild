@@ -35,24 +35,14 @@ struct HQSettingsView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
-                Text(L("設定"))
-                    .font(.largeTitle.bold())
-                    .padding(.top, 8)
-
-                generalSection
-                backendSection
-                aiSection
-                voiceSection
-                storageSection
-            }
-            .padding(.vertical, 20)
-            .padding(.horizontal, 24)
-            .frame(maxWidth: 920, alignment: .leading)
-            .frame(maxWidth: .infinity, alignment: .leading)
+        HQPage(maxWidth: NV.readablePageMaxWidth, spacing: NV.pageSpacing) {
+            HQPageHeader(L("設定"), icon: "gearshape.fill", accent: NV.info)
+            generalSection
+            backendSection
+            aiSection
+            voiceSection
+            storageSection
         }
-        .background(NV.bg)
         .sheet(isPresented: $setupAssistantPresented) {
             #if os(macOS)
             SetupAssistantView(supervisor: supervisor,
@@ -231,10 +221,8 @@ struct HQSettingsView: View {
             VStack(alignment: .leading, spacing: 12) {
                 content()
             }
-            .padding()
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.black.opacity(0.2))
-            .cornerRadius(8)
+            .hqPanelChrome(accent: NV.green)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }

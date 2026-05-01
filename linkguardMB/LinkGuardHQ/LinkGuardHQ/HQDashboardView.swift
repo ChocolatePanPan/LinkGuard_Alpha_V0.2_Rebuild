@@ -85,6 +85,13 @@ struct HQDashboardView: View {
     @AppStorage("backendHost") private var backendHost = ""
 
     @State private var sosFlash = false
+    @State private var localIPText = "IP: --"
+
+    private static let sosTimeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm:ss"
+        return formatter
+    }()
 
     var body: some View {
         ZStack {
@@ -126,6 +133,9 @@ struct HQDashboardView: View {
         }
         .onDisappear {
             HQAlarmPlayer.shared.stopAlarm()
+        }
+        .onAppear {
+            localIPText = localIPAddress()
         }
     }
 
@@ -176,11 +186,7 @@ struct HQDashboardView: View {
 
                             Spacer()
 
-                            Text({
-                                let f = DateFormatter()
-                                f.dateFormat = "HH:mm:ss"
-                                return f.string(from: alert.timestamp)
-                            }())
+                            Text(Self.sosTimeFormatter.string(from: alert.timestamp))
                                 .font(.title3.monospacedDigit())
                                 .foregroundColor(.white.opacity(0.8))
 
@@ -434,7 +440,7 @@ struct HQDashboardView: View {
                             Text("Port 8930 · Bonjour")
                                 .font(.caption2).foregroundColor(.secondary)
                             if vm.server.isRunning {
-                                Text(localIPAddress())
+                                Text(localIPText)
                                     .font(.caption2)
                                     .foregroundColor(NV.green)
                                     .textSelection(.enabled)
@@ -443,6 +449,7 @@ struct HQDashboardView: View {
                         Spacer()
                         Button(vm.server.isRunning ? L("停止") : L("啟動")) {
                             vm.toggleServer()
+                            localIPText = localIPAddress()
                         }
                         .font(.caption).bold()
                         .buttonStyle(.bordered)
@@ -1683,11 +1690,9 @@ struct HQStatCard: View {
             Text(L(title))
                 .font(.caption).foregroundColor(.secondary)
         }
-        .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(height: 100)
-        .background(.regularMaterial)
-        .cornerRadius(12)
+        .frame(minHeight: NV.statCardMinHeight, alignment: .leading)
+        .hqPanelChrome(accent: color)
     }
 }
 
