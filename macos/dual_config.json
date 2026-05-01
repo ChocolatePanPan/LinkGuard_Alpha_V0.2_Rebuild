@@ -1,80 +1,80 @@
 {
-    "enabled": false,
-    "local_role": "small",
-    "local_model": "gemma4:e4b",
-    "peer_host": "auto",
-    "peer_port": 8001,
-    "local_callback_url": "",
-    "always_escalate": true,
-    "confidence_threshold": 0.7,
-    "peer_timeout_sec": 30,
-    "peer_ping_interval_sec": 10,
-    "runtime_profile": "e4b",
-    "parallel": {
-        "enabled": false,
-        "model": "gemma4:e4b",
-        "workers": 1
+  "always_escalate" : true,
+  "confidence_threshold" : 0.69999999999999996,
+  "enabled" : false,
+  "escalation_rules" : {
+    "always_escalate_evacuation" : true,
+    "min_red_patients_for_auto_escalate" : 3,
+    "resource_utilization_threshold" : 0.80000000000000004
+  },
+  "local_callback_url" : "",
+  "local_model" : "gemma4:e2b",
+  "local_role" : "small",
+  "parallel" : {
+    "enabled" : true,
+    "model" : "gemma4:e2b",
+    "workers" : 5
+  },
+  "peer_host" : "auto",
+  "peer_ping_interval_sec" : 10,
+  "peer_port" : 8001,
+  "peer_timeout_sec" : 30,
+  "runtime_profile" : "e2b_five",
+  "tier_routing" : {
+    "auto_external_escalate_to_main" : true,
+    "auto_internal_escalate_field_to_hq_local" : true,
+    "field_session_default_tier" : "field",
+    "hq_session_default_tier" : "hq_main"
+  },
+  "tiers" : {
+    "field" : {
+      "context" : 128000,
+      "fallback" : [
+        "gemma4:e2b-it-q4_K_M",
+        "gemma3n:e2b",
+        "qwen2.5:3b-instruct"
+      ],
+      "host" : "http:\/\/localhost:11434",
+      "name" : "gemma4:e2b",
+      "supports_audio" : true,
+      "thinking_mode" : false,
+      "use_for" : [
+        "field_simple_chat",
+        "report_formalize"
+      ]
     },
-    "escalation_rules": {
-        "min_red_patients_for_auto_escalate": 3,
-        "resource_utilization_threshold": 0.8,
-        "always_escalate_evacuation": true
+    "hq_local" : {
+      "context" : 128000,
+      "fallback" : [
+        "gemma4:e4b-it-q4_K_M",
+        "gemma3n:e4b",
+        "qwen2.5:7b-instruct"
+      ],
+      "host" : "http:\/\/localhost:11434",
+      "name" : "gemma4:e4b",
+      "supports_audio" : true,
+      "thinking_mode" : false,
+      "use_for" : [
+        "field_complex",
+        "ai_proposal_field_side"
+      ]
     },
-    "tiers": {
-        "field": {
-            "name": "gemma4:e2b",
-            "host": "http://localhost:11434",
-            "context": 128000,
-            "supports_audio": true,
-            "thinking_mode": false,
-            "use_for": [
-                "field_simple_chat",
-                "report_formalize"
-            ],
-            "fallback": [
-                "gemma4:e2b-it-q4_K_M",
-                "gemma3n:e2b",
-                "qwen2.5:3b-instruct"
-            ]
-        },
-        "hq_local": {
-            "name": "gemma4:e4b",
-            "host": "http://localhost:11434",
-            "context": 128000,
-            "supports_audio": true,
-            "thinking_mode": false,
-            "use_for": [
-                "field_complex",
-                "ai_proposal_field_side"
-            ],
-            "fallback": [
-                "gemma4:e4b-it-q4_K_M",
-                "gemma3n:e4b",
-                "qwen2.5:7b-instruct"
-            ]
-        },
-        "hq_main": {
-            "name": "gemma4:26b",
-            "host": "http://localhost:11434",
-            "context": 256000,
-            "supports_audio": false,
-            "thinking_mode": true,
-            "use_for": [
-                "hq_commander_chat",
-                "main_escalation",
-                "ai_command_proposal"
-            ],
-            "fallback": [
-                "gemma4:26b-a4b-it-q4_K_M",
-                "gemma4:31b",
-                "qwen2.5:14b-instruct"
-            ]
-        }
-    },
-    "tier_routing": {
-        "field_session_default_tier": "field",
-        "hq_session_default_tier": "hq_main",
-        "auto_internal_escalate_field_to_hq_local": true,
-        "auto_external_escalate_to_main": true
+    "hq_main" : {
+      "context" : 256000,
+      "fallback" : [
+        "gemma4:26b-a4b-it-q4_K_M",
+        "gemma4:31b",
+        "qwen2.5:14b-instruct"
+      ],
+      "host" : "http:\/\/localhost:11434",
+      "name" : "gemma4:26b",
+      "supports_audio" : false,
+      "thinking_mode" : true,
+      "use_for" : [
+        "hq_commander_chat",
+        "main_escalation",
+        "ai_command_proposal"
+      ]
     }
+  }
 }
