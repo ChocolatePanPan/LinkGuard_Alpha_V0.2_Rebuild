@@ -8,9 +8,14 @@ enum AppTab: Hashable {
 
 struct ContentView: View {
     @StateObject private var viewModel = LinkGuardViewModel()
+    @EnvironmentObject private var l10n: L10n
     @State private var selectedTab: AppTab = .dashboard
     @State private var cameFromDashboard = false
     @State private var externalAlarm: ExternalAlarmPresentation?
+
+    private func navLabel(_ zh: String, en: String) -> String {
+        l10n.language == "en" ? en : zh
+    }
 
     var body: some View {
         ZStack {
@@ -18,15 +23,15 @@ struct ContentView: View {
                 Tab(L("總覽"), systemImage: "gauge.with.dots.needle.33percent", value: AppTab.dashboard) {
                     DashboardView(vm: viewModel, selectedTab: $selectedTab, cameFromDashboard: $cameFromDashboard)
                 }
-                TabSection(L("通訊")) {
+                TabSection(navLabel("通訊", en: "Messages")) {
                     Tab(L("電台"), systemImage: "antenna.radiowaves.left.and.right", value: AppTab.radio) {
                         RadioView(vm: viewModel)
                     }
-                    Tab(L("通訊"), systemImage: "bubble.left.and.bubble.right.fill", value: AppTab.chat) {
+                    Tab(navLabel("通訊", en: "Messages"), systemImage: "bubble.left.and.bubble.right.fill", value: AppTab.chat) {
                         FieldChatView(vm: viewModel)
                     }
                     .badge(viewModel.chatMessages.count)
-                    Tab(L("指揮命令"), systemImage: "brain.head.profile", value: AppTab.decision) {
+                    Tab(navLabel("指揮命令", en: "Orders"), systemImage: "brain.head.profile", value: AppTab.decision) {
                         DecisionView(vm: viewModel)
                     }
                     .badge(viewModel.decisions.count + viewModel.unreadCommandCount)
