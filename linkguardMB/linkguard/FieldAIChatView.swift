@@ -81,6 +81,9 @@ struct FieldAIChatView: View {
             .aiPausedAppearance(vm.isAIServicePaused)
         }
         .navigationTitle(L("AI 助理"))
+        #if os(iOS)
+        .toolbarVisibility(.hidden, for: .navigationBar)
+        #endif
     }
 
     // MARK: - 子元件

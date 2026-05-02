@@ -63,6 +63,9 @@ struct FieldAIReportView: View {
             .aiPausedAppearance(vm.isAIServicePaused)
         }
         .navigationTitle(L("AI 回報"))
+        #if os(iOS)
+        .toolbarVisibility(.hidden, for: .navigationBar)
+        #endif
     }
 
     // MARK: 狀態列
