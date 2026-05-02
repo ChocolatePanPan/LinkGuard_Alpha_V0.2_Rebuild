@@ -79,6 +79,7 @@ struct HQPage<Content: View>: View {
             }
             .padding(.vertical, NV.pagePadding)
             .padding(.horizontal, NV.pagePadding)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .frame(maxWidth: maxWidth, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .center)
         }

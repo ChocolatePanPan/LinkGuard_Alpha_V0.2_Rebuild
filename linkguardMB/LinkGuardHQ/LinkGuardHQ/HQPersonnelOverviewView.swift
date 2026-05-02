@@ -15,6 +15,8 @@ struct HQPersonnelOverviewView: View {
             Divider()
             content
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .background(NV.bg.ignoresSafeArea())
     }
 
     // MARK: - Header
@@ -56,6 +58,9 @@ struct HQPersonnelOverviewView: View {
             }
         }
         .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: NV.pageMaxWidth, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .center)
     }
 
     private var statsBar: some View {
@@ -80,6 +85,9 @@ struct HQPersonnelOverviewView: View {
                 personnelAssignmentsSection
             }
             .padding()
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: NV.pageMaxWidth, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .center)
         }
     }
 

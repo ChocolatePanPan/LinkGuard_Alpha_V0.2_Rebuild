@@ -93,6 +93,7 @@ enum HQNavigationPlacement: String, CaseIterable, Identifiable {
 struct HQDashboardView: View {
     @ObservedObject var vm: HQViewModel
     @EnvironmentObject var l10n: L10n
+    @Environment(\.colorScheme) private var colorScheme
     @AppStorage("appColorScheme") private var appColorScheme: String = "dark"
     @AppStorage("hq.navigationPlacement") private var navigationPlacementRaw: String = HQNavigationPlacement.left.rawValue
     @State private var selectedSection: HQSection? = .dashboard
@@ -115,6 +116,11 @@ struct HQDashboardView: View {
         return formatter
     }()
 
+    private static let bottomNavigationItemWidth: CGFloat = 86
+    private static let bottomNavigationItemHeight: CGFloat = 54
+    private static let bottomNavigationBarHeight: CGFloat = 74
+    private static let bottomNavigationSpacing: CGFloat = 8
+
     private var navigationPlacement: HQNavigationPlacement {
         HQNavigationPlacement(rawValue: navigationPlacementRaw) ?? .left
     }
@@ -129,6 +135,10 @@ struct HQDashboardView: View {
 
     private var isAbsoluteBlackMode: Bool {
         appColorScheme == "black"
+    }
+
+    private var usesBlackNavigationChrome: Bool {
+        isAbsoluteBlackMode || appColorScheme == "dark" || colorScheme == .dark
     }
 
     var body: some View {
@@ -192,7 +202,8 @@ struct HQDashboardView: View {
 
     private var centeredDetailContent: some View {
         detailContent
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .background(NV.bg.ignoresSafeArea())
     }
 
     private var bottomNavigationKeyboardShortcuts: some View {
@@ -225,7 +236,7 @@ struct HQDashboardView: View {
 
     @ViewBuilder
     private var navigationChromeBackground: some View {
-        if isAbsoluteBlackMode {
+        if usesBlackNavigationChrome {
             Color.black
         } else {
             Rectangle().fill(.ultraThinMaterial)
@@ -233,11 +244,19 @@ struct HQDashboardView: View {
     }
 
     private func navigationSelectionFill(for section: HQSection) -> Color {
-        isAbsoluteBlackMode ? Color.black : sectionColor(section)
+        Color.black
     }
 
     private func navigationSelectionStroke(for section: HQSection) -> Color {
-        isAbsoluteBlackMode ? Color.white.opacity(0.28) : Color.clear
+        usesBlackNavigationChrome ? Color.white.opacity(0.30) : Color.black.opacity(0.22)
+    }
+
+    private func navigationForeground(for section: HQSection, isSelected: Bool) -> Color {
+        isSelected ? .white : sectionColor(section)
+    }
+
+    private func bottomNavigationEdgePadding(for width: CGFloat) -> CGFloat {
+        max(12, (width - Self.bottomNavigationItemWidth) / 2)
     }
 
     @ViewBuilder
@@ -410,7 +429,7 @@ struct HQDashboardView: View {
                             ZStack(alignment: .topTrailing) {
                                 Image(systemName: section.icon)
                                     .font(.system(size: 16))
-                                    .foregroundColor(selectedSection == section ? .white : sectionColor(section))
+                                    .foregroundColor(navigationForeground(for: section, isSelected: selectedSection == section))
                                     .frame(width: 36, height: 36)
                                     .background {
                                         RoundedRectangle(cornerRadius: 8, style: .continuous)
@@ -770,15 +789,14 @@ struct HQDashboardView: View {
         GeometryReader { geometry in
             ScrollViewReader { proxy in
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
+                    HStack(spacing: Self.bottomNavigationSpacing) {
                         ForEach(HQSection.allCases) { section in
                             bottomNavigationButton(for: section)
                                 .id(section)
                         }
                     }
-                    .padding(.horizontal, 12)
+                    .padding(.horizontal, bottomNavigationEdgePadding(for: geometry.size.width))
                     .padding(.vertical, 8)
-                    .frame(minWidth: geometry.size.width, alignment: .center)
                 }
                 .onAppear {
                     proxy.scrollTo(selectedSectionValue, anchor: .center)
@@ -790,7 +808,7 @@ struct HQDashboardView: View {
                 }
             }
         }
-        .frame(height: 72)
+        .frame(height: Self.bottomNavigationBarHeight)
         .background { navigationChromeBackground }
     }
 
@@ -812,8 +830,8 @@ struct HQDashboardView: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.72)
             }
-            .foregroundColor(selectedSection == section ? .white : sectionColor(section))
-            .frame(width: 86, height: 54)
+            .foregroundColor(navigationForeground(for: section, isSelected: selectedSection == section))
+            .frame(width: Self.bottomNavigationItemWidth, height: Self.bottomNavigationItemHeight)
             .background {
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .fill(selectedSection == section ? navigationSelectionFill(for: section) : Color.clear)
