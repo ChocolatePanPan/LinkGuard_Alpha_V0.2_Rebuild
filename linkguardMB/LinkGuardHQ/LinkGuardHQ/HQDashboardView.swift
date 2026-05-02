@@ -32,6 +32,33 @@ enum HQSection: String, CaseIterable, Identifiable {
     case decisionHistory = "AI 決策歷史"
     case settings = "設定"
 
+    static let navigationOrder: [HQSection] = [
+        .dashboard,
+        .grandDashboard,
+        .timeline,
+        .zonemap,
+        .reports,
+        .disaster,
+        .personnelOverview,
+        .victimOverview,
+        .personnel,
+        .resources,
+        .photoWall,
+        .stats,
+        .chat,
+        .broadcast,
+        .radio,
+        .pws,
+        .patientWarning,
+        .briefing,
+        .notification,
+        .decision,
+        .aiChat,
+        .decisionHistory,
+        .backendServices,
+        .settings
+    ]
+
     var id: String { rawValue }
 
     var localizedName: String { L(rawValue) }
@@ -228,8 +255,8 @@ struct HQDashboardView: View {
 
     private func selectAdjacentSection(offset: Int) {
         guard navigationPlacement == .bottom,
-              let currentIndex = HQSection.allCases.firstIndex(of: selectedSectionValue) else { return }
-        let sections = HQSection.allCases
+              let currentIndex = HQSection.navigationOrder.firstIndex(of: selectedSectionValue) else { return }
+        let sections = HQSection.navigationOrder
         let nextIndex = (currentIndex + offset + sections.count) % sections.count
         selectedSection = sections[nextIndex]
     }
@@ -422,7 +449,7 @@ struct HQDashboardView: View {
             // 功能圖示
             ScrollView {
                 VStack(spacing: 4) {
-                    ForEach(HQSection.allCases) { section in
+                    ForEach(HQSection.navigationOrder) { section in
                         Button {
                             selectedSection = section
                         } label: {
@@ -539,7 +566,7 @@ struct HQDashboardView: View {
 
             // 功能選單
             Section(header: Text(L("功能"))) {
-                ForEach(HQSection.allCases) { section in
+                ForEach(HQSection.navigationOrder) { section in
                     Label {
                         HStack {
                             Text(section.localizedName)
@@ -790,7 +817,7 @@ struct HQDashboardView: View {
             ScrollViewReader { proxy in
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: Self.bottomNavigationSpacing) {
-                        ForEach(HQSection.allCases) { section in
+                        ForEach(HQSection.navigationOrder) { section in
                             bottomNavigationButton(for: section)
                                 .id(section)
                         }
