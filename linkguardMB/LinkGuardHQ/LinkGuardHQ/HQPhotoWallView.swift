@@ -48,17 +48,26 @@ struct HQPhotoWallView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                ScrollView {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 220))], spacing: 16) {
-                        ForEach(entries) { entry in
-                            PhotoCard(data: entry.data)
+                GeometryReader { proxy in
+                    ScrollView {
+                        LazyVGrid(columns: gridColumns(for: proxy.size.width), spacing: 16) {
+                            ForEach(entries) { entry in
+                                PhotoCard(data: entry.data)
+                            }
                         }
+                        .padding()
                     }
-                    .padding()
                 }
             }
         }
         .padding(.top)
+    }
+
+    private func gridColumns(for width: CGFloat) -> [GridItem] {
+        let availableWidth = max(width - 32, 220)
+        let targetWidth: CGFloat = availableWidth > 900 ? 280 : 240
+        let count = max(Int(availableWidth / targetWidth), 1)
+        return Array(repeating: GridItem(.flexible(minimum: 220, maximum: 360), spacing: 16), count: count)
     }
 }
 
@@ -118,7 +127,8 @@ struct PhotoCard: View {
                         .shadow(radius: 4)
                 }
             }
-            .frame(maxWidth: .infinity, minHeight: 150, maxHeight: 180)
+            .aspectRatio(4 / 3, contentMode: .fit)
+            .frame(maxWidth: .infinity)
             .clipped()
             .cornerRadius(8)
             .contentShape(Rectangle())
@@ -149,12 +159,14 @@ struct PhotoCard: View {
                     Text(sender)
                         .font(.caption)
                         .foregroundColor(.secondary)
+                        .lineLimit(1)
                     if !locationDesc.isEmpty {
                         Text("·")
                             .foregroundColor(.secondary)
                         Text(locationDesc)
                             .font(.caption)
                             .foregroundColor(.secondary)
+                            .lineLimit(1)
                     }
                 }
                 if lat != 0 || lon != 0 {
@@ -168,6 +180,7 @@ struct PhotoCard: View {
         .padding(8)
         .background(NV.surface.opacity(0.5))
         .cornerRadius(12)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
         .sheet(isPresented: $showFull) {
             MediaDetailSheet(isVideo: isVideo, url: fullSource) {
                 showFull = false
@@ -183,7 +196,7 @@ struct PhotoCard: View {
                 .font(.largeTitle)
                 .foregroundColor(.secondary)
         }
-        .frame(maxWidth: .infinity, minHeight: 150)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
@@ -193,7 +206,7 @@ private struct MediaDetailSheet: View {
     let onClose: () -> Void
 
     var body: some View {
-        VStack {
+        VStack(spacing: 0) {
             HStack {
                 Spacer()
                 Button(L("關閉"), action: onClose)
@@ -213,13 +226,14 @@ private struct MediaDetailSheet: View {
                             ProgressView()
                         }
                     }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .padding()
                 }
             } else {
                 unavailableMediaView
             }
-            Spacer()
         }
+        .frame(minWidth: 520, minHeight: 360)
     }
 
     private var unavailableMediaView: some View {
@@ -246,6 +260,7 @@ private struct VideoPlaybackView: View {
                 ProgressView()
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .frame(minHeight: 300)
         .padding()
         .onAppear {

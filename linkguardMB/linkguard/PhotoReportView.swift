@@ -38,150 +38,114 @@ struct PhotoReportView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                // 預覽
-                Section {
-                    if isVideo, let thumb = videoThumbnail {
-                        ZStack {
-                            Image(uiImage: thumb)
-                                .resizable()
-                                .scaledToFit()
-                                .frame(maxHeight: previewMaxHeight)
-                                .frame(maxWidth: .infinity)
-                                .clipShape(RoundedRectangle(cornerRadius: 12))
-                            Image(systemName: "play.circle.fill")
-                                .font(.system(size: 56))
-                                .foregroundColor(.white.opacity(0.85))
-                                .shadow(radius: 4)
-                        }
-                    } else if let img = selectedImage {
-                        Image(uiImage: img)
-                            .resizable()
-                            .scaledToFit()
-                            .frame(maxHeight: previewMaxHeight)
-                            .frame(maxWidth: .infinity)
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
-                    } else {
-                        VStack(spacing: 12) {
-                            Image(systemName: "camera.fill")
-                                .font(.system(size: 48))
-                                .foregroundColor(.secondary)
-                            Text(L("選擇或拍攝照片/影片"))
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                        }
-                        .frame(maxWidth: .infinity, minHeight: emptyPreviewMinHeight)
-                    }
-                }
-                .listRowInsets(EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8))
-
-                // 來源
-                Section(L("來源")) {
-                    HStack(spacing: 12) {
-                        Button {
-                            showCamera = true
-                        } label: {
-                            Label(L("拍照/錄影"), systemImage: "camera")
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(.blue)
-
-                        PhotosPicker(selection: $selectedItems,
-                                     maxSelectionCount: 1,
-                                     matching: .any(of: [.images, .videos])) {
-                            Label(L("相簿"), systemImage: "photo.on.rectangle")
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(.indigo)
-                    }
-                }
-
-                // 說明
-                Section(L("說明")) {
-                    TextField(L("位置描述（如：B區3F走廊）"), text: $locationDesc)
-                    TextField(L("照片/影片說明"), text: $caption)
-                }
-
-                // GPS
-                Section("GPS") {
-                    if let loc = locationMgr.lastLocation {
-                        HStack {
-                            Image(systemName: "location.fill")
-                                .foregroundColor(.green)
-                            Text(gpsText(loc))
-                                .font(.system(.caption, design: .monospaced))
-                        }
-                    } else {
-                        HStack {
-                            ProgressView()
-                            Text(L("取得位置中…"))
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                }
-
-                // 伺服器
-                Section(L("伺服器")) {
-                    HStack {
-                        Image(systemName: "server.rack")
-                            .foregroundColor(serverHost == "localhost" ? .orange : NV.green)
-                        Text("\(serverHost):8014")
-                            .font(.system(.caption, design: .monospaced))
-                        Spacer()
-                        Text(serverHost == "localhost" ? L("未連線 HQ") : "Mac HQ")
-                            .font(.caption2)
-                            .foregroundColor(serverHost == "localhost" ? .orange : .secondary)
-                    }
-                }
-
-                // 已上傳列表
-                if !vm.photoReports.isEmpty {
-                    Section(L("已回報")) {
-                        ForEach(vm.photoReports) { photo in
-                            HStack(spacing: 12) {
+            Group {
+                if isCompactLandscape {
+                    landscapeContent
+                } else {
+                    Form {
+                        // 預覽
+                        Section {
+                            if isVideo, let thumb = videoThumbnail {
                                 ZStack {
-                                    AsyncImage(url: URL(string: photo.thumbnailURL)) { phase in
-                                        switch phase {
-                                        case .success(let image):
-                                            image.resizable().scaledToFill()
-                                        case .failure:
-                                            Image(systemName: photo.mediaType == "video" ? "video" : "photo")
-                                                .foregroundColor(.secondary)
-                                        default:
-                                            ProgressView()
-                                        }
-                                    }
-                                    .frame(width: 56, height: 56)
-                                    .clipShape(RoundedRectangle(cornerRadius: 8))
-
-                                    if photo.mediaType == "video" {
-                                        Image(systemName: "play.circle.fill")
-                                            .font(.title3)
-                                            .foregroundColor(.white.opacity(0.9))
-                                    }
+                                    Image(uiImage: thumb)
+                                        .resizable()
+                                        .scaledToFit()
+                                        .frame(maxHeight: previewMaxHeight)
+                                        .frame(maxWidth: .infinity)
+                                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                                    Image(systemName: "play.circle.fill")
+                                        .font(.system(size: 56))
+                                        .foregroundColor(.white.opacity(0.85))
+                                        .shadow(radius: 4)
                                 }
-
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(photo.caption.isEmpty ? photo.id : photo.caption)
-                                        .font(.subheadline).bold()
-                                        .lineLimit(1)
-                                    HStack(spacing: 4) {
-                                        if photo.mediaType == "video" {
-                                            Text(L("影片"))
-                                                .font(.caption2)
-                                                .padding(.horizontal, 4)
-                                                .padding(.vertical, 1)
-                                                .background(Color.blue.opacity(0.2))
-                                                .cornerRadius(3)
-                                        }
-                                        Text("\(photo.senderName) · \(photo.locationDesc)")
-                                            .font(.caption)
-                                            .foregroundColor(.secondary)
-                                    }
+                            } else if let img = selectedImage {
+                                Image(uiImage: img)
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(maxHeight: previewMaxHeight)
+                                    .frame(maxWidth: .infinity)
+                                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                            } else {
+                                VStack(spacing: 12) {
+                                    Image(systemName: "camera.fill")
+                                        .font(.system(size: 48))
+                                        .foregroundColor(.secondary)
+                                    Text(L("選擇或拍攝照片/影片"))
+                                        .font(.subheadline)
+                                        .foregroundColor(.secondary)
                                 }
+                                .frame(maxWidth: .infinity, minHeight: emptyPreviewMinHeight)
+                            }
+                        }
+                        .listRowInsets(EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8))
+
+                        // 來源
+                        Section(L("來源")) {
+                            HStack(spacing: 12) {
+                                Button {
+                                    showCamera = true
+                                } label: {
+                                    Label(L("拍照/錄影"), systemImage: "camera")
+                                        .frame(maxWidth: .infinity)
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .tint(.blue)
+
+                                PhotosPicker(selection: $selectedItems,
+                                             maxSelectionCount: 1,
+                                             matching: .any(of: [.images, .videos])) {
+                                    Label(L("相簿"), systemImage: "photo.on.rectangle")
+                                        .frame(maxWidth: .infinity)
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .tint(.indigo)
+                            }
+                        }
+
+                        // 說明
+                        Section(L("說明")) {
+                            TextField(L("位置描述（如：B區3F走廊）"), text: $locationDesc)
+                            TextField(L("照片/影片說明"), text: $caption)
+                        }
+
+                        // GPS
+                        Section("GPS") {
+                            if let loc = locationMgr.lastLocation {
+                                HStack {
+                                    Image(systemName: "location.fill")
+                                        .foregroundColor(.green)
+                                    Text(gpsText(loc))
+                                        .font(.system(.caption, design: .monospaced))
+                                }
+                            } else {
+                                HStack {
+                                    ProgressView()
+                                    Text(L("取得位置中…"))
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                        }
+
+                        // 伺服器
+                        Section(L("伺服器")) {
+                            HStack {
+                                Image(systemName: "server.rack")
+                                    .foregroundColor(serverHost == "localhost" ? .orange : NV.green)
+                                Text("\(serverHost):8014")
+                                    .font(.system(.caption, design: .monospaced))
                                 Spacer()
+                                Text(serverHost == "localhost" ? L("未連線 HQ") : "Mac HQ")
+                                    .font(.caption2)
+                                    .foregroundColor(serverHost == "localhost" ? .orange : .secondary)
+                            }
+                        }
+
+                        // 已上傳列表
+                        if !vm.photoReports.isEmpty {
+                            Section(L("已回報")) {
+                                ForEach(vm.photoReports) { photo in
+                                    photoReportRow(photo)
+                                }
                             }
                         }
                     }
@@ -241,6 +205,201 @@ struct PhotoReportView: View {
             } message: {
                 Text(alertMessage)
             }
+        }
+    }
+
+    private var landscapeContent: some View {
+        GeometryReader { proxy in
+            ScrollView {
+                HStack(alignment: .top, spacing: 12) {
+                    VStack(spacing: 12) {
+                        landscapePanel(L("預覽")) {
+                            mediaPreviewContent
+                        }
+                        landscapePanel(L("來源")) {
+                            sourceButtons
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .top)
+
+                    VStack(spacing: 12) {
+                        landscapePanel(L("說明")) {
+                            VStack(spacing: 10) {
+                                TextField(L("位置描述（如：B區3F走廊）"), text: $locationDesc)
+                                TextField(L("照片/影片說明"), text: $caption)
+                            }
+                            .textFieldStyle(.roundedBorder)
+                        }
+                        landscapePanel("GPS") {
+                            gpsRow
+                        }
+                        landscapePanel(L("伺服器")) {
+                            serverRow
+                        }
+                        if !vm.photoReports.isEmpty {
+                            landscapePanel(L("已回報")) {
+                                VStack(spacing: 8) {
+                                    ForEach(vm.photoReports) { photo in
+                                        photoReportRow(photo)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .top)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .frame(minHeight: proxy.size.height, alignment: .top)
+            }
+            .background(Color(uiColor: .systemGroupedBackground))
+            .scrollDismissesKeyboard(.interactively)
+        }
+    }
+
+    private func landscapePanel<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title)
+                .font(.caption.bold())
+                .foregroundColor(.secondary)
+            content()
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.background)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    @ViewBuilder
+    private var mediaPreviewContent: some View {
+        if isVideo, let thumb = videoThumbnail {
+            ZStack {
+                Image(uiImage: thumb)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxWidth: .infinity, maxHeight: 190)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                Image(systemName: "play.circle.fill")
+                    .font(.system(size: 48))
+                    .foregroundColor(.white.opacity(0.85))
+                    .shadow(radius: 4)
+            }
+        } else if let img = selectedImage {
+            Image(uiImage: img)
+                .resizable()
+                .scaledToFit()
+                .frame(maxWidth: .infinity, maxHeight: 190)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+        } else {
+            VStack(spacing: 10) {
+                Image(systemName: "camera.fill")
+                    .font(.system(size: 40))
+                    .foregroundColor(.secondary)
+                Text(L("選擇或拍攝照片/影片"))
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
+            .frame(maxWidth: .infinity, minHeight: 150)
+        }
+    }
+
+    private var sourceButtons: some View {
+        HStack(spacing: 10) {
+            Button {
+                showCamera = true
+            } label: {
+                Label(L("拍照/錄影"), systemImage: "camera")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.blue)
+
+            PhotosPicker(selection: $selectedItems,
+                         maxSelectionCount: 1,
+                         matching: .any(of: [.images, .videos])) {
+                Label(L("相簿"), systemImage: "photo.on.rectangle")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.indigo)
+        }
+    }
+
+    @ViewBuilder
+    private var gpsRow: some View {
+        if let loc = locationMgr.lastLocation {
+            HStack {
+                Image(systemName: "location.fill")
+                    .foregroundColor(.green)
+                Text(gpsText(loc))
+                    .font(.system(.caption, design: .monospaced))
+            }
+        } else {
+            HStack {
+                ProgressView()
+                Text(L("取得位置中…"))
+                    .foregroundColor(.secondary)
+            }
+        }
+    }
+
+    private var serverRow: some View {
+        HStack {
+            Image(systemName: "server.rack")
+                .foregroundColor(serverHost == "localhost" ? .orange : NV.green)
+            Text("\(serverHost):8014")
+                .font(.system(.caption, design: .monospaced))
+            Spacer()
+            Text(serverHost == "localhost" ? L("未連線 HQ") : "Mac HQ")
+                .font(.caption2)
+                .foregroundColor(serverHost == "localhost" ? .orange : .secondary)
+        }
+    }
+
+    private func photoReportRow(_ photo: PhotoReport) -> some View {
+        HStack(spacing: 12) {
+            ZStack {
+                AsyncImage(url: URL(string: photo.thumbnailURL)) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image.resizable().scaledToFill()
+                    case .failure:
+                        Image(systemName: photo.mediaType == "video" ? "video" : "photo")
+                            .foregroundColor(.secondary)
+                    default:
+                        ProgressView()
+                    }
+                }
+                .frame(width: 56, height: 56)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+
+                if photo.mediaType == "video" {
+                    Image(systemName: "play.circle.fill")
+                        .font(.title3)
+                        .foregroundColor(.white.opacity(0.9))
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(photo.caption.isEmpty ? photo.id : photo.caption)
+                    .font(.subheadline).bold()
+                    .lineLimit(1)
+                HStack(spacing: 4) {
+                    if photo.mediaType == "video" {
+                        Text(L("影片"))
+                            .font(.caption2)
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 1)
+                            .background(Color.blue.opacity(0.2))
+                            .cornerRadius(3)
+                    }
+                    Text("\(photo.senderName) · \(photo.locationDesc)")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                }
+            }
+            Spacer(minLength: 0)
         }
     }
 
@@ -498,16 +657,20 @@ struct CameraPickerView: UIViewControllerRepresentable {
     @Environment(\.dismiss) private var dismiss
 
     func makeUIViewController(context: Context) -> UIImagePickerController {
-        let picker = UIImagePickerController()
+        let picker = LandscapeAwareImagePickerController()
         picker.sourceType = .camera
         picker.mediaTypes = [UTType.image.identifier, UTType.movie.identifier]
         picker.videoMaximumDuration = 60
         picker.videoQuality = .typeMedium
+        picker.modalPresentationStyle = .fullScreen
+        picker.view.backgroundColor = .black
         picker.delegate = context.coordinator
         return picker
     }
 
-    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
+    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {
+        uiViewController.view.setNeedsLayout()
+    }
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
@@ -545,6 +708,37 @@ struct CameraPickerView: UIViewControllerRepresentable {
         func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
             parent.dismiss()
         }
+    }
+}
+
+private final class LandscapeAwareImagePickerController: UIImagePickerController {
+    override var shouldAutorotate: Bool { true }
+
+    override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
+        .allButUpsideDown
+    }
+
+    override var preferredInterfaceOrientationForPresentation: UIInterfaceOrientation {
+        view.window?.windowScene?.interfaceOrientation ?? .portrait
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        view.backgroundColor = .black
+        updateCameraPreviewScale()
+    }
+
+    private func updateCameraPreviewScale() {
+        guard sourceType == .camera else { return }
+        let size = view.bounds.size
+        guard size.width > size.height else {
+            cameraViewTransform = .identity
+            return
+        }
+        let cameraAspectRatio: CGFloat = 4.0 / 3.0
+        let viewAspectRatio = size.width / size.height
+        let scale = max(1, viewAspectRatio / cameraAspectRatio)
+        cameraViewTransform = CGAffineTransform(scaleX: scale, y: scale)
     }
 }
 #else
