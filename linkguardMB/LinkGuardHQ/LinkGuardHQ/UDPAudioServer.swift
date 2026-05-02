@@ -50,6 +50,7 @@ final class UDPAudioServer: ObservableObject, @unchecked Sendable {
     // WhisperKit（精確辨識）— 公開供 HQSpeechServer 共用
     private(set) var whisperKit: WhisperKit?
     private(set) var whisperReady = false
+    private var isLoadingWhisperKit = false
 
     // Apple Speech（即時辨識）
     private var speechRecognizer: SFSpeechRecognizer?
@@ -75,10 +76,47 @@ final class UDPAudioServer: ObservableObject, @unchecked Sendable {
         }
     }
 
-    // MARK: - 初始化 WhisperKit 和 Apple Speech
+    // MARK: - 初始化 Apple Speech / WhisperKit
 
     func initialize() async {
-        // 初始化 WhisperKit — 優先嘗試 large-v3，失敗則降級 base
+        prepareAppleSpeechIfNeeded()
+        _ = await initializeWhisperKitIfNeeded()
+    }
+
+    private func prepareAppleSpeechIfNeeded() {
+        guard speechRecognizer == nil else { return }
+
+        speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "zh-TW"))
+
+        // 申請語音辨識權限；不載入 WhisperKit 重模型，避免 HQ 待機耗 CPU。
+        SFSpeechRecognizer.requestAuthorization { status in
+            switch status {
+            case .authorized:
+                print("[UDPAudioServer] ✅ Speech 權限已授權")
+            case .denied:
+                print("[UDPAudioServer] ❌ Speech 權限被拒絕")
+            case .restricted:
+                print("[UDPAudioServer] ⚠️ Speech 權限受限")
+            case .notDetermined:
+                print("[UDPAudioServer] ℹ️ Speech 權限未決定")
+            @unknown default:
+                print("[UDPAudioServer] Speech 權限: \(status.rawValue)")
+            }
+        }
+    }
+
+    @discardableResult
+    func initializeWhisperKitIfNeeded() async -> Bool {
+        guard !whisperReady else { return true }
+        guard shouldUseNativeWhisperKit else { return false }
+        guard !isLoadingWhisperKit else { return false }
+
+        isLoadingWhisperKit = true
+        defer { isLoadingWhisperKit = false }
+
+        prepareAppleSpeechIfNeeded()
+
+        // 初始化 WhisperKit — 優先嘗試 large-v3，失敗則降級 base。
         for model in ["large-v3", "base"] {
             do {
                 print("[UDPAudioServer] 正在載入 WhisperKit 模型: \(model) ...")
@@ -97,34 +135,21 @@ final class UDPAudioServer: ObservableObject, @unchecked Sendable {
             }
         }
 
-        // 初始化 Apple Speech
-        speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "zh-TW"))
-
-        // 申請語音辨識權限
-        SFSpeechRecognizer.requestAuthorization { status in
-            switch status {
-            case .authorized:
-                print("[UDPAudioServer] ✅ Speech 權限已授權")
-            case .denied:
-                print("[UDPAudioServer] ❌ Speech 權限被拒絕")
-            case .restricted:
-                print("[UDPAudioServer] ⚠️ Speech 權限受限")
-            case .notDetermined:
-                print("[UDPAudioServer] ℹ️ Speech 權限未決定")
-            @unknown default:
-                print("[UDPAudioServer] Speech 權限: \(status.rawValue)")
-            }
-        }
-
         if !whisperReady {
             print("[UDPAudioServer] ℹ️ WhisperKit 未就緒，僅使用 Apple Speech")
         }
+        return whisperReady
+    }
+
+    private var shouldUseNativeWhisperKit: Bool {
+        (UserDefaults.standard.string(forKey: "voice.engine") ?? "whisperkit") == "whisperkit"
     }
 
     // MARK: - 啟動 UDP 監聽
 
     func startListening() {
         guard listener == nil else { return }
+        prepareAppleSpeechIfNeeded()
 
         let params = NWParameters.udp
         params.allowFastOpen = true
@@ -402,6 +427,10 @@ final class UDPAudioServer: ObservableObject, @unchecked Sendable {
         audioData: Data,
         deviceID: String
     ) async {
+        if !whisperReady {
+            _ = await initializeWhisperKitIfNeeded()
+        }
+
         guard whisperReady, let whisperKit = whisperKit else {
             // WhisperKit 不可用，保留 Apple Speech 結果
             DispatchQueue.main.async { [weak self] in

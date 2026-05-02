@@ -23,49 +23,37 @@ struct HQRadioView: View {
     // MARK: - 頂部標題列
 
     private var headerBar: some View {
-        HStack {
-            Image(systemName: "antenna.radiowaves.left.and.right")
-                .font(.title2)
-                .foregroundColor(NV.green)
-            Text(L("電台監聽"))
-                .font(.title2.bold())
-                .foregroundColor(.primary)
-            Spacer()
-
+        HQSectionHeader(L("電台監聽"), icon: "antenna.radiowaves.left.and.right", accent: NV.green) {
             // TCP 即時串流狀態
-            HStack(spacing: 6) {
-                Circle()
-                    .fill(vm.audioStreamServer.isRunning ? NV.green : NV.danger)
-                    .frame(width: NV.dotSize, height: NV.dotSize)
-                Text(vm.audioStreamServer.isPlaying ? L("即時收聽中") :
-                     vm.audioStreamServer.isRunning ? "串流伺服器待命" : "串流伺服器離線")
-                    .font(.caption)
-                    .foregroundColor(vm.audioStreamServer.isPlaying ? NV.green : .secondary)
-            }
+            HStack(spacing: 12) {
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(vm.audioStreamServer.isRunning ? NV.green : NV.danger)
+                        .frame(width: NV.dotSize, height: NV.dotSize)
+                    Text(vm.audioStreamServer.isPlaying ? L("即時收聽中") :
+                         vm.audioStreamServer.isRunning ? "串流伺服器待命" : "串流伺服器離線")
+                        .font(.caption)
+                        .foregroundColor(vm.audioStreamServer.isPlaying ? NV.green : .secondary)
+                }
 
-            // UDP Server 狀態
-            HStack(spacing: 6) {
-                Circle()
-                    .fill(vm.udpAudioServer.isRunning ? NV.green : NV.danger)
-                    .frame(width: NV.dotSize, height: NV.dotSize)
-                Text(vm.udpAudioServer.isRunning ? L("UDP 伺服器運行中") : L("UDP 伺服器離線"))
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(vm.udpAudioServer.isRunning ? NV.green : NV.danger)
+                        .frame(width: NV.dotSize, height: NV.dotSize)
+                    Text(vm.udpAudioServer.isRunning ? L("UDP 伺服器運行中") : L("UDP 伺服器離線"))
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
 
-            // 連線裝置數
-            HStack(spacing: 4) {
-                Image(systemName: "iphone.radiowaves.left.and.right")
-                    .font(.caption)
-                Text("\(vm.udpAudioServer.connectedClientCount)")
-                    .font(.caption.monospacedDigit())
+                HStack(spacing: 4) {
+                    Image(systemName: "iphone.radiowaves.left.and.right")
+                        .font(.caption)
+                    Text("\(vm.udpAudioServer.connectedClientCount)")
+                        .font(.caption.monospacedDigit())
+                }
+                .foregroundColor(NV.info)
             }
-            .foregroundColor(NV.info)
-            .padding(.horizontal, 8)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .background(NV.surface)
     }
 
     // MARK: - 左側即時面板

@@ -5,28 +5,24 @@ struct HQNotificationView: View {
     @State private var showSendSheet = false
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                if vm.personalNotifications.isEmpty {
-                    VStack(spacing: 12) {
-                        Image(systemName: "bell")
-                            .font(.system(size: 40)).foregroundColor(.secondary)
-                        Text(L("尚未發送個人通知"))
-                            .foregroundColor(.secondary)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 40)
-                    .padding(.horizontal)
-                } else {
+        HQPage {
+            HQPageTitleBar(L("個人通知"), icon: "bell.fill", accent: NV.reinforce) {
+                Text(L("%lld 則通知", vm.personalNotifications.count))
+                    .font(.caption.monospacedDigit())
+                    .foregroundColor(.secondary)
+            }
+
+            if vm.personalNotifications.isEmpty {
+                HQEmptyStateView(icon: "bell", title: L("尚未發送個人通知"))
+                    .hqPanelChrome(accent: NV.reinforce)
+            } else {
+                LazyVStack(spacing: NV.panelSpacing) {
                     ForEach(vm.personalNotifications) { notif in
                         NotificationCard(notification: notif)
                     }
-                    .padding(.horizontal)
                 }
             }
-            .padding(.vertical)
         }
-        .navigationTitle(L("個人通知"))
         .overlay(alignment: .bottomLeading) {
             Button {
                 showSendSheet = true

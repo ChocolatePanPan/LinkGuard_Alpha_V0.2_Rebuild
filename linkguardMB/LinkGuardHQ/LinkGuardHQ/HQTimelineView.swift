@@ -10,39 +10,31 @@ struct HQTimelineView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            // 篩選列
-            filterBar
-                .padding(.horizontal)
-                .padding(.vertical, 8)
-
-            Divider()
-
-            // 事件列表
-            ScrollView {
-                VStack(alignment: .leading, spacing: 8) {
-                    if filteredEvents.isEmpty {
-                        emptyState
-                    } else {
-                        ForEach(filteredEvents) { event in
-                            TimelineEventCard(event: event)
-                        }
-                        .padding(.horizontal)
-                    }
-                }
-                .padding(.vertical)
-            }
-        }
-        .navigationTitle(L("事件日誌"))
-        .toolbar {
-            ToolbarItem(placement: .automatic) {
+        HQPage {
+            HQPageTitleBar(L("事件日誌"), icon: "clock.arrow.circlepath", accent: NV.info) {
                 Button {
                     vm.clearTimeline()
                 } label: {
                     Label(L("清除日誌"), systemImage: "trash")
                 }
+                .buttonStyle(.bordered)
                 .disabled(vm.timelineEvents.isEmpty)
                 .help(L("清除所有日誌"))
+            }
+
+            // 篩選列
+            filterBar
+
+            // 事件列表
+            if filteredEvents.isEmpty {
+                emptyState
+                    .hqPanelChrome(accent: NV.info)
+            } else {
+                LazyVStack(alignment: .leading, spacing: 8) {
+                    ForEach(filteredEvents) { event in
+                        TimelineEventCard(event: event)
+                    }
+                }
             }
         }
     }
@@ -72,16 +64,11 @@ struct HQTimelineView: View {
     // MARK: - 空狀態
 
     private var emptyState: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "clock.arrow.circlepath")
-                .font(.system(size: 40)).foregroundColor(.secondary)
-            Text(L("尚無事件記錄"))
-                .foregroundColor(.secondary)
-            Text(L("系統操作將自動記錄在此"))
-                .font(.caption).foregroundColor(.secondary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 40)
+        HQEmptyStateView(
+            icon: "clock.arrow.circlepath",
+            title: L("尚無事件記錄"),
+            subtitle: L("系統操作將自動記錄在此")
+        )
     }
 }
 

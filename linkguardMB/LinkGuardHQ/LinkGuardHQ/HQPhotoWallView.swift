@@ -28,37 +28,24 @@ struct HQPhotoWallView: View {
     var body: some View {
         let entries = photoEntries
 
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Text(L("照片回報"))
-                    .font(.title).bold()
-                Spacer()
+        HQPage {
+            HQPageTitleBar(L("照片回報"), icon: "photo.on.rectangle.angled", accent: NV.info) {
                 Text(L("%lld 張照片", entries.count))
+                    .font(.caption.monospacedDigit())
                     .foregroundColor(.secondary)
             }
-            .padding(.horizontal)
 
             if entries.isEmpty {
-                VStack(spacing: 12) {
-                    Image(systemName: "photo.on.rectangle.angled")
-                        .font(.system(size: 48))
-                        .foregroundColor(.secondary)
-                    Text(L("尚未收到照片回報"))
-                        .foregroundColor(.secondary)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                HQEmptyStateView(icon: "photo.on.rectangle.angled", title: L("尚未收到照片回報"))
+                    .hqPanelChrome(accent: NV.info)
             } else {
-                ScrollView {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 220))], spacing: 16) {
-                        ForEach(entries) { entry in
-                            PhotoCard(data: entry.data)
-                        }
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 240, maximum: 360), spacing: NV.panelSpacing)], spacing: NV.panelSpacing) {
+                    ForEach(entries) { entry in
+                        PhotoCard(data: entry.data)
                     }
-                    .padding()
                 }
             }
         }
-        .padding(.top)
     }
 }
 
@@ -118,7 +105,8 @@ struct PhotoCard: View {
                         .shadow(radius: 4)
                 }
             }
-            .frame(maxWidth: .infinity, minHeight: 150, maxHeight: 180)
+            .aspectRatio(4 / 3, contentMode: .fit)
+            .frame(maxWidth: .infinity)
             .clipped()
             .cornerRadius(8)
             .contentShape(Rectangle())
@@ -149,12 +137,14 @@ struct PhotoCard: View {
                     Text(sender)
                         .font(.caption)
                         .foregroundColor(.secondary)
+                        .lineLimit(1)
                     if !locationDesc.isEmpty {
                         Text("·")
                             .foregroundColor(.secondary)
                         Text(locationDesc)
                             .font(.caption)
                             .foregroundColor(.secondary)
+                            .lineLimit(1)
                     }
                 }
                 if lat != 0 || lon != 0 {
@@ -168,6 +158,7 @@ struct PhotoCard: View {
         .padding(8)
         .background(NV.surface.opacity(0.5))
         .cornerRadius(12)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
         .sheet(isPresented: $showFull) {
             MediaDetailSheet(isVideo: isVideo, url: fullSource) {
                 showFull = false
@@ -183,7 +174,7 @@ struct PhotoCard: View {
                 .font(.largeTitle)
                 .foregroundColor(.secondary)
         }
-        .frame(maxWidth: .infinity, minHeight: 150)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
@@ -193,7 +184,7 @@ private struct MediaDetailSheet: View {
     let onClose: () -> Void
 
     var body: some View {
-        VStack {
+        VStack(spacing: 0) {
             HStack {
                 Spacer()
                 Button(L("關閉"), action: onClose)
@@ -213,13 +204,14 @@ private struct MediaDetailSheet: View {
                             ProgressView()
                         }
                     }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .padding()
                 }
             } else {
                 unavailableMediaView
             }
-            Spacer()
         }
+        .frame(minWidth: 520, minHeight: 360)
     }
 
     private var unavailableMediaView: some View {
@@ -246,6 +238,7 @@ private struct VideoPlaybackView: View {
                 ProgressView()
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .frame(minHeight: 300)
         .padding()
         .onAppear {

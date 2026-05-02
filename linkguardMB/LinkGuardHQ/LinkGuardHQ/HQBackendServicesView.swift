@@ -24,40 +24,27 @@ struct HQBackendServicesView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            header
-            Divider()
-            ScrollView {
-                VStack(spacing: 8) {
-                    if mode == .embedded {
-                        ForEach(supervisor.services) { state in
-                            serviceRow(state)
-                        }
-                    } else {
-                        modeNotice
+        HQPage {
+            HQPageTitleBar(L("後端服務"), subtitle: mode.helpText, icon: mode.systemImage, accent: NV.green) {
+                headerControls
+            }
+
+            if mode == .embedded {
+                LazyVStack(spacing: NV.panelSpacing) {
+                    ForEach(supervisor.services) { state in
+                        serviceRow(state)
                     }
                 }
-                .padding()
+            } else {
+                modeNotice
             }
         }
-        .background(NV.bg)
     }
 
     // MARK: - Header
 
-    private var header: some View {
+    private var headerControls: some View {
         HStack(spacing: 12) {
-            Image(systemName: mode.systemImage)
-                .foregroundColor(NV.green)
-                .font(.title2)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(L("後端服務"))
-                    .font(.title2.bold())
-                Text(mode.helpText)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-            Spacer()
             if mode == .embedded {
                 aggregateBadge
                 Button {
@@ -65,20 +52,22 @@ struct HQBackendServicesView: View {
                 } label: {
                     Label(L("全部啟動"), systemImage: "play.fill")
                 }
+                .controlSize(.small)
                 Button {
                     supervisor.stopAll()
                 } label: {
                     Label(L("全部停止"), systemImage: "stop.fill")
                 }
+                .controlSize(.small)
                 Button {
                     supervisor.restartCrashed()
                 } label: {
                     Label(L("重啟異常"), systemImage: "arrow.clockwise")
                 }
+                .controlSize(.small)
                 .disabled(!supervisor.anyCrashed)
             }
         }
-        .padding()
     }
 
     private var aggregateBadge: some View {
@@ -102,15 +91,14 @@ struct HQBackendServicesView: View {
 
     private var modeNotice: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(L("目前模式: %@", mode.displayName))
-                .font(.headline)
-            Text(L("此頁面僅在「內建後端」模式下顯示服務狀態。請至設定切換模式。"))
-                .foregroundColor(.secondary)
+            HQEmptyStateView(
+                icon: mode.systemImage,
+                title: L("目前模式: %@", mode.displayName),
+                subtitle: L("此頁面僅在「內建後端」模式下顯示服務狀態。請至設定切換模式。"),
+                minHeight: 320
+            )
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding()
-        .background(Color.black.opacity(0.15))
-        .cornerRadius(8)
+        .hqPanelChrome(accent: NV.green)
     }
 
     // MARK: - Service row
@@ -177,8 +165,12 @@ struct HQBackendServicesView: View {
             }
         }
         .padding(12)
-        .background(Color.black.opacity(0.2))
-        .cornerRadius(8)
+        .background(NV.surface.opacity(0.88))
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(NV.green.opacity(0.22), lineWidth: 1)
+        )
     }
 
     private func statusDot(for status: BackendServiceStatus) -> some View {

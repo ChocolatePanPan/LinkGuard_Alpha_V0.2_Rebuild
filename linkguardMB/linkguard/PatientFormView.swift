@@ -99,9 +99,14 @@ struct PatientFormView: View {
                         Image(systemName: "person.text.rectangle")
                             .foregroundColor(NV.command)
                             .frame(width: 22)
+                        #if os(iOS)
                         TextField(L("身分證字號"), text: $nationalId)
                             .textInputAutocapitalization(.characters)
                             .autocorrectionDisabled()
+                        #else
+                        TextField(L("身分證字號"), text: $nationalId)
+                            .autocorrectionDisabled()
+                        #endif
                     }
 
                     HStack {

@@ -5,31 +5,30 @@ struct HQPersonnelView: View {
     @State private var showAddSheet = false
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                // 統計
-                HStack(spacing: 16) {
-                    StatLabel(icon: "person.3.fill", label: L("已配置"), value: "\(vm.personnelAssignments.count)", color: NV.info)
-                    StatLabel(icon: "star.fill", label: L("指揮"), value: "\(countByRole(.commander))", color: NV.command)
-                    StatLabel(icon: "cross.fill", label: L("醫療"), value: "\(countByRole(.medical))", color: NV.danger)
-                }
-                .padding(.horizontal)
+        HQPage {
+            HQPageTitleBar(L("人員配置"), icon: "person.badge.plus", accent: NV.info)
 
-                // 配置列表
-                if vm.personnelAssignments.isEmpty {
-                    emptyState
-                } else {
+            // 統計
+            HStack(spacing: NV.panelSpacing) {
+                StatLabel(icon: "person.3.fill", label: L("已配置"), value: "\(vm.personnelAssignments.count)", color: NV.info)
+                StatLabel(icon: "star.fill", label: L("指揮"), value: "\(countByRole(.commander))", color: NV.command)
+                StatLabel(icon: "cross.fill", label: L("醫療"), value: "\(countByRole(.medical))", color: NV.danger)
+            }
+
+            // 配置列表
+            if vm.personnelAssignments.isEmpty {
+                emptyState
+                    .hqPanelChrome(accent: NV.info)
+            } else {
+                LazyVStack(spacing: NV.panelSpacing) {
                     ForEach(vm.personnelAssignments) { assignment in
                         PersonnelCard(assignment: assignment) {
                             vm.removePersonnelAssignment(assignment.id)
                         }
                     }
-                    .padding(.horizontal)
                 }
             }
-            .padding(.vertical)
         }
-        .navigationTitle(L("人員配置"))
         .overlay(alignment: .bottomLeading) {
             Button {
                 showAddSheet = true
@@ -53,16 +52,11 @@ struct HQPersonnelView: View {
     }
 
     private var emptyState: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "person.3")
-                .font(.system(size: 40)).foregroundColor(.secondary)
-            Text(L("尚未配置人員"))
-                .foregroundColor(.secondary)
-            Text(L("點按右下角 + 新增人員配置"))
-                .font(.caption).foregroundColor(.secondary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 40)
+        HQEmptyStateView(
+            icon: "person.3",
+            title: L("尚未配置人員"),
+            subtitle: L("點按左下角 + 新增人員配置")
+        )
     }
 
     private func countByRole(_ role: PersonnelRole) -> Int {

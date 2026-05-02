@@ -6,67 +6,47 @@ struct HQReportsDashboardView: View {
     @ObservedObject var vm: HQViewModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // 標題列
-            HStack {
-                Image(systemName: "doc.richtext")
-                    .font(.title2)
-                    .foregroundColor(NV.command)
-                Text(L("會報儀表板"))
-                    .font(.title2.bold())
-                Spacer()
-
+        HQPage {
+            HQPageTitleBar(L("會報儀表板"), icon: "doc.richtext", accent: NV.command) {
                 // 廣播者狀態
-                if let broadcaster = vm.currentBroadcaster {
-                    HStack(spacing: 6) {
-                        Circle()
-                            .fill(NV.danger)
-                            .frame(width: 8, height: 8)
-                        Text(L("%lld 廣播中", broadcaster))
-                            .font(.caption)
-                            .foregroundColor(NV.danger)
+                HStack(spacing: 8) {
+                    if let broadcaster = vm.currentBroadcaster {
+                        HStack(spacing: 6) {
+                            Circle()
+                                .fill(NV.danger)
+                                .frame(width: 8, height: 8)
+                            Text(L("%lld 廣播中", broadcaster))
+                                .font(.caption)
+                                .foregroundColor(NV.danger)
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(NV.danger.opacity(0.1))
+                        .cornerRadius(8)
                     }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 4)
-                    .background(NV.danger.opacity(0.1))
-                    .cornerRadius(8)
+
+                    Text(L("%lld 筆報告", vm.radioReports.count))
+                        .font(.caption.monospacedDigit())
+                        .foregroundColor(.secondary)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(Color.secondary.opacity(0.1))
+                        .cornerRadius(8)
                 }
-
-                Text(L("%lld 筆報告", vm.radioReports.count))
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 4)
-                    .background(Color.secondary.opacity(0.1))
-                    .cornerRadius(8)
             }
-            .padding()
-
-            Divider()
 
             if vm.radioReports.isEmpty {
-                VStack(spacing: 12) {
-                    Spacer()
-                    Image(systemName: "doc.text")
-                        .font(.system(size: 48))
-                        .foregroundColor(.secondary.opacity(0.3))
-                    Text(L("尚無會報紀錄"))
-                        .font(.title3)
-                        .foregroundColor(.secondary)
-                    Text(L("前線裝置錄製的會報將顯示在此"))
-                        .font(.caption)
-                        .foregroundColor(.secondary.opacity(0.7))
-                    Spacer()
-                }
-                .frame(maxWidth: .infinity)
+                HQEmptyStateView(
+                    icon: "doc.text",
+                    title: L("尚無會報紀錄"),
+                    subtitle: L("前線裝置錄製的會報將顯示在此")
+                )
+                .hqPanelChrome(accent: NV.command)
             } else {
-                ScrollView {
-                    LazyVStack(spacing: 12) {
-                        ForEach(vm.radioReports) { report in
-                            HQReportCard(report: report)
-                        }
+                LazyVStack(spacing: NV.panelSpacing) {
+                    ForEach(vm.radioReports) { report in
+                        HQReportCard(report: report)
                     }
-                    .padding()
                 }
             }
         }

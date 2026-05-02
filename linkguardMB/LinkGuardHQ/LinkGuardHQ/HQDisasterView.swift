@@ -15,52 +15,37 @@ struct HQDisasterView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                // 建物資訊
-                buildingInfoSection
+        HQPage(spacing: NV.pageSpacing) {
+            HQPageHeader(L("災害狀態"), icon: "building.2", accent: NV.warning)
 
-                // 影響樓層
-                floorSection
+            buildingInfoSection
+            floorSection
+            zoneSection
+            hazardSection
+            entryPointSection
+            miscSection
 
-                // 救援分區
-                zoneSection
+            DeviceTargetSelector(
+                targetMode: $vm.targetMode,
+                selectedIDs: $vm.selectedTargetDeviceIDs,
+                fieldUnits: vm.server.fieldUnits
+            )
 
-                // 危害類型
-                hazardSection
-
-                // 出入口
-                entryPointSection
-
-                // 集結點 & 備註
-                miscSection
-
-                // PADOS 目標選擇
-                DeviceTargetSelector(
-                    targetMode: $vm.targetMode,
-                    selectedIDs: $vm.selectedTargetDeviceIDs,
-                    fieldUnits: vm.server.fieldUnits
-                )
-
-                // 儲存按鈕
-                Button {
-                    vm.updateDisasterSite(editingSite)
-                } label: {
-                    HStack {
-                        Image(systemName: "checkmark.circle.fill")
-                        Text(vm.targetMode == .broadcast ? L("儲存並廣播災情狀態") : L("發送至 %lld 台裝置", vm.selectedTargetDeviceIDs.count))
-                            .bold()
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
+            Button {
+                vm.updateDisasterSite(editingSite)
+            } label: {
+                HStack {
+                    Image(systemName: "checkmark.circle.fill")
+                    Text(vm.targetMode == .broadcast ? L("儲存並廣播災情狀態") : L("發送至 %lld 台裝置", vm.selectedTargetDeviceIDs.count))
+                        .bold()
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(NV.warning)
-                .disabled(!vm.server.isRunning)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
             }
-            .padding()
+            .buttonStyle(.borderedProminent)
+            .tint(NV.warning)
+            .disabled(!vm.server.isRunning)
         }
-        .navigationTitle(L("災害狀態"))
     }
 
     // MARK: - 建物資訊

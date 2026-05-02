@@ -6,20 +6,31 @@ struct HQChatView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            HQSectionHeader(L("通訊頻道"), icon: "bubble.left.and.bubble.right.fill", accent: NV.command) {
+                Text(L("%lld 則訊息", vm.chatMessages.count))
+                    .font(.caption.monospacedDigit())
+                    .foregroundColor(.secondary)
+            }
+            Divider()
+
             // 訊息列表
             ScrollViewReader { proxy in
                 ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 8) {
-                        ForEach(vm.chatMessages) { msg in
-                            ChatBubble(
-                                message: msg,
-                                isFromHQ: msg.senderID == "HQ",
-                                readCount: vm.chatReadCounts[msg.id] ?? 0
-                            )
-                                .id(msg.id)
+                    if vm.chatMessages.isEmpty {
+                        HQEmptyStateView(icon: "bubble.left.and.bubble.right", title: L("尚無通訊訊息"))
+                    } else {
+                        LazyVStack(alignment: .leading, spacing: 8) {
+                            ForEach(vm.chatMessages) { msg in
+                                ChatBubble(
+                                    message: msg,
+                                    isFromHQ: msg.senderID == "HQ",
+                                    readCount: vm.chatReadCounts[msg.id] ?? 0
+                                )
+                                    .id(msg.id)
+                            }
                         }
+                        .padding(NV.pagePadding)
                     }
-                    .padding()
                 }
                 .onChange(of: vm.chatMessages.count) { _ in
                     if let last = vm.chatMessages.last {
@@ -71,7 +82,7 @@ struct HQChatView: View {
             }
             .padding()
         }
-        .navigationTitle(L("通訊頻道"))
+        .background(NV.bg.ignoresSafeArea())
     }
 }
 

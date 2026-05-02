@@ -11,7 +11,13 @@ struct HQDecisionView: View {
     private var allVictims: [HQVictimRecord] { vm.allVictimRecords }
 
     var body: some View {
-        ScrollView {
+        HQPage {
+            HQPageTitleBar(L("指揮決策"), icon: "brain.head.profile", accent: NV.command) {
+                Text(vm.isBackendConnected ? L("AI 後端已連線") : L("AI 後端未連線"))
+                    .font(.caption.monospaced())
+                    .foregroundColor(vm.isBackendConnected ? NV.green : .secondary)
+            }
+
             VStack(alignment: .leading, spacing: 20) {
 
                 // 決策輸入
@@ -178,9 +184,7 @@ struct HQDecisionView: View {
                 .padding(.horizontal)
                 .padding(.bottom, 20)
             }
-            .padding(.vertical)
         }
-        .navigationTitle(L("指揮決策"))
         .alert(L("決策已發送"), isPresented: $showSentAlert) {
             Button(L("確定")) { }
         } message: {

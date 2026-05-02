@@ -1,5 +1,10 @@
 import SwiftUI
 import AVFoundation
+#if canImport(UIKit)
+import UIKit
+#elseif canImport(AppKit)
+import AppKit
+#endif
 
 // MARK: - 翻譯功能頁面
 
@@ -33,6 +38,14 @@ struct TranslatorView: View {
         (L("你有沒有過敏？"), L("過敏史")),
         (L("請張開嘴巴"), L("張開嘴巴")),
     ]
+
+    private var languageSelectorBackground: Color {
+        #if canImport(UIKit)
+        Color(.systemGray6)
+        #else
+        Color.secondary.opacity(0.08)
+        #endif
+    }
 
     var body: some View {
         NavigationStack {
@@ -149,7 +162,7 @@ struct TranslatorView: View {
             }
         }
         .padding()
-        .background(Color(.systemGray6))
+        .background(languageSelectorBackground)
         .cornerRadius(12)
     }
 
@@ -260,7 +273,7 @@ struct TranslatorView: View {
             // 操作按鈕
             HStack(spacing: 16) {
                 Button {
-                    UIPasteboard.general.string = result.translated
+                    copyToPasteboard(result.translated)
                 } label: {
                     Label(L("複製"), systemImage: "doc.on.doc")
                         .font(.subheadline)
@@ -279,6 +292,15 @@ struct TranslatorView: View {
     }
 
     // MARK: - Helpers
+
+    private func copyToPasteboard(_ text: String) {
+        #if canImport(UIKit)
+        UIPasteboard.general.string = text
+        #elseif canImport(AppKit)
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+        #endif
+    }
 
     private func translate() {
         let text = inputText.trimmingCharacters(in: .whitespacesAndNewlines)

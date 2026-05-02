@@ -5,50 +5,44 @@ struct HQPWSView: View {
     @State private var showAddSheet = false
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                // 活躍警報
-                let active = vm.pwsAlerts.filter(\.isActive)
-                if !active.isEmpty {
+        HQPage {
+            HQPageTitleBar(L("PWS 警報"), icon: "exclamationmark.triangle.fill", accent: NV.danger) {
+                Text(L("%lld 則警報", vm.pwsAlerts.count))
+                    .font(.caption.monospacedDigit())
+                    .foregroundColor(.secondary)
+            }
+
+            // 活躍警報
+            let active = vm.pwsAlerts.filter(\.isActive)
+            if !active.isEmpty {
+                HQPanel(title: L("活躍警報"), icon: "exclamationmark.triangle.fill", accent: NV.danger) {
                     VStack(alignment: .leading, spacing: 8) {
-                        Label(L("活躍警報"), systemImage: "exclamationmark.triangle.fill")
-                            .font(.headline).foregroundColor(NV.danger)
                         ForEach(active) { alert in
                             PWSAlertCard(alert: alert, isActive: true) {
                                 vm.deactivatePWSAlert(alert.id)
                             }
                         }
                     }
-                    .padding(.horizontal)
                 }
+            }
 
-                // 歷史警報
-                let inactive = vm.pwsAlerts.filter { !$0.isActive }
-                if !inactive.isEmpty {
+            // 歷史警報
+            let inactive = vm.pwsAlerts.filter { !$0.isActive }
+            if !inactive.isEmpty {
+                HQPanel(title: L("歷史警報"), icon: "clock", accent: .secondary) {
                     VStack(alignment: .leading, spacing: 8) {
-                        Label(L("歷史警報"), systemImage: "clock")
-                            .font(.headline).foregroundColor(.secondary)
                         ForEach(inactive) { alert in
                             PWSAlertCard(alert: alert, isActive: false, onDeactivate: nil)
                         }
                     }
-                    .padding(.horizontal)
-                }
-
-                if vm.pwsAlerts.isEmpty {
-                    VStack(spacing: 12) {
-                        Image(systemName: "checkmark.shield")
-                            .font(.system(size: 40)).foregroundColor(.secondary)
-                        Text(L("目前無 PWS 警報"))
-                            .foregroundColor(.secondary)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 40)
                 }
             }
-            .padding(.vertical)
+
+            if vm.pwsAlerts.isEmpty {
+                HQEmptyStateView(icon: "checkmark.shield", title: L("目前無 PWS 警報"))
+                    .hqPanelChrome(accent: NV.danger)
+            }
         }
-        .navigationTitle(L("PWS 警報"))
         .overlay(alignment: .bottomLeading) {
             Button {
                 showAddSheet = true
