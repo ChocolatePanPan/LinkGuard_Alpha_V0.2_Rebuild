@@ -5,28 +5,24 @@ struct HQBriefingView: View {
     @State private var showAddSheet = false
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                if vm.briefings.isEmpty {
-                    VStack(spacing: 12) {
-                        Image(systemName: "doc.text")
-                            .font(.system(size: 40)).foregroundColor(.secondary)
-                        Text(L("尚未建立會報"))
-                            .foregroundColor(.secondary)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 40)
-                    .padding(.horizontal)
-                } else {
+        HQPage {
+            HQPageTitleBar(L("會報系統"), icon: "doc.text.fill", accent: NV.team) {
+                Text(L("%lld 份會報", vm.briefings.count))
+                    .font(.caption.monospacedDigit())
+                    .foregroundColor(.secondary)
+            }
+
+            if vm.briefings.isEmpty {
+                HQEmptyStateView(icon: "doc.text", title: L("尚未建立會報"))
+                    .hqPanelChrome(accent: NV.team)
+            } else {
+                LazyVStack(spacing: NV.panelSpacing) {
                     ForEach(vm.briefings) { report in
                         BriefingCard(report: report)
                     }
-                    .padding(.horizontal)
                 }
             }
-            .padding(.vertical)
         }
-        .navigationTitle(L("會報系統"))
         .overlay(alignment: .bottomLeading) {
             Button {
                 showAddSheet = true

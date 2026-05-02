@@ -23,10 +23,7 @@ struct HQPersonnelOverviewView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Label(L("人員總覽"), systemImage: "person.3.sequence.fill")
-                    .font(.title2).bold()
-                Spacer()
+            HQSectionHeader(L("人員總覽"), icon: "person.3.sequence.fill", accent: NV.team) {
                 statsBar
             }
 
@@ -56,11 +53,12 @@ struct HQPersonnelOverviewView: View {
                 }
                 .frame(width: 130)
             }
+            .padding(.horizontal, NV.pagePadding)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: NV.pageMaxWidth, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .center)
         }
-        .padding()
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(maxWidth: NV.pageMaxWidth, alignment: .leading)
-        .frame(maxWidth: .infinity, alignment: .center)
+        .padding(.bottom, 14)
     }
 
     private var statsBar: some View {

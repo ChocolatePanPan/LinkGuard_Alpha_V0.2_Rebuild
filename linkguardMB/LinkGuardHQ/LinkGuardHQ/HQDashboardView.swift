@@ -996,25 +996,15 @@ struct HQDashboardView: View {
                     .padding(.horizontal)
                 }
 
-                // 標題列 (含 Logo)
-                HStack {
-                    Image("Logo")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 52, height: 52)
-                    VStack(alignment: .leading) {
-                        Text(L("LinkGuard 指揮中心"))
-                            .font(.largeTitle).bold()
-                        Text(L("地震救援指揮系統 · 命令發布面板"))
-                            .font(.subheadline).foregroundColor(.secondary)
+                HQPageTitleBar(L("儀表板"), subtitle: L("地震救援指揮系統 · 命令發布面板"), icon: "gauge.with.dots.needle.33percent", accent: NV.green) {
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(vm.systemStatus.color)
+                            .frame(width: NV.dotSize, height: NV.dotSize)
+                        Text(vm.systemStatus.text)
+                            .font(.caption)
+                            .foregroundColor(vm.systemStatus.color)
                     }
-                    Spacer()
-                    Circle()
-                        .fill(vm.systemStatus.color)
-                        .frame(width: NV.dotSize, height: NV.dotSize)
-                    Text(vm.systemStatus.text)
-                        .font(.caption)
-                        .foregroundColor(vm.systemStatus.color)
                 }
                 .padding(.horizontal)
 

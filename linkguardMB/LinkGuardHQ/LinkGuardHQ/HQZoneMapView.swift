@@ -10,33 +10,26 @@ struct HQZoneMapView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
+        HQPage {
+            HQPageTitleBar(L("分區地圖"), icon: "map.fill", accent: NV.green)
+
             // 統計條
             statsBar
-                .padding(.horizontal)
-                .padding(.vertical, 10)
-
-            Divider()
 
             // 分區卡片網格
-            ScrollView {
-                if zones.isEmpty {
-                    emptyState
-                } else {
-                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 12),
-                                        GridItem(.flexible(), spacing: 12),
-                                        GridItem(.flexible(), spacing: 12)], spacing: 12) {
-                        ForEach(zones) { zone in
-                            ZoneCard(zone: zone, personnel: matchedPersonnel(for: zone)) {
-                                editingZone = zone
-                            }
+            if zones.isEmpty {
+                emptyState
+                    .hqPanelChrome(accent: NV.green)
+            } else {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 280), spacing: NV.panelSpacing)], spacing: NV.panelSpacing) {
+                    ForEach(zones) { zone in
+                        ZoneCard(zone: zone, personnel: matchedPersonnel(for: zone)) {
+                            editingZone = zone
                         }
                     }
-                    .padding()
                 }
             }
         }
-        .navigationTitle(L("分區地圖"))
         .overlay(alignment: .bottomLeading) {
             Button {
                 showAddZone = true
@@ -81,16 +74,11 @@ struct HQZoneMapView: View {
     // MARK: - 空狀態
 
     private var emptyState: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "map")
-                .font(.system(size: 40)).foregroundColor(.secondary)
-            Text(L("尚未定義搜救分區"))
-                .foregroundColor(.secondary)
-            Text(L("點按左下角 + 新增分區，或在「災害狀態」頁面中新增"))
-                .font(.caption).foregroundColor(.secondary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 40)
+        HQEmptyStateView(
+            icon: "map",
+            title: L("尚未定義搜救分區"),
+            subtitle: L("點按左下角 + 新增分區，或在「災害狀態」頁面中新增")
+        )
     }
 
     private func matchedPersonnel(for zone: RescueZone) -> [PersonnelAssignment] {

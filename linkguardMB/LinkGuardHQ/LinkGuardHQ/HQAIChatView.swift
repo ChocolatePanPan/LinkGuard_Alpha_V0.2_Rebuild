@@ -37,6 +37,12 @@ struct HQAIChatView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            HQSectionHeader(L("AI 指揮對話"), icon: "sparkles", accent: NV.command) {
+                Text(vm.effectiveBackendHost.isEmpty ? L("未連線") : "BACKEND ▸ \(vm.effectiveBackendHost)")
+                    .font(.caption.monospaced())
+                    .foregroundColor(.secondary)
+            }
+            Divider().background(NV.command.opacity(0.25))
             statusBar
             Divider().background(NV.command.opacity(0.25))
             escalationTriggerBanner
@@ -74,7 +80,7 @@ struct HQAIChatView: View {
             Divider().background(NV.command.opacity(0.25))
             inputBar
         }
-        .navigationTitle(L("AI 指揮對話"))
+        .background(NV.bg.ignoresSafeArea())
     }
 
     // MARK: - 子視圖

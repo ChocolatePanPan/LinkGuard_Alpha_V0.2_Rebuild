@@ -65,27 +65,22 @@ struct HQGrandDashboardView: View {
     // MARK: - Header
 
     private var headerBar: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "gauge.with.dots.needle.bottom.50percent")
-                .font(.title)
-                .foregroundColor(NV.green)
-            Text(L("HQ 大儀表板"))
-                .font(.title.bold())
-                .foregroundColor(.primary)
-            Spacer()
-            statusChip("SERVER", vm.systemStatus.text,
-                       ok: vm.server.isRunning || vm.peerClient.isConnected)
-            statusChip("BACKEND", host.isEmpty ? "未連線" : host,
-                       ok: !host.isEmpty)
-            statusChip("MODE", globalModeOverride.uppercased(),
-                       ok: globalModeOverride != "locked")
-            Button {
-                Task { await refreshAll() }
-            } label: {
-                Label(L("重新整理"), systemImage: "arrow.clockwise")
+        HQPageTitleBar(L("HQ 大儀表板"), icon: "square.grid.3x3.fill", accent: NV.command) {
+            HStack(spacing: 8) {
+                statusChip("SERVER", vm.systemStatus.text,
+                           ok: vm.server.isRunning || vm.peerClient.isConnected)
+                statusChip("BACKEND", host.isEmpty ? "未連線" : host,
+                           ok: !host.isEmpty)
+                statusChip("MODE", globalModeOverride.uppercased(),
+                           ok: globalModeOverride != "locked")
+                Button {
+                    Task { await refreshAll() }
+                } label: {
+                    Label(L("重新整理"), systemImage: "arrow.clockwise")
+                }
+                .buttonStyle(.bordered)
+                .disabled(isLoading || host.isEmpty)
             }
-            .buttonStyle(.bordered)
-            .disabled(isLoading || host.isEmpty)
         }
     }
 

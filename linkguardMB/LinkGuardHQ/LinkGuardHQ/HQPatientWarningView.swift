@@ -6,49 +6,35 @@ struct HQPatientWarningView: View {
     @ObservedObject var vm: HQViewModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            // 標題列
-            HStack {
-                Text(L("傷患惡化預警"))
-                    .font(.title).bold()
-                Spacer()
-
+        HQPage {
+            HQPageTitleBar(L("傷患惡化預警"), icon: "heart.text.square", accent: NV.danger) {
                 let urgentCount = vm.patientWarnings.filter { $0.triageLevel == "RED" }.count
-                if urgentCount > 0 {
-                    Label(L("%lld 危急", urgentCount), systemImage: "exclamationmark.triangle.fill")
-                        .font(.subheadline).bold()
-                        .foregroundColor(NV.danger)
+                HStack(spacing: 10) {
+                    if urgentCount > 0 {
+                        Label(L("%lld 危急", urgentCount), systemImage: "exclamationmark.triangle.fill")
+                            .font(.caption.bold())
+                            .foregroundColor(NV.danger)
+                    }
+                    Text(L("%lld 則預警", vm.patientWarnings.count))
+                        .font(.caption.monospacedDigit())
+                        .foregroundColor(.secondary)
                 }
-
-                Text(L("%lld 則預警", vm.patientWarnings.count))
-                    .foregroundColor(.secondary)
             }
-            .padding(.horizontal)
 
             if vm.patientWarnings.isEmpty {
-                VStack(spacing: 12) {
-                    Image(systemName: "heart.text.square")
-                        .font(.system(size: 48))
-                        .foregroundColor(.secondary)
-                    Text(L("目前無傷患惡化預警"))
-                        .foregroundColor(.secondary)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                HQEmptyStateView(icon: "heart.text.square", title: L("目前無傷患惡化預警"))
+                    .hqPanelChrome(accent: NV.danger)
             } else {
-                ScrollView {
-                    LazyVStack(spacing: 12) {
-                        ForEach(vm.patientWarnings) { warning in
-                            HQPatientWarningRow(
-                                warning: warning,
-                                onDismiss: { vm.dismissPatientWarning(warning.id) }
-                            )
-                        }
+                LazyVStack(spacing: NV.panelSpacing) {
+                    ForEach(vm.patientWarnings) { warning in
+                        HQPatientWarningRow(
+                            warning: warning,
+                            onDismiss: { vm.dismissPatientWarning(warning.id) }
+                        )
                     }
-                    .padding(.horizontal)
                 }
             }
         }
-        .padding(.vertical)
     }
 }
 

@@ -38,10 +38,7 @@ struct HQVictimOverviewView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Label(L("受困者總覽"), systemImage: "person.fill.questionmark")
-                    .font(.title2).bold()
-                Spacer()
+            HQSectionHeader(L("受困者總覽"), icon: "person.fill.questionmark", accent: NV.warning) {
                 victimStats
             }
 
@@ -85,8 +82,12 @@ struct HQVictimOverviewView: View {
                 }
                 .frame(width: 90)
             }
+            .padding(.horizontal, NV.pagePadding)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: NV.pageMaxWidth, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .center)
         }
-        .padding()
+        .padding(.bottom, 14)
     }
 
     private var victimStats: some View {

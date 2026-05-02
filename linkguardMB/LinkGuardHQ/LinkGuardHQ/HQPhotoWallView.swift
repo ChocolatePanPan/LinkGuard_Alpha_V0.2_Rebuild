@@ -28,46 +28,24 @@ struct HQPhotoWallView: View {
     var body: some View {
         let entries = photoEntries
 
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Text(L("照片回報"))
-                    .font(.title).bold()
-                Spacer()
+        HQPage {
+            HQPageTitleBar(L("照片回報"), icon: "photo.on.rectangle.angled", accent: NV.info) {
                 Text(L("%lld 張照片", entries.count))
+                    .font(.caption.monospacedDigit())
                     .foregroundColor(.secondary)
             }
-            .padding(.horizontal)
 
             if entries.isEmpty {
-                VStack(spacing: 12) {
-                    Image(systemName: "photo.on.rectangle.angled")
-                        .font(.system(size: 48))
-                        .foregroundColor(.secondary)
-                    Text(L("尚未收到照片回報"))
-                        .foregroundColor(.secondary)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                HQEmptyStateView(icon: "photo.on.rectangle.angled", title: L("尚未收到照片回報"))
+                    .hqPanelChrome(accent: NV.info)
             } else {
-                GeometryReader { proxy in
-                    ScrollView {
-                        LazyVGrid(columns: gridColumns(for: proxy.size.width), spacing: 16) {
-                            ForEach(entries) { entry in
-                                PhotoCard(data: entry.data)
-                            }
-                        }
-                        .padding()
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 240, maximum: 360), spacing: NV.panelSpacing)], spacing: NV.panelSpacing) {
+                    ForEach(entries) { entry in
+                        PhotoCard(data: entry.data)
                     }
                 }
             }
         }
-        .padding(.top)
-    }
-
-    private func gridColumns(for width: CGFloat) -> [GridItem] {
-        let availableWidth = max(width - 32, 220)
-        let targetWidth: CGFloat = availableWidth > 900 ? 280 : 240
-        let count = max(Int(availableWidth / targetWidth), 1)
-        return Array(repeating: GridItem(.flexible(minimum: 220, maximum: 360), spacing: 16), count: count)
     }
 }
 

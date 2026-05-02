@@ -8,23 +8,16 @@ struct HQBroadcastView: View {
     @State private var selectedPriority = "normal"
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            // 標題列
-            HStack {
-                Text(L("文字廣播"))
-                    .font(.title).bold()
-                Spacer()
+        HQPage {
+            HQPageTitleBar(L("文字廣播"), icon: "megaphone.fill", accent: NV.danger) {
                 Text(L("%lld 則廣播", vm.textBroadcasts.count))
+                    .font(.caption.monospacedDigit())
                     .foregroundColor(.secondary)
             }
-            .padding(.horizontal)
 
             // 發送區域
-            GroupBox {
+            HQPanel(title: L("發送新廣播"), icon: "paperplane.fill", accent: selectedPriority == "urgent" ? NV.danger : NV.command) {
                 VStack(alignment: .leading, spacing: 12) {
-                    Text(L("發送新廣播"))
-                        .font(.headline)
-
                     // 優先級
                     HStack(spacing: 12) {
                         Text(L("優先級："))
@@ -62,37 +55,23 @@ struct HQBroadcastView: View {
                         .disabled(broadcastMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     }
                 }
-                .padding(8)
             }
-            .padding(.horizontal)
-
-            Divider()
 
             // 廣播歷史
             if vm.textBroadcasts.isEmpty {
-                VStack(spacing: 12) {
-                    Image(systemName: "megaphone")
-                        .font(.system(size: 48))
-                        .foregroundColor(.secondary)
-                    Text(L("尚未發送任何廣播"))
-                        .foregroundColor(.secondary)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                HQEmptyStateView(icon: "megaphone", title: L("尚未發送任何廣播"))
+                    .hqPanelChrome(accent: NV.danger)
             } else {
-                ScrollView {
-                    LazyVStack(spacing: 12) {
-                        ForEach(vm.textBroadcasts) { broadcast in
-                            HQBroadcastRow(
-                                broadcast: broadcast,
-                                readStatus: vm.readStatuses[broadcast.broadcastId]
-                            )
-                        }
+                LazyVStack(spacing: NV.panelSpacing) {
+                    ForEach(vm.textBroadcasts) { broadcast in
+                        HQBroadcastRow(
+                            broadcast: broadcast,
+                            readStatus: vm.readStatuses[broadcast.broadcastId]
+                        )
                     }
-                    .padding(.horizontal)
                 }
             }
         }
-        .padding(.vertical)
     }
 }
 

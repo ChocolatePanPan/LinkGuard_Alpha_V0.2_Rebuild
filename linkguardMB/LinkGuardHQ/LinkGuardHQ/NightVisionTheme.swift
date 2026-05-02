@@ -124,6 +124,131 @@ struct HQPageHeader: View {
     }
 }
 
+struct HQPageTitleBar<Trailing: View>: View {
+    let title: String
+    let subtitle: String?
+    let icon: String
+    let accent: Color
+    @ViewBuilder let trailing: Trailing
+
+    init(_ title: String,
+         subtitle: String? = nil,
+         icon: String,
+         accent: Color = NV.green,
+         @ViewBuilder trailing: () -> Trailing) {
+        self.title = title
+        self.subtitle = subtitle
+        self.icon = icon
+        self.accent = accent
+        self.trailing = trailing()
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.title2)
+                .foregroundColor(accent)
+                .frame(width: 34, height: 34)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.title.bold())
+                    .foregroundColor(.primary)
+                if let subtitle, !subtitle.isEmpty {
+                    Text(subtitle)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+            }
+            Spacer(minLength: 12)
+            trailing
+        }
+    }
+}
+
+extension HQPageTitleBar where Trailing == EmptyView {
+    init(_ title: String,
+         subtitle: String? = nil,
+         icon: String,
+         accent: Color = NV.green) {
+        self.init(title, subtitle: subtitle, icon: icon, accent: accent) { EmptyView() }
+    }
+}
+
+struct HQSectionHeader<Trailing: View>: View {
+    let title: String
+    let subtitle: String?
+    let icon: String
+    let accent: Color
+    @ViewBuilder let trailing: Trailing
+
+    init(_ title: String,
+         subtitle: String? = nil,
+         icon: String,
+         accent: Color = NV.green,
+         @ViewBuilder trailing: () -> Trailing) {
+        self.title = title
+        self.subtitle = subtitle
+        self.icon = icon
+        self.accent = accent
+        self.trailing = trailing()
+    }
+
+    var body: some View {
+        HQPageTitleBar(title, subtitle: subtitle, icon: icon, accent: accent) {
+            trailing
+        }
+        .padding(.horizontal, NV.pagePadding)
+        .padding(.vertical, 16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: NV.pageMaxWidth, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .center)
+    }
+}
+
+extension HQSectionHeader where Trailing == EmptyView {
+    init(_ title: String,
+         subtitle: String? = nil,
+         icon: String,
+         accent: Color = NV.green) {
+        self.init(title, subtitle: subtitle, icon: icon, accent: accent) { EmptyView() }
+    }
+}
+
+struct HQEmptyStateView: View {
+    let icon: String
+    let title: String
+    let subtitle: String?
+    let minHeight: CGFloat
+
+    init(icon: String,
+         title: String,
+         subtitle: String? = nil,
+         minHeight: CGFloat = 300) {
+        self.icon = icon
+        self.title = title
+        self.subtitle = subtitle
+        self.minHeight = minHeight
+    }
+
+    var body: some View {
+        VStack(spacing: 10) {
+            Image(systemName: icon)
+                .font(.system(size: 44, weight: .regular))
+                .foregroundColor(.secondary.opacity(0.65))
+            Text(title)
+                .font(.callout.weight(.medium))
+                .foregroundColor(.secondary)
+            if let subtitle, !subtitle.isEmpty {
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundColor(.secondary.opacity(0.8))
+                    .multilineTextAlignment(.center)
+            }
+        }
+        .frame(maxWidth: .infinity, minHeight: minHeight)
+    }
+}
+
 struct HQPanel<Content: View>: View {
     let title: String
     let icon: String
