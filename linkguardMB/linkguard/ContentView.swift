@@ -3,7 +3,7 @@ import SwiftUI
 // MARK: - Main View
 
 enum AppTab: Hashable {
-    case dashboard, victims, sos, disaster, chat, reinforcement, team, commands, notifications, radio, connection, patientForm, decision, translator, photo, personnelAssignment, aiChat, aiReport
+    case dashboard, victims, sos, disaster, chat, reinforcement, team, commands, notifications, radio, connection, patientForm, decision, translator, photo, personnelAssignment, aiCommunication, aiChat, aiReport
 }
 
 struct ContentView: View {
@@ -35,12 +35,6 @@ struct ContentView: View {
                         DecisionView(vm: viewModel)
                     }
                     .badge(viewModel.decisions.count + viewModel.unreadCommandCount)
-                    Tab(L("AI 助理"), systemImage: viewModel.isAIServicePaused ? "pause.circle" : "sparkles", value: AppTab.aiChat) {
-                        FieldAIChatView(vm: viewModel)
-                    }
-                    Tab(L("AI 回報"), systemImage: viewModel.isAIServicePaused ? "pause.circle" : "text.badge.checkmark", value: AppTab.aiReport) {
-                        FieldAIReportView(vm: viewModel)
-                    }
                 }
                 Tab(L("災情"), systemImage: "building.2", value: AppTab.disaster) {
                     FieldDisasterView(vm: viewModel)
@@ -49,6 +43,17 @@ struct ContentView: View {
                     SOSRecordListView(vm: viewModel)
                 }
                 .badge(viewModel.unacknowledgedSOSCount)
+                TabSection("AI") {
+                    Tab(L("AI 通訊"), systemImage: viewModel.isAIServicePaused ? "pause.circle" : "message.badge.waveform", value: AppTab.aiCommunication) {
+                        RadioView(vm: viewModel, initialMode: .aiChat, showsModePicker: false)
+                    }
+                    Tab(L("AI 助理"), systemImage: viewModel.isAIServicePaused ? "pause.circle" : "sparkles", value: AppTab.aiChat) {
+                        FieldAIChatView(vm: viewModel)
+                    }
+                    Tab(L("AI 回報"), systemImage: viewModel.isAIServicePaused ? "pause.circle" : "text.badge.checkmark", value: AppTab.aiReport) {
+                        FieldAIReportView(vm: viewModel)
+                    }
+                }
                 TabSection(L("其他")) {
                     Tab(L("受困者"), systemImage: "person.fill.questionmark", value: AppTab.victims) {
                         VictimListView(vm: viewModel)

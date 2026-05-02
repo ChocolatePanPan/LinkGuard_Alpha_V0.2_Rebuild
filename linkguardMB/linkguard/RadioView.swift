@@ -13,6 +13,8 @@ enum RadioMode: String, CaseIterable {
     case live = "即時廣播"
     case briefing = "固定會報"
     case aiChat = "AI 通訊"
+
+    static let radioModes: [RadioMode] = [.live, .briefing]
 }
 
 // MARK: - 電台頁面
@@ -23,13 +25,26 @@ struct RadioView: View {
     @StateObject private var briefingManager = BriefingRecordManager()
     @StateObject private var liveManager = LiveBroadcastManager()
     @StateObject private var aiChatManager = FieldAIChatManager()
+    private let initialMode: RadioMode
+    private let showsModePicker: Bool
+
+    init(vm: LinkGuardViewModel, initialMode: RadioMode = .live, showsModePicker: Bool = true) {
+        self.vm = vm
+        self.initialMode = initialMode
+        self.showsModePicker = showsModePicker
+        self._mode = State(initialValue: initialMode)
+    }
+
+    private var titleText: String {
+        showsModePicker ? "電台" : initialMode.rawValue
+    }
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
                 // 標題列
                 HStack {
-                    Text(L("電台"))
+                    Text(L(titleText))
                         .font(.title2).bold()
                     Spacer()
                 }
@@ -37,14 +52,16 @@ struct RadioView: View {
                 .padding(.vertical, 8)
 
                 // 模式選擇器
-                Picker(L("模式"), selection: $mode) {
-                    ForEach(RadioMode.allCases, id: \.self) { m in
-                        Text(L(m.rawValue)).tag(m)
+                if showsModePicker {
+                    Picker(L("模式"), selection: $mode) {
+                        ForEach(RadioMode.radioModes, id: \.self) { m in
+                            Text(L(m.rawValue)).tag(m)
+                        }
                     }
+                    .pickerStyle(.segmented)
+                    .padding(.horizontal)
+                    .padding(.bottom, 8)
                 }
-                .pickerStyle(.segmented)
-                .padding(.horizontal)
-                .padding(.bottom, 8)
 
                 Divider()
 
@@ -58,7 +75,7 @@ struct RadioView: View {
                     aiChatContent
                 }
             }
-            .navigationTitle(L("電台"))
+            .navigationTitle(L(titleText))
             #if os(iOS)
             .toolbarVisibility(.hidden, for: .navigationBar)
             #endif
