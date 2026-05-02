@@ -311,8 +311,12 @@ def _effective_ai_runtime_status(host: str = OLLAMA_HOST) -> dict:
 
 
 async def _run_profiled_chat(host: str, chat_kwargs: dict,
-                             think: Optional[bool] = False) -> tuple[object, dict]:
+                             think: Optional[bool] = False,
+                             max_workers: Optional[int] = None) -> tuple[object, dict]:
     workers = _parallel_worker_count()
+    configured_workers = workers
+    if max_workers is not None:
+        workers = max(1, min(workers, max_workers))
     requested_model = _parallel_model_name(str(chat_kwargs.get("model") or ""))
     model, used_fallback = _resolve_available_ollama_model(host, requested_model)
     effective_workers = 1 if used_fallback else workers
@@ -327,6 +331,7 @@ async def _run_profiled_chat(host: str, chat_kwargs: dict,
             "requested_model": requested_model,
             "runtime_model": model,
             "model_fallback": used_fallback,
+            "configured_parallel_workers": configured_workers,
             "parallel_workers": 1,
             "parallel_successes": 1,
         }
@@ -351,6 +356,7 @@ async def _run_profiled_chat(host: str, chat_kwargs: dict,
         "requested_model": requested_model,
         "runtime_model": model,
         "model_fallback": used_fallback,
+        "configured_parallel_workers": configured_workers,
         "parallel_workers": effective_workers,
         "parallel_successes": len(successes),
     }
@@ -1606,6 +1612,7 @@ async def generate(req: GenerateRequest):
         "runtime_model": profile_info.get("runtime_model", runtime_model),
         "model_fallback": profile_info.get("model_fallback", False),
         "ai_profile": profile_info.get("ai_profile"),
+        "configured_parallel_workers": profile_info.get("configured_parallel_workers"),
         "parallel_workers": profile_info.get("parallel_workers", 1),
         "parallel_successes": profile_info.get("parallel_successes", 1),
     }
@@ -2038,7 +2045,9 @@ async def hq_chat(req: ChatRequest):
 
     record_ai_activity("HQ對話", target=f"local:{runtime_model}", detail=user_msg[:120])
     try:
-        response, profile_info = await _run_profiled_chat(runtime_host, chat_kwargs, think=False)
+        response, profile_info = await _run_profiled_chat(
+            runtime_host, chat_kwargs, think=False, max_workers=1
+        )
     except ConnectionError as e:
         logger.warning(f"[CHAT] Ollama 連線失敗: {e}")
         record_ai_activity("HQ對話", target=f"local:{runtime_model}",
@@ -2120,6 +2129,7 @@ async def hq_chat(req: ChatRequest):
         "runtime_model": profile_info.get("runtime_model", runtime_model),
         "model_fallback": profile_info.get("model_fallback", False),
         "ai_profile": profile_info.get("ai_profile"),
+        "configured_parallel_workers": profile_info.get("configured_parallel_workers"),
         "parallel_workers": profile_info.get("parallel_workers", 1),
         "parallel_successes": profile_info.get("parallel_successes", 1),
         "tier": tier,
@@ -2354,7 +2364,9 @@ async def hq_chat_with_tools(req: ChatRequest):
     )
 
     try:
-        response, profile_info = await _run_profiled_chat(OLLAMA_HOST, chat_kwargs, think=False)
+        response, profile_info = await _run_profiled_chat(
+            OLLAMA_HOST, chat_kwargs, think=False, max_workers=1
+        )
     except ConnectionError as e:
         logger.warning(f"[CHAT/TOOLS] Ollama 連線失敗: {e}")
         api_error(
@@ -2417,6 +2429,7 @@ async def hq_chat_with_tools(req: ChatRequest):
         "runtime_model": profile_info.get("runtime_model", runtime_model),
         "model_fallback": profile_info.get("model_fallback", False),
         "ai_profile": profile_info.get("ai_profile"),
+        "configured_parallel_workers": profile_info.get("configured_parallel_workers"),
         "parallel_workers": profile_info.get("parallel_workers", 1),
         "parallel_successes": profile_info.get("parallel_successes", 1),
         "elapsed_ms": elapsed_ms,

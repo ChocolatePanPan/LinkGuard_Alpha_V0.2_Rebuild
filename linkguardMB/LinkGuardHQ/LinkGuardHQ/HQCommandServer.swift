@@ -1733,9 +1733,11 @@ class HQCommandServer: ObservableObject {
     func startLocalStatsTimer() {
         serverStartTime = Date()
         localStatsTimer?.invalidate()
-        localStatsTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
+        let timer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
             self?.computeLocalStats()
         }
+        timer.tolerance = 10
+        localStatsTimer = timer
         // 首次延遲 5 秒後計算
         DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
             self?.computeLocalStats()

@@ -19,12 +19,27 @@ import AppKit
 
 /// One Python backend service that BackendSupervisor knows how to launch.
 struct BackendServiceSpec: Identifiable, Hashable {
+    static let aiServiceID = "gemma4_server"
+    static let pythonWhisperServiceID = "whisper_server"
+
     let id: String              // canonical key, e.g. "gemma4_server"
     let displayName: String     // shown in UI
     let scriptName: String      // file under backend dir, e.g. "gemma4_server.py"
     let port: Int               // primary port (for health probe / display)
     let isHTTP: Bool            // true → probe via /health; false → TCP connect
     let startDelay: TimeInterval // pre-launch delay, mirrors macos/start_all.sh
+    let isHighPower: Bool       // true → start on demand to reduce idle energy
+
+    init(id: String, displayName: String, scriptName: String, port: Int,
+         isHTTP: Bool, startDelay: TimeInterval, isHighPower: Bool = false) {
+        self.id = id
+        self.displayName = displayName
+        self.scriptName = scriptName
+        self.port = port
+        self.isHTTP = isHTTP
+        self.startDelay = startDelay
+        self.isHighPower = isHighPower
+    }
 
     /// Mac HQ already owns 8003 (speech), 8005 (LGAP audio), and 9001 (UDP audio).
     /// Keep the embedded Python sidecar to services that do not collide with those
@@ -33,11 +48,15 @@ struct BackendServiceSpec: Identifiable, Hashable {
     static let all: [BackendServiceSpec] = [
         .init(id: "mqtt_broker",    displayName: "MQTT Client",        scriptName: "mqtt_broker.py",    port: 1883, isHTTP: false, startDelay: 0),
         .init(id: "tcp_server",     displayName: "TCP Aggregator",     scriptName: "tcp_server.py",     port: 9000, isHTTP: false, startDelay: 0),
-        .init(id: "gemma4_server",  displayName: "Gemma4 AI",          scriptName: "gemma4_server.py",  port: 8001, isHTTP: true,  startDelay: 2),
-        .init(id: "whisper_server", displayName: "Whisper Voice",      scriptName: "whisper_server.py", port: 8002, isHTTP: true,  startDelay: 0),
+        .init(id: Self.aiServiceID,  displayName: "Gemma4 AI",          scriptName: "gemma4_server.py",  port: 8001, isHTTP: true,  startDelay: 2, isHighPower: true),
+        .init(id: Self.pythonWhisperServiceID, displayName: "Whisper Voice", scriptName: "whisper_server.py", port: 8002, isHTTP: true, startDelay: 0, isHighPower: true),
         .init(id: "photo_server",   displayName: "Photo Server",       scriptName: "photo_server.py",   port: 8004, isHTTP: true,  startDelay: 2),
         .init(id: "resource_server",displayName: "Resource Server",    scriptName: "resource_server.py",port: 8006, isHTTP: true,  startDelay: 0),
     ]
+
+    static var defaultStartup: [BackendServiceSpec] {
+        all.filter { !$0.isHighPower }
+    }
 }
 
 enum LocalAIModelProfile: String, CaseIterable, Identifiable {
@@ -143,12 +162,20 @@ final class BackendSupervisor: ObservableObject {
     @Published var services: [BackendServiceState]
     @Published var allHealthy: Bool = false
     @Published var anyCrashed: Bool = false
+    @Published var isAIServicePausedForPowerSaving: Bool = false
+    @Published var isManualAIPowerSavingModeEnabled: Bool = false
+    @Published var aiServicePauseReason: String? = nil
     @Published private var processMetrics: [String: BackendProcessMetrics] = [:]
 
     private var processes: [String: Process] = [:]
     private var stdoutPipes: [String: Pipe] = [:]
     private var healthTimer: Timer?
     private var metricsTimer: Timer?
+    private var aiShouldResumeAfterPause = false
+
+    var isAIServicePaused: Bool {
+        isAIServicePausedForPowerSaving || isManualAIPowerSavingModeEnabled
+    }
 
     init() {
         self.services = BackendServiceSpec.all.map { BackendServiceState(spec: $0) }
@@ -159,9 +186,24 @@ final class BackendSupervisor: ObservableObject {
             self, selector: #selector(handleTerminate),
             name: NSApplication.willTerminateNotification, object: nil
         )
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(handlePowerStateDidChange),
+            name: Notification.Name.NSProcessInfoPowerStateDidChange, object: nil
+        )
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self, selector: #selector(handleWillSleep),
+            name: NSWorkspace.willSleepNotification, object: nil
+        )
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self, selector: #selector(handleDidWake),
+            name: NSWorkspace.didWakeNotification, object: nil
+        )
+        updatePowerSavingPauseState()
     }
 
     deinit {
+        NotificationCenter.default.removeObserver(self)
+        NSWorkspace.shared.notificationCenter.removeObserver(self)
         // Best effort, can't await on MainActor here.
         for p in processes.values where p.isRunning { p.terminate() }
     }
@@ -229,8 +271,26 @@ final class BackendSupervisor: ObservableObject {
 
     /// Start every service in the order/delays from `macos/start_all.sh`.
     func startAll() {
+        startServices(BackendServiceSpec.all)
+    }
+
+    /// Start only the always-on bridge services. AI and Python Whisper are
+    /// started on demand because they dominate idle energy use on macOS.
+    func startEnergyEfficientServices() {
+        startServices(BackendServiceSpec.defaultStartup)
+    }
+
+    func startAIServiceIfNeeded() {
+        start(BackendServiceSpec.aiServiceID)
+    }
+
+    func startPythonWhisperIfNeeded() {
+        start(BackendServiceSpec.pythonWhisperServiceID)
+    }
+
+    private func startServices(_ specs: [BackendServiceSpec]) {
         Task {
-            for spec in BackendServiceSpec.all {
+            for spec in specs {
                 if spec.startDelay > 0 {
                     try? await Task.sleep(nanoseconds: UInt64(spec.startDelay * 1_000_000_000))
                 }
@@ -242,14 +302,30 @@ final class BackendSupervisor: ObservableObject {
     }
 
     func stopAll() {
+        aiShouldResumeAfterPause = false
+        isManualAIPowerSavingModeEnabled = false
         for spec in BackendServiceSpec.all { stop(spec.id) }
+        aiServicePauseReason = currentAIServicePauseReason
         stopHealthLoop()
         stopMetricsLoop()
     }
 
     func start(_ id: String) {
         guard let state = services.first(where: { $0.id == id }) else { return }
-        guard state.status != .starting && state.status != .healthy else { return }
+        if id == BackendServiceSpec.aiServiceID {
+            if ProcessInfo.processInfo.isLowPowerModeEnabled {
+                isAIServicePausedForPowerSaving = true
+            }
+            if isAIServicePaused {
+                aiShouldResumeAfterPause = true
+                aiServicePauseReason = currentAIServicePauseReason
+                state.status = .stopped
+                state.lastError = currentAIServicePauseReason
+                recomputeAggregate()
+                return
+            }
+        }
+        guard state.pid == nil && state.status != .starting && state.status != .healthy else { return }
         guard let python = pythonExecutable else {
             state.lastError = "Python interpreter not found (see Setup Assistant)"
             state.status = .crashed
@@ -266,7 +342,7 @@ final class BackendSupervisor: ObservableObject {
         p.executableURL = python
         p.arguments = [script.path]
         p.currentDirectoryURL = backendDir
-        if id == "gemma4_server" {
+        if id == BackendServiceSpec.aiServiceID {
             let profile = applyStoredAIModelProfile(restartIfRunning: false)
             var environment = ProcessInfo.processInfo.environment
             profile.environment.forEach { environment[$0.key] = $0.value }
@@ -309,6 +385,7 @@ final class BackendSupervisor: ObservableObject {
             state.pid = p.processIdentifier
             processes[id] = p
             stdoutPipes[id] = pipe
+            startHealthLoop()
             startMetricsLoop()
         } catch {
             state.status = .crashed
@@ -319,6 +396,9 @@ final class BackendSupervisor: ObservableObject {
 
     func stop(_ id: String) {
         guard let state = services.first(where: { $0.id == id }) else { return }
+        if id == BackendServiceSpec.aiServiceID, !isAIServicePaused {
+            aiShouldResumeAfterPause = false
+        }
         state.status = .stopped
         if let p = processes[id] {
             if p.isRunning { p.terminate() }
@@ -328,8 +408,32 @@ final class BackendSupervisor: ObservableObject {
         stdoutPipes.removeValue(forKey: id)
         state.pid = nil
         processMetrics[id] = nil
-        if services.allSatisfy({ $0.pid == nil }) { stopMetricsLoop() }
+        if services.allSatisfy({ $0.pid == nil }) {
+            stopHealthLoop()
+            stopMetricsLoop()
+        }
         recomputeAggregate()
+    }
+
+    func waitForHealthy(_ id: String, timeout: TimeInterval = 60) async -> Bool {
+        guard let state = services.first(where: { $0.id == id }) else { return false }
+        let spec = state.spec
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if state.status == .healthy { return true }
+            if state.status == .stopped || state.status == .crashed {
+                return false
+            }
+            let healthy = await Self.probe(spec: spec)
+            state.lastHealthCheck = Date()
+            if healthy {
+                state.status = .healthy
+                recomputeAggregate()
+                return true
+            }
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
+        }
+        return false
     }
 
     func restart(_ id: String) {
@@ -351,10 +455,19 @@ final class BackendSupervisor: ObservableObject {
         let profile = LocalAIModelProfile(rawValue: raw) ?? .singleE4B
         writeAIModelProfile(profile)
         if restartIfRunning,
-           services.first(where: { $0.id == "gemma4_server" })?.pid != nil {
-            restart("gemma4_server")
+           services.first(where: { $0.id == BackendServiceSpec.aiServiceID })?.pid != nil {
+            restart(BackendServiceSpec.aiServiceID)
         }
         return profile
+    }
+
+    func setManualAIPowerSavingMode(_ enabled: Bool) {
+        isManualAIPowerSavingModeEnabled = enabled
+        if enabled {
+            pauseAIService()
+        } else {
+            resumeAIServiceIfPauseCleared()
+        }
     }
 
     private func writeAIModelProfile(_ profile: LocalAIModelProfile) {
@@ -378,19 +491,86 @@ final class BackendSupervisor: ObservableObject {
             let data = try JSONSerialization.data(withJSONObject: config, options: [.prettyPrinted, .sortedKeys])
             try data.write(to: configURL, options: .atomic)
         } catch {
-            services.first(where: { $0.id == "gemma4_server" })?.lastError = "AI profile write failed: \(error.localizedDescription)"
+            services.first(where: { $0.id == BackendServiceSpec.aiServiceID })?.lastError = "AI profile write failed: \(error.localizedDescription)"
         }
     }
 
     @objc private func handleTerminate() { stopAll() }
 
+    @objc private func handlePowerStateDidChange() {
+        updatePowerSavingPauseState()
+    }
+
+    @objc private func handleWillSleep() {
+        pauseAIServiceForPowerSaving()
+    }
+
+    @objc private func handleDidWake() {
+        updatePowerSavingPauseState()
+    }
+
+    private static let powerSavingPauseReason = "後台電腦已進入省電模式"
+    private static let manualPowerSavingPauseReason = "已手動啟用省電模式"
+
+    private var currentAIServicePauseReason: String? {
+        if isAIServicePausedForPowerSaving { return Self.powerSavingPauseReason }
+        if isManualAIPowerSavingModeEnabled { return Self.manualPowerSavingPauseReason }
+        return nil
+    }
+
+    private func updatePowerSavingPauseState() {
+        if ProcessInfo.processInfo.isLowPowerModeEnabled {
+            pauseAIServiceForPowerSaving()
+        } else {
+            resumeAIServiceAfterPowerSavingIfNeeded()
+        }
+    }
+
+    private func pauseAIServiceForPowerSaving() {
+        isAIServicePausedForPowerSaving = true
+        pauseAIService()
+    }
+
+    private func pauseAIService() {
+        guard let state = services.first(where: { $0.id == BackendServiceSpec.aiServiceID }) else { return }
+        if state.pid != nil || state.status == .starting || state.status == .healthy || state.status == .unhealthy {
+            aiShouldResumeAfterPause = true
+        }
+        aiServicePauseReason = currentAIServicePauseReason
+        stop(BackendServiceSpec.aiServiceID)
+        state.lastError = currentAIServicePauseReason
+    }
+
+    private func resumeAIServiceAfterPowerSavingIfNeeded() {
+        isAIServicePausedForPowerSaving = false
+        resumeAIServiceIfPauseCleared()
+    }
+
+    private func resumeAIServiceIfPauseCleared() {
+        if isAIServicePaused {
+            aiServicePauseReason = currentAIServicePauseReason
+            services.first(where: { $0.id == BackendServiceSpec.aiServiceID })?.lastError = currentAIServicePauseReason
+            return
+        }
+        let shouldResume = aiShouldResumeAfterPause
+        aiShouldResumeAfterPause = false
+        aiServicePauseReason = nil
+        services.first(where: { $0.id == BackendServiceSpec.aiServiceID })?.lastError = nil
+        guard shouldResume else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            self?.start(BackendServiceSpec.aiServiceID)
+        }
+    }
+
     // MARK: - Health probing
 
     private func startHealthLoop() {
         guard healthTimer == nil else { return }
-        healthTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
+        let timer = Timer.scheduledTimer(withTimeInterval: 15.0, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in self?.probeAll() }
         }
+        timer.tolerance = 5.0
+        healthTimer = timer
     }
 
     private func stopHealthLoop() {
@@ -457,9 +637,11 @@ final class BackendSupervisor: ObservableObject {
 
     private func startMetricsLoop() {
         guard metricsTimer == nil else { return }
-        metricsTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { [weak self] _ in
+        let timer = Timer.scheduledTimer(withTimeInterval: 30.0, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in self?.refreshProcessMetrics() }
         }
+        timer.tolerance = 10.0
+        metricsTimer = timer
         refreshProcessMetrics()
     }
 
@@ -530,12 +712,21 @@ final class BackendSupervisor: ObservableObject {
     @Published var services: [BackendServiceState] = []
     @Published var allHealthy: Bool = false
     @Published var anyCrashed: Bool = false
+    @Published var isAIServicePausedForPowerSaving: Bool = false
+    @Published var isManualAIPowerSavingModeEnabled: Bool = false
+    @Published var aiServicePauseReason: String? = nil
+    var isAIServicePaused: Bool { false }
     func startAll() {}
+    func startEnergyEfficientServices() {}
     func stopAll() {}
     func start(_ id: String) {}
     func stop(_ id: String) {}
     func restart(_ id: String) {}
     func restartCrashed() {}
+    func startAIServiceIfNeeded() {}
+    func startPythonWhisperIfNeeded() {}
+    func waitForHealthy(_ id: String, timeout: TimeInterval = 60) async -> Bool { false }
+    func setManualAIPowerSavingMode(_ enabled: Bool) {}
     func metrics(for id: String) -> BackendProcessMetrics { .empty }
 }
 

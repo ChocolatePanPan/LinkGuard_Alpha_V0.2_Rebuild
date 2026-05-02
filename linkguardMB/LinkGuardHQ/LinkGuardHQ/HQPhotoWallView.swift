@@ -12,18 +12,33 @@ struct HQPhotoWallView: View {
         "localhost"
     }
 
+    private var photoEntries: [PhotoWallEntry] {
+        vm.photoAlerts.enumerated().map { index, photo in
+            let data = photo["data"] as? [String: Any] ?? photo
+            let photoId = data["photo_id"] as? String ?? ""
+            let fullURL = data["full_url"] as? String ?? ""
+            let timestamp = data["timestamp"] as? String ?? ""
+            let stableId = [photoId, fullURL, timestamp]
+                .filter { !$0.isEmpty }
+                .joined(separator: "|")
+            return PhotoWallEntry(id: stableId.isEmpty ? "photo-\(index)" : stableId, data: data)
+        }
+    }
+
     var body: some View {
+        let entries = photoEntries
+
         VStack(alignment: .leading, spacing: 16) {
             HStack {
                 Text(L("照片回報"))
                     .font(.title).bold()
                 Spacer()
-                Text(L("%lld 張照片", vm.photoAlerts.count))
+                Text(L("%lld 張照片", entries.count))
                     .foregroundColor(.secondary)
             }
             .padding(.horizontal)
 
-            if vm.photoAlerts.isEmpty {
+            if entries.isEmpty {
                 VStack(spacing: 12) {
                     Image(systemName: "photo.on.rectangle.angled")
                         .font(.system(size: 48))
@@ -35,10 +50,8 @@ struct HQPhotoWallView: View {
             } else {
                 ScrollView {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 220))], spacing: 16) {
-                        ForEach(0..<vm.photoAlerts.count, id: \.self) { idx in
-                            let photo = vm.photoAlerts[idx]
-                            let data = photo["data"] as? [String: Any] ?? photo
-                            PhotoCard(data: data)
+                        ForEach(entries) { entry in
+                            PhotoCard(data: entry.data)
                         }
                     }
                     .padding()
@@ -47,6 +60,11 @@ struct HQPhotoWallView: View {
         }
         .padding(.top)
     }
+}
+
+private struct PhotoWallEntry: Identifiable {
+    let id: String
+    let data: [String: Any]
 }
 
 struct PhotoCard: View {
@@ -62,40 +80,50 @@ struct PhotoCard: View {
     private var lon: Double { data["lon"] as? Double ?? 0 }
     private var mediaType: String { data["media_type"] as? String ?? "photo" }
     private var isVideo: Bool { mediaType == "video" }
+    private var thumbnailSource: URL? {
+        guard !thumbnailURL.isEmpty else { return nil }
+        return URL(string: thumbnailURL)
+    }
+    private var fullSource: URL? {
+        guard !fullURL.isEmpty else { return nil }
+        return URL(string: fullURL)
+    }
 
     @State private var showFull = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             // 縮圖
-            if let url = URL(string: thumbnailURL), !thumbnailURL.isEmpty {
-                ZStack {
+            ZStack {
+                if let url = thumbnailSource {
                     AsyncImage(url: url) { phase in
                         switch phase {
                         case .success(let image):
                             image.resizable().scaledToFill()
                         case .failure:
-                            Image(systemName: isVideo ? "video" : "photo")
-                                .font(.largeTitle)
-                                .foregroundColor(.secondary)
-                                .frame(maxWidth: .infinity, minHeight: 150)
+                            thumbnailPlaceholder
                         default:
                             ProgressView()
                                 .frame(maxWidth: .infinity, minHeight: 150)
                         }
                     }
-                    .frame(maxWidth: .infinity, maxHeight: 180)
-                    .clipped()
-                    .cornerRadius(8)
-
-                    if isVideo {
-                        Image(systemName: "play.circle.fill")
-                            .font(.system(size: 44))
-                            .foregroundColor(.white.opacity(0.85))
-                            .shadow(radius: 4)
-                    }
+                } else {
+                    thumbnailPlaceholder
                 }
-                .onTapGesture { showFull = true }
+
+                if isVideo {
+                    Image(systemName: "play.circle.fill")
+                        .font(.system(size: 44))
+                        .foregroundColor(.white.opacity(0.85))
+                        .shadow(radius: 4)
+                }
+            }
+            .frame(maxWidth: .infinity, minHeight: 150, maxHeight: 180)
+            .clipped()
+            .cornerRadius(8)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                if fullSource != nil { showFull = true }
             }
 
             // 資訊
@@ -141,29 +169,93 @@ struct PhotoCard: View {
         .background(NV.surface.opacity(0.5))
         .cornerRadius(12)
         .sheet(isPresented: $showFull) {
-            VStack {
-                HStack {
-                    Spacer()
-                    Button(L("關閉")) { showFull = false }
-                        .padding()
-                }
-                if isVideo, let url = URL(string: fullURL), !fullURL.isEmpty {
-                    VideoPlayer(player: AVPlayer(url: url))
-                        .frame(minHeight: 300)
-                        .padding()
-                } else if let url = URL(string: fullURL), !fullURL.isEmpty {
+            MediaDetailSheet(isVideo: isVideo, url: fullSource) {
+                showFull = false
+            }
+        }
+    }
+
+    private var thumbnailPlaceholder: some View {
+        ZStack {
+            Rectangle()
+                .fill(Color.secondary.opacity(0.12))
+            Image(systemName: isVideo ? "video" : "photo")
+                .font(.largeTitle)
+                .foregroundColor(.secondary)
+        }
+        .frame(maxWidth: .infinity, minHeight: 150)
+    }
+}
+
+private struct MediaDetailSheet: View {
+    let isVideo: Bool
+    let url: URL?
+    let onClose: () -> Void
+
+    var body: some View {
+        VStack {
+            HStack {
+                Spacer()
+                Button(L("關閉"), action: onClose)
+                    .padding()
+            }
+            if let url {
+                if isVideo {
+                    VideoPlaybackView(url: url)
+                } else {
                     AsyncImage(url: url) { phase in
                         switch phase {
                         case .success(let image):
                             image.resizable().scaledToFit()
+                        case .failure:
+                            unavailableMediaView
                         default:
                             ProgressView()
                         }
                     }
                     .padding()
                 }
-                Spacer()
+            } else {
+                unavailableMediaView
             }
+            Spacer()
+        }
+    }
+
+    private var unavailableMediaView: some View {
+        VStack(spacing: 8) {
+            Image(systemName: isVideo ? "video.slash" : "photo")
+                .font(.largeTitle)
+                .foregroundColor(.secondary)
+            Text(L("媒體無法載入"))
+                .foregroundColor(.secondary)
+        }
+        .frame(maxWidth: .infinity, minHeight: 240)
+    }
+}
+
+private struct VideoPlaybackView: View {
+    let url: URL
+    @State private var player: AVPlayer?
+
+    var body: some View {
+        Group {
+            if let player {
+                VideoPlayer(player: player)
+            } else {
+                ProgressView()
+            }
+        }
+        .frame(minHeight: 300)
+        .padding()
+        .onAppear {
+            if player == nil {
+                player = AVPlayer(url: url)
+            }
+        }
+        .onDisappear {
+            player?.pause()
+            player = nil
         }
     }
 }

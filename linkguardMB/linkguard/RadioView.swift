@@ -222,7 +222,11 @@ struct RadioView: View {
     private var aiChatContent: some View {
         VStack(spacing: 0) {
             // 連線狀態
-            if !vm.commandClient.isConnected {
+            if vm.isAIServicePaused {
+                AIServicePausedBanner(message: vm.aiServicePauseMessage)
+                    .padding(.horizontal)
+                    .padding(.top, 8)
+            } else if !vm.commandClient.isConnected {
                 HStack {
                     Image(systemName: "wifi.slash")
                     Text(L("需先連線 Mac HQ 才能使用 AI 通訊"))
@@ -277,75 +281,80 @@ struct RadioView: View {
                 .padding(.top, 4)
             }
 
-            // 訊息列表
-            ScrollViewReader { proxy in
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 8) {
-                        ForEach(aiChatManager.messages) { msg in
-                            AIChatBubble(message: msg)
-                                .id(msg.id)
+            VStack(spacing: 0) {
+                // 訊息列表
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: 8) {
+                            ForEach(aiChatManager.messages) { msg in
+                                AIChatBubble(message: msg)
+                                    .id(msg.id)
+                            }
+                        }
+                        .padding()
+                    }
+                    .onChange(of: aiChatManager.messages.count) { _, _ in
+                        if let last = aiChatManager.messages.last {
+                            withAnimation { proxy.scrollTo(last.id, anchor: .bottom) }
                         }
                     }
-                    .padding()
                 }
-                .onChange(of: aiChatManager.messages.count) { _, _ in
-                    if let last = aiChatManager.messages.last {
-                        withAnimation { proxy.scrollTo(last.id, anchor: .bottom) }
+
+                Divider()
+
+                // 快速提問模板
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(aiQuickPrompts, id: \.self) { prompt in
+                            Button {
+                                aiChatManager.send(prompt)
+                            } label: {
+                                Text(prompt)
+                                    .font(.caption)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 6)
+                            }
+                            .buttonStyle(.bordered)
+                            .tint(NV.command)
+                            .disabled(aiChatManager.isLoading || !vm.commandClient.isConnected || vm.isAIServicePaused)
+                        }
                     }
+                    .padding(.horizontal)
+                    .padding(.vertical, 6)
                 }
-            }
 
-            Divider()
+                // 輸入列
+                HStack(spacing: 10) {
+                    TextField(L("詢問 AI…"), text: $aiChatManager.draft, axis: .vertical)
+                        .textFieldStyle(.roundedBorder)
+                        .lineLimit(1...3)
+                        .submitLabel(.send)
+                        .onSubmit {
+                            guard !aiChatManager.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                                  vm.commandClient.isConnected,
+                                  !vm.isAIServicePaused else { return }
+                            aiChatManager.send(aiChatManager.draft)
+                        }
 
-            // 快速提問模板
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(aiQuickPrompts, id: \.self) { prompt in
+                    if aiChatManager.isLoading {
+                        ProgressView()
+                            .frame(width: 24, height: 24)
+                    } else {
                         Button {
-                            aiChatManager.send(prompt)
+                            aiChatManager.send(aiChatManager.draft)
                         } label: {
-                            Text(prompt)
-                                .font(.caption)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 6)
+                            Image(systemName: "paperplane.fill")
+                                .font(.title3)
                         }
-                        .buttonStyle(.bordered)
+                        .disabled(aiChatManager.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                  || !vm.commandClient.isConnected
+                                  || vm.isAIServicePaused)
                         .tint(NV.command)
-                        .disabled(aiChatManager.isLoading || !vm.commandClient.isConnected)
                     }
                 }
-                .padding(.horizontal)
-                .padding(.vertical, 6)
+                .padding()
             }
-
-            // 輸入列
-            HStack(spacing: 10) {
-                TextField(L("詢問 AI…"), text: $aiChatManager.draft, axis: .vertical)
-                    .textFieldStyle(.roundedBorder)
-                    .lineLimit(1...3)
-                    .submitLabel(.send)
-                    .onSubmit {
-                        guard !aiChatManager.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-                              vm.commandClient.isConnected else { return }
-                        aiChatManager.send(aiChatManager.draft)
-                    }
-
-                if aiChatManager.isLoading {
-                    ProgressView()
-                        .frame(width: 24, height: 24)
-                } else {
-                    Button {
-                        aiChatManager.send(aiChatManager.draft)
-                    } label: {
-                        Image(systemName: "paperplane.fill")
-                            .font(.title3)
-                    }
-                    .disabled(aiChatManager.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                              || !vm.commandClient.isConnected)
-                    .tint(NV.command)
-                }
-            }
-            .padding()
+            .aiPausedAppearance(vm.isAIServicePaused)
         }
     }
 

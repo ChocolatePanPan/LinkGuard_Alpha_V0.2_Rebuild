@@ -1,6 +1,8 @@
 import Foundation
 import Network
 import AVFoundation
+import ImageIO
+import UniformTypeIdentifiers
 #if os(macOS)
 import AppKit
 #else
@@ -16,6 +18,8 @@ class HQPhotoServer: ObservableObject {
     @Published var lastError: String? = nil
     private var listener: NWListener?
     private let queue = DispatchQueue(label: "com.linkguard.photoserver", qos: .userInitiated)
+    private let maxUploadBytes = 70 * 1024 * 1024
+    private let thumbnailPixelSize = 256
 
     /// 後台橋接器（照片轉發到 Windows）
     weak var backendBridge: HQBackendBridge?
@@ -96,7 +100,7 @@ class HQPhotoServer: ObservableObject {
 
     /// 遞迴累積 TCP 資料直到收滿 Content-Length 或連線結束
     private func accumulateData(conn: NWConnection, accumulated: Data) {
-        conn.receive(minimumIncompleteLength: 1, maximumLength: 60 * 1024 * 1024) { [weak self] data, _, isComplete, error in
+        conn.receive(minimumIncompleteLength: 1, maximumLength: maxUploadBytes) { [weak self] data, _, isComplete, error in
             guard let self else { conn.cancel(); return }
             if let error {
                 print("[PhotoServer] 接收錯誤: \(error)")
@@ -108,7 +112,9 @@ class HQPhotoServer: ObservableObject {
 
             // 嘗試解析 Content-Length
             if let expectedTotal = self.parseExpectedLength(from: all) {
-                if all.count >= expectedTotal || isComplete {
+                if expectedTotal > self.maxUploadBytes {
+                    self.sendHTTPResponse(conn: conn, status: 413, body: ["error": "Request too large"])
+                } else if all.count >= expectedTotal || isComplete {
                     self.processHTTPRequest(data: all, conn: conn)
                 } else {
                     self.accumulateData(conn: conn, accumulated: all)
@@ -119,8 +125,7 @@ class HQPhotoServer: ObservableObject {
             } else if isComplete {
                 // 連線已結束
                 self.processHTTPRequest(data: all, conn: conn)
-            } else if all.count > 60 * 1024 * 1024 {
-                // 超過 20MB 安全上限
+            } else if all.count > self.maxUploadBytes {
                 self.sendHTTPResponse(conn: conn, status: 413, body: ["error": "Request too large"])
             } else {
                 // 還沒收到完整 header，繼續讀
@@ -230,8 +235,8 @@ class HQPhotoServer: ObservableObject {
         let locationDesc = parsed.fields["location_desc"] ?? ""
         let caption = parsed.fields["caption"] ?? ""
         let timestamp = parsed.fields["timestamp"] ?? ISO8601DateFormatter().string(from: Date())
-        let mediaType = parsed.fields["media_type"] ?? "photo"
-        let isVideoUpload = mediaType == "video"
+        let isVideoUpload = isVideoMedia(field: parsed.fields["media_type"], fileName: parsed.fileName, contentType: parsed.contentType)
+        let mediaType = isVideoUpload ? "video" : "photo"
 
         photoCounter += 1
         let count = photoCounter
@@ -242,60 +247,33 @@ class HQPhotoServer: ObservableObject {
         let photosDir = self.photosDir
         try? FileManager.default.createDirectory(at: photosDir, withIntermediateDirectories: true)
 
-        let fileExt = isVideoUpload ? "mp4" : "jpg"
+        let fileExt = isVideoUpload ? normalizedVideoExtension(fileName: parsed.fileName, contentType: parsed.contentType) : "jpg"
         let fullURL = photosDir.appendingPathComponent("\(photoId).\(fileExt)")
         let thumbURL = photosDir.appendingPathComponent("\(photoId)_thumb.jpg")
-        try? photoData.write(to: fullURL)
+        do {
+            try photoData.write(to: fullURL, options: [.atomic])
+        } catch {
+            print("[PhotoServer] 檔案寫入失敗: \(error)")
+            sendHTTPResponse(conn: conn, status: 500, body: ["error": "File write failed"])
+            return
+        }
 
+        let thumbnailCreated: Bool
         if isVideoUpload {
-            // 影片：從第一幀產生縮圖
-            #if os(macOS)
-            let asset = AVURLAsset(url: fullURL)
-            let gen = AVAssetImageGenerator(asset: asset)
-            gen.appliesPreferredTrackTransform = true
-            gen.maximumSize = CGSize(width: 256, height: 256)
-            if let cgImage = try? gen.copyCGImage(at: .zero, actualTime: nil) {
-                let nsImage = NSImage(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height))
-                if let tiffData = nsImage.tiffRepresentation,
-                   let bitmap = NSBitmapImageRep(data: tiffData),
-                   let jpegData = bitmap.representation(using: .jpeg, properties: [.compressionFactor: 0.7]) {
-                    try? jpegData.write(to: thumbURL)
-                }
-            }
-            #endif
+            thumbnailCreated = createVideoThumbnail(sourceURL: fullURL, destinationURL: thumbURL)
             print("[PhotoServer] 影片已存本地: \(fullURL.lastPathComponent) (\(photoData.count / 1024)KB)")
         } else {
-            // 照片：縮圖
-            #if os(macOS)
-            if let image = NSImage(data: photoData) {
-                let thumbSize = NSSize(width: 256, height: 256)
-                let thumbImage = NSImage(size: thumbSize)
-                thumbImage.lockFocus()
-                image.draw(in: NSRect(origin: .zero, size: thumbSize),
-                           from: NSRect(origin: .zero, size: image.size),
-                           operation: .copy, fraction: 1.0)
-                thumbImage.unlockFocus()
-                if let tiffData = thumbImage.tiffRepresentation,
-                   let bitmap = NSBitmapImageRep(data: tiffData),
-                   let jpegData = bitmap.representation(using: .jpeg, properties: [.compressionFactor: 0.7]) {
-                    try? jpegData.write(to: thumbURL)
-                }
-            }
-            #else
-            if let image = UIImage(data: photoData) {
-                let thumbSize = CGSize(width: 256, height: 256)
-                let renderer = UIGraphicsImageRenderer(size: thumbSize)
-                let jpegData = renderer.jpegData(withCompressionQuality: 0.7) { ctx in
-                    image.draw(in: CGRect(origin: .zero, size: thumbSize))
-                }
-                try? jpegData.write(to: thumbURL)
-            }
-            #endif
+            thumbnailCreated = createImageThumbnail(data: photoData, destinationURL: thumbURL)
             print("[PhotoServer] 照片已存本地: \(fullURL.lastPathComponent)")
+        }
+        if !thumbnailCreated {
+            print("[PhotoServer] 縮圖產生失敗，保留原始檔並繼續通知照片牆: \(photoId)")
         }
 
         // 2. 透過 TCP 廣播 photo_alert 通知
         let localIP = getLocalIP()
+        let thumbnailURL = thumbnailCreated ? "http://\(localIP):8014/photos/\(photoId)_thumb.jpg" : ""
+        let fullMediaURL = "http://\(localIP):8014/photos/\(photoId).\(fileExt)"
         let alertInfo: [String: Any] = [
             "photo_id": photoId,
             "device_id": deviceId,
@@ -306,8 +284,8 @@ class HQPhotoServer: ObservableObject {
             "caption": caption,
             "timestamp": timestamp,
             "media_type": mediaType,
-            "thumbnail_url": "http://\(localIP):8014/photos/\(photoId)_thumb.jpg",
-            "full_url": "http://\(localIP):8014/photos/\(photoId).\(fileExt)"
+            "thumbnail_url": thumbnailURL,
+            "full_url": fullMediaURL
         ]
         DispatchQueue.main.async { [weak self] in
             self?.onPhotoReceived?(alertInfo)
@@ -316,12 +294,88 @@ class HQPhotoServer: ObservableObject {
         // 3. 回應 iOS
         sendHTTPResponse(conn: conn, status: 200, body: [
             "photo_id": photoId,
-            "thumbnail_url": "http://\(localIP):8014/photos/\(photoId)_thumb.jpg",
-            "full_url": "http://\(localIP):8014/photos/\(photoId).\(fileExt)",
+            "thumbnail_url": thumbnailURL,
+            "full_url": fullMediaURL,
             "media_type": mediaType,
             "status": "ok"
         ])
         print("[PhotoServer] \(isVideoUpload ? "影片" : "照片")處理完成 [\(photoId)] from \(senderName)")
+    }
+
+    private func isVideoMedia(field: String?, fileName: String?, contentType: String?) -> Bool {
+        if field?.lowercased() == "video" { return true }
+        if contentType?.lowercased().hasPrefix("video/") == true { return true }
+        guard let fileName else { return false }
+        switch (fileName as NSString).pathExtension.lowercased() {
+        case "mov", "mp4", "m4v":
+            return true
+        default:
+            return false
+        }
+    }
+
+    private func normalizedVideoExtension(fileName: String?, contentType: String?) -> String {
+        if let fileName {
+            switch (fileName as NSString).pathExtension.lowercased() {
+            case "mov", "mp4", "m4v":
+                return (fileName as NSString).pathExtension.lowercased()
+            default:
+                break
+            }
+        }
+        switch contentType?.lowercased() {
+        case "video/quicktime":
+            return "mov"
+        case "video/x-m4v":
+            return "m4v"
+        default:
+            return "mp4"
+        }
+    }
+
+    private func createVideoThumbnail(sourceURL: URL, destinationURL: URL) -> Bool {
+        let asset = AVURLAsset(url: sourceURL)
+        guard !asset.tracks(withMediaType: .video).isEmpty else { return false }
+
+        let generator = AVAssetImageGenerator(asset: asset)
+        generator.appliesPreferredTrackTransform = true
+        generator.maximumSize = CGSize(width: thumbnailPixelSize, height: thumbnailPixelSize)
+        generator.requestedTimeToleranceBefore = .positiveInfinity
+        generator.requestedTimeToleranceAfter = .positiveInfinity
+
+        let preferredTimes = [
+            CMTime(seconds: 0.1, preferredTimescale: 600),
+            .zero
+        ]
+        for preferredTime in preferredTimes {
+            if let image = try? generator.copyCGImage(at: preferredTime, actualTime: nil) {
+                return writeJPEGThumbnail(image, to: destinationURL)
+            }
+        }
+        return false
+    }
+
+    private func createImageThumbnail(data: Data, destinationURL: URL) -> Bool {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil) else { return false }
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: thumbnailPixelSize
+        ]
+        guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else { return false }
+        return writeJPEGThumbnail(image, to: destinationURL)
+    }
+
+    private func writeJPEGThumbnail(_ image: CGImage, to destinationURL: URL) -> Bool {
+        guard let destination = CGImageDestinationCreateWithURL(
+            destinationURL as CFURL,
+            UTType.jpeg.identifier as CFString,
+            1,
+            nil
+        ) else { return false }
+        let options = [kCGImageDestinationLossyCompressionQuality as String: 0.72] as CFDictionary
+        CGImageDestinationAddImage(destination, image, options)
+        return CGImageDestinationFinalize(destination)
     }
 
     // MARK: - GET /photos/{filename}
@@ -355,6 +409,7 @@ class HQPhotoServer: ObservableObject {
         var fields: [String: String] = [:]
         var fileData: Data?
         var fileName: String?
+        var contentType: String?
     }
 
     private func parseMultipart(data: Data) -> MultipartData? {
@@ -389,6 +444,12 @@ class HQPhotoServer: ObservableObject {
 
             if partHeader.contains("filename=") {
                 result.fileData = Data(partBody)
+                for headerLine in partHeader.components(separatedBy: "\r\n") {
+                    if headerLine.lowercased().hasPrefix("content-type:") {
+                        result.contentType = headerLine.dropFirst("content-type:".count)
+                            .trimmingCharacters(in: .whitespacesAndNewlines)
+                    }
+                }
                 if let fnMatch = partHeader.range(of: "filename=\"") {
                     let afterQuote = partHeader[fnMatch.upperBound...]
                     if let endQuote = afterQuote.firstIndex(of: "\"") {

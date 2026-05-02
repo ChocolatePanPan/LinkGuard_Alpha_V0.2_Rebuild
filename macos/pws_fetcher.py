@@ -84,7 +84,7 @@ if __name__ == "__main__":
 
     # 用法: python pws_fetcher.py <測站ID> <API_KEY>
     api_key = os.environ.get("CWA_API_KEY", "CWA-ABB1DE38-E0CD-4EBA-9723-894AAA62AE5E")
-    station_id = "C0A980"
+    station_id = "C0D560"
 
     if len(sys.argv) >= 3:
         station_id = sys.argv[1]

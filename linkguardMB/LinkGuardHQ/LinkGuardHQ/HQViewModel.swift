@@ -292,13 +292,6 @@ class HQViewModel: ObservableObject {
         server.backendBridge = backendBridge
         backendBridge.server = server
 
-        // 初始化雙重語音辨識（WhisperKit + Apple Speech）— 僅 server 模式需要
-        if hqRole == .server {
-            Task {
-                await initializeWhisperWithRetry()
-            }
-        }
-
         // LGAP TCP 串流音訊 → 轉發到 UDPAudioServer 語音辨識管線
         audioStreamServer.onPCMDataReceived = { [weak self] pcmData, senderID in
             self?.udpAudioServer.feedAudioForRecognition(audioData: pcmData, deviceID: senderID)
@@ -358,13 +351,7 @@ class HQViewModel: ObservableObject {
             // 廣播給所有前線裝置
             self.server.relayBackendJSON(msgType: "photo_alert", data: photoAlert)
         }
-        // 只在 server 模式下啟動本地伺服器
-        if hqRole == .server {
-            speechServer.start()
-            audioStreamServer.start()
-            photoServer.start()
-            server.startLocalStatsTimer()
-        } else {
+        if hqRole == .peer {
             // iPad peer 預設模式：自動開始搜尋 Mac HQ
             setupPeerBindings()
             peerClient.startBrowsing()
@@ -547,9 +534,14 @@ class HQViewModel: ObservableObject {
 
     /// WhisperKit 初始化狀態，供 UI 顯示
     @Published var whisperStatus: String = "未初始化"
+    private var isInitializingWhisper = false
 
     /// 帶重試的 WhisperKit 初始化（最多嘗試 3 次，每次間隔遞增）
     private func initializeWhisperWithRetry(maxAttempts: Int = 3) async {
+        guard !isInitializingWhisper else { return }
+        isInitializingWhisper = true
+        defer { isInitializingWhisper = false }
+
         for attempt in 1...maxAttempts {
             await MainActor.run { whisperStatus = "WhisperKit 載入中 (嘗試 \(attempt)/\(maxAttempts))…" }
             await udpAudioServer.initialize()
@@ -769,11 +761,17 @@ class HQViewModel: ObservableObject {
         #if os(macOS)
         ensureMacLocalBackend()
         #endif
+        if !udpAudioServer.whisperReady {
+            Task { [weak self] in
+                await self?.initializeWhisperWithRetry()
+            }
+        }
         server.statusSnapshotProvider = { [weak self] in
             self?.buildServerStatusSnapshot() ?? HQServerStatusSnapshot(
                 speechServerRunning: false, speechProcessedCount: 0,
                 photoServerRunning: false, photoReceivedCount: 0,
                 backendConnected: false, backendHost: "",
+                aiServicePaused: false, aiServicePauseReason: nil,
                 audioStreamRunning: false, udpServerRunning: false,
                 fieldUnitCount: 0, onlineFieldUnitCount: 0,
                 totalVictimCount: 0, onlineVictimCount: 0,
@@ -789,19 +787,26 @@ class HQViewModel: ObservableObject {
     }
 
     #if os(macOS)
-    /// Ensures every backend/AI feature uses the Mac-local Python sidecar.
+    /// Ensures core backend features use the Mac-local Python sidecar.
+    /// High-power services such as Gemma4 are started only when requested.
     func ensureMacLocalBackend() {
         guard hqRole == .server, backendMode == .embedded else { return }
         server.backendBridge = backendBridge
         backendBridge.server = server
 
         if backendSupervisor.services.allSatisfy({ $0.status == .stopped }) {
-            backendSupervisor.startAll()
+            backendSupervisor.startEnergyEfficientServices()
         }
 
         if backendBridge.backendHost != "127.0.0.1" || (!backendBridge.isConnected && !backendBridge.isConnecting) {
             backendBridge.connect(host: "127.0.0.1", port: 9000)
         }
+    }
+
+    private func ensureMacLocalAIService() {
+        ensureMacLocalBackend()
+        guard hqRole == .server, backendMode == .embedded else { return }
+        backendSupervisor.startAIServiceIfNeeded()
     }
     #endif
 
@@ -814,6 +819,8 @@ class HQViewModel: ObservableObject {
             photoReceivedCount: photoServer.receivedCount,
             backendConnected: backendBridge.isConnected,
             backendHost: backendBridge.backendHost,
+            aiServicePaused: backendSupervisor.isAIServicePaused,
+            aiServicePauseReason: backendSupervisor.aiServicePauseReason,
             audioStreamRunning: audioStreamServer.isRunning,
             udpServerRunning: udpAudioServer.isRunning,
             liveTranscriptions: udpAudioServer.liveTranscriptions,
@@ -853,10 +860,15 @@ class HQViewModel: ObservableObject {
     /// 停止所有本地伺服器
     private func stopAllLocalServers() {
         server.stop()
+        server.stopLocalStatsTimer()
         udpAudioServer.stopListening()
         audioStreamServer.stop()
         speechServer.stop()
         photoServer.stop()
+        #if os(macOS)
+        backendBridge.disconnect()
+        backendSupervisor.stopAll()
+        #endif
     }
 
     func toggleServer() {
@@ -1210,21 +1222,27 @@ class HQViewModel: ObservableObject {
             peerClient.requestAIDecision(context: context)
         } else {
             #if os(macOS)
-            ensureMacLocalBackend()
-            if backendMode == .embedded, !backendBridge.isConnected {
+            if backendMode == .embedded {
+                ensureMacLocalAIService()
                 backendBridge.isRequestingAI = true
                 backendBridge.lastError = nil
                 Task { [weak self] in
                     guard let self else { return }
-                    for _ in 0..<40 {
-                        if self.backendBridge.isConnected {
-                            self.backendBridge.requestAIDecision(context: context)
-                            return
-                        }
+                    for _ in 0..<60 where !self.backendBridge.isConnected {
                         try? await Task.sleep(nanoseconds: 250_000_000)
                     }
-                    self.backendBridge.isRequestingAI = false
-                    self.backendBridge.lastError = "本機 TCP 後端尚未連線（127.0.0.1:9000），請在後端服務頁確認 TCP Aggregator 已啟動"
+                    guard self.backendBridge.isConnected else {
+                        self.backendBridge.isRequestingAI = false
+                        self.backendBridge.lastError = "本機 TCP 後端尚未連線（127.0.0.1:9000），請在後端服務頁確認 TCP Aggregator 已啟動"
+                        return
+                    }
+                    let aiReady = await self.backendSupervisor.waitForHealthy(BackendServiceSpec.aiServiceID, timeout: 60)
+                    guard aiReady else {
+                        self.backendBridge.isRequestingAI = false
+                        self.backendBridge.lastError = "Gemma4 AI 尚未就緒，請在後端服務頁確認 Gemma4 AI 已啟動"
+                        return
+                    }
+                    self.backendBridge.requestAIDecision(context: context)
                 }
                 return
             }

@@ -28,29 +28,25 @@ struct HQGrandDashboardView: View {
     private var host: String { vm.effectiveBackendHost }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                headerBar
-                if let err = lastFetchError {
-                    Text("[ERROR] \(err)")
-                        .font(.caption.monospaced())
-                        .foregroundColor(NV.danger)
-                }
-                LazyVGrid(columns: [
-                    GridItem(.flexible(), spacing: 16),
-                    GridItem(.flexible(), spacing: 16)
-                ], spacing: 16) {
-                    aiHealthPanel
-                    rankedPatientsPanel
-                    pushModeControlPanel
-                    nodeListPanel
-                }
-                conversationTimelinePanel
-                decisionAuditPanel
+        HQPage(spacing: NV.pageSpacing) {
+            headerBar
+            if let err = lastFetchError {
+                Text("[ERROR] \(err)")
+                    .font(.caption.monospaced())
+                    .foregroundColor(NV.danger)
             }
-            .padding(20)
+            LazyVGrid(columns: [
+                GridItem(.flexible(), spacing: NV.panelSpacing),
+                GridItem(.flexible(), spacing: NV.panelSpacing)
+            ], spacing: NV.panelSpacing) {
+                aiHealthPanel
+                rankedPatientsPanel
+                pushModeControlPanel
+                nodeListPanel
+            }
+            conversationTimelinePanel
+            decisionAuditPanel
         }
-        .background(NV.bg.ignoresSafeArea())
         .onAppear { startPolling() }
         .onDisappear { stopPolling() }
     }
@@ -431,25 +427,9 @@ struct HQGrandDashboardView: View {
 
     private func panelCard<Content: View>(title: String, icon: String,
                                           @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
-                Image(systemName: icon)
-                    .foregroundColor(NV.green)
-                Text(title)
-                    .font(.headline)
-                    .foregroundColor(.primary)
-                Spacer()
-            }
+        HQPanel(title: title, icon: icon, accent: NV.green) {
             content()
         }
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(NV.surface)
-        .cornerRadius(10)
-        .overlay(
-            RoundedRectangle(cornerRadius: 10)
-                .stroke(NV.greenDim, lineWidth: 1)
-        )
     }
 
     // MARK: - Polling & API
@@ -457,9 +437,11 @@ struct HQGrandDashboardView: View {
     private func startPolling() {
         Task { await refreshAll() }
         pollTimer?.invalidate()
-        pollTimer = Timer.scheduledTimer(withTimeInterval: 10.0, repeats: true) { _ in
+        let timer = Timer.scheduledTimer(withTimeInterval: 15.0, repeats: true) { _ in
             Task { await refreshAll() }
         }
+        timer.tolerance = 3.0
+        pollTimer = timer
     }
 
     private func stopPolling() {
@@ -468,7 +450,7 @@ struct HQGrandDashboardView: View {
     }
 
     private func refreshAll() async {
-        guard !host.isEmpty else { return }
+        guard !host.isEmpty, !isLoading else { return }
         isLoading = true
         defer { isLoading = false }
         await fetchAIHealth()

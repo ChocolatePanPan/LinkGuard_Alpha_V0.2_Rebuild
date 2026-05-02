@@ -14,6 +14,7 @@ import UniformTypeIdentifiers
 #if canImport(UIKit)
 struct PhotoReportView: View {
     @ObservedObject var vm: LinkGuardViewModel
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
     @StateObject private var locationMgr = PhotoLocationManager()
     @State private var selectedItems: [PhotosPickerItem] = []
     @State private var selectedImage: UIImage?
@@ -28,6 +29,12 @@ struct PhotoReportView: View {
     @State private var alertMessage = ""
 
     private var serverHost: String { vm.transcriptionServerHost }
+    private var isCompactLandscape: Bool { verticalSizeClass == .compact }
+    private var previewMaxHeight: CGFloat { isCompactLandscape ? 160 : 280 }
+    private var emptyPreviewMinHeight: CGFloat { isCompactLandscape ? 110 : 180 }
+    private var titleVerticalPadding: CGFloat { isCompactLandscape ? 6 : 8 }
+    private var uploadBarVerticalPadding: CGFloat { isCompactLandscape ? 8 : 12 }
+    private var isUploadDisabled: Bool { (selectedImage == nil && selectedVideoURL == nil) || isUploading }
 
     var body: some View {
         NavigationStack {
@@ -39,7 +46,7 @@ struct PhotoReportView: View {
                             Image(uiImage: thumb)
                                 .resizable()
                                 .scaledToFit()
-                                .frame(maxHeight: 280)
+                                .frame(maxHeight: previewMaxHeight)
                                 .frame(maxWidth: .infinity)
                                 .clipShape(RoundedRectangle(cornerRadius: 12))
                             Image(systemName: "play.circle.fill")
@@ -51,7 +58,7 @@ struct PhotoReportView: View {
                         Image(uiImage: img)
                             .resizable()
                             .scaledToFit()
-                            .frame(maxHeight: 280)
+                            .frame(maxHeight: previewMaxHeight)
                             .frame(maxWidth: .infinity)
                             .clipShape(RoundedRectangle(cornerRadius: 12))
                     } else {
@@ -63,7 +70,7 @@ struct PhotoReportView: View {
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
                         }
-                        .frame(maxWidth: .infinity, minHeight: 180)
+                        .frame(maxWidth: .infinity, minHeight: emptyPreviewMinHeight)
                     }
                 }
                 .listRowInsets(EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8))
@@ -129,29 +136,6 @@ struct PhotoReportView: View {
                     }
                 }
 
-                // 上傳按鈕
-                Section {
-                    Button {
-                        uploadMedia()
-                    } label: {
-                        if isUploading {
-                            HStack {
-                                ProgressView()
-                                Text(L("上傳中…"))
-                            }
-                            .frame(maxWidth: .infinity)
-                        } else {
-                            Label(isVideo ? L("上傳影片回報") : L("上傳照片回報"),
-                                  systemImage: "arrow.up.circle.fill")
-                                .frame(maxWidth: .infinity)
-                                .bold()
-                        }
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(NV.green)
-                    .disabled((selectedImage == nil && selectedVideoURL == nil) || isUploading)
-                }
-
                 // 已上傳列表
                 if !vm.photoReports.isEmpty {
                     Section(L("已回報")) {
@@ -204,8 +188,8 @@ struct PhotoReportView: View {
                 }
             }
             .navigationTitle(L("照片/影片回報"))
-            .navigationBarTitleDisplayMode(.inline)
             #if os(iOS)
+            .toolbarVisibility(.hidden, for: .navigationBar)
             .toolbar {
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer()
@@ -215,6 +199,13 @@ struct PhotoReportView: View {
                 }
             }
             #endif
+            .contentMargins(.top, 0, for: .scrollContent)
+            .safeAreaInset(edge: .top) {
+                topTitleBar
+            }
+            .safeAreaInset(edge: .bottom) {
+                uploadBar
+            }
             .fullScreenCover(isPresented: $showCamera) {
                 CameraPickerView(image: $selectedImage, videoURL: $selectedVideoURL,
                                  videoThumbnail: $videoThumbnail, isVideo: $isVideo)
@@ -253,6 +244,48 @@ struct PhotoReportView: View {
         }
     }
 
+    private var topTitleBar: some View {
+        HStack {
+            Text(L("照片/影片回報"))
+                .font(.title2).bold()
+            Spacer()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, titleVerticalPadding)
+    }
+
+    private var uploadBar: some View {
+        VStack(spacing: 0) {
+            Divider()
+            Button {
+                uploadMedia()
+            } label: {
+                uploadButtonLabel
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(NV.green)
+            .disabled(isUploadDisabled)
+            .padding(.horizontal, 16)
+            .padding(.vertical, uploadBarVerticalPadding)
+        }
+        .background(.bar)
+    }
+
+    @ViewBuilder
+    private var uploadButtonLabel: some View {
+        if isUploading {
+            HStack {
+                ProgressView()
+                Text(L("上傳中…"))
+            }
+        } else {
+            Label(isVideo ? L("上傳影片回報") : L("上傳照片回報"),
+                  systemImage: "arrow.up.circle.fill")
+                .bold()
+        }
+    }
+
     // MARK: - Helper
 
     private func gpsText(_ loc: CLLocation) -> String {
@@ -268,6 +301,29 @@ struct PhotoReportView: View {
             return UIImage(cgImage: cgImage)
         }
         return nil
+    }
+
+    private func videoUploadInfo(for url: URL) -> (filename: String, mimeType: String) {
+        let fileExtension = normalizedVideoExtension(for: url)
+        let mimeType: String
+        switch fileExtension {
+        case "mov":
+            mimeType = "video/quicktime"
+        case "m4v":
+            mimeType = "video/x-m4v"
+        default:
+            mimeType = "video/mp4"
+        }
+        return ("video.\(fileExtension)", mimeType)
+    }
+
+    private func normalizedVideoExtension(for url: URL) -> String {
+        switch url.pathExtension.lowercased() {
+        case "mov", "mp4", "m4v":
+            return url.pathExtension.lowercased()
+        default:
+            return "mov"
+        }
     }
 
     // MARK: - 上傳
@@ -298,8 +354,9 @@ struct PhotoReportView: View {
                 return
             }
             mediaData = data
-            filename = "video.mp4"
-            mimeType = "video/mp4"
+            let uploadInfo = videoUploadInfo(for: videoURL)
+            filename = uploadInfo.filename
+            mimeType = uploadInfo.mimeType
             mediaType = "video"
         } else if let image = selectedImage, let jpegData = image.jpegData(compressionQuality: 0.8) {
             mediaData = jpegData
@@ -415,8 +472,16 @@ struct VideoTransferable: Transferable {
         FileRepresentation(contentType: .movie) { video in
             SentTransferredFile(video.url)
         } importing: { received in
+            let originalExtension = received.file.pathExtension.lowercased()
+            let fileExtension: String
+            switch originalExtension {
+            case "mov", "mp4", "m4v":
+                fileExtension = originalExtension
+            default:
+                fileExtension = "mov"
+            }
             let dest = FileManager.default.temporaryDirectory
-                .appendingPathComponent("video_\(UUID().uuidString).mp4")
+                .appendingPathComponent("video_\(UUID().uuidString).\(fileExtension)")
             try FileManager.default.copyItem(at: received.file, to: dest)
             return VideoTransferable(url: dest)
         }

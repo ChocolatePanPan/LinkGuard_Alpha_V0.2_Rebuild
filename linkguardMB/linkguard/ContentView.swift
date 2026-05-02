@@ -35,10 +35,10 @@ struct ContentView: View {
                         DecisionView(vm: viewModel)
                     }
                     .badge(viewModel.decisions.count + viewModel.unreadCommandCount)
-                    Tab(L("AI 助理"), systemImage: "sparkles", value: AppTab.aiChat) {
+                    Tab(L("AI 助理"), systemImage: viewModel.isAIServicePaused ? "pause.circle" : "sparkles", value: AppTab.aiChat) {
                         FieldAIChatView(vm: viewModel)
                     }
-                    Tab(L("AI 回報"), systemImage: "text.badge.checkmark", value: AppTab.aiReport) {
+                    Tab(L("AI 回報"), systemImage: viewModel.isAIServicePaused ? "pause.circle" : "text.badge.checkmark", value: AppTab.aiReport) {
                         FieldAIReportView(vm: viewModel)
                     }
                 }

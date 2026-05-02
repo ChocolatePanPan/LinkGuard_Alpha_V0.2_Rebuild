@@ -9,50 +9,45 @@ struct HQResourceView: View {
     private var summary: [String: Any] { resourceData["summary"] as? [String: Any] ?? [:] }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                Text(L("資源管理"))
-                    .font(.title).bold()
-                    .padding(.horizontal)
+        HQPage {
+            HQPageHeader(L("資源管理"), icon: "shippingbox", accent: NV.green)
 
-                if summary.isEmpty {
-                    VStack(spacing: 12) {
-                        Image(systemName: "shippingbox")
-                            .font(.system(size: 48))
-                            .foregroundColor(.secondary)
-                        Text(L("等待資源狀態資料…"))
-                            .foregroundColor(.secondary)
-                    }
-                    .frame(maxWidth: .infinity, minHeight: 300)
-                } else {
-                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
-                        ForEach(Array(summary.keys.sorted()), id: \.self) { key in
-                            if let info = summary[key] as? [String: Any] {
-                                ResourceCard(
-                                    name: key,
-                                    total: info["total"] as? Int ?? 0,
-                                    available: info["available"] as? Int ?? 0
-                                )
-                            }
+            if summary.isEmpty {
+                VStack(spacing: 12) {
+                    Image(systemName: "shippingbox")
+                        .font(.system(size: 48))
+                        .foregroundColor(.secondary)
+                    Text(L("等待資源狀態資料…"))
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity, minHeight: 300)
+                .hqPanelChrome(accent: NV.green)
+            } else {
+                LazyVGrid(columns: [
+                    GridItem(.adaptive(minimum: 180), spacing: NV.panelSpacing)
+                ], spacing: NV.panelSpacing) {
+                    ForEach(Array(summary.keys.sorted()), id: \.self) { key in
+                        if let info = summary[key] as? [String: Any] {
+                            ResourceCard(
+                                name: key,
+                                total: info["total"] as? Int ?? 0,
+                                available: info["available"] as? Int ?? 0
+                            )
                         }
                     }
-                    .padding(.horizontal)
-                }
-
-                // 個別資源列表
-                if let resources = resourceData["resources"] as? [[String: Any]] {
-                    Text(L("資源清單"))
-                        .font(.headline)
-                        .padding(.horizontal)
-
-                    ForEach(0..<resources.count, id: \.self) { idx in
-                        let r = resources[idx]
-                        ResourceRow(resource: r)
-                    }
-                    .padding(.horizontal)
                 }
             }
-            .padding()
+
+            if let resources = resourceData["resources"] as? [[String: Any]] {
+                HQPanel(title: L("資源清單"), icon: "list.bullet.rectangle", accent: NV.green) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        ForEach(0..<resources.count, id: \.self) { idx in
+                            let r = resources[idx]
+                            ResourceRow(resource: r)
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -98,9 +93,8 @@ struct ResourceCard: View {
                 .font(.caption)
                 .foregroundColor(color)
         }
-        .padding()
-        .background(NV.surface.opacity(0.5))
-        .cornerRadius(12)
+        .frame(maxWidth: .infinity)
+        .hqPanelChrome(accent: color)
     }
 }
 
@@ -128,9 +122,6 @@ struct ResourceRow: View {
                 .font(.system(.caption, design: .monospaced))
                 .foregroundColor(.secondary)
         }
-        .padding(.vertical, 8)
-        .padding(.horizontal, 12)
-        .background(NV.surface.opacity(0.3))
-        .cornerRadius(8)
+        .hqPanelChrome(accent: NV.green)
     }
 }
