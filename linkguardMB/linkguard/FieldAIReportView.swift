@@ -35,6 +35,8 @@ struct FieldAIReportView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
+            titleBar
+            Divider()
             statusBar
             Divider().background(NV.command.opacity(0.25))
             if vm.isAIServicePaused {
@@ -60,10 +62,20 @@ struct FieldAIReportView: View {
             }
             .aiPausedAppearance(vm.isAIServicePaused)
         }
-        .navigationTitle(L("AI 助理回報"))
+        .navigationTitle(L("AI 回報"))
     }
 
     // MARK: 狀態列
+
+    private var titleBar: some View {
+        HStack {
+            Text(L("AI 回報"))
+                .font(.title2).bold()
+            Spacer()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+    }
 
     private var statusBar: some View {
         HStack(spacing: 8) {

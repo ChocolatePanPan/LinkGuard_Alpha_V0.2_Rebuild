@@ -3,7 +3,7 @@ import SwiftUI
 // MARK: - Main View
 
 enum AppTab: Hashable {
-    case dashboard, victims, sos, disaster, chat, reinforcement, team, commands, notifications, radio, connection, patientForm, decision, translator, photo, personnelAssignment, more
+    case dashboard, victims, sos, disaster, chat, reinforcement, team, commands, notifications, radio, connection, patientForm, decision, translator, photo, personnelAssignment, ai
 }
 
 struct ContentView: View {
@@ -43,8 +43,10 @@ struct ContentView: View {
                     SOSRecordListView(vm: viewModel)
                 }
                 .badge(viewModel.unacknowledgedSOSCount)
-                Tab(navLabel("更多", en: "More"), systemImage: "ellipsis.circle", value: AppTab.more) {
-                    MoreHubView(vm: viewModel, selectedTab: $selectedTab)
+                Tab("AI", systemImage: viewModel.isAIServicePaused ? "pause.circle" : "sparkles", value: AppTab.ai) {
+                    NavigationStack {
+                        AIHubView(vm: viewModel)
+                    }
                 }
                 TabSection(L("其他")) {
                     Tab(L("受困者"), systemImage: "person.fill.questionmark", value: AppTab.victims) {
@@ -316,54 +318,6 @@ struct ExternalAlarmOverlay: View {
     }
 }
 
-// MARK: - More
-
-struct MoreHubView: View {
-    @ObservedObject var vm: LinkGuardViewModel
-    @Binding var selectedTab: AppTab
-    @EnvironmentObject private var l10n: L10n
-
-    private func navLabel(_ zh: String, en: String) -> String {
-        l10n.language == "en" ? en : zh
-    }
-
-    var body: some View {
-        NavigationStack {
-            List {
-                Section("AI") {
-                    NavigationLink {
-                        AIHubView(vm: vm)
-                    } label: {
-                        MoreDestinationLabel(
-                            title: "AI",
-                            subtitle: navLabel("通訊、助理、回報整合功能", en: "Communication, assistant, and reports"),
-                            systemImage: vm.isAIServicePaused ? "pause.circle" : "sparkles",
-                            tint: vm.isAIServicePaused ? .gray : NV.command,
-                            showsChevron: false
-                        )
-                    }
-                }
-
-                Section(L("其他")) {
-                    MoreDestinationRow(title: L("受困者"), systemImage: "person.fill.questionmark") { selectedTab = .victims }
-                    MoreDestinationRow(title: L("增援"), systemImage: "person.badge.plus") { selectedTab = .reinforcement }
-                    MoreDestinationRow(title: L("團隊"), systemImage: "person.3.sequence.fill") { selectedTab = .team }
-                    MoreDestinationRow(title: L("人員指派"), systemImage: "person.badge.key.fill") { selectedTab = .personnelAssignment }
-                    MoreDestinationRow(title: L("通知"), systemImage: "bell.fill") { selectedTab = .notifications }
-                    MoreDestinationRow(title: L("傷員回報"), systemImage: "heart.text.square") { selectedTab = .patientForm }
-                    MoreDestinationRow(title: L("翻譯"), systemImage: "globe") { selectedTab = .translator }
-                }
-
-                Section(navLabel("工具", en: "Tools")) {
-                    MoreDestinationRow(title: L("照片"), systemImage: "photo.on.rectangle.angled") { selectedTab = .photo }
-                    MoreDestinationRow(title: L("連線"), systemImage: "link") { selectedTab = .connection }
-                }
-            }
-            .navigationTitle(navLabel("更多", en: "More"))
-        }
-    }
-}
-
 struct AIHubView: View {
     @ObservedObject var vm: LinkGuardViewModel
     @EnvironmentObject private var l10n: L10n
@@ -410,55 +364,6 @@ struct AIHubView: View {
             }
         }
         .navigationTitle("AI")
-    }
-}
-
-struct MoreDestinationRow: View {
-    let title: String
-    var subtitle: String? = nil
-    let systemImage: String
-    var tint: Color = NV.info
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            MoreDestinationLabel(title: title, subtitle: subtitle, systemImage: systemImage, tint: tint)
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-struct MoreDestinationLabel: View {
-    let title: String
-    var subtitle: String? = nil
-    let systemImage: String
-    var tint: Color = NV.info
-    var showsChevron = true
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: systemImage)
-                .font(.title3)
-                .foregroundStyle(tint)
-                .frame(width: 28)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.body)
-                    .foregroundStyle(.primary)
-                if let subtitle {
-                    Text(subtitle)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            Spacer()
-            if showsChevron {
-                Image(systemName: "chevron.right")
-                    .font(.caption.bold())
-                    .foregroundStyle(.tertiary)
-            }
-        }
-        .contentShape(Rectangle())
     }
 }
 
