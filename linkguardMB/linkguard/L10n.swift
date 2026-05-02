@@ -314,6 +314,7 @@ final class L10n: ObservableObject {
         "樓層狀態": "Floor Status",
         "模式": "Mode",
         "模擬模式": "Simulation Mode",
+        "夜視": "Night Vision",
         "檢傷等級": "Triage Level",
         "正在廣播": "is broadcasting",
         "民國": "ROC Era",

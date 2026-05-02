@@ -66,7 +66,7 @@ struct HQSettingsView: View {
             Picker(L("外觀"), selection: $appColorScheme) {
                 Text(L("跟隨系統")).tag("system")
                 Text(L("淺色")).tag("light")
-                Text(L("深色")).tag("dark")
+                Text(L("夜視")).tag("dark")
                 Text(L("極致黑")).tag("black")
             }
             .pickerStyle(.segmented)

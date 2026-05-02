@@ -1911,7 +1911,7 @@ struct ConnectionView: View {
                 // 外觀模式
                 Section(header: Text(L("外觀"))) {
                     Picker(L("主題"), selection: $appColorScheme) {
-                        Text(L("深色")).tag("dark")
+                        Text(L("夜視")).tag("dark")
                         Text(L("淺色")).tag("light")
                         Text(L("跟隨系統")).tag("system")
                     }

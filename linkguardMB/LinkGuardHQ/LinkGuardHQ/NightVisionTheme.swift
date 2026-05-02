@@ -7,30 +7,36 @@ import AppKit
 
 /// 夜視主題色彩系統
 enum NV {
-    static let green       = Color(red: 0.08, green: 0.72, blue: 0.25)
-    static let greenMedium = Color(red: 0.06, green: 0.58, blue: 0.18)
-    static let greenDim    = Color(red: 0.04, green: 0.38, blue: 0.12)
-    static let greenFaint  = Color(red: 0.03, green: 0.22, blue: 0.07)
+    static let green       = Color(red: 0.20, green: 0.86, blue: 0.38)
+    static let greenMedium = Color(red: 0.13, green: 0.68, blue: 0.28)
+    static let greenDim    = Color(red: 0.08, green: 0.44, blue: 0.20)
+    static let greenFaint  = Color(red: 0.05, green: 0.26, blue: 0.13)
+    static let nightVisionBG = Color(red: 0.012, green: 0.042, blue: 0.032)
+    static let nightVisionChrome = Color(red: 0.018, green: 0.060, blue: 0.046)
+    static let nightVisionSurface = Color(red: 0.035, green: 0.082, blue: 0.064)
+    static let nightVisionRaisedSurface = Color(red: 0.050, green: 0.115, blue: 0.090)
+    static let absoluteBlackBG = Color.black
+    static let absoluteBlackSurface = Color(red: 0.035, green: 0.038, blue: 0.035)
     #if canImport(UIKit)
     static let bg = Color(UIColor { trait in
         trait.userInterfaceStyle == .dark
-            ? UIColor(red: 0, green: 0, blue: 0, alpha: 1)
+            ? UIColor(red: 0.012, green: 0.042, blue: 0.032, alpha: 1)
             : .systemBackground
     })
     static let surface = Color(UIColor { trait in
         trait.userInterfaceStyle == .dark
-            ? UIColor(red: 0.04, green: 0.04, blue: 0.04, alpha: 1)
+            ? UIColor(red: 0.035, green: 0.082, blue: 0.064, alpha: 1)
             : .secondarySystemGroupedBackground
     })
     #elseif canImport(AppKit)
     static let bg = Color(NSColor(name: nil) { appearance in
         appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-            ? NSColor(red: 0, green: 0, blue: 0, alpha: 1)
+            ? NSColor(red: 0.012, green: 0.042, blue: 0.032, alpha: 1)
             : .windowBackgroundColor
     })
     static let surface = Color(NSColor(name: nil) { appearance in
         appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-            ? NSColor(red: 0.04, green: 0.04, blue: 0.04, alpha: 1)
+            ? NSColor(red: 0.035, green: 0.082, blue: 0.064, alpha: 1)
             : .controlBackgroundColor
     })
     #endif
@@ -57,9 +63,74 @@ enum NV {
     static let tagOpacity:  Double  = 0.15
     static let dotSize:     CGFloat = 8
     static let strokeWidth: CGFloat = 1
+
+    static func pageBackground(appColorScheme: String, colorScheme: ColorScheme) -> Color {
+        switch resolvedAppearance(appColorScheme: appColorScheme, colorScheme: colorScheme) {
+        case .absoluteBlack:
+            return absoluteBlackBG
+        case .dark:
+            return nightVisionBG
+        case .light:
+            return bg
+        }
+    }
+
+    static func panelBackground(appColorScheme: String, colorScheme: ColorScheme) -> Color {
+        switch resolvedAppearance(appColorScheme: appColorScheme, colorScheme: colorScheme) {
+        case .absoluteBlack:
+            return absoluteBlackSurface.opacity(0.96)
+        case .dark:
+            return nightVisionSurface.opacity(0.92)
+        case .light:
+            return surface.opacity(0.92)
+        }
+    }
+
+    static func navigationBackground(appColorScheme: String, colorScheme: ColorScheme) -> Color {
+        switch resolvedAppearance(appColorScheme: appColorScheme, colorScheme: colorScheme) {
+        case .absoluteBlack:
+            return absoluteBlackBG
+        case .dark:
+            return nightVisionChrome
+        case .light:
+            return surface.opacity(0.96)
+        }
+    }
+
+    static func navigationSelectionFill(appColorScheme: String, colorScheme: ColorScheme, accent: Color) -> Color {
+        switch resolvedAppearance(appColorScheme: appColorScheme, colorScheme: colorScheme) {
+        case .absoluteBlack:
+            return Color.black
+        case .dark:
+            return accent.opacity(0.24)
+        case .light:
+            return accent.opacity(0.14)
+        }
+    }
+
+    private static func resolvedAppearance(appColorScheme: String, colorScheme: ColorScheme) -> ResolvedAppearance {
+        switch appColorScheme {
+        case "black":
+            return .absoluteBlack
+        case "light":
+            return .light
+        case "dark":
+            return .dark
+        default:
+            return colorScheme == .dark ? .dark : .light
+        }
+    }
+
+    private enum ResolvedAppearance {
+        case light
+        case dark
+        case absoluteBlack
+    }
 }
 
 struct HQPage<Content: View>: View {
+    @AppStorage("appColorScheme") private var appColorScheme: String = "dark"
+    @Environment(\.colorScheme) private var colorScheme
     let maxWidth: CGFloat
     let spacing: CGFloat
     @ViewBuilder let content: Content
@@ -83,7 +154,7 @@ struct HQPage<Content: View>: View {
             .frame(maxWidth: maxWidth, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .center)
         }
-        .background(NV.bg.ignoresSafeArea())
+        .background(NV.pageBackground(appColorScheme: appColorScheme, colorScheme: colorScheme).ignoresSafeArea())
     }
 }
 
@@ -284,14 +355,25 @@ struct HQPanel<Content: View>: View {
 
 extension View {
     func hqPanelChrome(accent: Color = NV.green) -> some View {
-        self
+        modifier(HQPanelChromeModifier(accent: accent))
+    }
+}
+
+private struct HQPanelChromeModifier: ViewModifier {
+    @AppStorage("appColorScheme") private var appColorScheme: String = "dark"
+    @Environment(\.colorScheme) private var colorScheme
+    let accent: Color
+
+    func body(content: Content) -> some View {
+        content
             .padding(NV.cardPadding)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(.regularMaterial)
+            .background(NV.panelBackground(appColorScheme: appColorScheme, colorScheme: colorScheme))
             .clipShape(RoundedRectangle(cornerRadius: NV.cardRadius, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: NV.cardRadius, style: .continuous)
-                    .stroke(accent.opacity(0.28), lineWidth: NV.strokeWidth)
+                    .stroke(accent.opacity(0.30), lineWidth: NV.strokeWidth)
             )
+            .shadow(color: accent.opacity(colorScheme == .dark ? 0.08 : 0.04), radius: 10, x: 0, y: 4)
     }
 }
