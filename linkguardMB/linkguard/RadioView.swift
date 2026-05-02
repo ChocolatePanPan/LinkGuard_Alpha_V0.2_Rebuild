@@ -123,93 +123,97 @@ struct RadioView: View {
     // MARK: - 即時廣播模式
 
     private var liveContent: some View {
-        VStack(spacing: 24) {
-            Spacer()
+        VStack(spacing: 0) {
+            VStack(spacing: 24) {
+                Spacer(minLength: 0)
 
-            // 廣播者狀態
-            if let broadcaster = vm.currentBroadcaster {
-                HStack(spacing: 8) {
-                    Image(systemName: "antenna.radiowaves.left.and.right")
-                        .foregroundColor(NV.danger)
-                    Text(L("%@ 正在廣播", broadcaster))
-                        .font(.headline)
-                        .foregroundColor(NV.danger)
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(NV.danger.opacity(0.1))
-                .cornerRadius(12)
-            }
-
-            // PTT 按鈕（純按住/放開，不用 Button 避免 action 衝突）
-            ZStack {
-                Circle()
-                    .fill(liveManager.isBroadcasting ? NV.danger : Color.gray.opacity(0.2))
-                    .frame(width: 140, height: 140)
-                    .shadow(color: liveManager.isBroadcasting ? NV.danger.opacity(0.5) : .clear, radius: 20)
-
-                VStack(spacing: 8) {
-                    Image(systemName: liveManager.isBroadcasting ? "mic.fill" : "mic")
-                        .font(.system(size: 48))
-                    Text(liveManager.isBroadcasting ? L("放開結束") : L("按住說話"))
-                        .font(.caption)
-                        .bold()
-                }
-                .foregroundColor(liveManager.isBroadcasting ? .white : .primary)
-            }
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { _ in
-                        if !liveManager.isBroadcasting {
-                            liveManager.startBroadcast()
-                            vm.commandClient.sendRadioStart(senderName: vm.nodeStatus.nodeID)
-                        }
+                // 廣播者狀態
+                if let broadcaster = vm.currentBroadcaster {
+                    HStack(spacing: 8) {
+                        Image(systemName: "antenna.radiowaves.left.and.right")
+                            .foregroundColor(NV.danger)
+                        Text(L("%@ 正在廣播", broadcaster))
+                            .font(.headline)
+                            .foregroundColor(NV.danger)
                     }
-                    .onEnded { _ in
-                        if liveManager.isBroadcasting {
-                            liveManager.stopBroadcast()
-                            vm.commandClient.sendRadioStop(senderName: vm.nodeStatus.nodeID)
-                        }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(NV.danger.opacity(0.1))
+                    .cornerRadius(12)
+                }
+
+                // PTT 按鈕（純按住/放開，不用 Button 避免 action 衝突）
+                ZStack {
+                    Circle()
+                        .fill(liveManager.isBroadcasting ? NV.danger : Color.gray.opacity(0.2))
+                        .frame(width: 140, height: 140)
+                        .shadow(color: liveManager.isBroadcasting ? NV.danger.opacity(0.5) : .clear, radius: 20)
+
+                    VStack(spacing: 8) {
+                        Image(systemName: liveManager.isBroadcasting ? "mic.fill" : "mic")
+                            .font(.system(size: 48))
+                        Text(liveManager.isBroadcasting ? L("放開結束") : L("按住說話"))
+                            .font(.caption)
+                            .bold()
                     }
-            )
-
-            Text(L("按住錄音，放開後自動上傳轉錄歸檔"))
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal)
-
-            // 上傳進度
-            if liveManager.isUploading {
-                HStack(spacing: 8) {
-                    ProgressView()
-                    Text(liveManager.uploadProgress ?? L("上傳中…"))
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                    .foregroundColor(liveManager.isBroadcasting ? .white : .primary)
                 }
-            } else if let progress = liveManager.uploadProgress {
-                HStack(spacing: 4) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(NV.green)
-                    Text(progress)
-                        .font(.caption)
-                        .foregroundColor(NV.green)
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { _ in
+                            if !liveManager.isBroadcasting {
+                                liveManager.startBroadcast()
+                                vm.commandClient.sendRadioStart(senderName: vm.nodeStatus.nodeID)
+                            }
+                        }
+                        .onEnded { _ in
+                            if liveManager.isBroadcasting {
+                                liveManager.stopBroadcast()
+                                vm.commandClient.sendRadioStop(senderName: vm.nodeStatus.nodeID)
+                            }
+                        }
+                )
+
+                Text(L("按住錄音，放開後自動上傳轉錄歸檔"))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
+
+                // 上傳進度
+                if liveManager.isUploading {
+                    HStack(spacing: 8) {
+                        ProgressView()
+                        Text(liveManager.uploadProgress ?? L("上傳中…"))
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                } else if let progress = liveManager.uploadProgress {
+                    HStack(spacing: 4) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(NV.green)
+                        Text(progress)
+                            .font(.caption)
+                            .foregroundColor(NV.green)
+                    }
                 }
+
+                // 錯誤訊息
+                if let error = liveManager.connectionError {
+                    HStack(spacing: 4) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundColor(NV.danger)
+                        Text(error)
+                            .font(.caption)
+                            .foregroundColor(NV.danger)
+                    }
+                    .padding(.horizontal)
+                }
+
+                Spacer(minLength: 0)
             }
-
-            // 錯誤訊息
-            if let error = liveManager.connectionError {
-                HStack(spacing: 4) {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundColor(NV.danger)
-                    Text(error)
-                        .font(.caption)
-                        .foregroundColor(NV.danger)
-                }
-                .padding(.horizontal)
-            }
-
-            Spacer()
+            .frame(minHeight: 340)
+            .frame(maxWidth: .infinity)
 
             // 自動 / 手動播放切換
             HStack {
@@ -399,7 +403,9 @@ struct RadioView: View {
     private var briefingContent: some View {
         VStack(spacing: 0) {
             // 錄音控制區
-            VStack(spacing: 16) {
+            VStack(spacing: 24) {
+                Spacer(minLength: 0)
+
                 // 錄音按鈕
                 Button {
                     if briefingManager.isRecording {
@@ -418,12 +424,12 @@ struct RadioView: View {
                     ZStack {
                         Circle()
                             .fill(briefingManager.isRecording ? NV.danger : Color.gray.opacity(0.2))
-                            .frame(width: 100, height: 100)
-                            .shadow(color: briefingManager.isRecording ? NV.danger.opacity(0.4) : .clear, radius: 15)
+                            .frame(width: 140, height: 140)
+                            .shadow(color: briefingManager.isRecording ? NV.danger.opacity(0.5) : .clear, radius: 20)
 
-                        VStack(spacing: 6) {
+                        VStack(spacing: 8) {
                             Image(systemName: briefingManager.isRecording ? "stop.fill" : "record.circle")
-                                .font(.system(size: 36))
+                                .font(.system(size: 48))
                             Text(briefingManager.isRecording ? L("停止") : L("錄音"))
                                 .font(.caption)
                                 .bold()
@@ -433,6 +439,12 @@ struct RadioView: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(briefingManager.isUploading)
+
+                Text(L("按下錄音，停止後自動上傳轉錄歸檔"))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
 
                 // 上傳進度
                 if briefingManager.isUploading {
@@ -463,8 +475,11 @@ struct RadioView: View {
                         .buttonStyle(.bordered)
                     }
                 }
+
+                Spacer(minLength: 0)
             }
-            .padding()
+            .frame(minHeight: 340)
+            .frame(maxWidth: .infinity)
 
             Divider()
 
