@@ -1,9 +1,11 @@
 import SwiftUI
 import MapKit
+import CoreLocation
 
 struct HQExternalVictimMapDisplayView: View {
     @ObservedObject var vm: HQViewModel
     @ObservedObject private var backendBridge: HQBackendBridge
+    @StateObject private var locationProvider = HQExternalLocationProvider()
     @State private var cameraPosition: MapCameraPosition = .automatic
 
     init(vm: HQViewModel) {
@@ -68,16 +70,22 @@ struct HQExternalVictimMapDisplayView: View {
                     }
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                .onAppear { fitMapToPins() }
+                .onAppear {
+                    locationProvider.start()
+                    fitMapToPins()
+                }
                 .onChange(of: mapCameraKey) { _, _ in fitMapToPins() }
 
                 if mapPins.isEmpty {
-                    emptyState(icon: "mappin.slash", title: L("尚無 GPS 座標"))
+                    emptyState(icon: locationProvider.emptyStateIcon, title: locationProvider.statusText)
                         .background(NV.bg.opacity(0.88))
                         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                 } else {
-                    mapLegend
-                        .padding(14)
+                    VStack(alignment: .leading, spacing: 8) {
+                        mapLegend
+                        locationStatusBadge
+                    }
+                    .padding(14)
                 }
             }
         }
@@ -85,10 +93,26 @@ struct HQExternalVictimMapDisplayView: View {
 
     private var mapLegend: some View {
         HStack(spacing: 10) {
+            legendItem(title: L("指揮中心"), icon: "location.circle.fill", color: NV.command)
             legendItem(title: L("受困者"), icon: "person.fill.questionmark", color: NV.warning)
             legendItem(title: L("照片"), icon: "photo.fill", color: NV.info)
             legendItem(title: "LoRa", icon: "antenna.radiowaves.left.and.right", color: NV.green)
         }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(.black.opacity(0.72))
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+
+    private var locationStatusBadge: some View {
+        HStack(spacing: 6) {
+            Image(systemName: locationProvider.isLocated ? "location.fill" : locationProvider.emptyStateIcon)
+                .foregroundColor(locationProvider.isLocated ? NV.command : NV.warning)
+            Text(locationProvider.statusText)
+                .foregroundColor(.white.opacity(0.88))
+                .lineLimit(1)
+        }
+        .font(.caption.weight(.semibold))
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .background(.black.opacity(0.72))
@@ -169,7 +193,21 @@ struct HQExternalVictimMapDisplayView: View {
     }
 
     private var mapPins: [ExternalMapPin] {
-        victimPins + photoPins + loraPins
+        hqLocationPin + victimPins + photoPins + loraPins
+    }
+
+    private var hqLocationPin: [ExternalMapPin] {
+        guard let location = locationProvider.location else { return [] }
+        return [
+            ExternalMapPin(
+                id: "hq-current-location",
+                title: L("指揮中心"),
+                subtitle: locationProvider.accuracyText,
+                coordinate: location.coordinate,
+                color: NV.command,
+                icon: "location.circle.fill"
+            )
+        ]
     }
 
     private var victimPins: [ExternalMapPin] {
@@ -243,7 +281,7 @@ struct HQExternalVictimMapDisplayView: View {
         guard !mapPins.isEmpty else {
             cameraPosition = .region(MKCoordinateRegion(
                 center: CLLocationCoordinate2D(latitude: 23.6978, longitude: 120.9605),
-                span: MKCoordinateSpan(latitudeDelta: 4.5, longitudeDelta: 4.5)
+                span: MKCoordinateSpan(latitudeDelta: 1.2, longitudeDelta: 1.2)
             ))
             return
         }
@@ -286,6 +324,94 @@ struct HQExternalVictimMapDisplayView: View {
         if let value = value as? String { return value }
         if let value { return "\(value)" }
         return ""
+    }
+}
+
+private final class HQExternalLocationProvider: NSObject, ObservableObject, CLLocationManagerDelegate {
+    @Published var location: CLLocation?
+    @Published private var authorizationStatus: CLAuthorizationStatus
+    @Published private var lastError: String?
+
+    private let manager = CLLocationManager()
+
+    override init() {
+        self.authorizationStatus = manager.authorizationStatus
+        super.init()
+        manager.delegate = self
+        manager.desiredAccuracy = kCLLocationAccuracyBest
+        manager.distanceFilter = 10
+    }
+
+    var isLocated: Bool {
+        location != nil
+    }
+
+    var statusText: String {
+        if let lastError { return lastError }
+        switch authorizationStatus {
+        case .notDetermined:
+            return L("等待定位授權")
+        case .restricted, .denied:
+            return L("定位權限未開啟")
+        case .authorizedAlways, .authorizedWhenInUse:
+            if location != nil { return L("指揮中心定位已更新") }
+            return L("定位中...")
+        @unknown default:
+            return L("定位狀態未知")
+        }
+    }
+
+    var emptyStateIcon: String {
+        switch authorizationStatus {
+        case .restricted, .denied:
+            return "location.slash"
+        default:
+            return "location.magnifyingglass"
+        }
+    }
+
+    var accuracyText: String {
+        guard let accuracy = location?.horizontalAccuracy, accuracy >= 0 else {
+            return L("目前位置")
+        }
+        return L("精度 %.0f m", accuracy)
+    }
+
+    func start() {
+        authorizationStatus = manager.authorizationStatus
+        switch authorizationStatus {
+        case .notDetermined:
+            manager.requestWhenInUseAuthorization()
+        case .authorizedAlways, .authorizedWhenInUse:
+            lastError = nil
+            manager.startUpdatingLocation()
+        case .restricted, .denied:
+            manager.stopUpdatingLocation()
+        @unknown default:
+            manager.stopUpdatingLocation()
+        }
+    }
+
+    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.authorizationStatus = manager.authorizationStatus
+            self.start()
+        }
+    }
+
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        guard let latestLocation = locations.last else { return }
+        DispatchQueue.main.async { [weak self] in
+            self?.lastError = nil
+            self?.location = latestLocation
+        }
+    }
+
+    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        DispatchQueue.main.async { [weak self] in
+            self?.lastError = error.localizedDescription
+        }
     }
 }
 
