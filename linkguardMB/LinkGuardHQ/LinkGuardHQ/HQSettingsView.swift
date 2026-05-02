@@ -13,6 +13,7 @@ import AppKit
 struct HQSettingsView: View {
     @ObservedObject var vm: HQViewModel
     @ObservedObject var supervisor: BackendSupervisor
+    var onOpenBackendServices: (() -> Void)? = nil
     @EnvironmentObject var l10n: L10n
 
     @AppStorage("appColorScheme") private var appColorScheme: String = "dark"
@@ -95,17 +96,6 @@ struct HQSettingsView: View {
                 .font(.caption)
                 .foregroundColor(.secondary)
 
-            if backendMode == .remote {
-                HStack {
-                    Text(L("遠端主機:"))
-                    TextField("192.168.1.10", text: $remoteHost)
-                        .textFieldStyle(.roundedBorder)
-                    Button(L("連接")) { applyBackendMode() }
-                        .buttonStyle(.borderedProminent)
-                        .disabled(remoteHost.trimmingCharacters(in: .whitespaces).isEmpty)
-                }
-            }
-
             #if os(macOS)
             if backendMode == .embedded {
                 HStack {
@@ -124,6 +114,219 @@ struct HQSettingsView: View {
                 }
             }
             #endif
+
+            Divider()
+            serverRuntimeStatus
+        }
+    }
+
+    private var serverRuntimeStatus: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            statusSubsectionHeader(L("語音辨識 (Apple Speech)"), icon: "waveform")
+            speechServerStatus
+            Divider()
+            statusSubsectionHeader(L("照片伺服器 (HTTP)"), icon: "photo")
+            photoServerStatus
+            Divider()
+            statusSubsectionHeader(L("後台伺服器"), icon: "server.rack")
+            backendConnectionStatus
+        }
+    }
+
+    @ViewBuilder
+    private var speechServerStatus: some View {
+        if vm.hqRole == .peer {
+            if let status = vm.peerClient.serverStatus {
+                statusRow(isRunning: status.speechServerRunning,
+                          runningText: L("運行中 (port 8003)"),
+                          stoppedText: L("已停止"),
+                          trailingText: L("已處理 %lld 筆", status.speechProcessedCount))
+            } else {
+                statusRow(isRunning: false,
+                          runningText: L("已同步"),
+                          stoppedText: L("尚未收到主 HQ 狀態"))
+            }
+        } else {
+            statusRow(isRunning: vm.speechServer.isRunning,
+                      runningText: L("運行中 (port 8003)"),
+                      stoppedText: L("已停止"),
+                      trailingText: L("已處理 %lld 筆", vm.speechServer.processedCount))
+            if !vm.speechServer.lastTranscription.isEmpty {
+                Text(vm.speechServer.lastTranscription)
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                    .lineLimit(2)
+            }
+            if let error = vm.speechServer.lastError {
+                errorText(error)
+            }
+            HStack {
+                if vm.speechServer.isRunning {
+                    Button(L("停止辨識伺服器")) { vm.speechServer.stop() }
+                        .font(.caption)
+                        .foregroundColor(NV.danger)
+                } else {
+                    Button(L("啟動辨識伺服器")) { vm.speechServer.start() }
+                        .font(.caption)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var photoServerStatus: some View {
+        if vm.hqRole == .peer {
+            if let status = vm.peerClient.serverStatus {
+                statusRow(isRunning: status.photoServerRunning,
+                          runningText: L("運行中 (port 8014)"),
+                          stoppedText: L("已停止"),
+                          trailingText: L("已收 %lld 張", status.photoReceivedCount))
+            } else {
+                statusRow(isRunning: false,
+                          runningText: L("已同步"),
+                          stoppedText: L("尚未收到主 HQ 狀態"))
+            }
+        } else {
+            statusRow(isRunning: vm.photoServer.isRunning,
+                      runningText: L("運行中 (port 8014)"),
+                      stoppedText: L("已停止"),
+                      trailingText: L("已收 %lld 張", vm.photoServer.receivedCount))
+            if let error = vm.photoServer.lastError {
+                errorText(error)
+            }
+            HStack {
+                if vm.photoServer.isRunning {
+                    Button(L("停止照片伺服器")) { vm.photoServer.stop() }
+                        .font(.caption)
+                        .foregroundColor(NV.danger)
+                } else {
+                    Button(L("啟動照片伺服器")) { vm.photoServer.start() }
+                        .font(.caption)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var backendConnectionStatus: some View {
+        if vm.hqRole == .peer {
+            if let status = vm.peerClient.serverStatus {
+                statusRow(isRunning: status.backendConnected,
+                          runningText: L("已連線 %@", status.backendHost),
+                          stoppedText: L("未連線"))
+            } else {
+                statusRow(isRunning: false,
+                          runningText: L("已同步"),
+                          stoppedText: L("尚未收到主 HQ 狀態"))
+            }
+        } else if backendMode == .embedded {
+            embeddedBackendStatus
+        } else if backendMode == .remote {
+            remoteBackendStatus
+        } else {
+            bonjourBackendStatus
+        }
+    }
+
+    private var embeddedBackendStatus: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            statusRow(isRunning: vm.isBackendConnected,
+                      runningText: L("此 Mac 內建後端 127.0.0.1"),
+                      stoppedText: L("此 Mac 後端啟動中"))
+            HStack(spacing: 8) {
+                Button(L("啟動本機後端")) {
+                    vm.ensureMacLocalBackend()
+                }
+                .font(.caption)
+                if let onOpenBackendServices {
+                    Button(L("查看服務")) {
+                        onOpenBackendServices()
+                    }
+                    .font(.caption)
+                }
+            }
+            if let error = vm.backendBridge.lastError {
+                errorText(error)
+            }
+        }
+    }
+
+    private var remoteBackendStatus: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            backendBridgeStatusRow
+            HStack {
+                Text(L("遠端主機:"))
+                TextField("192.168.1.10", text: $remoteHost)
+                    .textFieldStyle(.roundedBorder)
+                if vm.backendBridge.isConnected {
+                    Button(L("斷開連線")) {
+                        vm.backendBridge.disconnect()
+                    }
+                    .font(.caption)
+                    .foregroundColor(NV.danger)
+                } else {
+                    Button(L("連接")) { applyBackendMode() }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(remoteHost.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+            if let error = vm.backendBridge.lastError {
+                errorText(error)
+            }
+        }
+    }
+
+    private var bonjourBackendStatus: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            backendBridgeStatusRow
+            if !vm.backendBridge.isDiscovering {
+                TextField(L("後台 IP（手動）"), text: $legacyBackendHost)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.caption)
+            }
+            HStack(spacing: 8) {
+                if vm.backendBridge.isConnected {
+                    Button(L("斷開連線")) {
+                        vm.backendBridge.disconnect()
+                    }
+                    .font(.caption)
+                    .foregroundColor(NV.danger)
+                } else {
+                    Button(L("自動搜尋")) {
+                        vm.backendBridge.startAutoDiscovery()
+                    }
+                    .font(.caption)
+                    .disabled(vm.backendBridge.isDiscovering)
+                    if !legacyBackendHost.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        Button(L("手動連線")) {
+                            let host = legacyBackendHost.trimmingCharacters(in: .whitespacesAndNewlines)
+                            vm.backendBridge.connect(host: host)
+                        }
+                        .font(.caption)
+                    }
+                }
+            }
+            if let error = vm.backendBridge.lastError {
+                errorText(error)
+            }
+        }
+    }
+
+    private var backendBridgeStatusRow: some View {
+        HStack(spacing: 6) {
+            if vm.backendBridge.isDiscovering {
+                ProgressView().scaleEffect(0.7)
+            } else {
+                Circle()
+                    .fill(vm.backendBridge.isConnected ? NV.green : Color.gray)
+                    .frame(width: 8, height: 8)
+            }
+            Text(vm.backendBridge.isDiscovering ? L("Bonjour 搜尋中...") :
+                 vm.backendBridge.isConnected ? L("已連線 %@", vm.backendBridge.backendHost) : L("未連線"))
+                .font(.caption)
+                .foregroundColor(vm.backendBridge.isDiscovering ? .orange :
+                                 vm.backendBridge.isConnected ? NV.green : .secondary)
+            Spacer()
         }
     }
 
@@ -225,6 +428,44 @@ struct HQSettingsView: View {
             .hqPanelChrome(accent: NV.green)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func statusSubsectionHeader(_ title: String, icon: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .foregroundColor(NV.green)
+                .frame(width: 18)
+            Text(title)
+                .font(.subheadline.bold())
+            Spacer()
+        }
+    }
+
+    private func statusRow(isRunning: Bool,
+                           runningText: String,
+                           stoppedText: String,
+                           trailingText: String? = nil) -> some View {
+        HStack(spacing: 6) {
+            Circle()
+                .fill(isRunning ? NV.green : Color.gray)
+                .frame(width: 8, height: 8)
+            Text(isRunning ? runningText : stoppedText)
+                .font(.caption)
+                .foregroundColor(isRunning ? NV.green : .secondary)
+            Spacer()
+            if let trailingText {
+                Text(trailingText)
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
+        }
+    }
+
+    private func errorText(_ message: String) -> some View {
+        Text(message)
+            .font(.caption2)
+            .foregroundColor(NV.danger)
+            .lineLimit(2)
     }
 
     /// React to backend-mode change: tell HQBackendBridge where to connect.

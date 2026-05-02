@@ -187,6 +187,7 @@ final class L10n: ObservableObject {
         "尚未建立會報": "No briefings created",
         "尚未指派人員": "No personnel assigned",
         "尚未收到前線裝置回報…": "No field device reports received…",
+        "尚未收到主 HQ 狀態": "No primary HQ status received",
         "尚未收到照片回報": "No photo reports received",
         "尚未發送任何廣播": "No broadcasts sent yet",
         "尚未發送個人通知": "No personal notifications sent",

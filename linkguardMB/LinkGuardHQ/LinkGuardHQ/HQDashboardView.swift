@@ -81,9 +81,6 @@ struct HQDashboardView: View {
     // 計時器表單
     @State private var timerTitle = ""
     @State private var timerMinutes = ""
-    // 後台連線
-    @AppStorage("backendHost") private var backendHost = ""
-
     @State private var sosFlash = false
     @State private var localIPText = "IP: --"
 
@@ -262,7 +259,9 @@ struct HQDashboardView: View {
             #endif
             case .decisionHistory: HQDecisionHistoryView(vm: vm)
             #if os(macOS)
-            case .settings: HQSettingsView(vm: vm, supervisor: vm.backendSupervisor)
+            case .settings: HQSettingsView(vm: vm, supervisor: vm.backendSupervisor) {
+                selectedSection = .backendServices
+            }
             #else
             case .settings: Text(L("僅 macOS 支援")).foregroundColor(.secondary)
             #endif
@@ -549,193 +548,6 @@ struct HQDashboardView: View {
                     Label(L("團隊節點"), systemImage: "person.3.fill")
                     Spacer()
                     Text("\(vm.teamCount)").bold()
-                }
-            }
-
-            // 語音辨識伺服器
-            Section(header: Text(L("語音辨識 (Apple Speech)"))) {
-                if vm.hqRole == .peer, let status = vm.peerClient.serverStatus {
-                    HStack(spacing: 6) {
-                        Circle()
-                            .fill(status.speechServerRunning ? NV.green : Color.gray)
-                            .frame(width: 8, height: 8)
-                        Text(status.speechServerRunning ? L("運行中 (port 8003)") : L("已停止"))
-                            .font(.caption)
-                            .foregroundColor(status.speechServerRunning ? NV.green : .secondary)
-                        Spacer()
-                        Text(L("已處理 %lld 筆", status.speechProcessedCount))
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                    }
-                } else {
-                    HStack(spacing: 6) {
-                        Circle()
-                            .fill(vm.speechServer.isRunning ? NV.green : Color.gray)
-                            .frame(width: 8, height: 8)
-                        Text(vm.speechServer.isRunning ? L("運行中 (port 8003)") : L("已停止"))
-                            .font(.caption)
-                            .foregroundColor(vm.speechServer.isRunning ? NV.green : .secondary)
-                        Spacer()
-                        Text(L("已處理 %lld 筆", vm.speechServer.processedCount))
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                    }
-                    if !vm.speechServer.lastTranscription.isEmpty {
-                        Text(vm.speechServer.lastTranscription)
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                            .lineLimit(2)
-                    }
-                    if let error = vm.speechServer.lastError {
-                        Text(error)
-                            .font(.caption2)
-                            .foregroundColor(NV.danger)
-                    }
-                    HStack {
-                        if vm.speechServer.isRunning {
-                            Button(L("停止辨識伺服器")) { vm.speechServer.stop() }
-                                .font(.caption)
-                                .foregroundColor(NV.danger)
-                        } else {
-                            Button(L("啟動辨識伺服器")) { vm.speechServer.start() }
-                                .font(.caption)
-                        }
-                    }
-                }
-            }
-
-            // 照片伺服器
-            Section(header: Text(L("照片伺服器 (HTTP)"))) {
-                if vm.hqRole == .peer, let status = vm.peerClient.serverStatus {
-                    HStack(spacing: 6) {
-                        Circle()
-                            .fill(status.photoServerRunning ? NV.green : Color.gray)
-                            .frame(width: 8, height: 8)
-                        Text(status.photoServerRunning ? L("運行中 (port 8014)") : L("已停止"))
-                            .font(.caption)
-                            .foregroundColor(status.photoServerRunning ? NV.green : .secondary)
-                        Spacer()
-                        Text(L("已收 %lld 張", status.photoReceivedCount))
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                    }
-                } else {
-                    HStack(spacing: 6) {
-                        Circle()
-                            .fill(vm.photoServer.isRunning ? NV.green : Color.gray)
-                            .frame(width: 8, height: 8)
-                        Text(vm.photoServer.isRunning ? L("運行中 (port 8014)") : L("已停止"))
-                            .font(.caption)
-                            .foregroundColor(vm.photoServer.isRunning ? NV.green : .secondary)
-                        Spacer()
-                        Text(L("已收 %lld 張", vm.photoServer.receivedCount))
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                    }
-                    if let error = vm.photoServer.lastError {
-                        Text(error)
-                            .font(.caption2)
-                            .foregroundColor(NV.danger)
-                    }
-                    HStack {
-                        if vm.photoServer.isRunning {
-                            Button(L("停止照片伺服器")) { vm.photoServer.stop() }
-                                .font(.caption)
-                                .foregroundColor(NV.danger)
-                        } else {
-                            Button(L("啟動照片伺服器")) { vm.photoServer.start() }
-                                .font(.caption)
-                        }
-                    }
-                }
-            }
-
-            // 後台連線
-            Section(header: Text(L("後台伺服器"))) {
-                if vm.hqRole == .peer, let status = vm.peerClient.serverStatus {
-                    HStack(spacing: 6) {
-                        Circle()
-                            .fill(status.backendConnected ? NV.green : Color.gray)
-                            .frame(width: 8, height: 8)
-                        Text(status.backendConnected ? L("已連線 %@", status.backendHost) : L("未連線"))
-                            .font(.caption)
-                            .foregroundColor(status.backendConnected ? NV.green : .secondary)
-                    }
-                } else if vm.backendMode == .embedded {
-                    HStack(spacing: 6) {
-                        Circle()
-                            .fill(vm.isBackendConnected ? NV.green : Color.gray)
-                            .frame(width: 8, height: 8)
-                        Text(vm.isBackendConnected ? L("此 Mac 內建後端 127.0.0.1") : L("此 Mac 後端啟動中"))
-                            .font(.caption)
-                            .foregroundColor(vm.isBackendConnected ? NV.green : .secondary)
-                    }
-                    HStack(spacing: 8) {
-                        #if os(macOS)
-                        Button(L("啟動本機後端")) {
-                            vm.ensureMacLocalBackend()
-                        }
-                        .font(.caption)
-                        #endif
-                        Button(L("查看服務")) {
-                            selectedSection = .backendServices
-                        }
-                        .font(.caption)
-                    }
-                    if let error = vm.backendBridge.lastError {
-                        Text(error)
-                            .font(.caption2)
-                            .foregroundColor(NV.danger)
-                            .lineLimit(2)
-                    }
-                } else {
-                    HStack(spacing: 6) {
-                        if vm.backendBridge.isDiscovering {
-                            ProgressView().scaleEffect(0.7)
-                        } else {
-                            Circle()
-                                .fill(vm.backendBridge.isConnected ? NV.green : Color.gray)
-                                .frame(width: 8, height: 8)
-                        }
-                        Text(vm.backendBridge.isDiscovering ? L("Bonjour 搜尋中...") :
-                             vm.backendBridge.isConnected ? L("已連線 %@", vm.backendBridge.backendHost) : L("未連線"))
-                            .font(.caption)
-                            .foregroundColor(vm.backendBridge.isDiscovering ? .orange :
-                                             vm.backendBridge.isConnected ? NV.green : .secondary)
-                    }
-                    if !vm.backendBridge.isDiscovering {
-                        TextField(L("後台 IP（手動）"), text: $backendHost)
-                            .textFieldStyle(.roundedBorder)
-                            .font(.caption)
-                    }
-                    HStack(spacing: 8) {
-                        if vm.backendBridge.isConnected {
-                            Button(L("斷開連線")) {
-                                vm.backendBridge.disconnect()
-                            }
-                            .font(.caption)
-                            .foregroundColor(NV.danger)
-                        } else {
-                            Button(L("自動搜尋")) {
-                                vm.backendBridge.startAutoDiscovery()
-                            }
-                            .font(.caption)
-                            .disabled(vm.backendBridge.isDiscovering)
-                            if !backendHost.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                                Button(L("手動連線")) {
-                                    let host = backendHost.trimmingCharacters(in: .whitespacesAndNewlines)
-                                    vm.backendBridge.connect(host: host)
-                                }
-                                .font(.caption)
-                            }
-                        }
-                    }
-                    if let error = vm.backendBridge.lastError {
-                        Text(error)
-                            .font(.caption2)
-                            .foregroundColor(NV.danger)
-                            .lineLimit(2)
-                    }
                 }
             }
 
