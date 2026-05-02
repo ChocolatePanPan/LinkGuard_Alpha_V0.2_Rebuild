@@ -66,9 +66,34 @@ enum HQSection: String, CaseIterable, Identifiable {
     }
 }
 
+enum HQNavigationPlacement: String, CaseIterable, Identifiable {
+    case left
+    case bottom
+    case right
+
+    var id: String { rawValue }
+
+    var localizedName: String {
+        switch self {
+        case .left: return L("左側")
+        case .bottom: return L("下方")
+        case .right: return L("右側")
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .left: return "sidebar.left"
+        case .bottom: return "rectangle.bottomthird.inset.filled"
+        case .right: return "sidebar.right"
+        }
+    }
+}
+
 struct HQDashboardView: View {
     @ObservedObject var vm: HQViewModel
     @EnvironmentObject var l10n: L10n
+    @AppStorage("hq.navigationPlacement") private var navigationPlacementRaw: String = HQNavigationPlacement.left.rawValue
     @State private var selectedSection: HQSection? = .dashboard
     @State private var sidebarExpanded = true
     // 任務指派表單
@@ -89,27 +114,19 @@ struct HQDashboardView: View {
         return formatter
     }()
 
+    private var navigationPlacement: HQNavigationPlacement {
+        HQNavigationPlacement(rawValue: navigationPlacementRaw) ?? .left
+    }
+
+    private var sidebarToggleIcon: String {
+        navigationPlacement == .right ? "sidebar.right" : "sidebar.left"
+    }
+
     var body: some View {
         ZStack {
-            HStack(spacing: 0) {
-                // 側邊欄
-                if sidebarExpanded {
-                    sidebarView
-                        .frame(width: 260)
-                        .transition(.move(edge: .leading))
-                } else {
-                    collapsedSidebar
-                        .frame(width: 56)
-                        .transition(.move(edge: .leading))
-                }
-
-                Divider()
-
-                // 詳細區
-                detailContent
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
+            navigationLayout
             .animation(.easeInOut(duration: 0.2), value: sidebarExpanded)
+            .animation(.easeInOut(duration: 0.2), value: navigationPlacement)
 
             // SOS 全螢幕警報覆蓋
             if vm.showSOSOverlay {
@@ -132,6 +149,46 @@ struct HQDashboardView: View {
         }
         .onAppear {
             localIPText = localIPAddress()
+        }
+    }
+
+    @ViewBuilder
+    private var navigationLayout: some View {
+        switch navigationPlacement {
+        case .left:
+            HStack(spacing: 0) {
+                navigationPane(edge: .leading)
+                Divider()
+                detailContent
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        case .right:
+            HStack(spacing: 0) {
+                detailContent
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                Divider()
+                navigationPane(edge: .trailing)
+            }
+        case .bottom:
+            VStack(spacing: 0) {
+                detailContent
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                Divider()
+                bottomNavigationBar
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func navigationPane(edge: Edge) -> some View {
+        if sidebarExpanded {
+            sidebarView
+                .frame(width: 260)
+                .transition(.move(edge: edge))
+        } else {
+            collapsedSidebar
+                .frame(width: 56)
+                .transition(.move(edge: edge))
         }
     }
 
@@ -333,7 +390,7 @@ struct HQDashboardView: View {
             Button {
                 sidebarExpanded = true
             } label: {
-                Image(systemName: "sidebar.left")
+                Image(systemName: sidebarToggleIcon)
                     .font(.system(size: 14))
                     .foregroundColor(.secondary)
                     .frame(width: 36, height: 36)
@@ -625,7 +682,7 @@ struct HQDashboardView: View {
             Button {
                 sidebarExpanded = false
             } label: {
-                Image(systemName: "sidebar.left")
+                Image(systemName: sidebarToggleIcon)
                     .font(.system(size: 14))
                     .foregroundColor(.secondary)
                     .frame(width: 36, height: 36)
@@ -640,6 +697,50 @@ struct HQDashboardView: View {
 
         }
         .background(.ultraThinMaterial)
+    }
+
+    private var bottomNavigationBar: some View {
+        VStack(spacing: 0) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(HQSection.allCases) { section in
+                        bottomNavigationButton(for: section)
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+            }
+        }
+        .frame(minHeight: 72)
+        .background(.ultraThinMaterial)
+    }
+
+    private func bottomNavigationButton(for section: HQSection) -> some View {
+        Button {
+            selectedSection = section
+        } label: {
+            VStack(spacing: 4) {
+                ZStack(alignment: .topTrailing) {
+                    Image(systemName: section.icon)
+                        .font(.system(size: 18, weight: .semibold))
+                        .frame(width: 30, height: 24)
+                    badgeView(for: section)
+                        .scaleEffect(0.82)
+                        .offset(x: 14, y: -6)
+                }
+                Text(section.localizedName)
+                    .font(.caption2)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+            }
+            .foregroundColor(selectedSection == section ? .white : sectionColor(section))
+            .frame(width: 86, height: 54)
+            .background(selectedSection == section ? sectionColor(section) : Color.clear)
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(section.localizedName)
     }
 
     @ViewBuilder

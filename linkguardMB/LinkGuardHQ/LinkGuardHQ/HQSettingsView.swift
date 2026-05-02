@@ -17,6 +17,8 @@ struct HQSettingsView: View {
     @EnvironmentObject var l10n: L10n
 
     @AppStorage("appColorScheme") private var appColorScheme: String = "dark"
+    @AppStorage("hq.uiScale") private var uiScale: Double = 1.0
+    @AppStorage("hq.navigationPlacement") private var navigationPlacementRaw: String = HQNavigationPlacement.left.rawValue
     @AppStorage("hq.backendMode") private var backendModeRaw: String = BackendMode.embedded.rawValue
     @AppStorage("hq.remoteHost") private var remoteHost: String = ""
     @AppStorage("backendHost") private var legacyBackendHost: String = ""
@@ -72,6 +74,49 @@ struct HQSettingsView: View {
             )) {
                 Text(L("繁體中文")).tag("zh-Hant")
                 Text("English").tag("en")
+            }
+
+            Picker(L("導航列位置"), selection: $navigationPlacementRaw) {
+                ForEach(HQNavigationPlacement.allCases) { placement in
+                    Label(placement.localizedName, systemImage: placement.icon)
+                        .tag(placement.rawValue)
+                }
+            }
+            .pickerStyle(.segmented)
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Label(L("介面縮放"), systemImage: "textformat.size")
+                    Spacer()
+                    Text("\(Int((uiScale * 100).rounded()))%")
+                        .font(.caption.monospacedDigit())
+                        .foregroundColor(.secondary)
+                }
+                HStack(spacing: 8) {
+                    Button {
+                        uiScale = max(0.8, ((uiScale - 0.1) * 10).rounded() / 10)
+                    } label: {
+                        Image(systemName: "minus.magnifyingglass")
+                    }
+                    .help(L("縮小"))
+
+                    Slider(value: $uiScale, in: 0.8...1.4, step: 0.1)
+
+                    Button {
+                        uiScale = min(1.4, ((uiScale + 0.1) * 10).rounded() / 10)
+                    } label: {
+                        Image(systemName: "plus.magnifyingglass")
+                    }
+                    .help(L("放大"))
+
+                    Button(L("重設")) {
+                        uiScale = 1.0
+                    }
+                    .buttonStyle(.bordered)
+                }
+                Text(L("也可以使用 Command + + / Command + - 調整。"))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
         }
     }
