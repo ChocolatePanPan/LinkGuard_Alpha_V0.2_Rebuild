@@ -35,8 +35,8 @@ class HQCommandServer: ObservableObject {
     @Published var readStatuses: [String: (total: Int, readCount: Int)] = [:]
     @Published var latestTranslation: HQTranslationResult?
     @Published var activeSOSAlerts: [SOSAlert] = []
-    /// 前線裝置 GPS 位置 {connID: {lat, lon, accuracy, role, name, timestamp}}
-    var deviceLocations: [String: [String: Any]] = [:]
+    /// 前線裝置 GPS 位置 {deviceID: {lat, lon, accuracy, role, name, timestamp}}
+    @Published var deviceLocations: [String: [String: Any]] = [:]
     /// 已連線的 HQ 同伴裝置（其他指揮中心）
     @Published var hqPeers: [HQPeerInfo] = []
 
@@ -282,6 +282,7 @@ class HQCommandServer: ObservableObject {
             case .failed, .cancelled:
                 print("[HQ-Server] Client disconnected (\(connID))")
                 self.queue.async {
+                    let disconnectedDeviceID = self.connDeviceMap[connID]
                     // 清理 UDP 中繼（不再清 knownUDPDeviceIPs，讓它自然保留）
                     self.connections.removeAll { $0 === connection }
                     self.connectionIDMap.removeValue(forKey: ObjectIdentifier(connection))
@@ -293,6 +294,10 @@ class HQCommandServer: ObservableObject {
                         self.connectedClients = self.connections.count
                         self.fieldUnits.removeAll { $0.id == connID }
                         self.hqPeers.removeAll { $0.id == connID }
+                        self.deviceLocations = self.deviceLocations.filter { key, value in
+                            let locationConnID = value["conn_id"] as? String
+                            return key != disconnectedDeviceID && locationConnID != connID
+                        }
                     }
                 }
             default:
@@ -708,6 +713,7 @@ class HQCommandServer: ObservableObject {
                     "accuracy": locData["accuracy"] as Any,
                     "role": locData["role"] as? String ?? "",
                     "name": locData["name"] as? String ?? deviceID,
+                    "conn_id": connID,
                     "timestamp": Date(),
                 ]
                 self.deviceLocations[deviceID] = locDict

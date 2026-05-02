@@ -5,12 +5,14 @@ import CoreLocation
 struct HQExternalVictimMapDisplayView: View {
     @ObservedObject var vm: HQViewModel
     @ObservedObject private var backendBridge: HQBackendBridge
+    @ObservedObject private var commandServer: HQCommandServer
     @StateObject private var locationProvider = HQExternalLocationProvider()
     @State private var cameraPosition: MapCameraPosition = .automatic
 
     init(vm: HQViewModel) {
         self.vm = vm
         self._backendBridge = ObservedObject(wrappedValue: vm.backendBridge)
+        self._commandServer = ObservedObject(wrappedValue: vm.server)
     }
 
     var body: some View {
@@ -94,6 +96,7 @@ struct HQExternalVictimMapDisplayView: View {
     private var mapLegend: some View {
         HStack(spacing: 10) {
             legendItem(title: L("指揮中心"), icon: "location.circle.fill", color: NV.command)
+            legendItem(title: L("搜救人員"), icon: "figure.walk.motion", color: NV.team)
             legendItem(title: L("受困者"), icon: "person.fill.questionmark", color: NV.warning)
             legendItem(title: L("照片"), icon: "photo.fill", color: NV.info)
             legendItem(title: "LoRa", icon: "antenna.radiowaves.left.and.right", color: NV.green)
@@ -193,7 +196,7 @@ struct HQExternalVictimMapDisplayView: View {
     }
 
     private var mapPins: [ExternalMapPin] {
-        hqLocationPin + victimPins + photoPins + loraPins
+        hqLocationPin + personnelPins + victimPins + photoPins + loraPins
     }
 
     private var hqLocationPin: [ExternalMapPin] {
@@ -220,6 +223,25 @@ struct HQExternalVictimMapDisplayView: View {
                 coordinate: coordinate,
                 color: record.isSOS ? NV.danger : record.priority.color,
                 icon: record.isSOS ? "sos.circle.fill" : "person.fill.questionmark"
+            )
+        }
+    }
+
+    private var personnelPins: [ExternalMapPin] {
+        commandServer.deviceLocations.sorted(by: { $0.key < $1.key }).compactMap { deviceID, data in
+            guard let latitude = doubleValue(data["lat"]),
+                  let longitude = doubleValue(data["lon"]),
+                  isValidCoordinate(latitude: latitude, longitude: longitude) else { return nil }
+
+            let name = stringValue(data["name"])
+            let role = stringValue(data["role"])
+            return ExternalMapPin(
+                id: "personnel-\(deviceID)",
+                title: name.isEmpty ? deviceID : name,
+                subtitle: personnelSubtitle(deviceID: deviceID, role: role, data: data),
+                coordinate: CLLocationCoordinate2D(latitude: latitude, longitude: longitude),
+                color: NV.team,
+                icon: "figure.walk.motion"
             )
         }
     }
@@ -306,6 +328,20 @@ struct HQExternalVictimMapDisplayView: View {
 
     private func displayName(for record: HQVictimRecord) -> String {
         record.patientName.isEmpty ? record.id : "\(record.patientName) / \(record.id)"
+    }
+
+    private func personnelSubtitle(deviceID: String, role: String, data: [String: Any]) -> String {
+        var parts: [String] = []
+        if !role.isEmpty { parts.append(role) }
+        if let accuracy = doubleValue(data["accuracy"]), accuracy >= 0 {
+            parts.append(String(format: L("精度 %.0f m"), accuracy))
+        }
+        if let timestamp = data["timestamp"] as? Date {
+            let age = max(0, Int(Date().timeIntervalSince(timestamp)))
+            parts.append(L("%lld 秒前", age))
+        }
+        if parts.isEmpty { parts.append(deviceID) }
+        return parts.joined(separator: " / ")
     }
 
     private func isValidCoordinate(latitude: Double, longitude: Double) -> Bool {
