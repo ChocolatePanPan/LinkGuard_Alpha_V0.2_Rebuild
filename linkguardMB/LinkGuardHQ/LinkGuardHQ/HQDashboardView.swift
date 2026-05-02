@@ -69,7 +69,6 @@ enum HQSection: String, CaseIterable, Identifiable {
 struct HQDashboardView: View {
     @ObservedObject var vm: HQViewModel
     @EnvironmentObject var l10n: L10n
-    @AppStorage("appColorScheme") private var appColorScheme = "dark"
     @State private var selectedSection: HQSection? = .dashboard
     @State private var sidebarExpanded = true
     // 任務指派表單
@@ -549,25 +548,6 @@ struct HQDashboardView: View {
                     Spacer()
                     Text("\(vm.teamCount)").bold()
                 }
-            }
-
-            // 語言切換
-            Section(header: Text(L("語言 / Language"))) {
-                Picker(L("語言"), selection: $l10n.language) {
-                    Text(L("中文")).tag("zh-Hant")
-                    Text("EN").tag("en")
-                }
-                .pickerStyle(.segmented)
-            }
-
-            // 外觀模式
-            Section(header: Text(L("外觀"))) {
-                Picker(L("主題"), selection: $appColorScheme) {
-                    Text(L("深色")).tag("dark")
-                    Text(L("淺色")).tag("light")
-                    Text(L("跟隨系統")).tag("system")
-                }
-                .pickerStyle(.segmented)
             }
 
             // 前線裝置列表
