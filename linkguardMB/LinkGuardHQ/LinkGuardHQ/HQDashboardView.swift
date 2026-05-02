@@ -93,6 +93,7 @@ enum HQNavigationPlacement: String, CaseIterable, Identifiable {
 struct HQDashboardView: View {
     @ObservedObject var vm: HQViewModel
     @EnvironmentObject var l10n: L10n
+    @AppStorage("appColorScheme") private var appColorScheme: String = "dark"
     @AppStorage("hq.navigationPlacement") private var navigationPlacementRaw: String = HQNavigationPlacement.left.rawValue
     @State private var selectedSection: HQSection? = .dashboard
     @State private var sidebarExpanded = true
@@ -124,6 +125,10 @@ struct HQDashboardView: View {
 
     private var selectedSectionValue: HQSection {
         selectedSection ?? .dashboard
+    }
+
+    private var isAbsoluteBlackMode: Bool {
+        appColorScheme == "black"
     }
 
     var body: some View {
@@ -216,6 +221,23 @@ struct HQDashboardView: View {
         let sections = HQSection.allCases
         let nextIndex = (currentIndex + offset + sections.count) % sections.count
         selectedSection = sections[nextIndex]
+    }
+
+    @ViewBuilder
+    private var navigationChromeBackground: some View {
+        if isAbsoluteBlackMode {
+            Color.black
+        } else {
+            Rectangle().fill(.ultraThinMaterial)
+        }
+    }
+
+    private func navigationSelectionFill(for section: HQSection) -> Color {
+        isAbsoluteBlackMode ? Color.black : sectionColor(section)
+    }
+
+    private func navigationSelectionStroke(for section: HQSection) -> Color {
+        isAbsoluteBlackMode ? Color.white.opacity(0.28) : Color.clear
     }
 
     @ViewBuilder
@@ -390,8 +412,14 @@ struct HQDashboardView: View {
                                     .font(.system(size: 16))
                                     .foregroundColor(selectedSection == section ? .white : sectionColor(section))
                                     .frame(width: 36, height: 36)
-                                    .background(selectedSection == section ? sectionColor(section) : Color.clear)
-                                    .cornerRadius(8)
+                                    .background {
+                                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                            .fill(selectedSection == section ? navigationSelectionFill(for: section) : Color.clear)
+                                    }
+                                    .overlay {
+                                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                            .stroke(selectedSection == section ? navigationSelectionStroke(for: section) : Color.clear, lineWidth: NV.strokeWidth)
+                                    }
                                 collapsedBadge(for: section)
                             }
                         }
@@ -438,7 +466,7 @@ struct HQDashboardView: View {
             .help(L("展開側邊欄"))
             .padding(.bottom, 8)
         }
-        .background(.ultraThinMaterial)
+        .background { navigationChromeBackground }
     }
 
     @ViewBuilder
@@ -735,7 +763,7 @@ struct HQDashboardView: View {
         .padding(.bottom, 8)
 
         }
-        .background(.ultraThinMaterial)
+        .background { navigationChromeBackground }
     }
 
     private var bottomNavigationBar: some View {
@@ -763,7 +791,7 @@ struct HQDashboardView: View {
             }
         }
         .frame(height: 72)
-        .background(.ultraThinMaterial)
+        .background { navigationChromeBackground }
     }
 
     private func bottomNavigationButton(for section: HQSection) -> some View {
@@ -786,8 +814,14 @@ struct HQDashboardView: View {
             }
             .foregroundColor(selectedSection == section ? .white : sectionColor(section))
             .frame(width: 86, height: 54)
-            .background(selectedSection == section ? sectionColor(section) : Color.clear)
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .background {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(selectedSection == section ? navigationSelectionFill(for: section) : Color.clear)
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(selectedSection == section ? navigationSelectionStroke(for: section) : Color.clear, lineWidth: NV.strokeWidth)
+            }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

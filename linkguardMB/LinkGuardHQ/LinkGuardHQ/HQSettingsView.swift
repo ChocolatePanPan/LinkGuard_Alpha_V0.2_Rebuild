@@ -65,6 +65,7 @@ struct HQSettingsView: View {
                 Text(L("跟隨系統")).tag("system")
                 Text(L("淺色")).tag("light")
                 Text(L("深色")).tag("dark")
+                Text(L("極致黑")).tag("black")
             }
             .pickerStyle(.segmented)
 

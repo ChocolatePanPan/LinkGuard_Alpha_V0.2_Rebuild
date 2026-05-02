@@ -461,6 +461,7 @@ final class L10n: ObservableObject {
         "未處理": "Unprocessed",
         "未設定": "Unset",
         "極端": "Extreme",
+        "極致黑": "Absolute Black",
         "極高": "Critical",
         "死亡確認": "Deceased Confirmed",
         "洪水": "Flood",

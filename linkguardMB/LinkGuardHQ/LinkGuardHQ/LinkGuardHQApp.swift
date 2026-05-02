@@ -10,7 +10,7 @@ struct LinkGuardHQApp: App {
     private var colorScheme: ColorScheme? {
         switch appColorScheme {
         case "light": return .light
-        case "dark": return .dark
+        case "dark", "black": return .dark
         default: return nil
         }
     }
