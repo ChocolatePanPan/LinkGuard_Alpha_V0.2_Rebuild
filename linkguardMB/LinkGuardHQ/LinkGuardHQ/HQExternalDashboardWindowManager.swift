@@ -9,7 +9,7 @@ final class HQExternalDashboardWindowManager: ObservableObject {
     private weak var l10n: L10n?
     private var colorScheme: ColorScheme?
     private var screenObserver: NSObjectProtocol?
-    private var window: NSWindow?
+    private var windows: [ExternalDisplayRole: NSWindow] = [:]
 
     func start(viewModel: HQViewModel, l10n: L10n, colorScheme: ColorScheme?) {
         self.viewModel = viewModel
@@ -33,7 +33,7 @@ final class HQExternalDashboardWindowManager: ObservableObject {
 
     func refresh(colorScheme: ColorScheme?) {
         self.colorScheme = colorScheme
-        updateRootView()
+        updateRootViews()
         syncWindow()
     }
 
@@ -42,7 +42,7 @@ final class HQExternalDashboardWindowManager: ObservableObject {
             NotificationCenter.default.removeObserver(screenObserver)
             self.screenObserver = nil
         }
-        closeWindow()
+        closeAllWindows()
     }
 
     deinit {
@@ -52,70 +52,118 @@ final class HQExternalDashboardWindowManager: ObservableObject {
     }
 
     private func syncWindow() {
-        guard let externalScreen else {
-            closeWindow()
-            return
-        }
+        let screenAssignments = Array(zip(ExternalDisplayRole.allCases, externalScreens))
+        let activeRoles = Set(screenAssignments.map(\.0))
+
         guard viewModel != nil, l10n != nil else {
-            closeWindow()
+            closeAllWindows()
             return
         }
 
-        if window == nil {
-            createWindow(on: externalScreen)
-        } else {
-            window?.setFrame(externalScreen.frame, display: true)
-            updateRootView()
-            window?.orderFrontRegardless()
+        for role in ExternalDisplayRole.allCases where !activeRoles.contains(role) {
+            closeWindow(for: role)
+        }
+
+        for (role, screen) in screenAssignments {
+            syncWindow(for: role, on: screen)
         }
     }
 
-    private var externalScreen: NSScreen? {
+    private var externalScreens: [NSScreen] {
         let mainScreen = NSScreen.main
-        return NSScreen.screens.first { screen in
+        return NSScreen.screens.filter { screen in
             guard let mainScreen else { return true }
             return screen !== mainScreen
         }
     }
 
-    private func createWindow(on screen: NSScreen) {
+    private func syncWindow(for role: ExternalDisplayRole, on screen: NSScreen) {
+        if windows[role] == nil {
+            createWindow(for: role, on: screen)
+            return
+        }
+
+        windows[role]?.setFrame(screen.frame, display: true)
+        updateRootView(for: role)
+        windows[role]?.orderFrontRegardless()
+    }
+
+    private func createWindow(for role: ExternalDisplayRole, on screen: NSScreen) {
         let window = NSWindow(
             contentRect: screen.frame,
             styleMask: [.borderless],
             backing: .buffered,
             defer: false
         )
-        window.title = L("外接大儀表板")
+        window.title = role.title
         window.backgroundColor = .black
         window.isOpaque = true
         window.isReleasedWhenClosed = false
         window.canHide = false
         window.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary]
-        window.contentViewController = NSHostingController(rootView: rootView())
+        window.contentViewController = NSHostingController(rootView: rootView(for: role))
         window.setFrame(screen.frame, display: true)
         window.orderFrontRegardless()
-        self.window = window
+        windows[role] = window
     }
 
-    private func updateRootView() {
-        guard let hostingController = window?.contentViewController as? NSHostingController<AnyView> else { return }
-        hostingController.rootView = rootView()
+    private func updateRootViews() {
+        for role in windows.keys {
+            updateRootView(for: role)
+        }
     }
 
-    private func rootView() -> AnyView {
+    private func updateRootView(for role: ExternalDisplayRole) {
+        guard let hostingController = windows[role]?.contentViewController as? NSHostingController<AnyView> else { return }
+        hostingController.rootView = rootView(for: role)
+    }
+
+    private func rootView(for role: ExternalDisplayRole) -> AnyView {
         guard let viewModel, let l10n else { return AnyView(EmptyView()) }
-        return AnyView(
-            HQExternalDisplayDashboardView(vm: viewModel)
-                .preferredColorScheme(colorScheme)
-                .environment(\.locale, Locale(identifier: l10n.language))
-                .environmentObject(l10n)
-                .tint(NV.green)
-        )
+
+        switch role {
+        case .dashboard:
+            return AnyView(
+                HQExternalDisplayDashboardView(vm: viewModel)
+                    .preferredColorScheme(colorScheme)
+                    .environment(\.locale, Locale(identifier: l10n.language))
+                    .environmentObject(l10n)
+                    .tint(NV.green)
+            )
+        case .victimMap:
+            return AnyView(
+                HQExternalVictimMapDisplayView(vm: viewModel)
+                    .preferredColorScheme(colorScheme)
+                    .environment(\.locale, Locale(identifier: l10n.language))
+                    .environmentObject(l10n)
+                    .tint(NV.green)
+            )
+        }
     }
 
-    private func closeWindow() {
-        window?.close()
-        window = nil
+    private func closeWindow(for role: ExternalDisplayRole) {
+        windows[role]?.close()
+        windows[role] = nil
+    }
+
+    private func closeAllWindows() {
+        for role in ExternalDisplayRole.allCases {
+            closeWindow(for: role)
+        }
+    }
+}
+
+private enum ExternalDisplayRole: CaseIterable, Hashable {
+    case dashboard
+    case victimMap
+
+    var title: String {
+        switch self {
+        case .dashboard:
+            return L("外接大儀表板")
+        case .victimMap:
+            return L("外接受困者地圖")
+        }
     }
 }
 #endif

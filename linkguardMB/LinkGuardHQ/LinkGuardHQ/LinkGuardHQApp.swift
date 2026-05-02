@@ -33,10 +33,10 @@ struct LinkGuardHQApp: App {
                         #endif
                     }
                     #if os(macOS)
-                    .onChange(of: appColorScheme) { _ in
+                    .onChange(of: appColorScheme) { _, _ in
                         externalDashboardManager.refresh(colorScheme: colorScheme)
                     }
-                    .onChange(of: l10n.language) { _ in
+                    .onChange(of: l10n.language) { _, _ in
                         externalDashboardManager.refresh(colorScheme: colorScheme)
                     }
                     #endif
