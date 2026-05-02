@@ -3,7 +3,7 @@ import SwiftUI
 // MARK: - Main View
 
 enum AppTab: Hashable {
-    case dashboard, victims, sos, disaster, chat, reinforcement, team, commands, notifications, radio, connection, patientForm, decision, translator, photo, personnelAssignment, aiCommunication, aiChat, aiReport
+    case dashboard, victims, sos, disaster, chat, reinforcement, team, commands, notifications, radio, connection, patientForm, decision, translator, photo, personnelAssignment, more
 }
 
 struct ContentView: View {
@@ -43,16 +43,8 @@ struct ContentView: View {
                     SOSRecordListView(vm: viewModel)
                 }
                 .badge(viewModel.unacknowledgedSOSCount)
-                TabSection("AI") {
-                    Tab(L("AI 通訊"), systemImage: viewModel.isAIServicePaused ? "pause.circle" : "message.badge.waveform", value: AppTab.aiCommunication) {
-                        RadioView(vm: viewModel, initialMode: .aiChat, showsModePicker: false)
-                    }
-                    Tab(L("AI 助理"), systemImage: viewModel.isAIServicePaused ? "pause.circle" : "sparkles", value: AppTab.aiChat) {
-                        FieldAIChatView(vm: viewModel)
-                    }
-                    Tab(L("AI 回報"), systemImage: viewModel.isAIServicePaused ? "pause.circle" : "text.badge.checkmark", value: AppTab.aiReport) {
-                        FieldAIReportView(vm: viewModel)
-                    }
+                Tab(navLabel("更多", en: "More"), systemImage: "ellipsis.circle", value: AppTab.more) {
+                    MoreHubView(vm: viewModel, selectedTab: $selectedTab)
                 }
                 TabSection(L("其他")) {
                     Tab(L("受困者"), systemImage: "person.fill.questionmark", value: AppTab.victims) {
@@ -78,6 +70,8 @@ struct ContentView: View {
                     Tab(L("翻譯"), systemImage: "globe", value: AppTab.translator) {
                         TranslatorView(vm: viewModel)
                     }
+                }
+                TabSection(navLabel("工具", en: "Tools")) {
                     Tab(L("照片"), systemImage: "photo.on.rectangle.angled", value: AppTab.photo) {
                         PhotoReportView(vm: viewModel)
                     }
@@ -319,6 +313,152 @@ struct ExternalAlarmOverlay: View {
             }
         }
         .onAppear { pulse = true }
+    }
+}
+
+// MARK: - More
+
+struct MoreHubView: View {
+    @ObservedObject var vm: LinkGuardViewModel
+    @Binding var selectedTab: AppTab
+    @EnvironmentObject private var l10n: L10n
+
+    private func navLabel(_ zh: String, en: String) -> String {
+        l10n.language == "en" ? en : zh
+    }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section("AI") {
+                    NavigationLink {
+                        AIHubView(vm: vm)
+                    } label: {
+                        MoreDestinationLabel(
+                            title: "AI",
+                            subtitle: navLabel("通訊、助理、回報整合功能", en: "Communication, assistant, and reports"),
+                            systemImage: vm.isAIServicePaused ? "pause.circle" : "sparkles",
+                            tint: vm.isAIServicePaused ? .gray : NV.command,
+                            showsChevron: false
+                        )
+                    }
+                }
+
+                Section(L("其他")) {
+                    MoreDestinationRow(title: L("受困者"), systemImage: "person.fill.questionmark") { selectedTab = .victims }
+                    MoreDestinationRow(title: L("增援"), systemImage: "person.badge.plus") { selectedTab = .reinforcement }
+                    MoreDestinationRow(title: L("團隊"), systemImage: "person.3.sequence.fill") { selectedTab = .team }
+                    MoreDestinationRow(title: L("人員指派"), systemImage: "person.badge.key.fill") { selectedTab = .personnelAssignment }
+                    MoreDestinationRow(title: L("通知"), systemImage: "bell.fill") { selectedTab = .notifications }
+                    MoreDestinationRow(title: L("傷員回報"), systemImage: "heart.text.square") { selectedTab = .patientForm }
+                    MoreDestinationRow(title: L("翻譯"), systemImage: "globe") { selectedTab = .translator }
+                }
+
+                Section(navLabel("工具", en: "Tools")) {
+                    MoreDestinationRow(title: L("照片"), systemImage: "photo.on.rectangle.angled") { selectedTab = .photo }
+                    MoreDestinationRow(title: L("連線"), systemImage: "link") { selectedTab = .connection }
+                }
+            }
+            .navigationTitle(navLabel("更多", en: "More"))
+        }
+    }
+}
+
+struct AIHubView: View {
+    @ObservedObject var vm: LinkGuardViewModel
+    @EnvironmentObject private var l10n: L10n
+    @State private var mode: AIHubMode = .communication
+
+    private enum AIHubMode: Hashable, CaseIterable {
+        case communication, assistant, report
+    }
+
+    private func navLabel(_ zh: String, en: String) -> String {
+        l10n.language == "en" ? en : zh
+    }
+
+    private func modeTitle(_ mode: AIHubMode) -> String {
+        switch mode {
+        case .communication: return navLabel("通訊", en: "Comms")
+        case .assistant: return navLabel("助理", en: "Assistant")
+        case .report: return navLabel("回報", en: "Report")
+        }
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Picker("AI", selection: $mode) {
+                ForEach(AIHubMode.allCases, id: \.self) { item in
+                    Text(modeTitle(item)).tag(item)
+                }
+            }
+            .pickerStyle(.segmented)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+
+            Divider()
+
+            Group {
+                switch mode {
+                case .communication:
+                    RadioView(vm: vm, initialMode: .aiChat, showsModePicker: false, embedsNavigationStack: false)
+                case .assistant:
+                    FieldAIChatView(vm: vm)
+                case .report:
+                    FieldAIReportView(vm: vm)
+                }
+            }
+        }
+        .navigationTitle("AI")
+    }
+}
+
+struct MoreDestinationRow: View {
+    let title: String
+    var subtitle: String? = nil
+    let systemImage: String
+    var tint: Color = NV.info
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            MoreDestinationLabel(title: title, subtitle: subtitle, systemImage: systemImage, tint: tint)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+struct MoreDestinationLabel: View {
+    let title: String
+    var subtitle: String? = nil
+    let systemImage: String
+    var tint: Color = NV.info
+    var showsChevron = true
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: systemImage)
+                .font(.title3)
+                .foregroundStyle(tint)
+                .frame(width: 28)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.body)
+                    .foregroundStyle(.primary)
+                if let subtitle {
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Spacer()
+            if showsChevron {
+                Image(systemName: "chevron.right")
+                    .font(.caption.bold())
+                    .foregroundStyle(.tertiary)
+            }
+        }
+        .contentShape(Rectangle())
     }
 }
 

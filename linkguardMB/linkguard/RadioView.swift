@@ -27,11 +27,13 @@ struct RadioView: View {
     @StateObject private var aiChatManager = FieldAIChatManager()
     private let initialMode: RadioMode
     private let showsModePicker: Bool
+    private let embedsNavigationStack: Bool
 
-    init(vm: LinkGuardViewModel, initialMode: RadioMode = .live, showsModePicker: Bool = true) {
+    init(vm: LinkGuardViewModel, initialMode: RadioMode = .live, showsModePicker: Bool = true, embedsNavigationStack: Bool = true) {
         self.vm = vm
         self.initialMode = initialMode
         self.showsModePicker = showsModePicker
+        self.embedsNavigationStack = embedsNavigationStack
         self._mode = State(initialValue: initialMode)
     }
 
@@ -40,8 +42,17 @@ struct RadioView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
+        if embedsNavigationStack {
+            NavigationStack {
+                content
+            }
+        } else {
+            content
+        }
+    }
+
+    private var content: some View {
+        VStack(spacing: 0) {
                 // 標題列
                 HStack {
                     Text(L(titleText))
@@ -107,7 +118,6 @@ struct RadioView: View {
                     status: status
                 )
             }
-        }
     }
 
     // MARK: - 即時廣播模式
