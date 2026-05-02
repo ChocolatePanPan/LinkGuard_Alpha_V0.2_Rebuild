@@ -347,11 +347,13 @@ class HQBackendBridge: ObservableObject {
 
     private func startPing() {
         stopPing()
-        pingTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
+        let timer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in
                 self?.sendToBackend(type: "ping", data: [:])
             }
         }
+        timer.tolerance = 10
+        pingTimer = timer
     }
 
     private func stopPing() {

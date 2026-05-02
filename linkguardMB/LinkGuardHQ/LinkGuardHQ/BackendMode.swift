@@ -40,7 +40,7 @@ enum BackendMode: String, CaseIterable, Identifiable {
     var helpText: String {
         switch self {
         case .embedded:
-            return L("在此 Mac 啟動 macos/*.py 全套後端服務 (含 Gemma4 / Whisper / SQLite)。")
+            return L("在此 Mac 啟動核心後端服務；Gemma4 / Python Whisper 需要時再啟動。")
         case .remote:
             return L("連接另一台主機上已執行的 Python 後端 (例如效能更強的工作站)。")
         case .bonjour:

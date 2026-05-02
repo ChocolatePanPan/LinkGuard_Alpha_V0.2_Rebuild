@@ -36,7 +36,7 @@ final class UDPAudioServer: ObservableObject, @unchecked Sendable {
 
     // MARK: - 私有屬性
 
-    private let queue = DispatchQueue(label: "udp.audio.server", qos: .userInteractive)
+    private let queue = DispatchQueue(label: "udp.audio.server", qos: .userInitiated)
     private let magic: UInt32 = 0x4C474244  // "LGBD"
     private let port: NWEndpoint.Port = 9001
     private let relayPort: NWEndpoint.Port = 9002
@@ -350,12 +350,15 @@ final class UDPAudioServer: ObservableObject, @unchecked Sendable {
     // MARK: - 靜音偵測 → 觸發 WhisperKit
 
     private func startSilenceDetection() {
-        silenceTimer = Timer.scheduledTimer(
-            withTimeInterval: 0.5,
+        guard silenceTimer == nil else { return }
+        let timer = Timer.scheduledTimer(
+            withTimeInterval: 1.0,
             repeats: true
         ) { [weak self] _ in
             self?.checkSilence()
         }
+        timer.tolerance = 0.25
+        silenceTimer = timer
     }
 
     private func checkSilence() {
@@ -515,11 +518,23 @@ final class UDPAudioServer: ObservableObject, @unchecked Sendable {
         silenceTimer = nil
         listener?.cancel()
         listener = nil
+        clientConnections.values.forEach { $0.cancel() }
+        clientConnections.removeAll()
+        recognitionRequests.values.forEach { $0.endAudio() }
+        recognitionRequests.removeAll()
+        recognitionTasks.values.forEach { $0.cancel() }
+        recognitionTasks.removeAll()
+        audioBuffers.removeAll()
+        lastPacketTime.removeAll()
         if Thread.isMainThread {
             self.isRunning = false
+            self.activeBroadcaster = nil
+            self.connectedClientCount = 0
         } else {
             DispatchQueue.main.async { [weak self] in
                 self?.isRunning = false
+                self?.activeBroadcaster = nil
+                self?.connectedClientCount = 0
             }
         }
     }
