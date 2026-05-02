@@ -142,8 +142,9 @@ final class BackendServiceState: ObservableObject, Identifiable {
 
     init(spec: BackendServiceSpec) { self.spec = spec }
 
-    fileprivate func appendLog(_ line: String) {
-        logTail.append(line)
+    fileprivate func appendLogLines(_ lines: [String]) {
+        guard !lines.isEmpty else { return }
+        logTail.append(contentsOf: lines)
         if logTail.count > 200 { logTail.removeFirst(logTail.count - 200) }
     }
 }
@@ -353,25 +354,42 @@ final class BackendSupervisor: ObservableObject {
         let pipe = Pipe()
         p.standardOutput = pipe
         p.standardError = pipe
-        pipe.fileHandleForReading.readabilityHandler = { [weak state] handle in
+        pipe.fileHandleForReading.readabilityHandler = { [weak self, weak state, serviceID = id, weak pipe] handle in
             let data = handle.availableData
-            guard !data.isEmpty, let chunk = String(data: data, encoding: .utf8) else { return }
+            guard !data.isEmpty else {
+                handle.readabilityHandler = nil
+                Task { @MainActor [weak self, weak state, weak pipe] in
+                    guard let self else { return }
+                    if let pipe, self.stdoutPipes[serviceID] === pipe {
+                        self.stdoutPipes.removeValue(forKey: serviceID)
+                    }
+                    state?.appendLogLines(["[system] log stream closed"])
+                }
+                return
+            }
+            guard let chunk = String(data: data, encoding: .utf8) else { return }
+            let lines = chunk.split(whereSeparator: \.isNewline).map(String.init)
             Task { @MainActor [weak state] in
                 guard let state else { return }
-                for line in chunk.split(whereSeparator: \.isNewline) {
-                    state.appendLog(String(line))
-                }
+                state.appendLogLines(lines)
             }
         }
 
-        p.terminationHandler = { [weak self, weak state] proc in
-            Task { @MainActor [weak self, weak state] in
+        p.terminationHandler = { [weak self, weak state, serviceID = id, weak pipe] proc in
+            Task { @MainActor [weak self, weak state, weak pipe] in
                 guard let self, let state else { return }
                 let code = proc.terminationStatus
                 if state.status != .stopped {
                     state.status = .crashed
                     state.lastError = "exited with code \(code)"
                     self.recomputeAggregate()
+                }
+                if self.processes[serviceID] === proc {
+                    self.processes.removeValue(forKey: serviceID)
+                }
+                if let pipe, self.stdoutPipes[serviceID] === pipe {
+                    pipe.fileHandleForReading.readabilityHandler = nil
+                    self.stdoutPipes.removeValue(forKey: serviceID)
                 }
                 state.pid = nil
             }
