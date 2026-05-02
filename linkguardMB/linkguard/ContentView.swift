@@ -348,7 +348,8 @@ struct AIHubView: View {
             }
             .pickerStyle(.segmented)
             .padding(.horizontal, 12)
-            .padding(.vertical, 10)
+            .padding(.top, 4)
+            .padding(.bottom, 8)
 
             Divider()
 
@@ -364,6 +365,7 @@ struct AIHubView: View {
             }
         }
         .navigationTitle("AI")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 
