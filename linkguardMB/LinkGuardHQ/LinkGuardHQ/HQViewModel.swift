@@ -530,41 +530,6 @@ class HQViewModel: ObservableObject {
         // UDP activeBroadcaster 已透過上方 merge(with:) 合併，不需重複綁定
     }
 
-    // MARK: - WhisperKit 初始化（含重試）
-
-    /// WhisperKit 初始化狀態，供 UI 顯示
-    @Published var whisperStatus: String = "未初始化"
-    private var isInitializingWhisper = false
-
-    /// 帶重試的 WhisperKit 初始化（最多嘗試 3 次，每次間隔遞增）
-    private func initializeWhisperWithRetry(maxAttempts: Int = 3) async {
-        guard !isInitializingWhisper else { return }
-        isInitializingWhisper = true
-        defer { isInitializingWhisper = false }
-
-        for attempt in 1...maxAttempts {
-            await MainActor.run { whisperStatus = "WhisperKit 載入中 (嘗試 \(attempt)/\(maxAttempts))…" }
-            await udpAudioServer.initialize()
-            if udpAudioServer.whisperReady {
-                await MainActor.run {
-                    speechServer.whisperKit = udpAudioServer.whisperKit
-                    whisperStatus = "WhisperKit 就緒"
-                }
-                print("[HQ] ✅ WhisperKit 初始化成功 (嘗試 \(attempt))")
-                return
-            }
-            print("[HQ] ⚠️ WhisperKit 初始化失敗 (嘗試 \(attempt)/\(maxAttempts))")
-            if attempt < maxAttempts {
-                try? await Task.sleep(nanoseconds: UInt64(attempt * 3_000_000_000)) // 3s, 6s
-            }
-        }
-        // 全部失敗 — 仍可使用 Apple Speech 做即時辨識
-        await MainActor.run {
-            whisperStatus = "WhisperKit 未就緒（僅 Apple Speech）"
-        }
-        print("[HQ] ❌ WhisperKit 最終初始化失敗，退入 Apple Speech 模式")
-    }
-
     // MARK: - 電台音訊本地播放
 
     /// 收到前線 PTT 音訊檔後立即本地播放
@@ -619,12 +584,6 @@ class HQViewModel: ObservableObject {
             peerCancellables.removeAll()
             peerClient.disconnect()
             peerClient.stopBrowsing()
-            // 初始化 WhisperKit（若尚未載入）
-            if !udpAudioServer.whisperReady {
-                Task {
-                    await initializeWhisperWithRetry()
-                }
-            }
             // 啟動所有本地伺服器
             startAllLocalServers()
         } else {
@@ -761,11 +720,6 @@ class HQViewModel: ObservableObject {
         #if os(macOS)
         ensureMacLocalBackend()
         #endif
-        if !udpAudioServer.whisperReady {
-            Task { [weak self] in
-                await self?.initializeWhisperWithRetry()
-            }
-        }
         server.statusSnapshotProvider = { [weak self] in
             self?.buildServerStatusSnapshot() ?? HQServerStatusSnapshot(
                 speechServerRunning: false, speechProcessedCount: 0,
