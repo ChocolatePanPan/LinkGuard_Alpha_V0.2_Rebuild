@@ -358,7 +358,7 @@ struct HQSettingsView: View {
                     Label(L("套用並重啟 AI"), systemImage: "arrow.triangle.2.circlepath")
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(backendMode != .embedded)
+                .disabled(backendMode != .embedded || supervisor.isAIServicePaused)
 
                 Spacer()
 
@@ -366,12 +366,49 @@ struct HQSettingsView: View {
                     .font(.caption.monospaced())
                     .foregroundColor(.secondary)
             }
+
+            aiPowerSavingControl
             #endif
 
             Text(L("Auto = AI 直接派發 / Manual = AI 提案、需人員核可 / Locked = 不允許 AI 介入。"))
                 .font(.caption)
                 .foregroundColor(.secondary)
         }
+    }
+
+    private var aiPowerSavingControl: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: "leaf.fill")
+                    .foregroundColor(supervisor.isAIServicePaused ? .secondary : NV.warning)
+                    .frame(width: 18)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(L("省電模式"))
+                        .font(.subheadline.bold())
+                    Text(supervisor.isAIServicePaused ? L("AI服務暫停") : L("AI 服務運行中"))
+                        .font(.caption)
+                        .foregroundColor(supervisor.isAIServicePaused ? .secondary : NV.green)
+                }
+                Spacer()
+                Button {
+                    supervisor.setManualAIPowerSavingMode(!supervisor.isManualAIPowerSavingModeEnabled)
+                } label: {
+                    Label(supervisor.isManualAIPowerSavingModeEnabled ? L("關閉省電模式") : L("啟用省電模式"),
+                          systemImage: supervisor.isManualAIPowerSavingModeEnabled ? "play.fill" : "pause.fill")
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(backendMode != .embedded && !supervisor.isManualAIPowerSavingModeEnabled)
+            }
+            Text(L("啟用後會停止 Gemma4 AI，手機 AI 頁面會灰階顯示。"))
+                .font(.caption)
+                .foregroundColor(.secondary)
+            if let reason = supervisor.aiServicePauseReason, !reason.isEmpty {
+                Text(L(reason))
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .padding(.top, 4)
     }
 
     private var voiceSection: some View {

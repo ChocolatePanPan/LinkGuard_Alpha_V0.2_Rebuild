@@ -266,7 +266,12 @@ class LinkGuardViewModel: ObservableObject {
     }
 
     var aiServicePauseMessage: String {
-        isAIServicePaused ? L("後台電腦已進入省電模式") : ""
+        guard isAIServicePaused else { return "" }
+        if let reason = commandClient.hqServerStatus?.aiServicePauseReason?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !reason.isEmpty {
+            return L(reason)
+        }
+        return L("後台電腦已進入省電模式")
     }
 
     var isFieldAIAvailable: Bool {

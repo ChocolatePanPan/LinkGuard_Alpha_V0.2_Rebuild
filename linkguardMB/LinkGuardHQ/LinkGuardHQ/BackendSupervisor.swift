@@ -146,6 +146,7 @@ final class BackendSupervisor: ObservableObject {
     @Published var allHealthy: Bool = false
     @Published var anyCrashed: Bool = false
     @Published var isAIServicePausedForPowerSaving: Bool = false
+    @Published var isManualAIPowerSavingModeEnabled: Bool = false
     @Published var aiServicePauseReason: String? = nil
     @Published private var processMetrics: [String: BackendProcessMetrics] = [:]
 
@@ -153,7 +154,11 @@ final class BackendSupervisor: ObservableObject {
     private var stdoutPipes: [String: Pipe] = [:]
     private var healthTimer: Timer?
     private var metricsTimer: Timer?
-    private var aiWasRunningBeforePowerSaving = false
+    private var aiShouldResumeAfterPause = false
+
+    var isAIServicePaused: Bool {
+        isAIServicePausedForPowerSaving || isManualAIPowerSavingModeEnabled
+    }
 
     init() {
         self.services = BackendServiceSpec.all.map { BackendServiceState(spec: $0) }
@@ -262,22 +267,28 @@ final class BackendSupervisor: ObservableObject {
     }
 
     func stopAll() {
-        aiWasRunningBeforePowerSaving = false
+        aiShouldResumeAfterPause = false
+        isManualAIPowerSavingModeEnabled = false
         for spec in BackendServiceSpec.all { stop(spec.id) }
+        aiServicePauseReason = currentAIServicePauseReason
         stopHealthLoop()
         stopMetricsLoop()
     }
 
     func start(_ id: String) {
         guard let state = services.first(where: { $0.id == id }) else { return }
-        if id == BackendServiceSpec.aiServiceID, ProcessInfo.processInfo.isLowPowerModeEnabled {
-            aiWasRunningBeforePowerSaving = true
-            isAIServicePausedForPowerSaving = true
-            aiServicePauseReason = Self.powerSavingPauseReason
-            state.status = .stopped
-            state.lastError = Self.powerSavingPauseReason
-            recomputeAggregate()
-            return
+        if id == BackendServiceSpec.aiServiceID {
+            if ProcessInfo.processInfo.isLowPowerModeEnabled {
+                isAIServicePausedForPowerSaving = true
+            }
+            if isAIServicePaused {
+                aiShouldResumeAfterPause = true
+                aiServicePauseReason = currentAIServicePauseReason
+                state.status = .stopped
+                state.lastError = currentAIServicePauseReason
+                recomputeAggregate()
+                return
+            }
         }
         guard state.status != .starting && state.status != .healthy else { return }
         guard let python = pythonExecutable else {
@@ -349,8 +360,8 @@ final class BackendSupervisor: ObservableObject {
 
     func stop(_ id: String) {
         guard let state = services.first(where: { $0.id == id }) else { return }
-        if id == BackendServiceSpec.aiServiceID, !isAIServicePausedForPowerSaving {
-            aiWasRunningBeforePowerSaving = false
+        if id == BackendServiceSpec.aiServiceID, !isAIServicePaused {
+            aiShouldResumeAfterPause = false
         }
         state.status = .stopped
         if let p = processes[id] {
@@ -388,6 +399,15 @@ final class BackendSupervisor: ObservableObject {
             restart(BackendServiceSpec.aiServiceID)
         }
         return profile
+    }
+
+    func setManualAIPowerSavingMode(_ enabled: Bool) {
+        isManualAIPowerSavingModeEnabled = enabled
+        if enabled {
+            pauseAIService()
+        } else {
+            resumeAIServiceIfPauseCleared()
+        }
     }
 
     private func writeAIModelProfile(_ profile: LocalAIModelProfile) {
@@ -429,7 +449,14 @@ final class BackendSupervisor: ObservableObject {
         updatePowerSavingPauseState()
     }
 
-    private static let powerSavingPauseReason = "AI 服務暫停：後台電腦已進入省電模式"
+    private static let powerSavingPauseReason = "後台電腦已進入省電模式"
+    private static let manualPowerSavingPauseReason = "已手動啟用省電模式"
+
+    private var currentAIServicePauseReason: String? {
+        if isAIServicePausedForPowerSaving { return Self.powerSavingPauseReason }
+        if isManualAIPowerSavingModeEnabled { return Self.manualPowerSavingPauseReason }
+        return nil
+    }
 
     private func updatePowerSavingPauseState() {
         if ProcessInfo.processInfo.isLowPowerModeEnabled {
@@ -440,20 +467,33 @@ final class BackendSupervisor: ObservableObject {
     }
 
     private func pauseAIServiceForPowerSaving() {
+        isAIServicePausedForPowerSaving = true
+        pauseAIService()
+    }
+
+    private func pauseAIService() {
         guard let state = services.first(where: { $0.id == BackendServiceSpec.aiServiceID }) else { return }
         if state.pid != nil || state.status == .starting || state.status == .healthy || state.status == .unhealthy {
-            aiWasRunningBeforePowerSaving = true
+            aiShouldResumeAfterPause = true
         }
-        isAIServicePausedForPowerSaving = true
-        aiServicePauseReason = Self.powerSavingPauseReason
+        aiServicePauseReason = currentAIServicePauseReason
         stop(BackendServiceSpec.aiServiceID)
-        state.lastError = Self.powerSavingPauseReason
+        state.lastError = currentAIServicePauseReason
     }
 
     private func resumeAIServiceAfterPowerSavingIfNeeded() {
-        let shouldResume = aiWasRunningBeforePowerSaving
-        aiWasRunningBeforePowerSaving = false
         isAIServicePausedForPowerSaving = false
+        resumeAIServiceIfPauseCleared()
+    }
+
+    private func resumeAIServiceIfPauseCleared() {
+        if isAIServicePaused {
+            aiServicePauseReason = currentAIServicePauseReason
+            services.first(where: { $0.id == BackendServiceSpec.aiServiceID })?.lastError = currentAIServicePauseReason
+            return
+        }
+        let shouldResume = aiShouldResumeAfterPause
+        aiShouldResumeAfterPause = false
         aiServicePauseReason = nil
         services.first(where: { $0.id == BackendServiceSpec.aiServiceID })?.lastError = nil
         guard shouldResume else { return }
@@ -609,13 +649,16 @@ final class BackendSupervisor: ObservableObject {
     @Published var allHealthy: Bool = false
     @Published var anyCrashed: Bool = false
     @Published var isAIServicePausedForPowerSaving: Bool = false
+    @Published var isManualAIPowerSavingModeEnabled: Bool = false
     @Published var aiServicePauseReason: String? = nil
+    var isAIServicePaused: Bool { false }
     func startAll() {}
     func stopAll() {}
     func start(_ id: String) {}
     func stop(_ id: String) {}
     func restart(_ id: String) {}
     func restartCrashed() {}
+    func setManualAIPowerSavingMode(_ enabled: Bool) {}
     func metrics(for id: String) -> BackendProcessMetrics { .empty }
 }
 

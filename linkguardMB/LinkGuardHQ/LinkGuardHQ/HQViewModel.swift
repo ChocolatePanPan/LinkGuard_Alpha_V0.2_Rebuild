@@ -815,7 +815,7 @@ class HQViewModel: ObservableObject {
             photoReceivedCount: photoServer.receivedCount,
             backendConnected: backendBridge.isConnected,
             backendHost: backendBridge.backendHost,
-            aiServicePaused: backendSupervisor.isAIServicePausedForPowerSaving,
+            aiServicePaused: backendSupervisor.isAIServicePaused,
             aiServicePauseReason: backendSupervisor.aiServicePauseReason,
             audioStreamRunning: audioStreamServer.isRunning,
             udpServerRunning: udpAudioServer.isRunning,

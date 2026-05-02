@@ -560,6 +560,7 @@ final class L10n: ObservableObject {
         // AI 通訊
         "AI服務暫停": "AI Service Paused",
         "後台電腦已進入省電模式": "Backend computer entered low power mode",
+        "已手動啟用省電模式": "Power saving mode was enabled manually",
         "AI服務暫停，已切換離線翻譯庫": "AI service paused, switched to offline translation library",
         "AI服務暫停，且離線翻譯庫無對應詞句": "AI service paused, no match in offline translation library",
         "AI 通訊": "AI Communication",
