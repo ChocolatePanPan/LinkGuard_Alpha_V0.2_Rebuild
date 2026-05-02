@@ -38,6 +38,10 @@ struct TranslatorView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
+                    if vm.isAIServicePaused {
+                        AIServicePausedBanner(message: vm.aiServicePauseMessage)
+                    }
+
                     // 連線狀態提示
                     if !vm.isWiFiCommandMode {
                         HStack(spacing: 6) {
@@ -176,7 +180,7 @@ struct TranslatorView: View {
                 .padding(.vertical, 10)
             }
             .buttonStyle(.borderedProminent)
-            .tint(NV.command)
+            .tint(vm.isAIServicePaused ? .gray : NV.command)
             .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isTranslating)
         }
     }
@@ -283,6 +287,26 @@ struct TranslatorView: View {
         isTranslating = true
         // 清除舊結果，避免 .onChange 因相同字串而不觸發
         vm.latestTranslation = nil
+
+        if vm.isAIServicePaused {
+            if let offline = OfflineTranslationLibrary.shared.translate(
+                text: text,
+                sourceLang: sourceLang,
+                targetLang: targetLang
+            ) {
+                vm.latestTranslation = TranslationResult(
+                    original: text,
+                    translated: offline.translated,
+                    detectedLang: offline.detectedLang,
+                    targetLang: offline.targetLang
+                )
+                errorMessage = L("AI服務暫停，已切換離線翻譯庫")
+            } else {
+                errorMessage = L("AI服務暫停，且離線翻譯庫無對應詞句")
+            }
+            isTranslating = false
+            return
+        }
 
         if vm.commandClient.isConnected {
             // 線上翻譯（透過 HQ → 後台 gemma4）

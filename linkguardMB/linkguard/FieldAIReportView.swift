@@ -37,6 +37,11 @@ struct FieldAIReportView: View {
         VStack(alignment: .leading, spacing: 0) {
             statusBar
             Divider().background(NV.command.opacity(0.25))
+            if vm.isAIServicePaused {
+                AIServicePausedBanner(message: vm.aiServicePauseMessage)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+            }
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
@@ -53,6 +58,7 @@ struct FieldAIReportView: View {
                 }
                 .padding(14)
             }
+            .aiPausedAppearance(vm.isAIServicePaused)
         }
         .navigationTitle(L("AI 助理回報"))
     }
@@ -62,13 +68,15 @@ struct FieldAIReportView: View {
     private var statusBar: some View {
         HStack(spacing: 8) {
             Circle()
-                .fill(canSend ? NV.green : NV.command.opacity(0.4))
+                .fill(vm.isAIServicePaused ? Color.gray : canSend ? NV.green : NV.command.opacity(0.4))
                 .frame(width: 8, height: 8)
-            Text(canSend
+            Text(vm.isAIServicePaused
+                 ? L("AI服務暫停")
+                 : canSend
                  ? L("HQ 連線中：%@", vm.transcriptionServerHost)
                  : L("尚未連線到 HQ"))
                 .font(.caption)
-                .foregroundStyle(NV.command.opacity(0.85))
+                .foregroundStyle(vm.isAIServicePaused ? .secondary : NV.command.opacity(0.85))
             Spacer()
             if !lastModel.isEmpty {
                 Text(L("模型：%@ · %lldms", lastModel, lastElapsedMs))
@@ -232,13 +240,16 @@ struct FieldAIReportView: View {
     // MARK: - 邏輯
 
     private var canSend: Bool {
-        !vm.transcriptionServerHost.isEmpty && vm.transcriptionServerHost != "localhost"
+        vm.isFieldAIAvailable
     }
 
     @MainActor
     private func formalize() async {
         let text = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty, canSend else { return }
+        guard !text.isEmpty, canSend else {
+            if vm.isAIServicePaused { errorMessage = L("AI服務暫停") }
+            return
+        }
         errorMessage = ""
         formalText = ""
         dispatched = false

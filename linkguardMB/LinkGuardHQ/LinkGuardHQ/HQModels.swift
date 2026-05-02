@@ -860,6 +860,8 @@ struct HQServerStatusSnapshot: Codable {
     var photoReceivedCount: Int
     var backendConnected: Bool
     var backendHost: String
+    var aiServicePaused: Bool? = nil
+    var aiServicePauseReason: String? = nil
     var audioStreamRunning: Bool?
     var udpServerRunning: Bool?
     // 即時轉錄同步（peer 用）

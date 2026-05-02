@@ -38,37 +38,45 @@ struct FieldAIChatView: View {
         VStack(spacing: 0) {
             statusBar
             Divider().background(NV.command.opacity(0.25))
-
-            ScrollViewReader { proxy in
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 8) {
-                        if messages.isEmpty && !isSending {
-                            emptyHint.padding(.top, 60)
-                        }
-                        ForEach(messages) { msg in
-                            bubble(for: msg).id(msg.id)
-                        }
-                        if isSending {
-                            typingIndicator.id("typing")
-                        }
-                    }
+            if vm.isAIServicePaused {
+                AIServicePausedBanner(message: vm.aiServicePauseMessage)
                     .padding(.horizontal, 12)
-                    .padding(.vertical, 10)
-                }
-                .onChange(of: messages.count) { _, _ in
-                    if let last = messages.last {
-                        withAnimation { proxy.scrollTo(last.id, anchor: .bottom) }
-                    }
-                }
-                .onChange(of: isSending) { _, sending in
-                    if sending {
-                        withAnimation { proxy.scrollTo("typing", anchor: .bottom) }
-                    }
-                }
+                    .padding(.vertical, 8)
             }
 
-            Divider().background(NV.command.opacity(0.25))
-            inputBar
+            VStack(spacing: 0) {
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: 8) {
+                            if messages.isEmpty && !isSending {
+                                emptyHint.padding(.top, 60)
+                            }
+                            ForEach(messages) { msg in
+                                bubble(for: msg).id(msg.id)
+                            }
+                            if isSending {
+                                typingIndicator.id("typing")
+                            }
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 10)
+                    }
+                    .onChange(of: messages.count) { _, _ in
+                        if let last = messages.last {
+                            withAnimation { proxy.scrollTo(last.id, anchor: .bottom) }
+                        }
+                    }
+                    .onChange(of: isSending) { _, sending in
+                        if sending {
+                            withAnimation { proxy.scrollTo("typing", anchor: .bottom) }
+                        }
+                    }
+                }
+
+                Divider().background(NV.command.opacity(0.25))
+                inputBar
+            }
+            .aiPausedAppearance(vm.isAIServicePaused)
         }
         .navigationTitle(L("AI 助理"))
     }
@@ -78,11 +86,11 @@ struct FieldAIChatView: View {
     private var statusBar: some View {
         HStack(spacing: 8) {
             Circle()
-                .fill(vm.commandClient.isConnected ? NV.green : Color.gray)
+                .fill(vm.isAIServicePaused ? Color.gray : vm.commandClient.isConnected ? NV.green : Color.gray)
                 .frame(width: 8, height: 8)
-            Text("FIELD AI ASSISTANT")
+            Text(vm.isAIServicePaused ? L("AI服務暫停") : "FIELD AI ASSISTANT")
                 .font(.system(.caption, design: .monospaced).bold())
-                .foregroundColor(NV.command)
+                .foregroundColor(vm.isAIServicePaused ? .secondary : NV.command)
                 .tracking(2)
             Spacer()
             Toggle(isOn: $includeContext) {
@@ -241,13 +249,20 @@ struct FieldAIChatView: View {
 
     private var canSend: Bool {
         !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-        !isSending && !vm.transcriptionServerHost.isEmpty &&
-        vm.transcriptionServerHost != "localhost"
+        !isSending && vm.isFieldAIAvailable
     }
 
     private func send() {
         let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, !isSending else { return }
+        guard !vm.isAIServicePaused else {
+            messages.append(FieldAIMessage(
+                role: "assistant",
+                content: L("AI服務暫停"),
+                isError: true
+            ))
+            return
+        }
         let host = vm.transcriptionServerHost
         guard !host.isEmpty, host != "localhost" else {
             messages.append(FieldAIMessage(

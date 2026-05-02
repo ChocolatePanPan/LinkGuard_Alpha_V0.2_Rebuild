@@ -245,6 +245,8 @@ struct HQServerStatus: Codable {
     var speechServerRunning: Bool?
     var photoServerRunning: Bool?
     var backendConnected: Bool?
+    var aiServicePaused: Bool?
+    var aiServicePauseReason: String?
 }
 
 class CommandClient: ObservableObject {

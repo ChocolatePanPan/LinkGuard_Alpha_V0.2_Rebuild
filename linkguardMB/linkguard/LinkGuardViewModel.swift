@@ -7,6 +7,41 @@ import CoreLocation
 import UIKit
 #endif
 
+struct AIServicePausedBanner: View {
+    let message: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "pause.circle.fill")
+                .foregroundColor(.secondary)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(L("AI服務暫停"))
+                    .font(.caption.bold())
+                    .foregroundColor(.primary)
+                if !message.isEmpty {
+                    Text(message)
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+            }
+            Spacer()
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.gray.opacity(0.16))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+}
+
+extension View {
+    func aiPausedAppearance(_ isPaused: Bool) -> some View {
+        self
+            .grayscale(isPaused ? 1 : 0)
+            .opacity(isPaused ? 0.55 : 1.0)
+            .disabled(isPaused)
+    }
+}
+
 /// LinkGuard 核心業務邏輯 ViewModel
 /// 對應韌體 rescue.ino 的搜救端節點
 @MainActor
@@ -224,6 +259,18 @@ class LinkGuardViewModel: ObservableObject {
             return name.components(separatedBy: ":").first ?? "localhost"
         }
         return "localhost"
+    }
+
+    var isAIServicePaused: Bool {
+        commandClient.hqServerStatus?.aiServicePaused == true
+    }
+
+    var aiServicePauseMessage: String {
+        isAIServicePaused ? L("後台電腦已進入省電模式") : ""
+    }
+
+    var isFieldAIAvailable: Bool {
+        !isAIServicePaused && !transcriptionServerHost.isEmpty && transcriptionServerHost != "localhost"
     }
 
     private var simulationTimer: Timer?

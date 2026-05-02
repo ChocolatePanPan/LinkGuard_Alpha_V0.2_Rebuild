@@ -558,6 +558,10 @@ final class L10n: ObservableObject {
         "麥克風權限被拒絕，請至系統設定 > 隱私權 > 麥克風開啟權限": "Microphone denied, enable in System Settings > Privacy > Microphone",
         "麥克風權限被拒絕": "Microphone permission denied",
         // AI 通訊
+        "AI服務暫停": "AI Service Paused",
+        "後台電腦已進入省電模式": "Backend computer entered low power mode",
+        "AI服務暫停，已切換離線翻譯庫": "AI service paused, switched to offline translation library",
+        "AI服務暫停，且離線翻譯庫無對應詞句": "AI service paused, no match in offline translation library",
         "AI 通訊": "AI Communication",
         "現場 AI": "Field AI",
         "決策 AI": "Decision AI",

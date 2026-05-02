@@ -19,6 +19,8 @@ import AppKit
 
 /// One Python backend service that BackendSupervisor knows how to launch.
 struct BackendServiceSpec: Identifiable, Hashable {
+    static let aiServiceID = "gemma4_server"
+
     let id: String              // canonical key, e.g. "gemma4_server"
     let displayName: String     // shown in UI
     let scriptName: String      // file under backend dir, e.g. "gemma4_server.py"
@@ -33,7 +35,7 @@ struct BackendServiceSpec: Identifiable, Hashable {
     static let all: [BackendServiceSpec] = [
         .init(id: "mqtt_broker",    displayName: "MQTT Client",        scriptName: "mqtt_broker.py",    port: 1883, isHTTP: false, startDelay: 0),
         .init(id: "tcp_server",     displayName: "TCP Aggregator",     scriptName: "tcp_server.py",     port: 9000, isHTTP: false, startDelay: 0),
-        .init(id: "gemma4_server",  displayName: "Gemma4 AI",          scriptName: "gemma4_server.py",  port: 8001, isHTTP: true,  startDelay: 2),
+        .init(id: Self.aiServiceID,  displayName: "Gemma4 AI",          scriptName: "gemma4_server.py",  port: 8001, isHTTP: true,  startDelay: 2),
         .init(id: "whisper_server", displayName: "Whisper Voice",      scriptName: "whisper_server.py", port: 8002, isHTTP: true,  startDelay: 0),
         .init(id: "photo_server",   displayName: "Photo Server",       scriptName: "photo_server.py",   port: 8004, isHTTP: true,  startDelay: 2),
         .init(id: "resource_server",displayName: "Resource Server",    scriptName: "resource_server.py",port: 8006, isHTTP: true,  startDelay: 0),
@@ -143,12 +145,15 @@ final class BackendSupervisor: ObservableObject {
     @Published var services: [BackendServiceState]
     @Published var allHealthy: Bool = false
     @Published var anyCrashed: Bool = false
+    @Published var isAIServicePausedForPowerSaving: Bool = false
+    @Published var aiServicePauseReason: String? = nil
     @Published private var processMetrics: [String: BackendProcessMetrics] = [:]
 
     private var processes: [String: Process] = [:]
     private var stdoutPipes: [String: Pipe] = [:]
     private var healthTimer: Timer?
     private var metricsTimer: Timer?
+    private var aiWasRunningBeforePowerSaving = false
 
     init() {
         self.services = BackendServiceSpec.all.map { BackendServiceState(spec: $0) }
@@ -159,9 +164,24 @@ final class BackendSupervisor: ObservableObject {
             self, selector: #selector(handleTerminate),
             name: NSApplication.willTerminateNotification, object: nil
         )
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(handlePowerStateDidChange),
+            name: Notification.Name.NSProcessInfoPowerStateDidChange, object: nil
+        )
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self, selector: #selector(handleWillSleep),
+            name: NSWorkspace.willSleepNotification, object: nil
+        )
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self, selector: #selector(handleDidWake),
+            name: NSWorkspace.didWakeNotification, object: nil
+        )
+        updatePowerSavingPauseState()
     }
 
     deinit {
+        NotificationCenter.default.removeObserver(self)
+        NSWorkspace.shared.notificationCenter.removeObserver(self)
         // Best effort, can't await on MainActor here.
         for p in processes.values where p.isRunning { p.terminate() }
     }
@@ -242,6 +262,7 @@ final class BackendSupervisor: ObservableObject {
     }
 
     func stopAll() {
+        aiWasRunningBeforePowerSaving = false
         for spec in BackendServiceSpec.all { stop(spec.id) }
         stopHealthLoop()
         stopMetricsLoop()
@@ -249,6 +270,15 @@ final class BackendSupervisor: ObservableObject {
 
     func start(_ id: String) {
         guard let state = services.first(where: { $0.id == id }) else { return }
+        if id == BackendServiceSpec.aiServiceID, ProcessInfo.processInfo.isLowPowerModeEnabled {
+            aiWasRunningBeforePowerSaving = true
+            isAIServicePausedForPowerSaving = true
+            aiServicePauseReason = Self.powerSavingPauseReason
+            state.status = .stopped
+            state.lastError = Self.powerSavingPauseReason
+            recomputeAggregate()
+            return
+        }
         guard state.status != .starting && state.status != .healthy else { return }
         guard let python = pythonExecutable else {
             state.lastError = "Python interpreter not found (see Setup Assistant)"
@@ -266,7 +296,7 @@ final class BackendSupervisor: ObservableObject {
         p.executableURL = python
         p.arguments = [script.path]
         p.currentDirectoryURL = backendDir
-        if id == "gemma4_server" {
+        if id == BackendServiceSpec.aiServiceID {
             let profile = applyStoredAIModelProfile(restartIfRunning: false)
             var environment = ProcessInfo.processInfo.environment
             profile.environment.forEach { environment[$0.key] = $0.value }
@@ -319,6 +349,9 @@ final class BackendSupervisor: ObservableObject {
 
     func stop(_ id: String) {
         guard let state = services.first(where: { $0.id == id }) else { return }
+        if id == BackendServiceSpec.aiServiceID, !isAIServicePausedForPowerSaving {
+            aiWasRunningBeforePowerSaving = false
+        }
         state.status = .stopped
         if let p = processes[id] {
             if p.isRunning { p.terminate() }
@@ -351,8 +384,8 @@ final class BackendSupervisor: ObservableObject {
         let profile = LocalAIModelProfile(rawValue: raw) ?? .singleE4B
         writeAIModelProfile(profile)
         if restartIfRunning,
-           services.first(where: { $0.id == "gemma4_server" })?.pid != nil {
-            restart("gemma4_server")
+           services.first(where: { $0.id == BackendServiceSpec.aiServiceID })?.pid != nil {
+            restart(BackendServiceSpec.aiServiceID)
         }
         return profile
     }
@@ -378,11 +411,56 @@ final class BackendSupervisor: ObservableObject {
             let data = try JSONSerialization.data(withJSONObject: config, options: [.prettyPrinted, .sortedKeys])
             try data.write(to: configURL, options: .atomic)
         } catch {
-            services.first(where: { $0.id == "gemma4_server" })?.lastError = "AI profile write failed: \(error.localizedDescription)"
+            services.first(where: { $0.id == BackendServiceSpec.aiServiceID })?.lastError = "AI profile write failed: \(error.localizedDescription)"
         }
     }
 
     @objc private func handleTerminate() { stopAll() }
+
+    @objc private func handlePowerStateDidChange() {
+        updatePowerSavingPauseState()
+    }
+
+    @objc private func handleWillSleep() {
+        pauseAIServiceForPowerSaving()
+    }
+
+    @objc private func handleDidWake() {
+        updatePowerSavingPauseState()
+    }
+
+    private static let powerSavingPauseReason = "AI 服務暫停：後台電腦已進入省電模式"
+
+    private func updatePowerSavingPauseState() {
+        if ProcessInfo.processInfo.isLowPowerModeEnabled {
+            pauseAIServiceForPowerSaving()
+        } else {
+            resumeAIServiceAfterPowerSavingIfNeeded()
+        }
+    }
+
+    private func pauseAIServiceForPowerSaving() {
+        guard let state = services.first(where: { $0.id == BackendServiceSpec.aiServiceID }) else { return }
+        if state.pid != nil || state.status == .starting || state.status == .healthy || state.status == .unhealthy {
+            aiWasRunningBeforePowerSaving = true
+        }
+        isAIServicePausedForPowerSaving = true
+        aiServicePauseReason = Self.powerSavingPauseReason
+        stop(BackendServiceSpec.aiServiceID)
+        state.lastError = Self.powerSavingPauseReason
+    }
+
+    private func resumeAIServiceAfterPowerSavingIfNeeded() {
+        let shouldResume = aiWasRunningBeforePowerSaving
+        aiWasRunningBeforePowerSaving = false
+        isAIServicePausedForPowerSaving = false
+        aiServicePauseReason = nil
+        services.first(where: { $0.id == BackendServiceSpec.aiServiceID })?.lastError = nil
+        guard shouldResume else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            self?.start(BackendServiceSpec.aiServiceID)
+        }
+    }
 
     // MARK: - Health probing
 
@@ -530,6 +608,8 @@ final class BackendSupervisor: ObservableObject {
     @Published var services: [BackendServiceState] = []
     @Published var allHealthy: Bool = false
     @Published var anyCrashed: Bool = false
+    @Published var isAIServicePausedForPowerSaving: Bool = false
+    @Published var aiServicePauseReason: String? = nil
     func startAll() {}
     func stopAll() {}
     func start(_ id: String) {}
