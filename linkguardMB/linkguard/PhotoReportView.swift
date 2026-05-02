@@ -3,6 +3,7 @@ import PhotosUI
 import CoreLocation
 import Combine
 import AVKit
+import AVFoundation
 #if canImport(UIKit)
 import UIKit
 import MobileCoreServices
@@ -81,25 +82,7 @@ struct PhotoReportView: View {
 
                         // 來源
                         Section(L("來源")) {
-                            HStack(spacing: 12) {
-                                Button {
-                                    showCamera = true
-                                } label: {
-                                    Label(L("拍照/錄影"), systemImage: "camera")
-                                        .frame(maxWidth: .infinity)
-                                }
-                                .buttonStyle(.borderedProminent)
-                                .tint(.blue)
-
-                                PhotosPicker(selection: $selectedItems,
-                                             maxSelectionCount: 1,
-                                             matching: .any(of: [.images, .videos])) {
-                                    Label(L("相簿"), systemImage: "photo.on.rectangle")
-                                        .frame(maxWidth: .infinity)
-                                }
-                                .buttonStyle(.borderedProminent)
-                                .tint(.indigo)
-                            }
+                            sourceButtons
                         }
 
                         // 說明
@@ -170,7 +153,9 @@ struct PhotoReportView: View {
             .safeAreaInset(edge: .bottom) {
                 uploadBar
             }
-            .fullScreenCover(isPresented: $showCamera) {
+            .fullScreenCover(isPresented: $showCamera, onDismiss: {
+                requestCameraInterfaceOrientations(.allButUpsideDown)
+            }) {
                 CameraPickerView(image: $selectedImage, videoURL: $selectedVideoURL,
                                  videoThumbnail: $videoThumbnail, isVideo: $isVideo)
             }
@@ -192,7 +177,7 @@ struct PhotoReportView: View {
                     Task {
                         if let data = try? await item.loadTransferable(type: Data.self),
                            let img = UIImage(data: data) {
-                            selectedImage = img
+                            selectedImage = img.normalizedForPhotoReport()
                             selectedVideoURL = nil
                             videoThumbnail = nil
                             isVideo = false
@@ -304,25 +289,59 @@ struct PhotoReportView: View {
     }
 
     private var sourceButtons: some View {
-        HStack(spacing: 10) {
-            Button {
-                showCamera = true
-            } label: {
-                Label(L("拍照/錄影"), systemImage: "camera")
-                    .frame(maxWidth: .infinity)
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 10) {
+                cameraButton
+                albumPickerButton
             }
-            .buttonStyle(.borderedProminent)
-            .tint(.blue)
 
-            PhotosPicker(selection: $selectedItems,
-                         maxSelectionCount: 1,
-                         matching: .any(of: [.images, .videos])) {
-                Label(L("相簿"), systemImage: "photo.on.rectangle")
-                    .frame(maxWidth: .infinity)
+            VStack(spacing: 10) {
+                cameraButton
+                albumPickerButton
             }
-            .buttonStyle(.borderedProminent)
-            .tint(.indigo)
         }
+    }
+
+    private var cameraButton: some View {
+        Button {
+            openCamera()
+        } label: {
+            Label(L("拍照/錄影"), systemImage: "camera")
+                .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.borderedProminent)
+        .tint(.blue)
+    }
+
+    private var albumPickerButton: some View {
+        PhotosPicker(selection: $selectedItems,
+                     maxSelectionCount: 1,
+                     matching: .any(of: [.images, .videos])) {
+            Label(L("相簿"), systemImage: "photo.on.rectangle")
+                .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.borderedProminent)
+        .tint(.indigo)
+    }
+
+    private func openCamera() {
+        requestCameraInterfaceOrientations(.allButUpsideDown)
+        showCamera = true
+    }
+
+    private func requestCameraInterfaceOrientations(_ orientations: UIInterfaceOrientationMask) {
+        #if os(iOS)
+        guard let scene = UIApplication.shared.connectedScenes
+            .compactMap({ $0 as? UIWindowScene })
+            .first(where: { $0.activationState == .foregroundActive })
+        else { return }
+
+        if #available(iOS 16.0, *) {
+            scene.requestGeometryUpdate(.iOS(interfaceOrientations: orientations)) { error in
+                print("[PhotoReport] Orientation request failed: \(error.localizedDescription)")
+            }
+        }
+        #endif
     }
 
     @ViewBuilder
@@ -517,7 +536,7 @@ struct PhotoReportView: View {
             filename = uploadInfo.filename
             mimeType = uploadInfo.mimeType
             mediaType = "video"
-        } else if let image = selectedImage, let jpegData = image.jpegData(compressionQuality: 0.8) {
+        } else if let image = selectedImage?.normalizedForPhotoReport(), let jpegData = image.jpegData(compressionQuality: 0.8) {
             mediaData = jpegData
             filename = "photo.jpg"
             mimeType = "image/jpeg"
@@ -647,7 +666,7 @@ struct VideoTransferable: Transferable {
     }
 }
 
-// MARK: - 相機選擇器（支援照片＋影片）
+// MARK: - 自訂相機控制器（AVCaptureVideoPreviewLayer）
 
 struct CameraPickerView: UIViewControllerRepresentable {
     @Binding var image: UIImage?
@@ -656,89 +675,678 @@ struct CameraPickerView: UIViewControllerRepresentable {
     @Binding var isVideo: Bool
     @Environment(\.dismiss) private var dismiss
 
-    func makeUIViewController(context: Context) -> UIImagePickerController {
-        let picker = LandscapeAwareImagePickerController()
-        picker.sourceType = .camera
-        picker.mediaTypes = [UTType.image.identifier, UTType.movie.identifier]
-        picker.videoMaximumDuration = 60
-        picker.videoQuality = .typeMedium
-        picker.modalPresentationStyle = .fullScreen
-        picker.view.backgroundColor = .black
-        picker.delegate = context.coordinator
-        return picker
+    func makeUIViewController(context: Context) -> PhotoReportCameraViewController {
+        let controller = PhotoReportCameraViewController()
+        controller.delegate = context.coordinator
+        return controller
     }
 
-    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {
-        uiViewController.view.setNeedsLayout()
-    }
+    func updateUIViewController(_ uiViewController: PhotoReportCameraViewController, context: Context) {}
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
-    class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+    final class Coordinator: NSObject, PhotoReportCameraViewControllerDelegate {
         let parent: CameraPickerView
+
         init(_ parent: CameraPickerView) { self.parent = parent }
 
-        func imagePickerController(_ picker: UIImagePickerController,
-                                   didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
-            if let mediaType = info[.mediaType] as? String,
-               mediaType == UTType.movie.identifier,
-               let url = info[.mediaURL] as? URL {
-                // 影片
-                parent.videoURL = url
-                parent.image = nil
-                parent.isVideo = true
-                // 產生縮圖
-                let asset = AVURLAsset(url: url)
-                let gen = AVAssetImageGenerator(asset: asset)
-                gen.appliesPreferredTrackTransform = true
-                gen.maximumSize = CGSize(width: 512, height: 512)
-                if let cgImage = try? gen.copyCGImage(at: .zero, actualTime: nil) {
-                    parent.videoThumbnail = UIImage(cgImage: cgImage)
-                }
-            } else if let img = info[.originalImage] as? UIImage {
-                // 照片
-                parent.image = img
-                parent.videoURL = nil
-                parent.videoThumbnail = nil
-                parent.isVideo = false
-            }
+        func cameraViewControllerDidCancel(_ controller: PhotoReportCameraViewController) {
             parent.dismiss()
         }
 
-        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+        func cameraViewController(_ controller: PhotoReportCameraViewController, didCapturePhoto image: UIImage) {
+            parent.image = image.normalizedForPhotoReport()
+            parent.videoURL = nil
+            parent.videoThumbnail = nil
+            parent.isVideo = false
             parent.dismiss()
+        }
+
+        func cameraViewController(_ controller: PhotoReportCameraViewController, didCaptureVideo url: URL) {
+            parent.videoURL = url
+            parent.videoThumbnail = thumbnail(for: url)
+            parent.image = nil
+            parent.isVideo = true
+            parent.dismiss()
+        }
+
+        private func thumbnail(for url: URL) -> UIImage? {
+            let asset = AVURLAsset(url: url)
+            let generator = AVAssetImageGenerator(asset: asset)
+            generator.appliesPreferredTrackTransform = true
+            generator.maximumSize = CGSize(width: 512, height: 512)
+            guard let cgImage = try? generator.copyCGImage(at: .zero, actualTime: nil) else { return nil }
+            return UIImage(cgImage: cgImage)
         }
     }
 }
 
-private final class LandscapeAwareImagePickerController: UIImagePickerController {
-    override var shouldAutorotate: Bool { true }
+protocol PhotoReportCameraViewControllerDelegate: AnyObject {
+    func cameraViewControllerDidCancel(_ controller: PhotoReportCameraViewController)
+    func cameraViewController(_ controller: PhotoReportCameraViewController, didCapturePhoto image: UIImage)
+    func cameraViewController(_ controller: PhotoReportCameraViewController, didCaptureVideo url: URL)
+}
 
-    override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
-        .allButUpsideDown
+private enum PhotoReportCaptureMode {
+    case photo
+    case video
+}
+
+final class PhotoReportCameraViewController: UIViewController, AVCapturePhotoCaptureDelegate, AVCaptureFileOutputRecordingDelegate {
+    weak var delegate: PhotoReportCameraViewControllerDelegate?
+
+    private let session = AVCaptureSession()
+    private let previewLayer = AVCaptureVideoPreviewLayer()
+    private let photoOutput = AVCapturePhotoOutput()
+    private let movieOutput = AVCaptureMovieFileOutput()
+    private let controlsView = PhotoReportCameraControlsView()
+    private let unavailableLabel = UILabel()
+
+    private var activeInput: AVCaptureDeviceInput?
+    private var activeDevice: AVCaptureDevice?
+    private var captureMode: PhotoReportCaptureMode = .photo
+    private var flashMode: AVCaptureDevice.FlashMode = .off
+    private var portraitConstraints: [NSLayoutConstraint] = []
+    private var landscapeConstraints: [NSLayoutConstraint] = []
+    private var isLandscapeLayout = false
+
+    override var shouldAutorotate: Bool { true }
+    override var supportedInterfaceOrientations: UIInterfaceOrientationMask { .allButUpsideDown }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        view.backgroundColor = .black
+        setupPreviewLayer()
+        setupControls()
+        setupUnavailableLabel()
+        configureSession()
+        UIDevice.current.beginGeneratingDeviceOrientationNotifications()
+        NotificationCenter.default.addObserver(self,
+                                               selector: #selector(deviceOrientationDidChange),
+                                               name: UIDevice.orientationDidChangeNotification,
+                                               object: nil)
     }
 
-    override var preferredInterfaceOrientationForPresentation: UIInterfaceOrientation {
-        view.window?.windowScene?.interfaceOrientation ?? .portrait
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+        UIDevice.current.endGeneratingDeviceOrientationNotifications()
+    }
+
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        if activeInput != nil, !session.isRunning {
+            session.startRunning()
+        }
+        updateForCurrentOrientation(animated: false)
+    }
+
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        if movieOutput.isRecording {
+            movieOutput.stopRecording()
+        }
+        if session.isRunning {
+            session.stopRunning()
+        }
     }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        view.backgroundColor = .black
-        updateCameraPreviewScale()
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        previewLayer.frame = view.bounds
+        CATransaction.commit()
+        updateControlsLayout(isLandscape: view.bounds.width > view.bounds.height, animated: false)
     }
 
-    private func updateCameraPreviewScale() {
-        guard sourceType == .camera else { return }
-        let size = view.bounds.size
-        guard size.width > size.height else {
-            cameraViewTransform = .identity
+    override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
+        super.viewWillTransition(to: size, with: coordinator)
+        updateControlsLayout(isLandscape: size.width > size.height, animated: true)
+        coordinator.animate { [weak self] _ in
+            self?.view.layoutIfNeeded()
+            self?.controlsView.applyControlRotation(self?.currentControlRotationAngle() ?? 0, animated: true)
+        } completion: { [weak self] _ in
+            self?.updatePreviewFrameWithoutAnimation()
+        }
+    }
+
+    private func setupPreviewLayer() {
+        previewLayer.videoGravity = .resizeAspectFill
+        previewLayer.session = session
+        view.layer.addSublayer(previewLayer)
+    }
+
+    private func setupControls() {
+        controlsView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(controlsView)
+
+        portraitConstraints = [
+            controlsView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            controlsView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            controlsView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            controlsView.heightAnchor.constraint(equalToConstant: 158)
+        ]
+        landscapeConstraints = [
+            controlsView.topAnchor.constraint(equalTo: view.topAnchor),
+            controlsView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            controlsView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            controlsView.widthAnchor.constraint(equalToConstant: 132)
+        ]
+
+        controlsView.onCancel = { [weak self] in
+            guard let self else { return }
+            self.delegate?.cameraViewControllerDidCancel(self)
+        }
+        controlsView.onCapture = { [weak self] in
+            self?.captureCurrentMode()
+        }
+        controlsView.onModeChanged = { [weak self] mode in
+            self?.setCaptureMode(mode)
+        }
+        controlsView.onFlipCamera = { [weak self] in
+            self?.flipCamera()
+        }
+        controlsView.onFlashChanged = { [weak self] in
+            self?.cycleFlashMode()
+        }
+    }
+
+    private func setupUnavailableLabel() {
+        unavailableLabel.translatesAutoresizingMaskIntoConstraints = false
+        unavailableLabel.text = L("此裝置無法使用相機")
+        unavailableLabel.textColor = .white
+        unavailableLabel.font = .systemFont(ofSize: 17, weight: .semibold)
+        unavailableLabel.textAlignment = .center
+        unavailableLabel.isHidden = true
+        view.addSubview(unavailableLabel)
+        NSLayoutConstraint.activate([
+            unavailableLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            unavailableLabel.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+            unavailableLabel.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: 24),
+            unavailableLabel.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -24)
+        ])
+    }
+
+    private func configureSession() {
+        session.beginConfiguration()
+        session.sessionPreset = .high
+
+        guard installCameraInput(position: .back) else {
+            session.commitConfiguration()
+            unavailableLabel.isHidden = false
+            controlsView.setCaptureEnabled(false)
             return
         }
-        let cameraAspectRatio: CGFloat = 4.0 / 3.0
-        let viewAspectRatio = size.width / size.height
-        let scale = max(1, viewAspectRatio / cameraAspectRatio)
-        cameraViewTransform = CGAffineTransform(scaleX: scale, y: scale)
+
+        if session.canAddOutput(photoOutput) {
+            session.addOutput(photoOutput)
+        }
+        if session.canAddOutput(movieOutput) {
+            session.addOutput(movieOutput)
+        }
+
+        session.commitConfiguration()
+        controlsView.setFlashAvailable(activeDevice?.hasFlash == true)
+    }
+
+    @discardableResult
+    private func installCameraInput(position: AVCaptureDevice.Position) -> Bool {
+        guard let device = cameraDevice(position: position),
+              let input = try? AVCaptureDeviceInput(device: device),
+              session.canAddInput(input)
+        else { return false }
+
+        if let activeInput {
+            session.removeInput(activeInput)
+        }
+        session.addInput(input)
+        activeInput = input
+        activeDevice = device
+        return true
+    }
+
+    private func cameraDevice(position: AVCaptureDevice.Position) -> AVCaptureDevice? {
+        AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: position)
+    }
+
+    private func setCaptureMode(_ mode: PhotoReportCaptureMode) {
+        guard !movieOutput.isRecording else { return }
+        captureMode = mode
+        controlsView.setCaptureMode(mode)
+    }
+
+    private func captureCurrentMode() {
+        switch captureMode {
+        case .photo:
+            capturePhoto()
+        case .video:
+            toggleVideoRecording()
+        }
+    }
+
+    private func capturePhoto() {
+        guard activeInput != nil else { return }
+        let settings = AVCapturePhotoSettings()
+        if activeDevice?.hasFlash == true {
+            settings.flashMode = flashMode
+        }
+        applyCaptureOrientation(to: photoOutput.connection(with: .video))
+        photoOutput.capturePhoto(with: settings, delegate: self)
+    }
+
+    private func toggleVideoRecording() {
+        guard activeInput != nil else { return }
+        if movieOutput.isRecording {
+            movieOutput.stopRecording()
+            controlsView.setRecording(false)
+            return
+        }
+
+        let outputURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("photo_report_video_\(UUID().uuidString).mov")
+        if let connection = movieOutput.connection(with: .video) {
+            applyCaptureOrientation(to: connection)
+            if connection.isVideoStabilizationSupported {
+                connection.preferredVideoStabilizationMode = .auto
+            }
+        }
+        movieOutput.startRecording(to: outputURL, recordingDelegate: self)
+        controlsView.setRecording(true)
+    }
+
+    private func flipCamera() {
+        guard !movieOutput.isRecording, let currentPosition = activeDevice?.position else { return }
+        let nextPosition: AVCaptureDevice.Position = currentPosition == .back ? .front : .back
+        session.beginConfiguration()
+        let changed = installCameraInput(position: nextPosition)
+        session.commitConfiguration()
+        if changed {
+            controlsView.setFlashAvailable(activeDevice?.hasFlash == true)
+            if activeDevice?.hasFlash != true {
+                flashMode = .off
+                controlsView.setFlashMode(flashMode)
+            }
+        }
+    }
+
+    private func cycleFlashMode() {
+        guard activeDevice?.hasFlash == true else { return }
+        switch flashMode {
+        case .off:
+            flashMode = .auto
+        case .auto:
+            flashMode = .on
+        default:
+            flashMode = .off
+        }
+        controlsView.setFlashMode(flashMode)
+    }
+
+    private func applyCaptureOrientation(to connection: AVCaptureConnection?) {
+        guard let connection, connection.isVideoOrientationSupported else { return }
+        connection.videoOrientation = currentVideoOrientation()
+    }
+
+    private func currentVideoOrientation() -> AVCaptureVideoOrientation {
+        switch currentInterfaceOrientation() {
+        case .landscapeLeft:
+            return .landscapeLeft
+        case .landscapeRight:
+            return .landscapeRight
+        case .portraitUpsideDown:
+            return .portraitUpsideDown
+        default:
+            return .portrait
+        }
+    }
+
+    private func currentInterfaceOrientation() -> UIInterfaceOrientation {
+        if let orientation = view.window?.windowScene?.interfaceOrientation,
+           orientation != .unknown {
+            return orientation
+        }
+        switch UIDevice.current.orientation {
+        case .landscapeLeft:
+            return .landscapeRight
+        case .landscapeRight:
+            return .landscapeLeft
+        case .portraitUpsideDown:
+            return .portraitUpsideDown
+        default:
+            return view.bounds.width > view.bounds.height ? .landscapeRight : .portrait
+        }
+    }
+
+    private func currentControlRotationAngle() -> CGFloat {
+        switch currentInterfaceOrientation() {
+        case .landscapeLeft:
+            return .pi / 2
+        case .landscapeRight:
+            return -.pi / 2
+        case .portraitUpsideDown:
+            return .pi
+        default:
+            return 0
+        }
+    }
+
+    private func updateForCurrentOrientation(animated: Bool) {
+        updateControlsLayout(isLandscape: view.bounds.width > view.bounds.height, animated: animated)
+        controlsView.applyControlRotation(currentControlRotationAngle(), animated: animated)
+    }
+
+    private func updateControlsLayout(isLandscape: Bool, animated: Bool) {
+        guard isLandscape != isLandscapeLayout || portraitConstraints.allSatisfy({ !$0.isActive }) && landscapeConstraints.allSatisfy({ !$0.isActive }) else {
+            controlsView.setLandscapeLayout(isLandscape)
+            return
+        }
+        isLandscapeLayout = isLandscape
+        NSLayoutConstraint.deactivate(isLandscape ? portraitConstraints : landscapeConstraints)
+        NSLayoutConstraint.activate(isLandscape ? landscapeConstraints : portraitConstraints)
+        controlsView.setLandscapeLayout(isLandscape)
+
+        if animated {
+            UIView.animate(withDuration: 0.25) {
+                self.view.layoutIfNeeded()
+            }
+        } else {
+            view.layoutIfNeeded()
+        }
+    }
+
+    private func updatePreviewFrameWithoutAnimation() {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        previewLayer.frame = view.bounds
+        CATransaction.commit()
+    }
+
+    @objc private func deviceOrientationDidChange() {
+        updateForCurrentOrientation(animated: true)
+    }
+
+    func photoOutput(_ output: AVCapturePhotoOutput,
+                     didFinishProcessingPhoto photo: AVCapturePhoto,
+                     error: Error?) {
+        guard error == nil,
+              let data = photo.fileDataRepresentation(),
+              let image = UIImage(data: data)
+        else { return }
+        delegate?.cameraViewController(self, didCapturePhoto: image)
+    }
+
+    func fileOutput(_ output: AVCaptureFileOutput,
+                    didFinishRecordingTo outputFileURL: URL,
+                    from connections: [AVCaptureConnection],
+                    error: Error?) {
+        controlsView.setRecording(false)
+        guard error == nil else { return }
+        delegate?.cameraViewController(self, didCaptureVideo: outputFileURL)
+    }
+}
+
+private final class PhotoReportCameraControlsView: UIView {
+    var onCancel: (() -> Void)?
+    var onCapture: (() -> Void)?
+    var onModeChanged: ((PhotoReportCaptureMode) -> Void)?
+    var onFlipCamera: (() -> Void)?
+    var onFlashChanged: (() -> Void)?
+
+    private let panel = UIVisualEffectView(effect: UIBlurEffect(style: .systemUltraThinMaterialDark))
+    private let cancelButton = UIButton(type: .system)
+    private let flashButton = UIButton(type: .system)
+    private let captureButton = UIButton(type: .custom)
+    private let flipButton = UIButton(type: .system)
+    private let modeControl = UISegmentedControl(items: [L("照片"), L("影片")])
+    private var portraitConstraints: [NSLayoutConstraint] = []
+    private var landscapeConstraints: [NSLayoutConstraint] = []
+    private var captureMode: PhotoReportCaptureMode = .photo
+    private var flashMode: AVCaptureDevice.FlashMode = .off
+    private var isRecording = false
+    private var isLandscapeLayout = false
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        setupViews()
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        setupViews()
+    }
+
+    func setLandscapeLayout(_ isLandscape: Bool) {
+        guard isLandscape != isLandscapeLayout || portraitConstraints.allSatisfy({ !$0.isActive }) && landscapeConstraints.allSatisfy({ !$0.isActive }) else { return }
+        isLandscapeLayout = isLandscape
+        NSLayoutConstraint.deactivate(isLandscape ? portraitConstraints : landscapeConstraints)
+        NSLayoutConstraint.activate(isLandscape ? landscapeConstraints : portraitConstraints)
+        panel.layer.cornerRadius = isLandscape ? 0 : 22
+        setNeedsLayout()
+    }
+
+    func applyControlRotation(_ angle: CGFloat, animated: Bool) {
+        let changes = {
+            let transform = CGAffineTransform(rotationAngle: angle)
+            self.captureButton.transform = transform
+            self.flipButton.transform = transform
+            self.flashButton.transform = transform
+        }
+        if animated {
+            UIView.animate(withDuration: 0.22, animations: changes)
+        } else {
+            changes()
+        }
+    }
+
+    func setCaptureMode(_ mode: PhotoReportCaptureMode) {
+        captureMode = mode
+        modeControl.selectedSegmentIndex = mode == .video ? 1 : 0
+        updateCaptureButton()
+    }
+
+    func setRecording(_ recording: Bool) {
+        isRecording = recording
+        modeControl.isEnabled = !recording
+        flipButton.isEnabled = !recording
+        flashButton.isEnabled = !recording && flashButton.alpha == 1
+        updateCaptureButton()
+    }
+
+    func setFlashAvailable(_ available: Bool) {
+        flashButton.isEnabled = available
+        flashButton.alpha = available ? 1 : 0.35
+        if !available {
+            flashMode = .off
+        }
+        updateFlashButton()
+    }
+
+    func setFlashMode(_ mode: AVCaptureDevice.FlashMode) {
+        flashMode = mode
+        updateFlashButton()
+    }
+
+    func setCaptureEnabled(_ enabled: Bool) {
+        captureButton.isEnabled = enabled
+        flipButton.isEnabled = enabled
+        flashButton.isEnabled = enabled && flashButton.alpha == 1
+        modeControl.isEnabled = enabled
+        captureButton.alpha = enabled ? 1 : 0.35
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        captureButton.layer.cornerRadius = captureButton.bounds.width / 2
+    }
+
+    private func setupViews() {
+        isOpaque = false
+        backgroundColor = .clear
+        panel.translatesAutoresizingMaskIntoConstraints = false
+        panel.clipsToBounds = true
+        panel.layer.cornerRadius = 22
+        addSubview(panel)
+        NSLayoutConstraint.activate([
+            panel.leadingAnchor.constraint(equalTo: leadingAnchor),
+            panel.trailingAnchor.constraint(equalTo: trailingAnchor),
+            panel.topAnchor.constraint(equalTo: topAnchor),
+            panel.bottomAnchor.constraint(equalTo: bottomAnchor)
+        ])
+
+        [cancelButton, flashButton, captureButton, flipButton, modeControl].forEach {
+            $0.translatesAutoresizingMaskIntoConstraints = false
+            panel.contentView.addSubview($0)
+        }
+
+        configureTextButton(cancelButton, title: L("取消"), imageName: "xmark")
+        configureIconButton(flashButton, image: flashImage(for: flashMode))
+        configureIconButton(flipButton, image: UIImage(systemName: "camera.rotate.fill"))
+
+        captureButton.layer.borderWidth = 5
+        captureButton.layer.borderColor = UIColor.white.cgColor
+        captureButton.addTarget(self, action: #selector(captureTapped), for: .touchUpInside)
+
+        modeControl.selectedSegmentIndex = 0
+        modeControl.selectedSegmentTintColor = UIColor(NV.green)
+        modeControl.addTarget(self, action: #selector(modeChanged), for: .valueChanged)
+        cancelButton.addTarget(self, action: #selector(cancelTapped), for: .touchUpInside)
+        flashButton.addTarget(self, action: #selector(flashTapped), for: .touchUpInside)
+        flipButton.addTarget(self, action: #selector(flipTapped), for: .touchUpInside)
+
+        createLayoutConstraints()
+        setLandscapeLayout(false)
+        updateCaptureButton()
+    }
+
+    private func configureTextButton(_ button: UIButton, title: String, imageName: String) {
+        var config = UIButton.Configuration.filled()
+        config.image = UIImage(systemName: imageName)
+        config.title = title
+        config.imagePadding = 6
+        config.baseForegroundColor = .white
+        config.baseBackgroundColor = UIColor.white.withAlphaComponent(0.18)
+        config.cornerStyle = .capsule
+        button.configuration = config
+        button.tintColor = .white
+    }
+
+    private func configureIconButton(_ button: UIButton, image: UIImage?) {
+        var config = UIButton.Configuration.filled()
+        config.image = image
+        config.baseForegroundColor = .white
+        config.baseBackgroundColor = UIColor.white.withAlphaComponent(0.18)
+        config.cornerStyle = .capsule
+        button.configuration = config
+        button.tintColor = .white
+    }
+
+    private func createLayoutConstraints() {
+        let content = panel.contentView
+        let captureSize: CGFloat = 72
+        let smallButtonSize: CGFloat = 50
+
+        NSLayoutConstraint.activate([
+            captureButton.widthAnchor.constraint(equalToConstant: captureSize),
+            captureButton.heightAnchor.constraint(equalTo: captureButton.widthAnchor),
+            flashButton.widthAnchor.constraint(equalToConstant: smallButtonSize),
+            flashButton.heightAnchor.constraint(equalTo: flashButton.widthAnchor),
+            flipButton.widthAnchor.constraint(equalToConstant: smallButtonSize),
+            flipButton.heightAnchor.constraint(equalTo: flipButton.widthAnchor),
+            cancelButton.heightAnchor.constraint(equalToConstant: 44),
+            modeControl.heightAnchor.constraint(equalToConstant: 34)
+        ])
+
+        portraitConstraints = [
+            modeControl.centerXAnchor.constraint(equalTo: content.centerXAnchor),
+            modeControl.topAnchor.constraint(equalTo: content.safeAreaLayoutGuide.topAnchor, constant: 12),
+            modeControl.widthAnchor.constraint(equalToConstant: 220),
+            cancelButton.leadingAnchor.constraint(equalTo: content.safeAreaLayoutGuide.leadingAnchor, constant: 16),
+            cancelButton.topAnchor.constraint(equalTo: content.safeAreaLayoutGuide.topAnchor, constant: 16),
+            cancelButton.widthAnchor.constraint(equalToConstant: 88),
+            captureButton.centerXAnchor.constraint(equalTo: content.centerXAnchor),
+            captureButton.bottomAnchor.constraint(equalTo: content.safeAreaLayoutGuide.bottomAnchor, constant: -18),
+            flashButton.centerYAnchor.constraint(equalTo: captureButton.centerYAnchor),
+            flashButton.leadingAnchor.constraint(equalTo: content.safeAreaLayoutGuide.leadingAnchor, constant: 32),
+            flipButton.centerYAnchor.constraint(equalTo: captureButton.centerYAnchor),
+            flipButton.trailingAnchor.constraint(equalTo: content.safeAreaLayoutGuide.trailingAnchor, constant: -32)
+        ]
+
+        landscapeConstraints = [
+            cancelButton.centerXAnchor.constraint(equalTo: content.centerXAnchor),
+            cancelButton.topAnchor.constraint(equalTo: content.safeAreaLayoutGuide.topAnchor, constant: 16),
+            cancelButton.widthAnchor.constraint(equalToConstant: 88),
+            flashButton.centerXAnchor.constraint(equalTo: content.centerXAnchor),
+            flashButton.topAnchor.constraint(equalTo: cancelButton.bottomAnchor, constant: 18),
+            captureButton.centerXAnchor.constraint(equalTo: content.centerXAnchor),
+            captureButton.centerYAnchor.constraint(equalTo: content.centerYAnchor),
+            flipButton.centerXAnchor.constraint(equalTo: content.centerXAnchor),
+            flipButton.bottomAnchor.constraint(equalTo: modeControl.topAnchor, constant: -18),
+            modeControl.centerXAnchor.constraint(equalTo: content.centerXAnchor),
+            modeControl.bottomAnchor.constraint(equalTo: content.safeAreaLayoutGuide.bottomAnchor, constant: -18),
+            modeControl.widthAnchor.constraint(equalToConstant: 104)
+        ]
+    }
+
+    private func updateCaptureButton() {
+        if isRecording {
+            captureButton.backgroundColor = UIColor(NV.danger)
+        } else if captureMode == .video {
+            captureButton.backgroundColor = UIColor(NV.danger).withAlphaComponent(0.9)
+        } else {
+            captureButton.backgroundColor = UIColor.white.withAlphaComponent(0.25)
+        }
+    }
+
+    private func updateFlashButton() {
+        var config = flashButton.configuration
+        config?.image = flashImage(for: flashMode)
+        flashButton.configuration = config
+    }
+
+    private func flashImage(for mode: AVCaptureDevice.FlashMode) -> UIImage? {
+        switch mode {
+        case .auto:
+            return UIImage(systemName: "bolt.badge.a.fill") ?? UIImage(systemName: "bolt.fill")
+        case .on:
+            return UIImage(systemName: "bolt.fill")
+        default:
+            return UIImage(systemName: "bolt.slash.fill")
+        }
+    }
+
+    @objc private func cancelTapped() {
+        onCancel?()
+    }
+
+    @objc private func captureTapped() {
+        onCapture?()
+    }
+
+    @objc private func modeChanged() {
+        let mode: PhotoReportCaptureMode = modeControl.selectedSegmentIndex == 1 ? .video : .photo
+        captureMode = mode
+        updateCaptureButton()
+        onModeChanged?(mode)
+    }
+
+    @objc private func flipTapped() {
+        onFlipCamera?()
+    }
+
+    @objc private func flashTapped() {
+        onFlashChanged?()
+    }
+}
+
+private extension UIImage {
+    func normalizedForPhotoReport() -> UIImage {
+        guard imageOrientation != .up else { return self }
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = scale
+        let renderer = UIGraphicsImageRenderer(size: size, format: format)
+        return renderer.image { _ in
+            draw(in: CGRect(origin: .zero, size: size))
+        }
     }
 }
 #else
