@@ -215,6 +215,35 @@ struct RadioView: View {
             .frame(minHeight: 340)
             .frame(maxWidth: .infinity)
 
+            liveStatusStrip
+
+            Divider()
+
+            // 即時回報錄音列表
+            if liveManager.recordingHistory.isEmpty {
+                VStack(spacing: 8) {
+                    Spacer()
+                    Image(systemName: "waveform")
+                        .font(.system(size: 40))
+                        .foregroundColor(.secondary.opacity(0.5))
+                    Text(L("尚無即時回報錄音"))
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    Spacer()
+                }
+            } else {
+                List {
+                    ForEach(liveManager.recordingHistory.prefix(20)) { record in
+                        LiveRecordingRow(record: record)
+                    }
+                }
+                .listStyle(.plain)
+            }
+        }
+    }
+
+    private var liveStatusStrip: some View {
+        VStack(spacing: 6) {
             // 自動 / 手動播放切換
             HStack {
                 Image(systemName: vm.autoPlayRadio ? "speaker.wave.2.fill" : "speaker.slash.fill")
@@ -226,7 +255,7 @@ struct RadioView: View {
                     .tint(NV.green)
             }
             .padding(.horizontal)
-            .padding(.vertical, 6)
+            .padding(.top, 6)
 
             // 連線狀態
             VStack(spacing: 4) {
@@ -577,11 +606,63 @@ private struct ReportRow: View {
     }
 }
 
+private struct LiveRecordingRow: View {
+    let record: LiveRecordingRecord
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                Image(systemName: "waveform")
+                    .foregroundColor(NV.command)
+                Text(L("即時回報錄音"))
+                    .font(.subheadline.bold())
+                Spacer()
+                Text(durationText)
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
+
+            HStack(spacing: 4) {
+                Image(systemName: "clock")
+                    .font(.caption2)
+                Text(timeRangeText)
+                    .font(.caption)
+            }
+            .foregroundColor(.secondary)
+        }
+        .padding(.vertical, 4)
+    }
+
+    private var timeRangeText: String {
+        "\(LGDateFormat.hms.string(from: record.startedAt)) - \(LGDateFormat.hms.string(from: record.endedAt))"
+    }
+
+    private var durationText: String {
+        let seconds = max(record.duration, 0)
+        if seconds < 60 {
+            return L("%@ 秒", String(format: "%.1f", seconds))
+        }
+        let minutes = Int(seconds) / 60
+        let remainingSeconds = Int(seconds) % 60
+        return L("%d分%02d秒", minutes, remainingSeconds)
+    }
+}
+
 // MARK: - 固定會報錄音 & 上傳管理器
 
 struct UploadResult {
     let success: Bool
     let message: String
+}
+
+struct LiveRecordingRecord: Identifiable {
+    let id = UUID()
+    let startedAt: Date
+    let endedAt: Date
+
+    var duration: TimeInterval {
+        endedAt.timeIntervalSince(startedAt)
+    }
 }
 
 @MainActor
@@ -765,11 +846,13 @@ final class LiveBroadcastManager: ObservableObject {
     @Published var isUploading = false
     @Published var uploadProgress: String?
     @Published var connectionError: String?
+    @Published var recordingHistory: [LiveRecordingRecord] = []
     var senderName = ""
     var serverHost = ""
 
     private var audioRecorder: AVAudioRecorder?
     private var recordingURL: URL?
+    private var recordingStartedAt: Date?
 
     /// 錄音計時器（最長 60 秒自動停止）
     private var recordingTimer: Timer?
@@ -840,6 +923,7 @@ final class LiveBroadcastManager: ObservableObject {
             audioRecorder = try AVAudioRecorder(url: url, settings: settings)
             audioRecorder?.record()
             recordingURL = url
+            recordingStartedAt = Date()
             isBroadcasting = true
             print("[LiveBroadcast] 🎙️ Recording started: \(url.lastPathComponent)")
 
@@ -864,6 +948,7 @@ final class LiveBroadcastManager: ObservableObject {
         recordingTimer = nil
 
         let wasBroadcasting = isBroadcasting
+        let stoppedAt = Date()
         isBroadcasting = false
 
         audioRecorder?.stop()
@@ -871,8 +956,12 @@ final class LiveBroadcastManager: ObservableObject {
         print("[LiveBroadcast] ⏹️ Recording stopped (wasBroadcasting=\(wasBroadcasting))")
 
         if wasBroadcasting {
+            let startedAt = recordingStartedAt ?? stoppedAt
+            recordingHistory.insert(LiveRecordingRecord(startedAt: startedAt, endedAt: stoppedAt), at: 0)
+            if recordingHistory.count > 50 { recordingHistory = Array(recordingHistory.prefix(50)) }
             uploadRecording()
         }
+        recordingStartedAt = nil
     }
 
     // MARK: - HTTP 上傳（轉錄/歸檔）
