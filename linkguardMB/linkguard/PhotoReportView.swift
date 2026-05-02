@@ -740,14 +740,13 @@ final class PhotoReportCameraViewController: UIViewController, AVCapturePhotoCap
     private let photoOutput = AVCapturePhotoOutput()
     private let movieOutput = AVCaptureMovieFileOutput()
     private let controlsView = PhotoReportCameraControlsView()
+    private let cancelButton = UIButton(type: .system)
     private let unavailableLabel = UILabel()
 
     private var activeInput: AVCaptureDeviceInput?
     private var activeDevice: AVCaptureDevice?
     private var captureMode: PhotoReportCaptureMode = .photo
     private var flashMode: AVCaptureDevice.FlashMode = .off
-    private var portraitConstraints: [NSLayoutConstraint] = []
-    private var landscapeConstraints: [NSLayoutConstraint] = []
     private var isLandscapeLayout = false
 
     override var shouldAutorotate: Bool { true }
@@ -777,6 +776,7 @@ final class PhotoReportCameraViewController: UIViewController, AVCapturePhotoCap
         if activeInput != nil, !session.isRunning {
             session.startRunning()
         }
+        updatePreviewMirroring()
         updateForCurrentOrientation(animated: false)
     }
 
@@ -795,6 +795,7 @@ final class PhotoReportCameraViewController: UIViewController, AVCapturePhotoCap
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         previewLayer.frame = view.bounds
+        lockPreviewOrientation()
         CATransaction.commit()
         updateControlsLayout(isLandscape: view.bounds.width > view.bounds.height, animated: false)
     }
@@ -819,24 +820,15 @@ final class PhotoReportCameraViewController: UIViewController, AVCapturePhotoCap
     private func setupControls() {
         controlsView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(controlsView)
+        setupCancelButton()
 
-        portraitConstraints = [
+        NSLayoutConstraint.activate([
             controlsView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             controlsView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            controlsView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            controlsView.heightAnchor.constraint(equalToConstant: 158)
-        ]
-        landscapeConstraints = [
             controlsView.topAnchor.constraint(equalTo: view.topAnchor),
-            controlsView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            controlsView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            controlsView.widthAnchor.constraint(equalToConstant: 132)
-        ]
+            controlsView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ])
 
-        controlsView.onCancel = { [weak self] in
-            guard let self else { return }
-            self.delegate?.cameraViewControllerDidCancel(self)
-        }
         controlsView.onCapture = { [weak self] in
             self?.captureCurrentMode()
         }
@@ -849,6 +841,27 @@ final class PhotoReportCameraViewController: UIViewController, AVCapturePhotoCap
         controlsView.onFlashChanged = { [weak self] in
             self?.cycleFlashMode()
         }
+    }
+
+    private func setupCancelButton() {
+        cancelButton.translatesAutoresizingMaskIntoConstraints = false
+        var config = UIButton.Configuration.filled()
+        config.image = UIImage(systemName: "xmark")
+        config.title = L("取消")
+        config.imagePadding = 6
+        config.baseForegroundColor = .white
+        config.baseBackgroundColor = UIColor.black.withAlphaComponent(0.45)
+        config.cornerStyle = .capsule
+        cancelButton.configuration = config
+        cancelButton.tintColor = .white
+        cancelButton.addTarget(self, action: #selector(cancelTapped), for: .touchUpInside)
+        view.addSubview(cancelButton)
+        NSLayoutConstraint.activate([
+            cancelButton.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 16),
+            cancelButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 12),
+            cancelButton.widthAnchor.constraint(equalToConstant: 88),
+            cancelButton.heightAnchor.constraint(equalToConstant: 44)
+        ])
     }
 
     private func setupUnavailableLabel() {
@@ -886,19 +899,30 @@ final class PhotoReportCameraViewController: UIViewController, AVCapturePhotoCap
         }
 
         session.commitConfiguration()
+        lockPreviewOrientation()
+        updatePreviewMirroring()
         controlsView.setFlashAvailable(activeDevice?.hasFlash == true)
+        controlsView.setCameraSwitchAvailable(canSwitchCamera)
     }
 
     @discardableResult
     private func installCameraInput(position: AVCaptureDevice.Position) -> Bool {
         guard let device = cameraDevice(position: position),
-              let input = try? AVCaptureDeviceInput(device: device),
-              session.canAddInput(input)
+              let input = try? AVCaptureDeviceInput(device: device)
         else { return false }
 
+        let previousInput = activeInput
         if let activeInput {
             session.removeInput(activeInput)
         }
+
+        guard session.canAddInput(input) else {
+            if let previousInput, session.canAddInput(previousInput) {
+                session.addInput(previousInput)
+            }
+            return false
+        }
+
         session.addInput(input)
         activeInput = input
         activeDevice = device
@@ -907,6 +931,10 @@ final class PhotoReportCameraViewController: UIViewController, AVCapturePhotoCap
 
     private func cameraDevice(position: AVCaptureDevice.Position) -> AVCaptureDevice? {
         AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: position)
+    }
+
+    private var canSwitchCamera: Bool {
+        cameraDevice(position: .front) != nil && cameraDevice(position: .back) != nil
     }
 
     private func setCaptureMode(_ mode: PhotoReportCaptureMode) {
@@ -955,13 +983,15 @@ final class PhotoReportCameraViewController: UIViewController, AVCapturePhotoCap
     }
 
     private func flipCamera() {
-        guard !movieOutput.isRecording, let currentPosition = activeDevice?.position else { return }
+        guard !movieOutput.isRecording, canSwitchCamera, let currentPosition = activeDevice?.position else { return }
         let nextPosition: AVCaptureDevice.Position = currentPosition == .back ? .front : .back
         session.beginConfiguration()
         let changed = installCameraInput(position: nextPosition)
         session.commitConfiguration()
         if changed {
+            updatePreviewMirroring()
             controlsView.setFlashAvailable(activeDevice?.hasFlash == true)
+            controlsView.setCameraSwitchAvailable(canSwitchCamera)
             if activeDevice?.hasFlash != true {
                 flashMode = .off
                 controlsView.setFlashMode(flashMode)
@@ -1023,8 +1053,6 @@ final class PhotoReportCameraViewController: UIViewController, AVCapturePhotoCap
             return .pi / 2
         case .landscapeRight:
             return -.pi / 2
-        case .portraitUpsideDown:
-            return .pi
         default:
             return 0
         }
@@ -1036,13 +1064,8 @@ final class PhotoReportCameraViewController: UIViewController, AVCapturePhotoCap
     }
 
     private func updateControlsLayout(isLandscape: Bool, animated: Bool) {
-        guard isLandscape != isLandscapeLayout || portraitConstraints.allSatisfy({ !$0.isActive }) && landscapeConstraints.allSatisfy({ !$0.isActive }) else {
-            controlsView.setLandscapeLayout(isLandscape)
-            return
-        }
+        guard isLandscape != isLandscapeLayout else { return }
         isLandscapeLayout = isLandscape
-        NSLayoutConstraint.deactivate(isLandscape ? portraitConstraints : landscapeConstraints)
-        NSLayoutConstraint.activate(isLandscape ? landscapeConstraints : portraitConstraints)
         controlsView.setLandscapeLayout(isLandscape)
 
         if animated {
@@ -1058,11 +1081,35 @@ final class PhotoReportCameraViewController: UIViewController, AVCapturePhotoCap
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         previewLayer.frame = view.bounds
+        lockPreviewOrientation()
         CATransaction.commit()
+    }
+
+    private func lockPreviewOrientation() {
+        guard let connection = previewLayer.connection,
+              connection.isVideoOrientationSupported
+        else { return }
+        connection.videoOrientation = .portrait
+    }
+
+    private func updatePreviewMirroring() {
+        guard let connection = previewLayer.connection,
+              connection.isVideoMirroringSupported
+        else { return }
+        connection.automaticallyAdjustsVideoMirroring = false
+        connection.isVideoMirrored = activeDevice?.position == .front
     }
 
     @objc private func deviceOrientationDidChange() {
         updateForCurrentOrientation(animated: true)
+    }
+
+    @objc private func cancelTapped() {
+        if movieOutput.isRecording {
+            movieOutput.stopRecording()
+            controlsView.setRecording(false)
+        }
+        delegate?.cameraViewControllerDidCancel(self)
     }
 
     func photoOutput(_ output: AVCapturePhotoOutput,
@@ -1086,14 +1133,12 @@ final class PhotoReportCameraViewController: UIViewController, AVCapturePhotoCap
 }
 
 private final class PhotoReportCameraControlsView: UIView {
-    var onCancel: (() -> Void)?
     var onCapture: (() -> Void)?
     var onModeChanged: ((PhotoReportCaptureMode) -> Void)?
     var onFlipCamera: (() -> Void)?
     var onFlashChanged: (() -> Void)?
 
     private let panel = UIVisualEffectView(effect: UIBlurEffect(style: .systemUltraThinMaterialDark))
-    private let cancelButton = UIButton(type: .system)
     private let flashButton = UIButton(type: .system)
     private let captureButton = UIButton(type: .custom)
     private let flipButton = UIButton(type: .system)
@@ -1102,6 +1147,7 @@ private final class PhotoReportCameraControlsView: UIView {
     private var landscapeConstraints: [NSLayoutConstraint] = []
     private var captureMode: PhotoReportCaptureMode = .photo
     private var flashMode: AVCaptureDevice.FlashMode = .off
+    private var isCameraSwitchAvailable = true
     private var isRecording = false
     private var isLandscapeLayout = false
 
@@ -1147,7 +1193,7 @@ private final class PhotoReportCameraControlsView: UIView {
     func setRecording(_ recording: Bool) {
         isRecording = recording
         modeControl.isEnabled = !recording
-        flipButton.isEnabled = !recording
+        flipButton.isEnabled = !recording && isCameraSwitchAvailable
         flashButton.isEnabled = !recording && flashButton.alpha == 1
         updateCaptureButton()
     }
@@ -1161,6 +1207,12 @@ private final class PhotoReportCameraControlsView: UIView {
         updateFlashButton()
     }
 
+    func setCameraSwitchAvailable(_ available: Bool) {
+        isCameraSwitchAvailable = available
+        flipButton.isEnabled = available && !isRecording
+        flipButton.alpha = available ? 1 : 0.35
+    }
+
     func setFlashMode(_ mode: AVCaptureDevice.FlashMode) {
         flashMode = mode
         updateFlashButton()
@@ -1168,10 +1220,11 @@ private final class PhotoReportCameraControlsView: UIView {
 
     func setCaptureEnabled(_ enabled: Bool) {
         captureButton.isEnabled = enabled
-        flipButton.isEnabled = enabled
+        flipButton.isEnabled = enabled && isCameraSwitchAvailable
         flashButton.isEnabled = enabled && flashButton.alpha == 1
         modeControl.isEnabled = enabled
         captureButton.alpha = enabled ? 1 : 0.35
+        flipButton.alpha = isCameraSwitchAvailable ? 1 : 0.35
     }
 
     override func layoutSubviews() {
@@ -1183,22 +1236,16 @@ private final class PhotoReportCameraControlsView: UIView {
         isOpaque = false
         backgroundColor = .clear
         panel.translatesAutoresizingMaskIntoConstraints = false
+        panel.isUserInteractionEnabled = false
         panel.clipsToBounds = true
         panel.layer.cornerRadius = 22
         addSubview(panel)
-        NSLayoutConstraint.activate([
-            panel.leadingAnchor.constraint(equalTo: leadingAnchor),
-            panel.trailingAnchor.constraint(equalTo: trailingAnchor),
-            panel.topAnchor.constraint(equalTo: topAnchor),
-            panel.bottomAnchor.constraint(equalTo: bottomAnchor)
-        ])
 
-        [cancelButton, flashButton, captureButton, flipButton, modeControl].forEach {
+        [flashButton, captureButton, flipButton, modeControl].forEach {
             $0.translatesAutoresizingMaskIntoConstraints = false
-            panel.contentView.addSubview($0)
+            addSubview($0)
         }
 
-        configureTextButton(cancelButton, title: L("取消"), imageName: "xmark")
         configureIconButton(flashButton, image: flashImage(for: flashMode))
         configureIconButton(flipButton, image: UIImage(systemName: "camera.rotate.fill"))
 
@@ -1209,25 +1256,12 @@ private final class PhotoReportCameraControlsView: UIView {
         modeControl.selectedSegmentIndex = 0
         modeControl.selectedSegmentTintColor = UIColor(NV.green)
         modeControl.addTarget(self, action: #selector(modeChanged), for: .valueChanged)
-        cancelButton.addTarget(self, action: #selector(cancelTapped), for: .touchUpInside)
         flashButton.addTarget(self, action: #selector(flashTapped), for: .touchUpInside)
         flipButton.addTarget(self, action: #selector(flipTapped), for: .touchUpInside)
 
         createLayoutConstraints()
         setLandscapeLayout(false)
         updateCaptureButton()
-    }
-
-    private func configureTextButton(_ button: UIButton, title: String, imageName: String) {
-        var config = UIButton.Configuration.filled()
-        config.image = UIImage(systemName: imageName)
-        config.title = title
-        config.imagePadding = 6
-        config.baseForegroundColor = .white
-        config.baseBackgroundColor = UIColor.white.withAlphaComponent(0.18)
-        config.cornerStyle = .capsule
-        button.configuration = config
-        button.tintColor = .white
     }
 
     private func configureIconButton(_ button: UIButton, image: UIImage?) {
@@ -1241,7 +1275,7 @@ private final class PhotoReportCameraControlsView: UIView {
     }
 
     private func createLayoutConstraints() {
-        let content = panel.contentView
+        let safe = safeAreaLayoutGuide
         let captureSize: CGFloat = 72
         let smallButtonSize: CGFloat = 50
 
@@ -1252,7 +1286,6 @@ private final class PhotoReportCameraControlsView: UIView {
             flashButton.heightAnchor.constraint(equalTo: flashButton.widthAnchor),
             flipButton.widthAnchor.constraint(equalToConstant: smallButtonSize),
             flipButton.heightAnchor.constraint(equalTo: flipButton.widthAnchor),
-            cancelButton.heightAnchor.constraint(equalToConstant: 44),
             modeControl.heightAnchor.constraint(equalToConstant: 34)
         ])
 
@@ -1260,9 +1293,6 @@ private final class PhotoReportCameraControlsView: UIView {
             modeControl.centerXAnchor.constraint(equalTo: content.centerXAnchor),
             modeControl.topAnchor.constraint(equalTo: content.safeAreaLayoutGuide.topAnchor, constant: 12),
             modeControl.widthAnchor.constraint(equalToConstant: 220),
-            cancelButton.leadingAnchor.constraint(equalTo: content.safeAreaLayoutGuide.leadingAnchor, constant: 16),
-            cancelButton.topAnchor.constraint(equalTo: content.safeAreaLayoutGuide.topAnchor, constant: 16),
-            cancelButton.widthAnchor.constraint(equalToConstant: 88),
             captureButton.centerXAnchor.constraint(equalTo: content.centerXAnchor),
             captureButton.bottomAnchor.constraint(equalTo: content.safeAreaLayoutGuide.bottomAnchor, constant: -18),
             flashButton.centerYAnchor.constraint(equalTo: captureButton.centerYAnchor),
@@ -1272,11 +1302,8 @@ private final class PhotoReportCameraControlsView: UIView {
         ]
 
         landscapeConstraints = [
-            cancelButton.centerXAnchor.constraint(equalTo: content.centerXAnchor),
-            cancelButton.topAnchor.constraint(equalTo: content.safeAreaLayoutGuide.topAnchor, constant: 16),
-            cancelButton.widthAnchor.constraint(equalToConstant: 88),
             flashButton.centerXAnchor.constraint(equalTo: content.centerXAnchor),
-            flashButton.topAnchor.constraint(equalTo: cancelButton.bottomAnchor, constant: 18),
+            flashButton.topAnchor.constraint(equalTo: content.safeAreaLayoutGuide.topAnchor, constant: 56),
             captureButton.centerXAnchor.constraint(equalTo: content.centerXAnchor),
             captureButton.centerYAnchor.constraint(equalTo: content.centerYAnchor),
             flipButton.centerXAnchor.constraint(equalTo: content.centerXAnchor),
@@ -1295,33 +1322,44 @@ private final class PhotoReportCameraControlsView: UIView {
         } else {
             captureButton.backgroundColor = UIColor.white.withAlphaComponent(0.25)
         }
-    }
-
+            panel.leadingAnchor.constraint(equalTo: leadingAnchor),
+            panel.trailingAnchor.constraint(equalTo: trailingAnchor),
+            panel.bottomAnchor.constraint(equalTo: bottomAnchor),
+            panel.heightAnchor.constraint(equalToConstant: 158),
+            modeControl.centerXAnchor.constraint(equalTo: centerXAnchor),
+            modeControl.topAnchor.constraint(equalTo: panel.topAnchor, constant: 12),
     private func updateFlashButton() {
-        var config = flashButton.configuration
-        config?.image = flashImage(for: flashMode)
+            captureButton.centerXAnchor.constraint(equalTo: centerXAnchor),
+            captureButton.bottomAnchor.constraint(equalTo: safe.bottomAnchor, constant: -18),
         flashButton.configuration = config
-    }
+            flashButton.leadingAnchor.constraint(equalTo: safe.leadingAnchor, constant: 32),
 
-    private func flashImage(for mode: AVCaptureDevice.FlashMode) -> UIImage? {
+            flipButton.trailingAnchor.constraint(equalTo: safe.trailingAnchor, constant: -32)
         switch mode {
         case .auto:
             return UIImage(systemName: "bolt.badge.a.fill") ?? UIImage(systemName: "bolt.fill")
-        case .on:
-            return UIImage(systemName: "bolt.fill")
+            panel.topAnchor.constraint(equalTo: topAnchor),
+            panel.trailingAnchor.constraint(equalTo: trailingAnchor),
+            panel.bottomAnchor.constraint(equalTo: bottomAnchor),
+            panel.widthAnchor.constraint(equalToConstant: 132),
+            flashButton.leadingAnchor.constraint(equalTo: safe.leadingAnchor, constant: 18),
+            flashButton.topAnchor.constraint(equalTo: safe.topAnchor, constant: 72),
         default:
-            return UIImage(systemName: "bolt.slash.fill")
+            captureButton.centerYAnchor.constraint(equalTo: safe.centerYAnchor),
         }
     }
 
-    @objc private func cancelTapped() {
-        onCancel?()
+            modeControl.bottomAnchor.constraint(equalTo: safe.bottomAnchor, constant: -18),
+            modeControl.widthAnchor.constraint(equalToConstant: 108)
     }
 
-    @objc private func captureTapped() {
-        onCapture?()
-    }
 
+    override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
+        [panel, flashButton, captureButton, flipButton, modeControl].contains { view in
+            guard !view.isHidden, view.alpha > 0.01 else { return false }
+            return view.point(inside: convert(point, to: view), with: event)
+        }
+    }
     @objc private func modeChanged() {
         let mode: PhotoReportCaptureMode = modeControl.selectedSegmentIndex == 1 ? .video : .photo
         captureMode = mode
