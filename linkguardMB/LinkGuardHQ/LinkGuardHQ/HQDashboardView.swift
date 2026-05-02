@@ -35,16 +35,13 @@ enum HQSection: String, CaseIterable, Identifiable {
     static let navigationOrder: [HQSection] = [
         .dashboard,
         .grandDashboard,
-        .timeline,
-        .zonemap,
-        .reports,
         .disaster,
         .personnelOverview,
         .victimOverview,
         .personnel,
+        .zonemap,
         .resources,
         .photoWall,
-        .stats,
         .chat,
         .broadcast,
         .radio,
@@ -52,6 +49,9 @@ enum HQSection: String, CaseIterable, Identifiable {
         .patientWarning,
         .briefing,
         .notification,
+        .timeline,
+        .reports,
+        .stats,
         .decision,
         .aiChat,
         .decisionHistory,
@@ -136,6 +136,7 @@ struct HQDashboardView: View {
     @State private var timerMinutes = ""
     @State private var sosFlash = false
     @State private var localIPText = "IP: --"
+    @State private var shouldRevealBottomNavigationSelection = false
 
     private static let sosTimeFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -258,6 +259,7 @@ struct HQDashboardView: View {
               let currentIndex = HQSection.navigationOrder.firstIndex(of: selectedSectionValue) else { return }
         let sections = HQSection.navigationOrder
         let nextIndex = (currentIndex + offset + sections.count) % sections.count
+        shouldRevealBottomNavigationSelection = true
         selectedSection = sections[nextIndex]
     }
 
@@ -280,10 +282,6 @@ struct HQDashboardView: View {
 
     private func navigationForeground(for section: HQSection, isSelected: Bool) -> Color {
         isSelected ? .white : sectionColor(section)
-    }
-
-    private func bottomNavigationEdgePadding(for width: CGFloat) -> CGFloat {
-        max(12, (width - Self.bottomNavigationItemWidth) / 2)
     }
 
     @ViewBuilder
@@ -451,6 +449,7 @@ struct HQDashboardView: View {
                 VStack(spacing: 4) {
                     ForEach(HQSection.navigationOrder) { section in
                         Button {
+                            shouldRevealBottomNavigationSelection = false
                             selectedSection = section
                         } label: {
                             ZStack(alignment: .topTrailing) {
@@ -813,25 +812,23 @@ struct HQDashboardView: View {
     }
 
     private var bottomNavigationBar: some View {
-        GeometryReader { geometry in
-            ScrollViewReader { proxy in
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: Self.bottomNavigationSpacing) {
-                        ForEach(HQSection.navigationOrder) { section in
-                            bottomNavigationButton(for: section)
-                                .id(section)
-                        }
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: Self.bottomNavigationSpacing) {
+                    ForEach(HQSection.navigationOrder) { section in
+                        bottomNavigationButton(for: section)
+                            .id(section)
                     }
-                    .padding(.horizontal, bottomNavigationEdgePadding(for: geometry.size.width))
-                    .padding(.vertical, 8)
                 }
-                .onAppear {
-                    proxy.scrollTo(selectedSectionValue, anchor: .center)
-                }
-                .onChange(of: selectedSectionValue) { section in
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+            }
+            .onChange(of: selectedSectionValue) { section in
+                if shouldRevealBottomNavigationSelection {
                     withAnimation(.easeInOut(duration: 0.18)) {
-                        proxy.scrollTo(section, anchor: .center)
+                        proxy.scrollTo(section)
                     }
+                    shouldRevealBottomNavigationSelection = false
                 }
             }
         }
@@ -841,6 +838,7 @@ struct HQDashboardView: View {
 
     private func bottomNavigationButton(for section: HQSection) -> some View {
         Button {
+            shouldRevealBottomNavigationSelection = false
             selectedSection = section
         } label: {
             VStack(spacing: 4) {
