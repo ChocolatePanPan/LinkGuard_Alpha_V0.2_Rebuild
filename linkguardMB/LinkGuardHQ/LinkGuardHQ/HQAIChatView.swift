@@ -37,33 +37,34 @@ struct HQAIChatView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HQSectionHeader(L("AI 指揮對話"), icon: "sparkles", accent: NV.command) {
-                Text(vm.effectiveBackendHost.isEmpty ? L("未連線") : "BACKEND ▸ \(vm.effectiveBackendHost)")
-                    .font(.caption.monospaced())
-                    .foregroundColor(.secondary)
+            pageFrame {
+                HQPageTitleBar(L("AI 指揮對話"), subtitle: L("查詢部署建議 / 行動規劃 / 資源評估 / 風險研判"), icon: "sparkles", accent: NV.command) {
+                    headerControls
+                }
             }
-            Divider().background(NV.command.opacity(0.25))
-            statusBar
+            .padding(.top, NV.pagePadding)
+            .padding(.bottom, NV.panelSpacing)
+
             Divider().background(NV.command.opacity(0.25))
             escalationTriggerBanner
 
             ScrollViewReader { proxy in
                 ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 8) {
-                        if messages.isEmpty && !isSending {
-                            emptyHint
-                                .padding(.top, 80)
+                    pageFrame {
+                        LazyVStack(alignment: .leading, spacing: 8) {
+                            if messages.isEmpty && !isSending {
+                                emptyHint
+                            }
+                            ForEach(messages) { msg in
+                                bubble(for: msg)
+                                    .id(msg.id)
+                            }
+                            if isSending {
+                                typingIndicator.id("typing")
+                            }
                         }
-                        ForEach(messages) { msg in
-                            bubble(for: msg)
-                                .id(msg.id)
-                        }
-                        if isSending {
-                            typingIndicator.id("typing")
-                        }
+                        .padding(.vertical, 10)
                     }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 10)
                 }
                 .onChange(of: messages.count) { _ in
                     if let last = messages.last {
@@ -78,64 +79,49 @@ struct HQAIChatView: View {
             }
 
             Divider().background(NV.command.opacity(0.25))
-            inputBar
+            pageFrame { inputBar }
+                .padding(.vertical, 12)
         }
         .background(NV.bg.ignoresSafeArea())
     }
 
     // MARK: - 子視圖
 
-    private var statusBar: some View {
+    private var headerControls: some View {
         HStack(spacing: 8) {
             Circle()
                 .fill(vm.isBackendConnected ? NV.green : Color.gray)
                 .frame(width: 8, height: 8)
-            Text("AI COMMAND CHAT")
-                .font(.system(.caption, design: .monospaced).bold())
-                .foregroundColor(NV.command)
-                .tracking(2)
-            Spacer()
             Text(vm.effectiveBackendHost.isEmpty
                  ? L("未連線")
                  : "BACKEND ▸ \(vm.effectiveBackendHost)")
-                .font(.system(.caption2, design: .monospaced))
+                .font(.caption.monospaced())
                 .foregroundColor(.secondary)
-            // 自動廣播切換
             Button {
                 autoBroadcast.toggle()
             } label: {
-                HStack(spacing: 3) {
-                    Image(systemName: "megaphone.fill")
-                        .font(.system(size: 9))
-                    Text(autoBroadcast ? "AUTO BC" : "BC OFF")
-                        .font(.system(size: 9, weight: .bold, design: .monospaced))
-                }
-                .padding(.horizontal, 6)
-                .padding(.vertical, 3)
-                .foregroundColor(autoBroadcast ? NV.green : .secondary)
-                .background(
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(autoBroadcast ? NV.green.opacity(0.18) : Color.clear)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 4)
-                        .stroke(autoBroadcast ? NV.green.opacity(0.6) : Color.secondary.opacity(0.4), lineWidth: 1)
-                )
+                Label(autoBroadcast ? L("自動廣播") : L("廣播關閉"), systemImage: "megaphone.fill")
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.bordered)
+            .controlSize(.small)
             Button {
                 messages.removeAll()
             } label: {
                 Image(systemName: "trash")
-                    .font(.caption)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.borderless)
+            .controlSize(.small)
             .disabled(messages.isEmpty || isSending)
             .foregroundColor(messages.isEmpty ? .secondary : NV.warning)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .background(Color.black.opacity(0.25))
+    }
+
+    private func pageFrame<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        content()
+            .padding(.horizontal, NV.pagePadding)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: NV.pageMaxWidth, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .center)
     }
 
     @ViewBuilder
@@ -143,49 +129,41 @@ struct HQAIChatView: View {
         if let data = vm.backendBridge.latestEscalationTrigger {
             let reqId = (data["request_id"] as? String) ?? "?"
             let status = (data["status"] as? String) ?? "processing"
-            HStack(alignment: .top, spacing: 10) {
-                Image(systemName: "bolt.horizontal.circle.fill")
-                    .font(.title2)
-                    .foregroundColor(NV.warning)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(L("雙 AI 共識達成：已升級至主模型"))
-                        .font(.system(.caption, design: .monospaced).bold())
+            pageFrame {
+                HStack(alignment: .top, spacing: 10) {
+                    Image(systemName: "bolt.horizontal.circle.fill")
+                        .font(.title2)
                         .foregroundColor(NV.warning)
-                    Text("request_id: \(reqId)  ·  \(status)")
-                        .font(.system(.caption2, design: .monospaced))
-                        .foregroundColor(.secondary)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(L("雙 AI 共識達成：已升級至主模型"))
+                            .font(.system(.caption, design: .monospaced).bold())
+                            .foregroundColor(NV.warning)
+                        Text("request_id: \(reqId)  ·  \(status)")
+                            .font(.system(.caption2, design: .monospaced))
+                            .foregroundColor(.secondary)
+                    }
+                    Spacer()
+                    Button {
+                        vm.backendBridge.latestEscalationTrigger = nil
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.plain)
                 }
-                Spacer()
-                Button {
-                    vm.backendBridge.latestEscalationTrigger = nil
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundColor(.secondary)
-                }
-                .buttonStyle(.plain)
+                .hqPanelChrome(accent: NV.warning)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(NV.warning.opacity(0.12))
-            .overlay(Rectangle().fill(NV.warning).frame(height: 1), alignment: .bottom)
+                .padding(.bottom, NV.panelSpacing)
         }
     }
 
     private var emptyHint: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "sparkles")
-                .font(.system(size: 56))
-                .foregroundColor(NV.command.opacity(0.3))
-            Text(L("AI 指揮對話"))
-                .font(.system(.headline, design: .monospaced).bold())
-                .foregroundColor(NV.command.opacity(0.7))
-                .tracking(4)
-            Text(L("查詢部署建議 / 行動規劃 / 資源評估 / 風險研判"))
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity)
+            HQEmptyStateView(
+                icon: "sparkles",
+                title: L("AI 指揮對話"),
+                subtitle: L("查詢部署建議 / 行動規劃 / 資源評估 / 風險研判"),
+                minHeight: 360
+            )
     }
 
     @ViewBuilder
@@ -296,7 +274,6 @@ struct HQAIChatView: View {
             .buttonStyle(.plain)
             .disabled(!canSend)
         }
-        .padding(12)
     }
 
     // MARK: - 行為

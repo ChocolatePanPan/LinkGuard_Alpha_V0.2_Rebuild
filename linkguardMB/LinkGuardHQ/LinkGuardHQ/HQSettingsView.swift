@@ -38,8 +38,8 @@ struct HQSettingsView: View {
     }
 
     var body: some View {
-        HQPage(maxWidth: NV.readablePageMaxWidth, spacing: NV.pageSpacing) {
-            HQPageHeader(L("設定"), icon: "gearshape.fill", accent: NV.info)
+        HQPage(maxWidth: NV.pageMaxWidth, spacing: NV.pageSpacing) {
+            HQPageTitleBar(L("設定"), icon: "gearshape.fill", accent: NV.info)
             generalSection
             backendSection
             aiSection

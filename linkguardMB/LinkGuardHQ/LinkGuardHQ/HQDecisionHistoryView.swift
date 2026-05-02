@@ -44,28 +44,17 @@ struct HQDecisionHistoryView: View {
     @State private var limit = 50
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            header
-            Divider()
+        HQPage {
+            HQPageTitleBar(L("AI 決策歷史"), subtitle: L("來源: %@:8001/decisions", hostDisplay), icon: "clock.arrow.circlepath", accent: NV.command) {
+                headerControls
+            }
             content
         }
-        .background(NV.bg)
         .onAppear { reload() }
     }
 
-    private var header: some View {
+    private var headerControls: some View {
         HStack(spacing: 12) {
-            Image(systemName: "brain.head.profile")
-                .foregroundColor(NV.green)
-                .font(.title2)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(L("AI 決策歷史"))
-                    .font(.title2.bold())
-                Text(L("來源: %@:8001/decisions", hostDisplay))
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-            Spacer()
             TextField(L("搜尋..."), text: $search)
                 .textFieldStyle(.roundedBorder)
                 .frame(width: 200)
@@ -81,32 +70,42 @@ struct HQDecisionHistoryView: View {
             Button { reload() } label: {
                 Label(L("重新載入"), systemImage: "arrow.clockwise")
             }
+            .controlSize(.small)
             .disabled(isLoading)
         }
-        .padding()
     }
 
     @ViewBuilder
     private var content: some View {
         if let err = lastError {
-            VStack(spacing: 8) {
-                Image(systemName: "exclamationmark.triangle")
-                    .foregroundColor(NV.danger)
-                    .font(.largeTitle)
-                Text(err).foregroundColor(.secondary)
+            VStack(spacing: 12) {
+                HQEmptyStateView(
+                    icon: "exclamationmark.triangle",
+                    title: L("讀取 AI 決策失敗"),
+                    subtitle: err,
+                    minHeight: 320
+                )
                 Button(L("重試")) { reload() }
+                    .buttonStyle(.borderedProminent)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .hqPanelChrome(accent: NV.danger)
+        } else if rows.isEmpty && isLoading {
+            VStack(spacing: 12) {
+                ProgressView()
+                HQEmptyStateView(icon: "clock.arrow.circlepath", title: L("載入 AI 決策歷史"), minHeight: 260)
+            }
+            .hqPanelChrome(accent: NV.command)
         } else if rows.isEmpty && !isLoading {
-            Text(L("沒有資料"))
-                .foregroundColor(.secondary)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            HQEmptyStateView(
+                icon: "clock.arrow.circlepath",
+                title: L("沒有 AI 決策資料"),
+                subtitle: L("後端尚未回傳任何決策紀錄。"),
+                minHeight: 360
+            )
+            .hqPanelChrome(accent: NV.command)
         } else {
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 4) {
-                    ForEach(filteredRows) { r in row(r) }
-                }
-                .padding()
+            LazyVStack(alignment: .leading, spacing: NV.panelSpacing) {
+                ForEach(filteredRows) { r in row(r) }
             }
         }
     }
@@ -141,8 +140,12 @@ struct HQDecisionHistoryView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(10)
-        .background(Color.black.opacity(0.2))
-        .cornerRadius(6)
+        .background(NV.surface.opacity(0.88))
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(NV.command.opacity(0.22), lineWidth: 1)
+        )
     }
 
     // MARK: - Filtering
