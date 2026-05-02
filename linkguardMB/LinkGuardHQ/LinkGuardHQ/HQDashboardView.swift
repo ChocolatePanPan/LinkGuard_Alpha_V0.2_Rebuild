@@ -122,6 +122,10 @@ struct HQDashboardView: View {
         navigationPlacement == .right ? "sidebar.right" : "sidebar.left"
     }
 
+    private var selectedSectionValue: HQSection {
+        selectedSection ?? .dashboard
+    }
+
     var body: some View {
         ZStack {
             navigationLayout
@@ -150,6 +154,11 @@ struct HQDashboardView: View {
         .onAppear {
             localIPText = localIPAddress()
         }
+        .overlay(alignment: .topLeading) {
+            if navigationPlacement == .bottom {
+                bottomNavigationKeyboardShortcuts
+            }
+        }
     }
 
     @ViewBuilder
@@ -159,24 +168,54 @@ struct HQDashboardView: View {
             HStack(spacing: 0) {
                 navigationPane(edge: .leading)
                 Divider()
-                detailContent
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                centeredDetailContent
             }
         case .right:
             HStack(spacing: 0) {
-                detailContent
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                centeredDetailContent
                 Divider()
                 navigationPane(edge: .trailing)
             }
         case .bottom:
             VStack(spacing: 0) {
-                detailContent
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                centeredDetailContent
                 Divider()
                 bottomNavigationBar
             }
         }
+    }
+
+    private var centeredDetailContent: some View {
+        detailContent
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+    }
+
+    private var bottomNavigationKeyboardShortcuts: some View {
+        Group {
+            Button(action: selectPreviousSection) { EmptyView() }
+                .keyboardShortcut(.leftArrow, modifiers: [])
+            Button(action: selectNextSection) { EmptyView() }
+                .keyboardShortcut(.rightArrow, modifiers: [])
+        }
+        .frame(width: 0, height: 0)
+        .opacity(0)
+        .accessibilityHidden(true)
+    }
+
+    private func selectPreviousSection() {
+        selectAdjacentSection(offset: -1)
+    }
+
+    private func selectNextSection() {
+        selectAdjacentSection(offset: 1)
+    }
+
+    private func selectAdjacentSection(offset: Int) {
+        guard navigationPlacement == .bottom,
+              let currentIndex = HQSection.allCases.firstIndex(of: selectedSectionValue) else { return }
+        let sections = HQSection.allCases
+        let nextIndex = (currentIndex + offset + sections.count) % sections.count
+        selectedSection = sections[nextIndex]
     }
 
     @ViewBuilder
@@ -700,18 +739,30 @@ struct HQDashboardView: View {
     }
 
     private var bottomNavigationBar: some View {
-        VStack(spacing: 0) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(HQSection.allCases) { section in
-                        bottomNavigationButton(for: section)
+        GeometryReader { geometry in
+            ScrollViewReader { proxy in
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(HQSection.allCases) { section in
+                            bottomNavigationButton(for: section)
+                                .id(section)
+                        }
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .frame(minWidth: geometry.size.width, alignment: .center)
+                }
+                .onAppear {
+                    proxy.scrollTo(selectedSectionValue, anchor: .center)
+                }
+                .onChange(of: selectedSectionValue) { section in
+                    withAnimation(.easeInOut(duration: 0.18)) {
+                        proxy.scrollTo(section, anchor: .center)
                     }
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
             }
         }
-        .frame(minHeight: 72)
+        .frame(height: 72)
         .background(.ultraThinMaterial)
     }
 
