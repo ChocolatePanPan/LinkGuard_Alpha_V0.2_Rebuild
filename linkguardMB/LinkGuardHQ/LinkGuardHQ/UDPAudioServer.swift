@@ -58,6 +58,14 @@ final class UDPAudioServer: ObservableObject, @unchecked Sendable {
     private var recognitionTasks: [String: SFSpeechRecognitionTask] = [:]
     private let audioEngine = AVAudioEngine()
 
+    // 本地播放（16 kHz mono Int16 PCM -> Float32）
+    private var playbackEngine: AVAudioEngine?
+    private var playerNode: AVAudioPlayerNode?
+    private let playbackFormat = AVAudioFormat(commonFormat: .pcmFormatFloat32,
+                                               sampleRate: 16000,
+                                               channels: 1,
+                                               interleaved: false)!
+
     private var silenceTimer: Timer?
 
     // MARK: - 外部音訊輸入（LGAP TCP 串流轉發）
@@ -184,6 +192,7 @@ final class UDPAudioServer: ObservableObject, @unchecked Sendable {
         }
 
         listener?.start(queue: queue)
+        startPlaybackEngine()
         startSilenceDetection()
     }
 
@@ -239,6 +248,8 @@ final class UDPAudioServer: ObservableObject, @unchecked Sendable {
                     audioData: packet.audioData,
                     deviceID: packet.deviceID
                 )
+
+                self.playLocallyIfNeeded(audioData: packet.audioData, deviceID: packet.deviceID)
 
                 // 更新狀態為 listening
                 DispatchQueue.main.async {
@@ -296,6 +307,61 @@ final class UDPAudioServer: ObservableObject, @unchecked Sendable {
             guard id != excludeID else { continue }
             connection.send(content: data, contentContext: .finalMessage, isComplete: true, completion: .idempotent)
         }
+    }
+
+    // MARK: - 本地播放
+
+    private func startPlaybackEngine() {
+        guard playbackEngine == nil else { return }
+
+        let engine = AVAudioEngine()
+        let player = AVAudioPlayerNode()
+
+        engine.attach(player)
+        engine.connect(player, to: engine.mainMixerNode, format: playbackFormat)
+
+        do {
+            try engine.start()
+            player.play()
+            playbackEngine = engine
+            playerNode = player
+        } catch {
+            print("[UDPAudioServer] 本地播放啟動失敗: \(error)")
+        }
+    }
+
+    private func stopPlaybackEngine() {
+        playerNode?.stop()
+        playbackEngine?.stop()
+        playerNode = nil
+        playbackEngine = nil
+    }
+
+    private func playLocallyIfNeeded(audioData: Data, deviceID: String) {
+        guard isLocalPlaybackEnabled else { return }
+        guard deviceID != "HQ" else { return }
+        guard audioData.count >= 2 else { return }
+
+        startPlaybackEngine()
+
+        let frameCount = audioData.count / MemoryLayout<Int16>.size
+        guard let buffer = AVAudioPCMBuffer(
+            pcmFormat: playbackFormat,
+            frameCapacity: AVAudioFrameCount(frameCount)
+        ) else { return }
+
+        buffer.frameLength = AVAudioFrameCount(frameCount)
+        guard let channel = buffer.floatChannelData?[0] else { return }
+
+        audioData.withUnsafeBytes { rawBuffer in
+            let samples = rawBuffer.bindMemory(to: Int16.self)
+            for index in 0..<frameCount {
+                channel[index] = Float(samples[index]) / Float(Int16.max)
+            }
+        }
+
+        playerNode?.volume = Float(playbackVolume)
+        playerNode?.scheduleBuffer(buffer, completionHandler: nil)
     }
 
     // MARK: - 第一層：Apple Speech 即時辨識
@@ -553,6 +619,7 @@ final class UDPAudioServer: ObservableObject, @unchecked Sendable {
         recognitionRequests.removeAll()
         recognitionTasks.values.forEach { $0.cancel() }
         recognitionTasks.removeAll()
+        stopPlaybackEngine()
         audioBuffers.removeAll()
         lastPacketTime.removeAll()
         if Thread.isMainThread {

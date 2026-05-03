@@ -168,6 +168,11 @@ class LinkGuardViewModel: ObservableObject {
     /// 正在播放的報告 ID
     @Published var playingReportId: String?
     private var radioAudioPlayer: AVAudioPlayer?
+    @Published var callInvites: [CallInvite] = []
+    @Published var incomingCallInvite: CallInvite?
+    @Published var activeCallSession: CallSession?
+    @Published var isCallRinging = false
+    let callAudioManager = CallAudioManager()
 
     // 照片回報
     @Published var photoReports: [PhotoReport] = []
@@ -284,6 +289,7 @@ class LinkGuardViewModel: ObservableObject {
     private var sosAutoDowngradeTimer: Timer?
     private var statusReportTimer: Timer?
     private var locationTimer: Timer?
+    private var callTimeoutWorkItem: DispatchWorkItem?
     private let locationManager = CLLocationManager()
     private let locationDelegate = LocationDelegate()
     private var cancellables = Set<AnyCancellable>()
@@ -343,6 +349,8 @@ class LinkGuardViewModel: ObservableObject {
         hapticTimer?.invalidate()
         sosAutoDowngradeTimer?.invalidate()
         countdownRefreshTimer?.invalidate()
+        callTimeoutWorkItem?.cancel()
+        callAudioManager.stopSession()
         commandClient.stop()
     }
 
@@ -560,6 +568,15 @@ class LinkGuardViewModel: ObservableObject {
             DispatchQueue.main.async {
                 self?.currentBroadcaster = ctrl.action == "start" ? ctrl.senderName : nil
             }
+        }
+        commandClient.onCallInvite = { [weak self] invite in
+            DispatchQueue.main.async { self?.handleIncomingCallInvite(invite) }
+        }
+        commandClient.onCallResponse = { [weak self] response in
+            DispatchQueue.main.async { self?.handleCallResponse(response) }
+        }
+        commandClient.onCallEnd = { [weak self] end in
+            DispatchQueue.main.async { self?.handleCallEnd(end) }
         }
         commandClient.onPhotoReport = { [weak self] photo in
             DispatchQueue.main.async {
@@ -1347,6 +1364,163 @@ class LinkGuardViewModel: ObservableObject {
         latestReinforcementRequest = nil
         AlarmPlayer.shared.stopAlarm()
         stopCriticalHaptics()
+    }
+
+    // MARK: - 通話
+
+    private var callDisplayName: String {
+        let dept = nodeStatus.deptCode.trimmingCharacters(in: .whitespacesAndNewlines)
+        return dept.isEmpty ? nodeStatus.nodeID : "\(dept)-\(nodeStatus.nodeID)"
+    }
+
+    func startCall(to member: TeamMember) {
+        guard commandClient.isConnected, member.isOnline, member.id != nodeStatus.nodeID else { return }
+        let invite = CallInvite(
+            initiatorID: nodeStatus.nodeID,
+            initiatorName: callDisplayName,
+            targetDeviceIDs: [member.id]
+        )
+        upsertCallInvite(invite)
+        activeCallSession = CallSession(
+            callID: invite.callID,
+            initiatorID: invite.initiatorID,
+            initiatorName: invite.initiatorName,
+            participants: [nodeStatus.nodeID, member.id],
+            status: .ringing
+        )
+        commandClient.sendCallInvite(invite)
+    }
+
+    func acceptCall(_ invite: CallInvite) {
+        stopIncomingCallAlert()
+        incomingCallInvite = nil
+        let response = CallResponse(
+            callID: invite.callID,
+            responderID: nodeStatus.nodeID,
+            responderName: callDisplayName,
+            accepted: true
+        )
+        commandClient.sendCallResponse(response)
+        let participants = Array(Set(invite.participants + [invite.initiatorID, nodeStatus.nodeID]))
+        activeCallSession = CallSession(
+            callID: invite.callID,
+            initiatorID: invite.initiatorID,
+            initiatorName: invite.initiatorName,
+            participants: participants,
+            status: .active
+        )
+        callAudioManager.startSession(
+            callID: invite.callID,
+            serverHost: transcriptionServerHost,
+            deviceID: nodeStatus.nodeID
+        )
+    }
+
+    func declineCall(_ invite: CallInvite) {
+        stopIncomingCallAlert()
+        incomingCallInvite = nil
+        let response = CallResponse(
+            callID: invite.callID,
+            responderID: nodeStatus.nodeID,
+            responderName: callDisplayName,
+            accepted: false
+        )
+        commandClient.sendCallResponse(response)
+        markCallInvite(invite.callID, status: .declined)
+    }
+
+    func endCall(reason: String = "ended") {
+        let callID = activeCallSession?.callID ?? incomingCallInvite?.callID
+        guard let callID else { return }
+        commandClient.sendCallEnd(CallEnd(callID: callID, senderID: nodeStatus.nodeID, reason: reason))
+        clearCallState(finalStatus: reason == "missed" ? .missed : .ended)
+    }
+
+    private func handleIncomingCallInvite(_ invite: CallInvite) {
+        guard invite.initiatorID != nodeStatus.nodeID,
+              invite.targetDeviceIDs.contains(nodeStatus.nodeID),
+              !invite.isExpired else { return }
+        upsertCallInvite(invite)
+        incomingCallInvite = invite
+        isCallRinging = true
+        AlarmPlayer.shared.playAlarm()
+        startCriticalHaptics()
+        NotificationManager.shared.sendCallInviteNotification(invite)
+
+        callTimeoutWorkItem?.cancel()
+        let timeout = DispatchWorkItem { [weak self] in
+            DispatchQueue.main.async {
+                guard let self,
+                      self.incomingCallInvite?.callID == invite.callID else { return }
+                self.commandClient.sendCallEnd(CallEnd(callID: invite.callID, senderID: self.nodeStatus.nodeID, reason: "missed"))
+                self.clearCallState(finalStatus: .missed)
+            }
+        }
+        callTimeoutWorkItem = timeout
+        DispatchQueue.main.asyncAfter(deadline: .now() + max(1, invite.expiresAt - Date().timeIntervalSince1970), execute: timeout)
+    }
+
+    private func handleCallResponse(_ response: CallResponse) {
+        guard var session = activeCallSession,
+              session.callID == response.callID else { return }
+        if response.accepted {
+            if !session.participants.contains(response.responderID) {
+                session.participants.append(response.responderID)
+            }
+            session.status = .active
+            activeCallSession = session
+            callAudioManager.startSession(
+                callID: response.callID,
+                serverHost: transcriptionServerHost,
+                deviceID: nodeStatus.nodeID
+            )
+        } else {
+            session.status = .declined
+            activeCallSession = session
+            callAudioManager.stopSession()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak self] in
+                if self?.activeCallSession?.callID == response.callID {
+                    self?.activeCallSession = nil
+                }
+            }
+        }
+    }
+
+    private func handleCallEnd(_ end: CallEnd) {
+        guard incomingCallInvite?.callID == end.callID || activeCallSession?.callID == end.callID else { return }
+        clearCallState(finalStatus: end.reason == "missed" ? .missed : .ended)
+    }
+
+    private func upsertCallInvite(_ invite: CallInvite) {
+        if let index = callInvites.firstIndex(where: { $0.callID == invite.callID }) {
+            callInvites[index] = invite
+        } else {
+            callInvites.insert(invite, at: 0)
+            if callInvites.count > 50 { callInvites = Array(callInvites.prefix(50)) }
+        }
+    }
+
+    private func markCallInvite(_ callID: String, status: CallStatus) {
+        if let index = callInvites.firstIndex(where: { $0.callID == callID }) {
+            callInvites[index].status = status
+        }
+    }
+
+    private func stopIncomingCallAlert() {
+        callTimeoutWorkItem?.cancel()
+        callTimeoutWorkItem = nil
+        isCallRinging = false
+        AlarmPlayer.shared.stopAlarm()
+        stopCriticalHaptics()
+    }
+
+    private func clearCallState(finalStatus: CallStatus) {
+        let callID = activeCallSession?.callID ?? incomingCallInvite?.callID
+        stopIncomingCallAlert()
+        callAudioManager.stopSession()
+        incomingCallInvite = nil
+        activeCallSession = nil
+        if let callID { markCallInvite(callID, status: finalStatus) }
     }
 
     // MARK: - 聊天

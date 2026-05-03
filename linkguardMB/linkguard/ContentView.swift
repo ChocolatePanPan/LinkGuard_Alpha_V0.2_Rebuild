@@ -3,7 +3,7 @@ import SwiftUI
 // MARK: - Main View
 
 enum AppTab: Hashable {
-    case dashboard, victims, sos, disaster, chat, reinforcement, team, commands, notifications, radio, connection, patientForm, decision, translator, photo, personnelAssignment, ai
+    case dashboard, victims, sos, disaster, chat, call, reinforcement, team, commands, notifications, radio, connection, patientForm, decision, translator, photo, personnelAssignment, ai
 }
 
 struct ContentView: View {
@@ -31,6 +31,9 @@ struct ContentView: View {
                         FieldChatView(vm: viewModel)
                     }
                     .badge(viewModel.chatMessages.count)
+                    Tab(L("通話"), systemImage: "phone.fill", value: AppTab.call) {
+                        FieldCallView(vm: viewModel)
+                    }
                     Tab(navLabel("指揮命令", en: "Orders"), systemImage: "brain.head.profile", value: AppTab.decision) {
                         DecisionView(vm: viewModel)
                     }
@@ -139,6 +142,19 @@ struct ContentView: View {
                 .zIndex(98)
             }
 
+            if let invite = viewModel.incomingCallInvite {
+                IncomingCallOverlay(
+                    invite: invite,
+                    onAccept: {
+                        viewModel.acceptCall(invite)
+                        selectedTab = .call
+                    },
+                    onDecline: { viewModel.declineCall(invite) }
+                )
+                .transition(.opacity)
+                .zIndex(99)
+            }
+
             // 全螢幕 SOS 警報覆蓋層
             if let victim = viewModel.latestSOSVictim {
                 SOSAlertOverlay(victim: victim) {
@@ -182,6 +198,7 @@ struct ContentView: View {
         .animation(.easeInOut(duration: 0.3), value: viewModel.latestSOSVictim != nil)
         .animation(.easeInOut(duration: 0.3), value: viewModel.latestCriticalCommand != nil)
         .animation(.easeInOut(duration: 0.3), value: viewModel.latestReinforcementRequest != nil)
+        .animation(.easeInOut(duration: 0.3), value: viewModel.incomingCallInvite != nil)
         .animation(.easeInOut(duration: 0.3), value: viewModel.urgentBroadcast != nil)
         .animation(.easeInOut(duration: 0.3), value: viewModel.activePatientWarning != nil)
         .animation(.easeInOut(duration: 0.3), value: externalAlarm != nil)
@@ -214,6 +231,7 @@ struct ExternalAlarmPresentation: Identifiable, Equatable {
         case "sos": return .sos
         case "decision": return .decision
         case "victims": return .victims
+        case "call": return .call
         default: return .notifications
         }
     }
@@ -224,6 +242,7 @@ struct ExternalAlarmPresentation: Identifiable, Equatable {
         case "COMMAND_ORDER", "DECISION": return "exclamationmark.triangle.fill"
         case "PATIENT_WARNING": return "waveform.path.ecg"
         case "PWS_ALERT": return "antenna.radiowaves.left.and.right"
+        case "CALL_INVITE": return "phone.fill"
         default: return "bell.badge.fill"
         }
     }

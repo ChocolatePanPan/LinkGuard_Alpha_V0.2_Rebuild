@@ -14,6 +14,7 @@ enum HQSection: String, CaseIterable, Identifiable {
     case victimOverview = "受困者總覽"
     case personnel = "人員配置"
     case chat = "通訊頻道"
+    case call = "通話"
     case pws = "PWS 警報"
     case briefing = "會報系統"
     case notification = "個人通知"
@@ -43,6 +44,7 @@ enum HQSection: String, CaseIterable, Identifiable {
         .resources,
         .photoWall,
         .chat,
+        .call,
         .broadcast,
         .radio,
         .pws,
@@ -72,6 +74,7 @@ enum HQSection: String, CaseIterable, Identifiable {
         case .victimOverview: return "person.fill.questionmark"
         case .personnel: return "person.badge.plus"
         case .chat: return "bubble.left.and.bubble.right.fill"
+        case .call: return "phone.fill"
         case .pws: return "exclamationmark.triangle.fill"
         case .briefing: return "doc.text.fill"
         case .notification: return "bell.fill"
@@ -395,6 +398,7 @@ struct HQDashboardView: View {
             case .victimOverview: HQVictimOverviewView(vm: vm)
             case .personnel: HQPersonnelView(vm: vm)
             case .chat: HQChatView(vm: vm)
+            case .call: HQCallView(vm: vm)
             case .pws: HQPWSView(vm: vm)
             case .briefing: HQBriefingView(vm: vm)
             case .notification: HQNotificationView(vm: vm)
@@ -942,6 +946,7 @@ struct HQDashboardView: View {
         case .victimOverview: return NV.warning
         case .personnel: return NV.info
         case .chat: return NV.command
+        case .call: return NV.command
         case .pws: return NV.danger
         case .briefing: return NV.team
         case .notification: return NV.reinforce
