@@ -158,6 +158,8 @@ struct PhotoReportView: View {
             }) {
                 CameraPickerView(image: $selectedImage, videoURL: $selectedVideoURL,
                                  videoThumbnail: $videoThumbnail, isVideo: $isVideo)
+                    .background(Color.black)
+                    .ignoresSafeArea()
             }
             .onChange(of: selectedItems) { _, newItems in
                 guard let item = newItems.first else { return }
@@ -814,8 +816,12 @@ final class PhotoReportCameraViewController: UIViewController, AVCapturePhotoCap
     }
 
     private func setupPreviewLayer() {
+        previewLayer.backgroundColor = UIColor.black.cgColor
+        previewLayer.masksToBounds = true
         previewLayer.videoGravity = .resizeAspectFill
         previewLayer.session = session
+        previewLayer.setAffineTransform(.identity)
+        previewLayer.transform = CATransform3DIdentity
         view.layer.addSublayer(previewLayer)
     }
 
@@ -1079,10 +1085,15 @@ final class PhotoReportCameraViewController: UIViewController, AVCapturePhotoCap
     }
 
     private func lockPreviewOrientation() {
+        previewLayer.setAffineTransform(.identity)
+        previewLayer.transform = CATransform3DIdentity
         guard let connection = previewLayer.connection,
               connection.isVideoOrientationSupported
         else { return }
         connection.videoOrientation = .portrait
+        if #available(iOS 17.0, *), connection.isVideoRotationAngleSupported(0) {
+            connection.videoRotationAngle = 0
+        }
     }
 
     private func updatePreviewMirroring() {
@@ -1136,6 +1147,7 @@ private final class PhotoReportCameraControlsView: UIView {
     private let captureButton = UIButton(type: .custom)
     private let flipButton = UIButton(type: .system)
     private let modeControl = UISegmentedControl(items: [L("照片"), L("影片")])
+    private let actionStack = UIStackView()
     private var portraitConstraints: [NSLayoutConstraint] = []
     private var landscapeConstraints: [NSLayoutConstraint] = []
     private var captureMode: PhotoReportCaptureMode = .photo
@@ -1158,8 +1170,12 @@ private final class PhotoReportCameraControlsView: UIView {
         guard isLandscape != isLandscapeLayout || portraitConstraints.allSatisfy({ !$0.isActive }) && landscapeConstraints.allSatisfy({ !$0.isActive }) else { return }
         isLandscapeLayout = isLandscape
         NSLayoutConstraint.deactivate(isLandscape ? portraitConstraints : landscapeConstraints)
+        actionStack.axis = isLandscape ? .vertical : .horizontal
+        actionStack.alignment = .center
+        actionStack.distribution = .fill
+        actionStack.spacing = isLandscape ? 18 : 42
         NSLayoutConstraint.activate(isLandscape ? landscapeConstraints : portraitConstraints)
-        panel.layer.cornerRadius = isLandscape ? 0 : 22
+        panel.layer.cornerRadius = 0
         setNeedsLayout()
     }
 
@@ -1235,10 +1251,17 @@ private final class PhotoReportCameraControlsView: UIView {
         panel.layer.cornerRadius = 22
         addSubview(panel)
 
-        [flashButton, captureButton, flipButton, modeControl].forEach {
+        [flashButton, captureButton, flipButton, modeControl, actionStack].forEach {
             $0.translatesAutoresizingMaskIntoConstraints = false
-            addSubview($0)
         }
+
+        actionStack.axis = .horizontal
+        actionStack.alignment = .center
+        actionStack.distribution = .fill
+        actionStack.spacing = 42
+        [flashButton, captureButton, flipButton].forEach { actionStack.addArrangedSubview($0) }
+        addSubview(actionStack)
+        addSubview(modeControl)
 
         configureIconButton(flashButton, image: flashImage(for: flashMode))
         configureIconButton(flipButton, image: UIImage(systemName: "camera.rotate.fill"))
@@ -1272,6 +1295,8 @@ private final class PhotoReportCameraControlsView: UIView {
         let safe = safeAreaLayoutGuide
         let captureSize: CGFloat = 72
         let smallButtonSize: CGFloat = 50
+        let landscapeStackCenterY = actionStack.centerYAnchor.constraint(equalTo: safe.centerYAnchor)
+        landscapeStackCenterY.priority = .defaultHigh
 
         NSLayoutConstraint.activate([
             captureButton.widthAnchor.constraint(equalToConstant: captureSize),
@@ -1287,16 +1312,15 @@ private final class PhotoReportCameraControlsView: UIView {
             panel.leadingAnchor.constraint(equalTo: leadingAnchor),
             panel.trailingAnchor.constraint(equalTo: trailingAnchor),
             panel.bottomAnchor.constraint(equalTo: bottomAnchor),
-            panel.heightAnchor.constraint(equalToConstant: 158),
-            modeControl.centerXAnchor.constraint(equalTo: centerXAnchor),
-            modeControl.topAnchor.constraint(equalTo: panel.topAnchor, constant: 12),
+            panel.heightAnchor.constraint(equalToConstant: 190),
+            actionStack.centerXAnchor.constraint(equalTo: centerXAnchor),
+            actionStack.leadingAnchor.constraint(greaterThanOrEqualTo: safe.leadingAnchor, constant: 24),
+            actionStack.trailingAnchor.constraint(lessThanOrEqualTo: safe.trailingAnchor, constant: -24),
+            actionStack.bottomAnchor.constraint(equalTo: safe.bottomAnchor, constant: -18),
+            modeControl.centerXAnchor.constraint(equalTo: captureButton.centerXAnchor),
+            modeControl.bottomAnchor.constraint(equalTo: captureButton.topAnchor, constant: -16),
             modeControl.widthAnchor.constraint(equalToConstant: 220),
-            captureButton.centerXAnchor.constraint(equalTo: centerXAnchor),
-            captureButton.bottomAnchor.constraint(equalTo: safe.bottomAnchor, constant: -18),
-            flashButton.centerYAnchor.constraint(equalTo: captureButton.centerYAnchor),
-            flashButton.leadingAnchor.constraint(equalTo: safe.leadingAnchor, constant: 32),
-            flipButton.centerYAnchor.constraint(equalTo: captureButton.centerYAnchor),
-            flipButton.trailingAnchor.constraint(equalTo: safe.trailingAnchor, constant: -32)
+            modeControl.topAnchor.constraint(greaterThanOrEqualTo: panel.topAnchor, constant: 12)
         ]
 
         landscapeConstraints = [
@@ -1304,12 +1328,10 @@ private final class PhotoReportCameraControlsView: UIView {
             panel.trailingAnchor.constraint(equalTo: trailingAnchor),
             panel.bottomAnchor.constraint(equalTo: bottomAnchor),
             panel.widthAnchor.constraint(equalToConstant: 132),
-            flashButton.centerXAnchor.constraint(equalTo: panel.centerXAnchor),
-            flashButton.topAnchor.constraint(equalTo: safe.topAnchor, constant: 56),
-            captureButton.centerXAnchor.constraint(equalTo: panel.centerXAnchor),
-            captureButton.centerYAnchor.constraint(equalTo: safe.centerYAnchor),
-            flipButton.centerXAnchor.constraint(equalTo: panel.centerXAnchor),
-            flipButton.bottomAnchor.constraint(equalTo: modeControl.topAnchor, constant: -18),
+            actionStack.centerXAnchor.constraint(equalTo: panel.centerXAnchor),
+            actionStack.topAnchor.constraint(greaterThanOrEqualTo: safe.topAnchor, constant: 44),
+            actionStack.bottomAnchor.constraint(lessThanOrEqualTo: modeControl.topAnchor, constant: -18),
+            landscapeStackCenterY,
             modeControl.centerXAnchor.constraint(equalTo: panel.centerXAnchor),
             modeControl.bottomAnchor.constraint(equalTo: safe.bottomAnchor, constant: -18),
             modeControl.widthAnchor.constraint(equalToConstant: 108)
