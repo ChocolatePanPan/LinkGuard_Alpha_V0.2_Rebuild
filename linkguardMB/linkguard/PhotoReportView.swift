@@ -797,7 +797,7 @@ final class PhotoReportCameraViewController: UIViewController, AVCapturePhotoCap
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         previewLayer.frame = view.bounds
-        lockPreviewOrientation()
+        updatePreviewOrientation()
         CATransaction.commit()
         updateForCurrentOrientation(animated: false)
     }
@@ -913,7 +913,7 @@ final class PhotoReportCameraViewController: UIViewController, AVCapturePhotoCap
         }
 
         session.commitConfiguration()
-        lockPreviewOrientation()
+        updatePreviewOrientation()
         updatePreviewMirroring()
         controlsView.setFlashAvailable(activeDevice?.hasFlash == true)
         controlsView.setCameraSwitchAvailable(canSwitchCamera)
@@ -1007,7 +1007,7 @@ final class PhotoReportCameraViewController: UIViewController, AVCapturePhotoCap
             changed = installCameraInput(position: nextPosition)
             session.commitConfiguration()
             if changed {
-                lockPreviewOrientation()
+                updatePreviewOrientation()
                 updatePreviewMirroring()
                 controlsView.setFlashAvailable(activeDevice?.hasFlash == true)
                 controlsView.setCameraSwitchAvailable(canSwitchCamera)
@@ -1040,7 +1040,11 @@ final class PhotoReportCameraViewController: UIViewController, AVCapturePhotoCap
     }
 
     private func currentVideoOrientation() -> AVCaptureVideoOrientation {
-        switch currentInterfaceOrientation() {
+        videoOrientation(for: currentInterfaceOrientation())
+    }
+
+    private func videoOrientation(for interfaceOrientation: UIInterfaceOrientation) -> AVCaptureVideoOrientation {
+        switch interfaceOrientation {
         case .landscapeLeft:
             return .landscapeLeft
         case .landscapeRight:
@@ -1049,6 +1053,19 @@ final class PhotoReportCameraViewController: UIViewController, AVCapturePhotoCap
             return .portraitUpsideDown
         default:
             return .portrait
+        }
+    }
+
+    private func previewRotationAngle(for interfaceOrientation: UIInterfaceOrientation) -> CGFloat {
+        switch interfaceOrientation {
+        case .landscapeRight:
+            return 0
+        case .landscapeLeft:
+            return 180
+        case .portraitUpsideDown:
+            return 270
+        default:
+            return 90
         }
     }
 
@@ -1075,6 +1092,7 @@ final class PhotoReportCameraViewController: UIViewController, AVCapturePhotoCap
 
     private func updateForCurrentOrientation(animated: Bool) {
         controlsView.setLandscapeLayout(view.bounds.width > view.bounds.height)
+        updatePreviewOrientation()
         applyControlRotation(currentControlRotationAngle(), animated: animated)
     }
 
@@ -1094,25 +1112,24 @@ final class PhotoReportCameraViewController: UIViewController, AVCapturePhotoCap
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         previewLayer.frame = view.bounds
-        lockPreviewOrientation()
+        updatePreviewOrientation()
         CATransaction.commit()
     }
 
-    private func lockPreviewOrientation() {
+    private func updatePreviewOrientation() {
         previewLayer.setAffineTransform(.identity)
         previewLayer.transform = CATransform3DIdentity
-        guard let connection = previewLayer.connection,
-              connection.isVideoOrientationSupported
-        else { return }
-        let isPortraitPreview = view.bounds.height >= view.bounds.width
+        guard let connection = previewLayer.connection else { return }
+        let interfaceOrientation = currentInterfaceOrientation()
         if #available(iOS 17.0, *) {
-            let rotationAngle: CGFloat = isPortraitPreview ? 90 : 0
+            let rotationAngle = previewRotationAngle(for: interfaceOrientation)
             if connection.isVideoRotationAngleSupported(rotationAngle) {
                 connection.videoRotationAngle = rotationAngle
                 return
             }
         }
-        connection.videoOrientation = isPortraitPreview ? .landscapeRight : .portrait
+        guard connection.isVideoOrientationSupported else { return }
+        connection.videoOrientation = videoOrientation(for: interfaceOrientation)
     }
 
     private func updatePreviewMirroring() {
