@@ -42,14 +42,12 @@ struct ContentView: View {
                 Tab(L("災情"), systemImage: "building.2", value: AppTab.disaster) {
                     FieldDisasterView(vm: viewModel)
                 }
-                Tab("SOS", systemImage: "exclamationmark.triangle.fill", value: AppTab.sos) {
+                Tab("SOS", systemImage: "sos.circle.fill", value: AppTab.sos) {
                     SOSRecordListView(vm: viewModel)
                 }
                 .badge(viewModel.unacknowledgedSOSCount)
                 Tab("AI", systemImage: viewModel.isAIServicePaused ? "pause.circle" : "sparkles", value: AppTab.ai) {
-                    NavigationStack {
-                        AIHubView(vm: viewModel)
-                    }
+                    AIHubView(vm: viewModel)
                 }
                 TabSection(L("其他")) {
                     Tab(L("受困者"), systemImage: "person.fill.questionmark", value: AppTab.victims) {
@@ -85,7 +83,6 @@ struct ContentView: View {
                     }
                 }
             }
-            .tabViewStyle(.sidebarAdaptable)
             .onChange(of: selectedTab) { oldValue, newValue in
                 if newValue == .dashboard {
                     cameFromDashboard = false
@@ -359,33 +356,35 @@ struct AIHubView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            Picker("AI", selection: $mode) {
-                ForEach(AIHubMode.allCases, id: \.self) { item in
-                    Text(modeTitle(item)).tag(item)
+        NavigationStack {
+            VStack(spacing: 0) {
+                Picker("AI", selection: $mode) {
+                    ForEach(AIHubMode.allCases, id: \.self) { item in
+                        Text(modeTitle(item)).tag(item)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal, 12)
+                .padding(.top, 4)
+                .padding(.bottom, 8)
+
+                Divider()
+
+                Group {
+                    switch mode {
+                    case .communication:
+                        RadioView(vm: vm, initialMode: .aiChat, showsModePicker: false, embedsNavigationStack: false)
+                    case .assistant:
+                        FieldAIChatView(vm: vm)
+                    case .report:
+                        FieldAIReportView(vm: vm)
+                    }
                 }
             }
-            .pickerStyle(.segmented)
-            .padding(.horizontal, 12)
-            .padding(.top, 4)
-            .padding(.bottom, 8)
-
-            Divider()
-
-            Group {
-                switch mode {
-                case .communication:
-                    RadioView(vm: vm, initialMode: .aiChat, showsModePicker: false, embedsNavigationStack: false)
-                case .assistant:
-                    FieldAIChatView(vm: vm)
-                case .report:
-                    FieldAIReportView(vm: vm)
-                }
-            }
+            .navigationTitle("AI")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.visible, for: .navigationBar)
         }
-        .navigationTitle("AI")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(.visible, for: .navigationBar)
     }
 }
 
@@ -472,7 +471,7 @@ struct DashboardView: View {
                             .onTapGesture { cameFromDashboard = true; selectedTab = .victims }
                             StatCard(title: "SOS",
                                      value: "\(vm.sosVictimCount)",
-                                     icon: "exclamationmark.triangle")
+                                     icon: "sos.circle.fill")
                             .onTapGesture { cameFromDashboard = true; selectedTab = .sos }
                             StatCard(title: L("團隊"),
                                      value: "\(vm.onlineTeamCount)/\(vm.teamMembers.count)",
@@ -569,7 +568,7 @@ struct DashboardView: View {
                                 vm.sendSOS()
                             } label: {
                                 HStack(spacing: 8) {
-                                    Image(systemName: "sos")
+                                    Image(systemName: "sos.circle.fill")
                                     Text(L("SOS 緊急呼叫"))
                                         .font(.headline).bold()
                                 }
@@ -583,9 +582,9 @@ struct DashboardView: View {
                     }
                     .padding(.horizontal)
 
-                    // HQ 遠端控制面板（連線 HQ 時顯示）
+                    // 全員撤離警報（連線 HQ 時顯示）
                     if vm.commandClient.isConnected {
-                        HQRemoteControlPanel(vm: vm)
+                        EvacuationAlertButton(vm: vm)
                             .padding(.horizontal)
                     }
 
@@ -800,240 +799,41 @@ struct DashboardView: View {
     }
 }
 
-// MARK: - HQ 遠端控制面板
+// MARK: - 全員撤離警報
 
-/// 快速命令模板（iPad 端定義，對應 HQ 的 quickCommands）
-private struct FieldQuickCommand: Identifiable {
-    let id = UUID()
-    let type: String
-    let priority: Int
-    let title: String
-    let detail: String
-    let icon: String
-    let color: Color
-}
-
-private let fieldQuickCommands: [FieldQuickCommand] = [
-    FieldQuickCommand(type: "search", priority: 0, title: L("開始搜索"),
-                      detail: L("請全體搜索隊伍開始展開各分區搜索作業"),
-                      icon: "magnifyingglass", color: NV.info),
-    FieldQuickCommand(type: "standby", priority: 0, title: L("原地待命"),
-                      detail: L("暫停所有作業，等待進一步指令"),
-                      icon: "pause.circle.fill", color: NV.warning),
-    FieldQuickCommand(type: "evacuation", priority: 2, title: L("全員撤離"),
-                      detail: L("發布撤離命令，所有人員立即撤離至集結點"),
-                      icon: "arrow.uturn.backward.circle.fill", color: NV.danger),
-    FieldQuickCommand(type: "report", priority: 0, title: L("回報現況"),
-                      detail: L("各隊伍請回報目前人員位置及搜索進度"),
-                      icon: "doc.text.fill", color: NV.command),
-    FieldQuickCommand(type: "support", priority: 1, title: L("請求醫療支援"),
-                      detail: L("需要醫療人員至指定地點進行傷患處理"),
-                      icon: "cross.fill", color: NV.danger),
-    FieldQuickCommand(type: "support", priority: 1, title: L("請求重機具"),
-                      detail: L("需要吊車或破碎機至現場協助排除障礙"),
-                      icon: "wrench.and.screwdriver.fill", color: NV.reinforce),
-    FieldQuickCommand(type: "rotate", priority: 0, title: L("輪替休息"),
-                      detail: L("外圍待命隊接手，前線隊伍後撤休息補水"),
-                      icon: "arrow.2.squarepath", color: NV.team),
-    FieldQuickCommand(type: "assembly", priority: 0, title: L("集合點報"),
-                      detail: L("全體人員至集結點集合進行人員清點"),
-                      icon: "person.3.sequence.fill", color: NV.green),
-    FieldQuickCommand(type: "hazard", priority: 1, title: L("危險警告"),
-                      detail: L("偵測到結構不穩/瓦斯外洩，請注意安全"),
-                      icon: "exclamationmark.shield.fill", color: NV.danger),
-    FieldQuickCommand(type: "comm_check", priority: 0, title: L("通訊測試"),
-                      detail: L("各隊伍確認通訊是否正常，依序回報"),
-                      icon: "antenna.radiowaves.left.and.right", color: NV.info),
-]
-
-struct HQRemoteControlPanel: View {
+struct EvacuationAlertButton: View {
     @ObservedObject var vm: LinkGuardViewModel
-    @State private var isExpanded = false
-    @State private var timerTitle = ""
-    @State private var timerMinutes = ""
-    @State private var taskTitle = ""
-    @State private var taskDetail = ""
-    @State private var taskAssigneeID = ""
-    @State private var taskAssigneeName = ""
-    @State private var taskZone = ""
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // 標題列（點擊展開/收合）
-            Button {
-                withAnimation(.easeInOut(duration: 0.25)) { isExpanded.toggle() }
-            } label: {
-                HStack {
-                    Image(systemName: "antenna.radiowaves.left.and.right")
-                        .foregroundColor(NV.green)
-                    Text(L("HQ 指揮控制"))
-                        .font(.headline).bold()
-                    Spacer()
-                    Text(L("已連線指揮中心"))
-                        .font(.caption).foregroundColor(NV.green)
-                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .font(.caption).foregroundColor(.secondary)
-                }
-            }
-            .tint(.primary)
-
-            if isExpanded {
-                // 快速命令
-                quickCommandSection
-
-                Divider()
-
-                // 倒數計時器
-                timerSection
-
-                Divider()
-
-                // 任務指派
-                taskAssignmentSection
-            }
-        }
-        .padding()
-        .glassEffect(.regular, in: .rect(cornerRadius: 16))
-    }
-
-    // MARK: - 快速命令
-
-    private var quickCommandSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Label(L("快速命令"), systemImage: "bolt.fill")
-                .font(.subheadline).bold()
-
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-                ForEach(fieldQuickCommands) { qc in
-                    Button {
-                        vm.sendHQQuickCommand(
-                            type: qc.type, priority: qc.priority,
-                            title: qc.title, detail: qc.detail,
-                            sender: "\(vm.nodeStatus.deptCode)-\(vm.nodeStatus.nodeID)"
-                        )
-                    } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: qc.icon)
-                            Text(qc.title).font(.caption).bold()
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 8)
-                    }
-                    .buttonStyle(.bordered)
-                    .tint(qc.color)
-                }
-            }
-        }
-    }
-
-    // MARK: - 倒數計時器
-
-    private var timerSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label(L("倒數計時器"), systemImage: "timer")
-                .font(.subheadline).bold()
-
-            HStack {
-                TextField(L("計時器名稱"), text: $timerTitle)
-                    .textFieldStyle(.roundedBorder)
-                TextField(L("分鐘"), text: $timerMinutes)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(width: 60)
-                    #if os(iOS)
-                    .keyboardType(.numberPad)
-                    #endif
-            }
-
             Button {
-                let mins = Int(timerMinutes) ?? 5
-                vm.startHQTimer(
-                    title: timerTitle.isEmpty ? L("計時器") : timerTitle,
-                    durationSeconds: mins * 60
+                vm.sendHQQuickCommand(
+                    type: "evacuation",
+                    priority: 2,
+                    title: L("全員撤離"),
+                    detail: L("發布撤離命令，所有人員立即撤離至集結點"),
+                    sender: "\(vm.nodeStatus.deptCode)-\(vm.nodeStatus.nodeID)"
                 )
-                timerTitle = ""; timerMinutes = ""
             } label: {
-                HStack {
-                    Image(systemName: "play.fill")
-                    Text(L("啟動計時器")).bold()
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 6)
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(NV.warning)
-
-            // 快速計時按鈕
-            HStack(spacing: 8) {
-                ForEach([5, 10, 15, 30], id: \.self) { mins in
-                    Button(L("%lld 分", mins)) {
-                        vm.startHQTimer(title: L("%lld 分鐘計時", mins), durationSeconds: mins * 60)
-                    }
-                    .buttonStyle(.bordered)
-                    .tint(NV.info)
-                }
-            }
-
-            // 進行中計時器（含取消按鈕）
-            ForEach(vm.countdownTimers) { timer in
-                HStack {
+                HStack(spacing: 12) {
+                    Image(systemName: "figure.run.circle.fill")
+                        .font(.title2)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(timer.title).font(.caption).bold()
-                        Text(timer.isExpired ? L("已到期") : L("剩餘 %@", timer.remainingText))
-                            .font(.caption2)
-                            .foregroundColor(timer.isExpired ? NV.danger : .secondary)
+                        Text(L("全員撤離"))
+                            .font(.headline).bold()
+                        Text(L("發布撤離警報，通知所有人員立即撤離至集結點"))
+                            .font(.caption)
+                            .lineLimit(2)
                     }
-                    Spacer()
-                    Text(timer.remainingText)
-                        .font(.callout).bold().monospacedDigit()
-                    Button { vm.cancelHQTimer(timer.id) } label: {
-                        Image(systemName: "xmark.circle")
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundColor(NV.danger)
+                    Spacer(minLength: 8)
+                    Image(systemName: "bell.and.waves.left.and.right.fill")
+                        .font(.title3)
                 }
-            }
-        }
-    }
-
-    // MARK: - 任務指派
-
-    private var taskAssignmentSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label(L("任務指派"), systemImage: "checklist")
-                .font(.subheadline).bold()
-
-            TextField(L("任務標題"), text: $taskTitle)
-                .textFieldStyle(.roundedBorder)
-            TextField(L("任務詳情（選填）"), text: $taskDetail)
-                .textFieldStyle(.roundedBorder)
-            HStack {
-                TextField(L("指派對象 ID"), text: $taskAssigneeID)
-                    .textFieldStyle(.roundedBorder)
-                TextField(L("對象名稱"), text: $taskAssigneeName)
-                    .textFieldStyle(.roundedBorder)
-            }
-            TextField(L("區域"), text: $taskZone)
-                .textFieldStyle(.roundedBorder)
-
-            Button {
-                vm.assignHQTask(
-                    title: taskTitle, detail: taskDetail,
-                    assigneeID: taskAssigneeID, assigneeName: taskAssigneeName,
-                    zone: taskZone
-                )
-                taskTitle = ""; taskDetail = ""; taskAssigneeID = ""
-                taskAssigneeName = ""; taskZone = ""
-            } label: {
-                HStack {
-                    Image(systemName: "paperplane.fill")
-                    Text(L("指派任務")).bold()
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 6)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding()
             }
             .buttonStyle(.borderedProminent)
-            .tint(NV.warning)
-            .disabled(taskTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            .tint(NV.danger)
         }
     }
 }
@@ -1502,7 +1302,7 @@ struct SOSRecordRow: View {
                 .font(.title3)
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(record.victimID).font(.headline)
+                Text(record.displayTitle).font(.headline)
                 HStack(spacing: 4) {
                     Text(record.timeText)
                     Text("·")
@@ -1511,6 +1311,18 @@ struct SOSRecordRow: View {
                     Text("~\(record.distance)")
                 }
                 .font(.caption).foregroundColor(.secondary)
+
+                if !record.message.isEmpty {
+                    SOSRecordInfoLine(icon: "text.bubble", text: record.message)
+                }
+
+                if !record.locationDescription.isEmpty {
+                    SOSRecordInfoLine(icon: "mappin.and.ellipse", text: record.locationDescription)
+                }
+
+                if let coordinateText = record.coordinateText {
+                    SOSRecordInfoLine(icon: "location", text: coordinateText)
+                }
             }
 
             Spacer()
@@ -1527,6 +1339,18 @@ struct SOSRecordRow: View {
             }
         }
         .padding(.vertical, 4)
+    }
+}
+
+private struct SOSRecordInfoLine: View {
+    let icon: String
+    let text: String
+
+    var body: some View {
+        Label(text, systemImage: icon)
+            .font(.caption2)
+            .foregroundColor(.secondary)
+            .lineLimit(2)
     }
 }
 

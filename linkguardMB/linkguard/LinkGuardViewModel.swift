@@ -638,12 +638,26 @@ class LinkGuardViewModel: ObservableObject {
             DispatchQueue.main.async {
                 guard let self else { return }
                 let data = json["data"] as? [String: Any] ?? json
+                let sosId = data["sos_id"] as? String ?? data["id"] as? String ?? ""
                 let senderName = data["sender_name"] as? String ?? data["senderName"] as? String ?? L("未知")
                 let deviceId = data["device_id"] as? String ?? data["deviceID"] as? String ?? ""
+                let message = data["message"] as? String ?? data["msg"] as? String ?? ""
+                let locationDescription = data["location_desc"] as? String
+                    ?? data["locationDescription"] as? String
+                    ?? data["location"] as? String
+                    ?? ""
+                let latitude = Self.doubleValue(from: data["lat"] ?? data["latitude"])
+                let longitude = Self.doubleValue(from: data["lon"] ?? data["lng"] ?? data["longitude"])
                 // 加入 SOS 記錄 
                 let record = SOSRecord(
                     id: UUID(),
+                    sosID: sosId,
                     victimID: deviceId.isEmpty ? senderName : deviceId,
+                    senderName: senderName,
+                    message: message,
+                    locationDescription: locationDescription,
+                    latitude: latitude,
+                    longitude: longitude,
                     heartRate: 0,
                     rssi: 0,
                     distance: L("未知"),
@@ -673,6 +687,7 @@ class LinkGuardViewModel: ObservableObject {
                 // 標記對應 SOS 為已確認
                 if let idx = self.sosRecords.firstIndex(where: {
                     (!$0.isAcknowledged) && (
+                        (!sosId.isEmpty && $0.sosID == sosId) ||
                         (!deviceId.isEmpty && $0.victimID == deviceId) ||
                         (deviceId.isEmpty && !sosId.isEmpty && $0.victimID == sosId)
                     )
@@ -1178,6 +1193,13 @@ class LinkGuardViewModel: ObservableObject {
         if !isSimulating {
             stopCommandEngine()
         }
+    }
+
+    private static func doubleValue(from value: Any?) -> Double? {
+        if let value = value as? Double { return value }
+        if let value = value as? Int { return Double(value) }
+        if let value = value as? String { return Double(value) }
+        return nil
     }
 
     private func simulationTick() {

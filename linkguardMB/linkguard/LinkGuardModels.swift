@@ -606,13 +606,32 @@ struct RescueNodeStatus {
 
 struct SOSRecord: Identifiable {
     let id: UUID
+    var sosID: String = ""
     var victimID: String
+    var senderName: String = ""
+    var message: String = ""
+    var locationDescription: String = ""
+    var latitude: Double?
+    var longitude: Double?
     var heartRate: Int
     var rssi: Double
     var distance: String
     var battery: Int
     var time: Date
     var isAcknowledged: Bool
+
+    var displayTitle: String {
+        if !senderName.isEmpty && senderName != victimID {
+            return "\(senderName) · \(victimID)"
+        }
+        return victimID.isEmpty ? L("未知 SOS") : victimID
+    }
+
+    var coordinateText: String? {
+        guard let latitude, let longitude else { return nil }
+        guard latitude != 0 || longitude != 0 else { return nil }
+        return String(format: "%.5f, %.5f", latitude, longitude)
+    }
 
     var timeText: String {
         LGDateFormat.hms.string(from: time)
