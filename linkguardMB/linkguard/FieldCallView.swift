@@ -11,6 +11,7 @@ struct FieldCallView: View {
 private struct FieldCallContent: View {
     @ObservedObject var vm: LinkGuardViewModel
     @ObservedObject var audio: CallAudioManager
+    @Environment(\.colorScheme) private var colorScheme
 
     private var onlineMembers: [TeamMember] {
         vm.teamMembers
@@ -33,6 +34,14 @@ private struct FieldCallContent: View {
         return NV.green
     }
 
+    private var callBackground: Color {
+        colorScheme == .light ? Color(.systemGroupedBackground) : NV.bg
+    }
+
+    private var callSurface: Color {
+        colorScheme == .light ? Color(.secondarySystemGroupedBackground) : NV.surface
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -49,7 +58,7 @@ private struct FieldCallContent: View {
                 }
                 .padding(16)
             }
-            .background(NV.bg.ignoresSafeArea())
+            .background(callBackground.ignoresSafeArea())
             .navigationTitle(L("通話"))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -96,7 +105,7 @@ private struct FieldCallContent: View {
             }
         }
         .padding(14)
-        .background(NV.surface)
+        .background(callSurface)
         .cornerRadius(16)
     }
 
@@ -126,7 +135,7 @@ private struct FieldCallContent: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding(30)
-                .background(NV.surface)
+                .background(callSurface)
                 .cornerRadius(16)
             } else {
                 LazyVStack(spacing: 10) {
@@ -233,7 +242,7 @@ private struct FieldCallContent: View {
             .tint(NV.danger)
         }
         .padding(18)
-        .background(NV.surface)
+        .background(callSurface)
         .cornerRadius(16)
     }
 
@@ -260,7 +269,7 @@ private struct FieldCallContent: View {
                     Spacer()
                 }
                 .padding(14)
-                .background(NV.surface.opacity(0.72))
+                .background(callSurface.opacity(0.72))
                 .cornerRadius(12)
             } else {
                 LazyVStack(spacing: 8) {
@@ -356,6 +365,11 @@ private struct CallTargetRow: View {
     let member: TeamMember
     let canCall: Bool
     let onCall: () -> Void
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var rowSurface: Color {
+        colorScheme == .light ? Color(.secondarySystemGroupedBackground) : NV.surface
+    }
 
     var body: some View {
         HStack(spacing: 12) {
@@ -369,7 +383,7 @@ private struct CallTargetRow: View {
                 Circle()
                     .fill(member.isOnline ? NV.green : .gray)
                     .frame(width: 9, height: 9)
-                    .overlay(Circle().stroke(NV.surface, lineWidth: 2))
+                    .overlay(Circle().stroke(rowSurface, lineWidth: 2))
             }
 
             VStack(alignment: .leading, spacing: 5) {
@@ -404,7 +418,7 @@ private struct CallTargetRow: View {
             .disabled(!canCall)
         }
         .padding(12)
-        .background(NV.surface)
+        .background(rowSurface)
         .cornerRadius(14)
     }
 }
@@ -412,6 +426,11 @@ private struct CallTargetRow: View {
 private struct RecentCallRow: View {
     let invite: CallInvite
     let timeText: String
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var rowSurface: Color {
+        colorScheme == .light ? Color(.secondarySystemGroupedBackground) : NV.surface
+    }
 
     private var color: Color {
         switch invite.status {
@@ -460,7 +479,7 @@ private struct RecentCallRow: View {
             }
         }
         .padding(10)
-        .background(NV.surface.opacity(0.7))
+        .background(rowSurface.opacity(0.7))
         .cornerRadius(12)
     }
 }
@@ -470,10 +489,15 @@ struct IncomingCallOverlay: View {
     let onAccept: () -> Void
     let onDecline: () -> Void
     @State private var pulse = false
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var overlayBackground: Color {
+        colorScheme == .light ? Color(.systemBackground).opacity(0.97) : NV.bg.opacity(0.96)
+    }
 
     var body: some View {
         ZStack {
-            NV.bg.opacity(0.96)
+            overlayBackground
                 .ignoresSafeArea()
 
             VStack(spacing: 26) {
