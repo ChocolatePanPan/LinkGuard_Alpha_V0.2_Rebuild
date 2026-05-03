@@ -80,7 +80,7 @@ struct ContentView: View {
                     Tab(L("照片"), systemImage: "photo.on.rectangle.angled", value: AppTab.photo) {
                         PhotoReportView(vm: viewModel)
                     }
-                    Tab(L("連線"), systemImage: "link", value: AppTab.connection) {
+                    Tab(L("設定"), systemImage: "gearshape", value: AppTab.connection) {
                         ConnectionView(vm: viewModel)
                     }
                 }
@@ -1932,7 +1932,7 @@ struct ConnectionView: View {
                     .pickerStyle(.segmented)
                 }
             }
-            .navigationTitle(L("連線管理"))
+            .navigationTitle(L("設定"))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.visible, for: .navigationBar)
