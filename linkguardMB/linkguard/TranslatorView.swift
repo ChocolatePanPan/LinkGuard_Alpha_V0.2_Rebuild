@@ -103,18 +103,9 @@ struct TranslatorView: View {
             }
             .navigationTitle(L("翻譯"))
             #if os(iOS)
-            .toolbarVisibility(.hidden, for: .navigationBar)
+            .navigationBarTitleDisplayMode(.inline)
             #endif
             .contentMargins(.top, 0, for: .scrollContent)
-            .safeAreaInset(edge: .top) {
-                HStack {
-                    Text(L("翻譯"))
-                        .font(.title2).bold()
-                    Spacer()
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-            }
         }
         .onChange(of: vm.latestTranslation?.translated) { _, _ in
             isTranslating = false

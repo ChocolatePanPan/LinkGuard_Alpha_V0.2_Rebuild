@@ -30,7 +30,7 @@ struct PersonnelAssignmentView: View {
             }
             .navigationTitle(L("人員指派"))
             #if os(iOS)
-            .toolbarVisibility(.hidden, for: .navigationBar)
+            .navigationBarTitleDisplayMode(.inline)
             #endif
             .sheet(isPresented: $showAssignSheet) {
                 AssignPersonnelSheet(vm: vm, editing: $editingAssignment)

@@ -136,7 +136,7 @@ struct PhotoReportView: View {
             }
             .navigationTitle(L("照片/影片回報"))
             #if os(iOS)
-            .toolbarVisibility(.hidden, for: .navigationBar)
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer()
@@ -147,9 +147,6 @@ struct PhotoReportView: View {
             }
             #endif
             .contentMargins(.top, 0, for: .scrollContent)
-            .safeAreaInset(edge: .top) {
-                topTitleBar
-            }
             .safeAreaInset(edge: .bottom) {
                 uploadBar
             }

@@ -82,7 +82,7 @@ struct FieldAIChatView: View {
         }
         .navigationTitle(L("AI 助理"))
         #if os(iOS)
-        .toolbarVisibility(.hidden, for: .navigationBar)
+        .navigationBarTitleDisplayMode(.inline)
         #endif
     }
 

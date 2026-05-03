@@ -142,7 +142,7 @@ struct FieldChatView: View {
             }
             .navigationTitle(L("全域通訊頻道"))
             #if os(iOS)
-            .toolbarVisibility(.hidden, for: .navigationBar)
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer()

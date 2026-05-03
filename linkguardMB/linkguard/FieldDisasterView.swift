@@ -167,7 +167,7 @@ struct FieldDisasterView: View {
                 }
             }
             #if os(iOS)
-            .toolbarVisibility(.hidden, for: .navigationBar)
+            .navigationBarTitleDisplayMode(.inline)
             #endif
             .contentMargins(.top, 0, for: .scrollContent)
             .sheet(isPresented: $showHazardReport) {
