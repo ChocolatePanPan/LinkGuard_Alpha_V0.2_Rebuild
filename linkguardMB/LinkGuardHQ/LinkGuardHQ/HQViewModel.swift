@@ -1133,13 +1133,8 @@ class HQViewModel: ObservableObject {
         logEvent(type: .chat, title: L("HQ 結束通話"), detail: reason)
     }
 
-    func startCallTransmitting() {
-        guard activeCallSession?.status == .active else { return }
-        callAudioManager.startTransmitting()
-    }
-
-    func stopCallTransmitting() {
-        callAudioManager.stopTransmitting()
+    func toggleCallMute() {
+        callAudioManager.toggleMute()
     }
 
     // MARK: - 任務指派

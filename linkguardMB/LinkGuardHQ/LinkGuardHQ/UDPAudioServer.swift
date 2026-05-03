@@ -47,6 +47,10 @@ final class UDPAudioServer: ObservableObject, @unchecked Sendable {
     private var lastPacketTime: [String: Date] = [:]
     private let silenceThreshold: TimeInterval = 2.0
 
+    // relay 到 field:9002（deviceID → IP, IP → outgoing connection）
+    private var deviceIPMap: [String: String] = [:]
+    private var relayOutgoing: [String: NWConnection] = [:]
+
     // WhisperKit（精確辨識）— 公開供 HQSpeechServer 共用
     private(set) var whisperKit: WhisperKit?
     private(set) var whisperReady = false
@@ -236,12 +240,18 @@ final class UDPAudioServer: ObservableObject, @unchecked Sendable {
                     }
                 }
 
+                // 記錄 deviceID → IP（用於 relay 到 port 9002）
+                if let senderIP = self.extractSenderIP(from: connection),
+                   senderIP != "127.0.0.1" && senderIP != "::1" {
+                    self.deviceIPMap[packet.deviceID] = senderIP
+                }
+
                 self.lastPacketTime[packet.deviceID] = Date()
                 self.audioBuffers[packet.deviceID, default: Data()]
                     .append(packet.audioData)
 
-                // 廣播給其他裝置
-                self.broadcast(data: data, excludeID: packet.deviceID)
+                // 中繼到所有其他 field 裝置的 port 9002
+                self.relayToFieldDevices(data: data, excludeDeviceID: packet.deviceID)
 
                 // 第一層：Apple Speech 即時辨識
                 self.feedToAppleSpeech(
@@ -337,12 +347,51 @@ final class UDPAudioServer: ObservableObject, @unchecked Sendable {
         return offset <= data.count - byteCount
     }
 
-    // MARK: - 廣播給其他裝置
+    // MARK: - 中繼音訊到 field 裝置 (port 9002)
 
-    private func broadcast(data: Data, excludeID: String) {
-        for (id, connection) in clientConnections {
-            guard id != excludeID else { continue }
-            connection.send(content: data, contentContext: .finalMessage, isComplete: true, completion: .idempotent)
+    private func extractSenderIP(from connection: NWConnection) -> String? {
+        if let remote = connection.currentPath?.remoteEndpoint,
+           case .hostPort(let host, _) = remote {
+            return normalizeIP("\(host)")
+        }
+        if case .hostPort(let host, _) = connection.endpoint {
+            return normalizeIP("\(host)")
+        }
+        return nil
+    }
+
+    private func normalizeIP(_ raw: String) -> String {
+        raw.components(separatedBy: "%").first ?? raw
+    }
+
+    private func relayToFieldDevices(data: Data, excludeDeviceID: String) {
+        let excludeIP = deviceIPMap[excludeDeviceID]
+        for (deviceID, ip) in deviceIPMap {
+            guard deviceID != excludeDeviceID, ip != excludeIP else { continue }
+            sendRelayPacket(data, to: ip)
+        }
+    }
+
+    private func sendRelayPacket(_ data: Data, to ip: String) {
+        if let existing = relayOutgoing[ip] {
+            existing.send(content: data, completion: .contentProcessed { _ in })
+        } else {
+            let conn = NWConnection(
+                host: NWEndpoint.Host(ip),
+                port: relayPort,
+                using: .udp
+            )
+            conn.stateUpdateHandler = { [weak self] state in
+                guard let self else { return }
+                self.queue.async {
+                    if case .failed = state {
+                        self.relayOutgoing.removeValue(forKey: ip)
+                    }
+                }
+            }
+            conn.start(queue: queue)
+            relayOutgoing[ip] = conn
+            conn.send(content: data, completion: .contentProcessed { _ in })
         }
     }
 
@@ -652,6 +701,9 @@ final class UDPAudioServer: ObservableObject, @unchecked Sendable {
         listener = nil
         clientConnections.values.forEach { $0.cancel() }
         clientConnections.removeAll()
+        relayOutgoing.values.forEach { $0.cancel() }
+        relayOutgoing.removeAll()
+        deviceIPMap.removeAll()
         recognitionRequests.values.forEach { $0.endAudio() }
         recognitionRequests.removeAll()
         recognitionTasks.values.forEach { $0.cancel() }
