@@ -43,56 +43,52 @@ import com.linkguard.app.model.*
 import com.linkguard.app.ui.components.ConnectionStatusBar
 import com.linkguard.app.ui.components.TacticalBackdrop
 import com.linkguard.app.ui.theme.NV
+import com.linkguard.app.ui.theme.NVShape
 import com.linkguard.app.viewmodel.LinkGuardViewModel
 
 // =====================================================
-//  導航定義 — 對齊 iOS TabView 結構
-//  5 底部分頁：總覽 / 通訊(section) / 災情 / SOS / 其他(section)
+//  導航定義 — 對齊 iOS TabView 結構（5 個底部分頁）
+//  順序：總覽 / 電台 / 通訊 / 指揮命令 / More
 // =====================================================
 
 private data class NavGroup(
     val label: String,
     val icon: ImageVector,
     val color: Color,
-    val tabs: List<NavTab>   // 若只有 1 個 tab 表示單一畫面，不顯示頂部子分頁列
+    val screenIndex: Int   // 主分頁直接對應的 screenIndex；More=-1 (顯示 MoreMenuScreen)
 )
 
-private data class NavTab(
-    val label: String,
-    val icon: ImageVector,
-    val screenIndex: Int
-)
+private const val SCREEN_MORE_MENU = -1
 
 private val navGroups = listOf(
-    // 0 — 總覽（單一畫面，無子分頁）
-    NavGroup("總覽", Icons.Default.Dashboard, NV.green, listOf(
-        NavTab("總覽", Icons.Default.Dashboard, 0)
-    )),
-    // 1 — 通訊 section（對齊 iOS TabSection("通訊")）
-    NavGroup("通訊", Icons.Default.Chat, NV.groupComms, listOf(
-        NavTab("電台", Icons.Default.SettingsRemote, 9),
-        NavTab("通訊", Icons.Default.Chat, 4),
-        NavTab("命令", Icons.Default.Campaign, 7)
-    )),
-    // 2 — 災情（單一畫面）
-    NavGroup("災情", Icons.Default.Domain, NV.warning, listOf(
-        NavTab("災情", Icons.Default.Domain, 3)
-    )),
-    // 3 — SOS（單一畫面）
-    NavGroup("SOS", Icons.Default.Warning, NV.danger, listOf(
-        NavTab("SOS", Icons.Default.Warning, 2)
-    )),
-    // 4 — 其他 section（對齊 iOS TabSection("其他")）
-    NavGroup("其他", Icons.Default.MoreHoriz, NV.info, listOf(
-        NavTab("受困者", Icons.Default.People, 1),
-        NavTab("增援", Icons.Default.Shield, 5),
-        NavTab("團隊", Icons.Default.Groups, 6),
-        NavTab("通知", Icons.Default.Notifications, 8),
-        NavTab("傷員", Icons.Default.LocalHospital, 10),
-        NavTab("翻譯", Icons.Default.Translate, 12),
-        NavTab("照片", Icons.Default.PhotoCamera, 13),
-        NavTab("連線", Icons.Default.Bluetooth, 14)
-    ))
+    NavGroup("總覽",     Icons.Default.Dashboard,      NV.green,       0),
+    NavGroup("電台",     Icons.Default.SettingsRemote, NV.groupComms,  9),
+    NavGroup("通訊",     Icons.Default.Chat,           NV.groupComms,  4),
+    NavGroup("指揮命令", Icons.Default.Campaign,       NV.command,     7),
+    NavGroup("More",     Icons.Default.MoreHoriz,      NV.info,        SCREEN_MORE_MENU)
+)
+
+private const val MORE_GROUP_INDEX = 4
+
+// More 列表項目（對齊 iOS More 分頁，僅包含 Android 已實作畫面）
+@Composable
+private fun buildMoreItems(
+    pendingRF: Int,
+    unreadNotifications: Int,
+    unacknowledgedSOS: Int
+): List<MoreMenuItem> = listOf(
+    MoreMenuItem("災情",       Icons.Default.Domain,        NV.warning,    3),
+    MoreMenuItem("SOS",        Icons.Default.Warning,       NV.danger,     2, badge = unacknowledgedSOS),
+    MoreMenuItem("受困者",     Icons.Default.People,        NV.green,      1),
+    MoreMenuItem("增援",       Icons.Default.Shield,        NV.reinforce,  5, badge = pendingRF),
+    MoreMenuItem("團隊",       Icons.Default.Groups,        NV.team,       6),
+    MoreMenuItem("AI 決策",    Icons.Default.Psychology,    NV.simulation, 11),
+    MoreMenuItem("通知",       Icons.Default.Notifications, NV.command,    8, badge = unreadNotifications),
+    MoreMenuItem("傷員回報",   Icons.Default.LocalHospital, NV.heartRate,  10),
+    MoreMenuItem("翻譯",       Icons.Default.Translate,     NV.info,       12),
+    MoreMenuItem("照片",       Icons.Default.PhotoCamera,   NV.green,      13),
+    MoreMenuItem("連線",       Icons.Default.Bluetooth,     NV.blue,       14),
+    MoreMenuItem("外觀",       Icons.Default.Palette,       NV.info,       15)
 )
 
 // =====================================================
@@ -104,12 +100,9 @@ private val navGroups = listOf(
 fun MainScreen(viewModel: LinkGuardViewModel, windowSizeClass: WindowSizeClass? = null) {
     val useRail = windowSizeClass?.widthSizeClass != WindowWidthSizeClass.Compact
     var selectedGroup by remember { mutableIntStateOf(0) }
-    var selectedSubTab by remember { mutableIntStateOf(0) }
+    // More 子畫面選擇：null 表顯示 More 列表；非 null 表進入子畫面（顯示返回列）
+    var moreSelection by remember { mutableStateOf<Int?>(null) }
     var cameFromDashboard by remember { mutableStateOf(false) }
-
-    // 計算當前螢幕的原始索引
-    val currentScreenIndex = navGroups[selectedGroup].tabs
-        .getOrNull(selectedSubTab)?.screenIndex ?: 0
 
     val sosVictim by viewModel.latestSOSVictim.collectAsState()
     val criticalCommand by viewModel.latestCriticalCommand.collectAsState()
@@ -124,34 +117,42 @@ fun MainScreen(viewModel: LinkGuardViewModel, windowSizeClass: WindowSizeClass? 
     val pendingRF = viewModel.pendingReinforcementCount
     val unreadNotifications by viewModel.unreadNotificationCount.collectAsState()
 
-    // 底部分頁徽章計算（對齊 iOS badge）
-    fun groupBadge(groupIndex: Int): Int = when (groupIndex) {
-        1 -> viewModel.unreadChatMessageCount + unreadCommands // 通訊 section
-        3 -> unacknowledgedSOS // SOS
-        4 -> pendingRF + unreadNotifications // 其他 section
-        else -> 0
+    val moreItems = buildMoreItems(
+        pendingRF = pendingRF,
+        unreadNotifications = unreadNotifications,
+        unacknowledgedSOS = unacknowledgedSOS
+    )
+    val moreBadgeTotal = moreItems.sumOf { it.badge }
+
+    // 計算當前螢幕索引
+    val currentScreenIndex: Int = when {
+        selectedGroup != MORE_GROUP_INDEX -> navGroups[selectedGroup].screenIndex
+        moreSelection != null -> moreSelection!!
+        else -> SCREEN_MORE_MENU
     }
 
-    // 子 Tab 徽章計算（依原始索引）
-    fun tabBadge(screenIndex: Int): Int = when (screenIndex) {
-        2 -> unacknowledgedSOS
-        4 -> viewModel.unreadChatMessageCount
-        5 -> pendingRF
-        7 -> unreadCommands
-        8 -> unreadNotifications
+    // 底部分頁徽章計算（對齊 iOS badge）
+    fun groupBadge(groupIndex: Int): Int = when (navGroups[groupIndex].screenIndex) {
+        4 -> viewModel.unreadChatMessageCount  // 通訊
+        7 -> unreadCommands                     // 指揮命令
+        SCREEN_MORE_MENU -> moreBadgeTotal      // More
         else -> 0
     }
 
     // 導航到指定螢幕索引（供 Dashboard 點擊使用）
     fun navigateToScreen(screenIndex: Int) {
-        for ((gi, group) in navGroups.withIndex()) {
-            val ti = group.tabs.indexOfFirst { it.screenIndex == screenIndex }
-            if (ti >= 0) {
-                selectedGroup = gi
-                selectedSubTab = ti
-                cameFromDashboard = true
-                return
-            }
+        val mainIdx = navGroups.indexOfFirst { it.screenIndex == screenIndex }
+        if (mainIdx >= 0) {
+            selectedGroup = mainIdx
+            moreSelection = null
+            cameFromDashboard = mainIdx != 0
+            return
+        }
+        // 落在 More 列表中
+        if (moreItems.any { it.screenIndex == screenIndex }) {
+            selectedGroup = MORE_GROUP_INDEX
+            moreSelection = screenIndex
+            cameFromDashboard = true
         }
     }
 
@@ -160,6 +161,9 @@ fun MainScreen(viewModel: LinkGuardViewModel, windowSizeClass: WindowSizeClass? 
     fun ScreenContent(modifier: Modifier = Modifier) {
         Box(modifier = modifier) {
             when (currentScreenIndex) {
+                SCREEN_MORE_MENU -> MoreMenuScreen(items = moreItems) { idx ->
+                    moreSelection = idx
+                }
                 0 -> DashboardScreen(viewModel) { index -> navigateToScreen(index) }
                 1 -> VictimListScreen(viewModel)
                 2 -> SOSRecordScreen(viewModel)
@@ -175,6 +179,7 @@ fun MainScreen(viewModel: LinkGuardViewModel, windowSizeClass: WindowSizeClass? 
                 12 -> TranslatorScreen(viewModel)
                 13 -> PhotoReportScreen(viewModel)
                 14 -> ConnectionScreen(viewModel)
+                15 -> AppearanceSettingsScreen(viewModel)
             }
         }
     }
@@ -182,76 +187,46 @@ fun MainScreen(viewModel: LinkGuardViewModel, windowSizeClass: WindowSizeClass? 
     Box(modifier = Modifier.fillMaxSize().background(NV.bg)) {
         TacticalBackdrop()
         if (useRail) {
-            // === 平板佈局: NavigationRail (群組) + Content ===
+            // === 平板佈局: NavigationRail (5 主分頁) + Content ===
             Row(modifier = Modifier.fillMaxSize()) {
                 Surface(
                     color = NV.surface,
                     shadowElevation = 6.dp,
                     tonalElevation = 2.dp
                 ) {
-                    Column(modifier = Modifier.fillMaxHeight()) {
-                        NavigationRail(
-                            containerColor = Color.Transparent,
-                            contentColor = NV.blue,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            navGroups.forEachIndexed { gi, group ->
-                                val badge = groupBadge(gi)
-                                NavigationRailItem(
-                                    selected = selectedGroup == gi,
-                                    onClick = {
-                                        selectedGroup = gi
-                                        selectedSubTab = 0
-                                        if (gi == 0) cameFromDashboard = false
-                                    },
-                                    icon = {
-                                        if (badge > 0) {
-                                            BadgedBox(badge = { Badge { Text("$badge") } }) {
-                                                Icon(group.icon, contentDescription = group.label, modifier = Modifier.size(24.dp))
-                                            }
-                                        } else {
+                    NavigationRail(
+                        containerColor = Color.Transparent,
+                        contentColor = NV.blue,
+                        modifier = Modifier.fillMaxHeight()
+                    ) {
+                        navGroups.forEachIndexed { gi, group ->
+                            val badge = groupBadge(gi)
+                            NavigationRailItem(
+                                selected = selectedGroup == gi,
+                                onClick = {
+                                    selectedGroup = gi
+                                    moreSelection = null
+                                    if (gi == 0) cameFromDashboard = false
+                                },
+                                icon = {
+                                    if (badge > 0) {
+                                        BadgedBox(badge = { Badge { Text("$badge") } }) {
                                             Icon(group.icon, contentDescription = group.label, modifier = Modifier.size(24.dp))
                                         }
-                                    },
-                                    label = { Text(group.label, fontSize = 11.sp, maxLines = 1, fontWeight = FontWeight.SemiBold) },
-                                    alwaysShowLabel = true,
-                                    colors = NavigationRailItemDefaults.colors(
-                                        selectedIconColor = group.color,
-                                        selectedTextColor = group.color,
-                                        unselectedIconColor = NV.textSecondary,
-                                        unselectedTextColor = NV.textSecondary,
-                                        indicatorColor = group.color.copy(alpha = 0.15f)
-                                    )
-                                )
-                                if (selectedGroup == gi && group.tabs.size > 1) {
-                                    // 展開子分頁（僅多畫面 section）
-                                    group.tabs.forEachIndexed { ti, tab ->
-                                        val tBadge = tabBadge(tab.screenIndex)
-                                        NavigationRailItem(
-                                            selected = selectedSubTab == ti,
-                                            onClick = { selectedSubTab = ti },
-                                            icon = {
-                                                if (tBadge > 0) {
-                                                    BadgedBox(badge = { Badge { Text("$tBadge") } }) {
-                                                        Icon(tab.icon, contentDescription = tab.label, modifier = Modifier.size(18.dp))
-                                                    }
-                                                } else {
-                                                    Icon(tab.icon, contentDescription = tab.label, modifier = Modifier.size(18.dp))
-                                                }
-                                            },
-                                            label = { Text(tab.label, fontSize = 9.sp, maxLines = 1) },
-                                            alwaysShowLabel = true,
-                                            colors = NavigationRailItemDefaults.colors(
-                                                selectedIconColor = group.color,
-                                                selectedTextColor = group.color,
-                                                unselectedIconColor = NV.textSecondary.copy(alpha = 0.7f),
-                                                unselectedTextColor = NV.textSecondary.copy(alpha = 0.7f),
-                                                indicatorColor = group.color.copy(alpha = 0.1f)
-                                            )
-                                        )
+                                    } else {
+                                        Icon(group.icon, contentDescription = group.label, modifier = Modifier.size(24.dp))
                                     }
-                                }
-                            }
+                                },
+                                label = { Text(group.label, fontSize = 11.sp, maxLines = 1, fontWeight = FontWeight.SemiBold) },
+                                alwaysShowLabel = true,
+                                colors = NavigationRailItemDefaults.colors(
+                                    selectedIconColor = group.color,
+                                    selectedTextColor = group.color,
+                                    unselectedIconColor = NV.textSecondary,
+                                    unselectedTextColor = NV.textSecondary,
+                                    indicatorColor = group.color.copy(alpha = 0.15f)
+                                )
+                            )
                         }
                     }
                 }
@@ -260,7 +235,7 @@ fun MainScreen(viewModel: LinkGuardViewModel, windowSizeClass: WindowSizeClass? 
                 }
             }
         } else {
-            // === 手機佈局: 底部群組導航 + 頂部子分頁 ===
+            // === 手機佈局: 底部 5 主分頁（單層，無頂部子分頁） ===
             Scaffold(
                 containerColor = Color.Transparent,
                 bottomBar = {
@@ -279,7 +254,7 @@ fun MainScreen(viewModel: LinkGuardViewModel, windowSizeClass: WindowSizeClass? 
                                     selected = selectedGroup == gi,
                                     onClick = {
                                         selectedGroup = gi
-                                        selectedSubTab = 0
+                                        moreSelection = null
                                         if (gi == 0) cameFromDashboard = false
                                     },
                                     icon = {
@@ -306,58 +281,6 @@ fun MainScreen(viewModel: LinkGuardViewModel, windowSizeClass: WindowSizeClass? 
                 }
             ) { padding ->
                 Column(modifier = Modifier.padding(padding)) {
-                    // 子分頁選擇列（群組色彩）
-                    val currentGroup = navGroups[selectedGroup]
-                    if (currentGroup.tabs.size > 1) {
-                        ScrollableTabRow(
-                            selectedTabIndex = selectedSubTab,
-                            containerColor = NV.surface,
-                            contentColor = currentGroup.color,
-                            edgePadding = 8.dp,
-                            divider = {},
-                            indicator = { tabPositions ->
-                                Box(Modifier.fillMaxSize()) {
-                                    if (selectedSubTab < tabPositions.size) {
-                                        Box(
-                                            Modifier
-                                                .align(Alignment.BottomStart)
-                                                .offset(x = tabPositions[selectedSubTab].left)
-                                                .width(tabPositions[selectedSubTab].width)
-                                                .height(3.dp)
-                                                .background(currentGroup.color)
-                                        )
-                                    }
-                                }
-                            }
-                        ) {
-                            currentGroup.tabs.forEachIndexed { ti, tab ->
-                                val tBadge = tabBadge(tab.screenIndex)
-                                Tab(
-                                    selected = selectedSubTab == ti,
-                                    onClick = { selectedSubTab = ti },
-                                    modifier = Modifier.defaultMinSize(minHeight = 56.dp),
-                                    text = {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                        ) {
-                                            Icon(tab.icon, contentDescription = null, modifier = Modifier.size(18.dp))
-                                            if (tBadge > 0) {
-                                                BadgedBox(badge = { Badge { Text("$tBadge") } }) {
-                                                    Text(tab.label, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                                                }
-                                            } else {
-                                                Text(tab.label, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                                            }
-                                        }
-                                    },
-                                    selectedContentColor = currentGroup.color,
-                                    unselectedContentColor = NV.textSecondary
-                                )
-                            }
-                        }
-                    }
-
                     // 螢幕內容（帶交叉淡入動畫）
                     AnimatedContent(
                         targetState = currentScreenIndex,
@@ -370,6 +293,9 @@ fun MainScreen(viewModel: LinkGuardViewModel, windowSizeClass: WindowSizeClass? 
                     ) { screenIdx ->
                         Box(modifier = Modifier.fillMaxSize()) {
                             when (screenIdx) {
+                                SCREEN_MORE_MENU -> MoreMenuScreen(items = moreItems) { idx ->
+                                    moreSelection = idx
+                                }
                                 0 -> DashboardScreen(viewModel) { index -> navigateToScreen(index) }
                                 1 -> VictimListScreen(viewModel)
                                 2 -> SOSRecordScreen(viewModel)
@@ -385,6 +311,7 @@ fun MainScreen(viewModel: LinkGuardViewModel, windowSizeClass: WindowSizeClass? 
                                 12 -> TranslatorScreen(viewModel)
                                 13 -> PhotoReportScreen(viewModel)
                                 14 -> ConnectionScreen(viewModel)
+                                15 -> AppearanceSettingsScreen(viewModel)
                             }
                         }
                     }
@@ -392,8 +319,22 @@ fun MainScreen(viewModel: LinkGuardViewModel, windowSizeClass: WindowSizeClass? 
             }
         }
 
-        // 主頁按鈕（當從 Dashboard 點進去時顯示）
-        if (currentScreenIndex != 0 && cameFromDashboard) {
+        // 返回列：More 子畫面 → 顯示「← More」；其他從 Dashboard 進入 → 「← Dashboard」
+        val showMoreBack = selectedGroup == MORE_GROUP_INDEX && moreSelection != null
+        val showDashboardBack = currentScreenIndex != 0 && cameFromDashboard && !showMoreBack
+        if (showMoreBack || showDashboardBack) {
+            val (label, color, onBack) = if (showMoreBack) {
+                Triple("More", NV.info) {
+                    moreSelection = null
+                    cameFromDashboard = false
+                }
+            } else {
+                Triple("Dashboard", NV.green) {
+                    selectedGroup = 0
+                    moreSelection = null
+                    cameFromDashboard = false
+                }
+            }
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -403,19 +344,15 @@ fun MainScreen(viewModel: LinkGuardViewModel, windowSizeClass: WindowSizeClass? 
                 Row(
                     modifier = Modifier
                         .clip(RoundedCornerShape(50))
-                        .background(NV.green.copy(alpha = 0.2f))
-                        .border(1.dp, NV.green.copy(alpha = 0.4f), RoundedCornerShape(50))
-                        .clickable {
-                            selectedGroup = 0
-                            selectedSubTab = 0
-                            cameFromDashboard = false
-                        }
+                        .background(color.copy(alpha = 0.2f))
+                        .border(1.dp, color.copy(alpha = 0.4f), RoundedCornerShape(50))
+                        .clickable { onBack() }
                         .padding(horizontal = 14.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    Icon(Icons.Default.KeyboardArrowLeft, contentDescription = "Back", tint = NV.green, modifier = Modifier.size(20.dp))
-                    Text("Dashboard", color = NV.green, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Icon(Icons.Default.KeyboardArrowLeft, contentDescription = "Back", tint = color, modifier = Modifier.size(20.dp))
+                    Text(label, color = color, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -1597,7 +1534,7 @@ fun SOSAlertOverlay(victim: VictimNode, onDismiss: () -> Unit) {
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(20.dp))
+                    .clip(NVShape.card)
                     .background(Color.White.copy(alpha = 0.15f))
                     .padding(24.dp)
             ) {
@@ -1638,7 +1575,7 @@ fun SOSAlertOverlay(victim: VictimNode, onDismiss: () -> Unit) {
                 onClick = onDismiss,
                 colors = ButtonDefaults.buttonColors(containerColor = NV.textOnColor),
                 modifier = Modifier.fillMaxWidth().widthIn(max = 400.dp).height(56.dp),
-                shape = RoundedCornerShape(16.dp)
+                shape = NVShape.card
             ) {
                 Icon(Icons.Default.CheckCircle, contentDescription = null, tint = NV.danger, modifier = Modifier.size(28.dp))
                 Spacer(modifier = Modifier.width(8.dp))
@@ -1810,7 +1747,7 @@ fun CommandAlertOverlay(command: CommandOrder, onDismiss: () -> Unit) {
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(20.dp))
+                    .clip(NVShape.card)
                     .background(Color.White.copy(alpha = 0.15f))
                     .padding(24.dp)
             ) {
@@ -1838,7 +1775,7 @@ fun CommandAlertOverlay(command: CommandOrder, onDismiss: () -> Unit) {
                 onClick = onDismiss,
                 colors = ButtonDefaults.buttonColors(containerColor = NV.textOnColor),
                 modifier = Modifier.fillMaxWidth().widthIn(max = 400.dp).height(56.dp),
-                shape = RoundedCornerShape(16.dp)
+                shape = NVShape.card
             ) {
                 Icon(Icons.Default.CheckCircle, contentDescription = null, tint = alertColor, modifier = Modifier.size(28.dp))
                 Spacer(modifier = Modifier.width(8.dp))
@@ -2072,7 +2009,7 @@ fun ReinforcementAlertOverlay(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(20.dp))
+                    .clip(NVShape.card)
                     .background(Color.White.copy(alpha = 0.15f))
                     .padding(24.dp)
             ) {
@@ -2095,7 +2032,7 @@ fun ReinforcementAlertOverlay(
                     onClick = onDecline,
                     colors = ButtonDefaults.buttonColors(containerColor = NV.textOnColor),
                     modifier = Modifier.weight(1f).height(56.dp),
-                    shape = RoundedCornerShape(16.dp)
+                    shape = NVShape.card
                 ) {
                     Icon(Icons.Default.Cancel, contentDescription = null, tint = NV.danger, modifier = Modifier.size(24.dp))
                     Spacer(modifier = Modifier.width(8.dp))
@@ -2105,7 +2042,7 @@ fun ReinforcementAlertOverlay(
                     onClick = onAccept,
                     colors = ButtonDefaults.buttonColors(containerColor = NV.textOnColor),
                     modifier = Modifier.weight(1f).height(56.dp),
-                    shape = RoundedCornerShape(16.dp)
+                    shape = NVShape.card
                 ) {
                     Icon(Icons.Default.CheckCircle, contentDescription = null, tint = NV.green, modifier = Modifier.size(24.dp))
                     Spacer(modifier = Modifier.width(8.dp))
@@ -2267,8 +2204,8 @@ fun CardContainer(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(6.dp, RoundedCornerShape(14.dp), ambientColor = Color.Black.copy(alpha = 0.5f), spotColor = Color.Black.copy(alpha = 0.3f))
-            .clip(RoundedCornerShape(14.dp))
+            .shadow(6.dp, NVShape.card, ambientColor = Color.Black.copy(alpha = 0.5f), spotColor = Color.Black.copy(alpha = 0.3f))
+            .clip(NVShape.card)
             .background(
                 Brush.verticalGradient(
                     colors = listOf(
@@ -2285,7 +2222,7 @@ fun CardContainer(
                         borderColor.copy(alpha = 0.2f)
                     )
                 ),
-                shape = RoundedCornerShape(14.dp)
+                shape = NVShape.card
             )
             .padding(16.dp),
         content = content
@@ -2339,7 +2276,7 @@ fun PatientWarningOverlay(warning: PatientWarning, onDismiss: () -> Unit) {
             modifier = Modifier.padding(40.dp).fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = NV.card),
             elevation = CardDefaults.cardElevation(defaultElevation = 12.dp),
-            shape = RoundedCornerShape(16.dp)
+            shape = NVShape.card
         ) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -2370,8 +2307,8 @@ fun PatientWarningOverlay(warning: PatientWarning, onDismiss: () -> Unit) {
 fun StatCard(label: String, value: String, color: Color, modifier: Modifier = Modifier, icon: ImageVector? = null, onClick: (() -> Unit)? = null) {
     Column(
         modifier = modifier
-            .shadow(8.dp, RoundedCornerShape(14.dp), ambientColor = color.copy(alpha = 0.15f), spotColor = color.copy(alpha = 0.1f))
-            .clip(RoundedCornerShape(14.dp))
+            .shadow(8.dp, NVShape.card, ambientColor = color.copy(alpha = 0.15f), spotColor = color.copy(alpha = 0.1f))
+            .clip(NVShape.card)
             .background(
                 Brush.verticalGradient(
                     colors = listOf(
@@ -2392,7 +2329,7 @@ fun StatCard(label: String, value: String, color: Color, modifier: Modifier = Mo
                         color.copy(alpha = 0.08f)
                     )
                 ),
-                shape = RoundedCornerShape(14.dp)
+                shape = NVShape.card
             )
             .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier)
             .padding(14.dp),

@@ -19,6 +19,7 @@ import androidx.core.content.ContextCompat
 import com.linkguard.app.ui.screens.MainScreen
 import com.linkguard.app.ui.screens.OnboardingScreen
 import com.linkguard.app.ui.screens.SplashScreen
+import com.linkguard.app.ui.theme.LinkGuardTheme
 import com.linkguard.app.ui.theme.NV
 import com.linkguard.app.util.LocaleHelper
 import com.linkguard.app.viewmodel.LinkGuardViewModel
@@ -44,18 +45,21 @@ class MainActivity : ComponentActivity() {
             val windowSizeClass = calculateWindowSizeClass(this)
             var showSplash by remember { mutableStateOf(true) }
             val isOnboardingComplete by viewModel.isOnboardingComplete.collectAsState()
-            Surface(
-                modifier = Modifier.fillMaxSize(),
-                color = NV.bg
-            ) {
-                if (showSplash) {
-                    SplashScreen(onComplete = { showSplash = false })
-                } else if (!isOnboardingComplete) {
-                    OnboardingScreen(onComplete = { role, deptCode ->
-                        viewModel.completeOnboarding(role, deptCode)
-                    })
-                } else {
-                    MainScreen(viewModel, windowSizeClass)
+            val themeMode by viewModel.themeMode.collectAsState()
+            LinkGuardTheme(mode = themeMode) {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = NV.bg
+                ) {
+                    if (showSplash) {
+                        SplashScreen(onComplete = { showSplash = false })
+                    } else if (!isOnboardingComplete) {
+                        OnboardingScreen(onComplete = { role, deptCode ->
+                            viewModel.completeOnboarding(role, deptCode)
+                        })
+                    } else {
+                        MainScreen(viewModel, windowSizeClass)
+                    }
                 }
             }
         }

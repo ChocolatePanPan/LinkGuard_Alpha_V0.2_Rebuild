@@ -1036,7 +1036,16 @@ struct ConnectedFieldUnit: Identifiable {
     var teamMembers: [TeamSummary]
     var sosCount: Int
     var lastUpdate: Date
+    var nickname: String?       // 使用者自訂暱稱（前線設定 → 我的暱稱）
     var isOnline: Bool { Date().timeIntervalSince(lastUpdate) < 45 }
+
+    /// 顯示名稱：有暱稱優先，無則顯示節點 ID
+    var displayName: String {
+        if let nick = nickname?.trimmingCharacters(in: .whitespacesAndNewlines), !nick.isEmpty {
+            return nick
+        }
+        return deviceID
+    }
 }
 
 // MARK: - 快速狀態回報

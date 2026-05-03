@@ -44,6 +44,7 @@ import androidx.core.content.ContextCompat
 import com.google.android.gms.location.LocationServices
 import com.linkguard.app.model.*
 import com.linkguard.app.ui.theme.NV
+import com.linkguard.app.ui.theme.NVShape
 import com.linkguard.app.viewmodel.LinkGuardViewModel
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -325,7 +326,7 @@ fun FieldChatScreen(viewModel: LinkGuardViewModel) {
                                 isHQ -> NV.command.copy(alpha = 0.15f)
                                 else -> NV.textSecondary.copy(alpha = 0.15f)
                             },
-                            RoundedCornerShape(12.dp)
+                            NVShape.card
                         ).padding(horizontal = 12.dp, vertical = 8.dp)
                     ) {
                         Text(msg.content, color = NV.white, fontSize = 14.sp)
@@ -350,7 +351,7 @@ fun FieldChatScreen(viewModel: LinkGuardViewModel) {
                     enabled = isConnected,
                     border = BorderStroke(1.dp, NV.command.copy(alpha = 0.5f)),
                     contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                    shape = RoundedCornerShape(16.dp)
+                    shape = NVShape.card
                 ) {
                     Text("${preset.icon} ${preset.text}", color = NV.command, fontSize = 12.sp)
                 }
@@ -536,8 +537,8 @@ fun InfoCard(title: String, content: @Composable ColumnScope.() -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(6.dp, RoundedCornerShape(12.dp), ambientColor = Color.Black.copy(alpha = 0.5f), spotColor = Color.Black.copy(alpha = 0.3f))
-            .clip(RoundedCornerShape(12.dp))
+            .shadow(6.dp, NVShape.card, ambientColor = Color.Black.copy(alpha = 0.5f), spotColor = Color.Black.copy(alpha = 0.3f))
+            .clip(NVShape.card)
             .background(
                 Brush.verticalGradient(
                     colors = listOf(
@@ -554,7 +555,7 @@ fun InfoCard(title: String, content: @Composable ColumnScope.() -> Unit) {
                         NV.cardBorder.copy(alpha = 0.2f)
                     )
                 ),
-                shape = RoundedCornerShape(12.dp)
+                shape = NVShape.card
             )
             .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp)
@@ -942,7 +943,7 @@ private fun DecisionCard(decision: HQDecision, readStatus: Pair<Int, Int>? = nul
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = NV.card),
         border = BorderStroke(1.dp, NV.cardBorder.copy(alpha = 0.5f)),
-        shape = RoundedCornerShape(14.dp),
+        shape = NVShape.card,
         elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
     ) {
         Column {

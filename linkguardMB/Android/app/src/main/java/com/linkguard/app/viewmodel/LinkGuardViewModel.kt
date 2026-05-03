@@ -259,6 +259,24 @@ class LinkGuardViewModel(application: Application) : AndroidViewModel(applicatio
         _nodeStatus.update { it.copy(deptCode = deptCode.ifEmpty { "EMT" }) }
     }
 
+    // 外觀模式（system / light / dark）— 預設跟隨系統
+    private val _themeMode = MutableStateFlow(
+        com.linkguard.app.ui.theme.ThemeMode.fromPref(
+            application.getSharedPreferences("linkguard_prefs", Application.MODE_PRIVATE)
+                .getString("theme_mode", "system")
+        )
+    )
+    val themeMode: StateFlow<com.linkguard.app.ui.theme.ThemeMode> = _themeMode
+
+    fun setThemeMode(mode: com.linkguard.app.ui.theme.ThemeMode) {
+        getApplication<Application>()
+            .getSharedPreferences("linkguard_prefs", Application.MODE_PRIVATE)
+            .edit()
+            .putString("theme_mode", mode.toPref())
+            .apply()
+        _themeMode.value = mode
+    }
+
     // 離線/低電量追蹤
     private val previousOnlineStates = mutableMapOf<String, Boolean>()
     private val lowBatteryNotified = mutableSetOf<String>()

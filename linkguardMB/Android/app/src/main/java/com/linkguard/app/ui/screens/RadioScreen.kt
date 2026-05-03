@@ -42,6 +42,7 @@ import androidx.core.content.ContextCompat
 import com.linkguard.app.model.RadioReport
 import com.linkguard.app.model.TextBroadcast
 import com.linkguard.app.ui.theme.NV
+import com.linkguard.app.ui.theme.NVShape
 import com.linkguard.app.viewmodel.LinkGuardViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -310,7 +311,7 @@ private fun LiveBroadcastContent(viewModel: LinkGuardViewModel) {
         currentBroadcaster?.let { broadcaster ->
             Card(
                 colors = CardDefaults.cardColors(containerColor = NV.danger.copy(alpha = 0.1f)),
-                shape = RoundedCornerShape(12.dp)
+                shape = NVShape.card
             ) {
                 Row(
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),

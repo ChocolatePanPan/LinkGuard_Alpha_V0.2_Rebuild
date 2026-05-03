@@ -319,9 +319,9 @@ private fun AIBubble(msg: HQAIMessage) {
         if (isUser) Spacer(Modifier.width(48.dp))
         Column(
             modifier = Modifier
-                .clip(RoundedCornerShape(10.dp))
+                .clip(NVShape.card)
                 .background(bubbleColor)
-                .border(1.dp, borderColor, RoundedCornerShape(10.dp))
+                .border(1.dp, borderColor, NVShape.card)
                 .padding(horizontal = 12.dp, vertical = 8.dp)
         ) {
             // Header
@@ -384,9 +384,9 @@ private fun TypingIndicator() {
     ) {
         Row(
             modifier = Modifier
-                .clip(RoundedCornerShape(10.dp))
+                .clip(NVShape.card)
                 .background(NV.green.copy(alpha = 0.10f))
-                .border(1.dp, NV.green.copy(alpha = 0.4f), RoundedCornerShape(10.dp))
+                .border(1.dp, NV.green.copy(alpha = 0.4f), NVShape.card)
                 .padding(horizontal = 14.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {

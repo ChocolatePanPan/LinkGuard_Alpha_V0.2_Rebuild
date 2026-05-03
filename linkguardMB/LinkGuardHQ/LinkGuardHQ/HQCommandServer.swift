@@ -546,6 +546,7 @@ class HQCommandServer: ObservableObject {
                     self.fieldUnits[idx].teamMembers = report.teamMembers
                     self.fieldUnits[idx].sosCount = report.sosCount
                     self.fieldUnits[idx].lastUpdate = Date()
+                    self.fieldUnits[idx].nickname = report.selfPersonnel?.nickname
                 } else {
                     self.fieldUnits.append(ConnectedFieldUnit(
                         id: connID,
@@ -556,7 +557,8 @@ class HQCommandServer: ObservableObject {
                         victims: report.victims,
                         teamMembers: report.teamMembers,
                         sosCount: report.sosCount,
-                        lastUpdate: Date()
+                        lastUpdate: Date(),
+                        nickname: report.selfPersonnel?.nickname
                     ))
                     self.appendTimelineEvent(TimelineEvent(
                         eventType: .statusReport,
@@ -716,12 +718,14 @@ class HQCommandServer: ObservableObject {
             let timestamp = Self.doubleValue(locData["timestamp"]).map { Date(timeIntervalSince1970: $0) } ?? Date()
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
+                let nickname = Self.stringValue(locData["nickname"]) ?? Self.stringValue(json["nickname"])
                 let locDict: [String: Any] = [
                     "lat": latitude,
                     "lon": longitude,
                     "accuracy": Self.doubleValue(locData["accuracy"]) ?? -1,
                     "role": Self.stringValue(locData["role"]) ?? "",
                     "name": Self.stringValue(locData["name"]) ?? deviceID,
+                    "nickname": nickname ?? "",
                     "conn_id": connID,
                     "timestamp": timestamp,
                 ]

@@ -248,13 +248,25 @@ struct HQZoneMapView: View {
                   isValidCoordinate(latitude: latitude, longitude: longitude) else { return nil }
 
             let name = stringValue(data["name"])
+            let nickname = stringValue(data["nickname"])
             let role = stringValue(data["role"])
             let timestamp = dateValue(data["timestamp"])
             let accuracy = doubleValue(data["accuracy"])
             let unit = commandServer.fieldUnits.first { unit in
                 unit.deviceID == deviceID || unit.deviceID == name
             }
+            let resolvedNickname: String = {
+                if !nickname.isEmpty { return nickname }
+                if let n = unit?.nickname, !n.isEmpty { return n }
+                return ""
+            }()
+            let title: String = {
+                if !resolvedNickname.isEmpty { return resolvedNickname }
+                if !name.isEmpty { return name }
+                return deviceID
+            }()
             let subtitle = compactParts([
+                resolvedNickname.isEmpty ? nil : deviceID,
                 role,
                 unit.map { L("電量 %lld%%", $0.battery) },
                 accuracy.map { $0 >= 0 ? String(format: L("精度 %.0f m"), $0) : "" },
@@ -263,7 +275,7 @@ struct HQZoneMapView: View {
 
             return HQTrackingPin(
                 id: "field-\(deviceID)",
-                title: name.isEmpty ? deviceID : name,
+                title: title,
                 subtitle: subtitle.isEmpty ? deviceID : subtitle,
                 coordinate: CLLocationCoordinate2D(latitude: latitude, longitude: longitude),
                 layer: .field,

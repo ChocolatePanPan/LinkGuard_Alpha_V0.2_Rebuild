@@ -15,6 +15,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.linkguard.hq.ui.HQDashboardScreen
 import com.linkguard.hq.ui.HQSplashScreen
+import com.linkguard.hq.ui.LinkGuardHQTheme
 import com.linkguard.hq.util.LocaleHelper
 import com.linkguard.hq.viewmodel.HQViewModel
 
@@ -35,10 +36,12 @@ class MainActivity : ComponentActivity() {
             val viewModel: HQViewModel = viewModel()
             val windowSizeClass = calculateWindowSizeClass(this)
             var showSplash by remember { mutableStateOf(true) }
-            if (showSplash) {
-                HQSplashScreen(onComplete = { showSplash = false })
-            } else {
-                HQDashboardScreen(viewModel, windowSizeClass)
+            LinkGuardHQTheme {
+                if (showSplash) {
+                    HQSplashScreen(onComplete = { showSplash = false })
+                } else {
+                    HQDashboardScreen(viewModel, windowSizeClass)
+                }
             }
         }
     }

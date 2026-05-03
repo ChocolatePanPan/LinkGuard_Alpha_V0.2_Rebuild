@@ -829,7 +829,7 @@ class CommandClient: ObservableObject {
 
     /// 規範 5.1：GPS 位置更新
     func sendLocation(deviceID: String, lat: Double, lon: Double, accuracy: Double,
-                      role: String, name: String) {
+                      role: String, name: String, nickname: String? = nil) {
         struct LocationData: Encodable {
             let lat: Double
             let lon: Double
@@ -837,10 +837,12 @@ class CommandClient: ObservableObject {
             let role: String
             let name: String
             let device_id: String
+            let nickname: String?
         }
         let payload = LocationData(
             lat: lat, lon: lon, accuracy: accuracy,
-            role: role, name: name, device_id: deviceID
+            role: role, name: name, device_id: deviceID,
+            nickname: nickname?.isEmpty == false ? nickname : nil
         )
         sendWiFiMessage(msgType: "location", payload: payload)
     }

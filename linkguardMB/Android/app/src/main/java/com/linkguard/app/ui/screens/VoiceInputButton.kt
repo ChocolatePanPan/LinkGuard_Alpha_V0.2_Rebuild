@@ -9,6 +9,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.*
 import com.linkguard.app.ui.theme.NV
+import com.linkguard.app.ui.theme.NVShape
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -227,7 +228,7 @@ fun VoiceInputButton(
                 )
                 Button(
                     onClick = { stopAndTranscribe() },
-                    shape = RoundedCornerShape(20.dp),
+                    shape = NVShape.card,
                     colors = ButtonDefaults.buttonColors(containerColor = NV.danger.copy(alpha = 0.15f)),
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
                     modifier = Modifier.defaultMinSize(minHeight = 56.dp)

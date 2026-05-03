@@ -66,6 +66,11 @@ class LinkGuardViewModel: ObservableObject {
         UserDefaults.standard.string(forKey: "linkguard_dept_code") ?? "EMT"
     }
 
+    /// 讀取持久化的使用者暱稱（顯示在 HQ 通話 / 地圖 / 清單）
+    private static func persistentUserNickname() -> String {
+        UserDefaults.standard.string(forKey: "linkguard_user_nickname") ?? ""
+    }
+
     /// App 啟動時間戳，用於過濾過期警報
     private let launcherStartTime = Date()
 
@@ -81,6 +86,9 @@ class LinkGuardViewModel: ObservableObject {
     @Published var nodeStatus = RescueNodeStatus(
         nodeID: persistentNodeID(), deptCode: persistentDeptCode(), battery: 0, loraLevel: 4, isConnected: false, pairCode: "0000"
     )
+
+    /// 使用者自訂暱稱（顯示在 HQ）
+    @Published var userNickname: String = persistentUserNickname()
 
     @Published var isSimulating = false
     @Published var isWiFiCommandMode = false
@@ -827,9 +835,11 @@ class LinkGuardViewModel: ObservableObject {
         }
 
         // 自身作為救援人員
+        let trimmedNickname = userNickname.trimmingCharacters(in: .whitespacesAndNewlines)
         let selfP = PersonnelAssignment(
             id: "field-\(nodeStatus.nodeID)",
             name: nodeStatus.nodeID,
+            nickname: trimmedNickname.isEmpty ? nil : trimmedNickname,
             assignedZone: "",
             assignedFloor: "",
             role: .rescue
@@ -902,7 +912,9 @@ class LinkGuardViewModel: ObservableObject {
             lon: loc.coordinate.longitude,
             accuracy: loc.horizontalAccuracy,
             role: nodeStatus.deptCode,
-            name: nodeStatus.nodeID
+            name: nodeStatus.nodeID,
+            nickname: userNickname.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                ? nil : userNickname.trimmingCharacters(in: .whitespacesAndNewlines)
         )
     }
 
@@ -1236,6 +1248,19 @@ class LinkGuardViewModel: ObservableObject {
         guard !id.isEmpty, id.count <= 10 else { return }
         nodeStatus.nodeID = id
         UserDefaults.standard.set(id, forKey: "linkguard_custom_node_id")
+    }
+
+    /// 修改使用者暱稱（持久化，留空代表清除）
+    func changeUserNickname(_ nickname: String) {
+        let trimmed = nickname.trimmingCharacters(in: .whitespacesAndNewlines)
+        userNickname = trimmed
+        if trimmed.isEmpty {
+            UserDefaults.standard.removeObject(forKey: "linkguard_user_nickname")
+        } else {
+            UserDefaults.standard.set(trimmed, forKey: "linkguard_user_nickname")
+        }
+        // 重置上報基準，下一輪 status_report 會帶上新暱稱
+        lastReportedBattery = -1
     }
 
     /// 修改 LoRa 檔位
