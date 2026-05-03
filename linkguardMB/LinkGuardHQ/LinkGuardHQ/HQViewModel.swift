@@ -416,7 +416,7 @@ class HQViewModel: ObservableObject {
             .dropFirst()
             .sink { [weak self] sequence in
                 guard sequence > 0 else { return }
-                self?.notificationCueManager.triggerStatusUpdateCue()
+                self?.notificationCueManager.triggerFieldEventCue()
             }
             .store(in: &cancellables)
 
@@ -494,6 +494,8 @@ class HQViewModel: ObservableObject {
             }
             .store(in: &cancellables)
 
+        setupIncomingEventCueBindings()
+
         // 監聽 HQ LoRa BLE 收到的命令
         bluetoothManager.onLoRaCommand = { [weak self] cmd in
             self?.loraReceivedCommands.insert(cmd, at: 0)
@@ -538,6 +540,35 @@ class HQViewModel: ObservableObject {
         }
 
         // UDP activeBroadcaster 已透過上方 merge(with:) 合併，不需重複綁定
+    }
+
+    private func setupIncomingEventCueBindings() {
+        bindIncomingEventCue($photoAlerts.map(\.count).eraseToAnyPublisher())
+        bindIncomingEventCue($radioReports.map(\.count).eraseToAnyPublisher())
+        bindIncomingEventCue($chatMessages.map(\.count).eraseToAnyPublisher())
+        bindIncomingEventCue($personalNotifications.map(\.count).eraseToAnyPublisher())
+        bindIncomingEventCue($pwsAlerts.map(\.count).eraseToAnyPublisher())
+        bindIncomingEventCue($hazardReports.map(\.count).eraseToAnyPublisher())
+        bindIncomingEventCue($reinforcementRequests.map(\.count).eraseToAnyPublisher())
+        bindIncomingEventCue($patientReports.map(\.count).eraseToAnyPublisher())
+        bindIncomingEventCue($patientWarnings.map(\.count).eraseToAnyPublisher())
+        bindIncomingEventCue($activeSOSAlerts.map(\.count).eraseToAnyPublisher())
+    }
+
+    private func bindIncomingEventCue(_ countPublisher: AnyPublisher<Int, Never>) {
+        countPublisher
+            .receive(on: DispatchQueue.main)
+            .removeDuplicates()
+            .scan((previous: Optional<Int>.none, current: 0)) { state, current in
+                (previous: state.current, current: current)
+            }
+            .dropFirst()
+            .sink { [weak self] counts in
+                guard let previous = counts.previous,
+                      counts.current > previous else { return }
+                self?.notificationCueManager.triggerFieldEventCue()
+            }
+            .store(in: &cancellables)
     }
 
     // MARK: - 電台音訊本地播放

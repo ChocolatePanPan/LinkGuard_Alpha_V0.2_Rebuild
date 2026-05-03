@@ -131,7 +131,7 @@ struct HQSettingsView: View {
     private var notificationSection: some View {
         section(L("通知")) {
             Toggle(isOn: $statusUpdateNotificationsEnabled) {
-                Label(L("狀態更新通知"), systemImage: "bell.badge.fill")
+                Label(L("所有現場事件通知"), systemImage: "bell.badge.fill")
             }
 
             VStack(alignment: .leading, spacing: 10) {
@@ -144,7 +144,7 @@ struct HQSettingsView: View {
                         .foregroundColor(.secondary)
                     Spacer()
                     Button {
-                        HQNotificationCueManager.shared.previewStatusUpdateCue()
+                        HQNotificationCueManager.shared.previewFieldEventCue()
                     } label: {
                         Label(L("測試通知"), systemImage: "play.fill")
                     }
@@ -158,7 +158,7 @@ struct HQSettingsView: View {
             }
             .disabled(!statusUpdateNotificationsEnabled)
 
-            Text(L("快速狀態、前線狀態報告、後端統計更新時會觸發提示。"))
+            Text(L("照片上傳、語音/電台回報、通訊、SOS、PWS、傷員、增援與狀態更新都會觸發提示。"))
                 .font(.caption)
                 .foregroundColor(.secondary)
         }

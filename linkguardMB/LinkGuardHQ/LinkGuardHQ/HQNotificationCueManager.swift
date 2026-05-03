@@ -50,6 +50,10 @@ final class HQNotificationCueManager: ObservableObject {
         }
     }
 
+    func triggerFieldEventCue() {
+        triggerStatusUpdateCue()
+    }
+
     func previewStatusUpdateCue() {
         if statusSoundEnabled {
             playStatusSound()
@@ -57,6 +61,10 @@ final class HQNotificationCueManager: ObservableObject {
         if statusFlashEnabled {
             flashToken = UUID()
         }
+    }
+
+    func previewFieldEventCue() {
+        previewStatusUpdateCue()
     }
 
     private func playStatusSound() {
