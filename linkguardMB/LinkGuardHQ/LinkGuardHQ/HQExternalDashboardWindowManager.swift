@@ -96,7 +96,7 @@ final class HQExternalDashboardWindowManager: ObservableObject {
             defer: false
         )
         window.title = role.title
-        window.backgroundColor = .black
+        window.backgroundColor = NV.windowBackgroundNSColor
         window.isOpaque = true
         window.isReleasedWhenClosed = false
         window.canHide = false

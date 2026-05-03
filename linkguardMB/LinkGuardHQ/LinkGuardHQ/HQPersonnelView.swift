@@ -74,7 +74,7 @@ struct StatLabel: View {
         }
         .frame(maxWidth: .infinity)
         .padding(NV.cardPadding)
-        .background(.regularMaterial)
+        .hqThemedSurfaceBackground()
         .cornerRadius(NV.cardRadius)
     }
 }
@@ -118,7 +118,7 @@ struct PersonnelCard: View {
             }
         }
         .padding()
-        .background(.regularMaterial)
+        .hqThemedSurfaceBackground()
         .cornerRadius(12)
     }
 }

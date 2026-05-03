@@ -70,7 +70,7 @@ struct NotificationCard: View {
             }
         }
         .padding()
-        .background(.regularMaterial)
+        .hqThemedSurfaceBackground()
         .cornerRadius(12)
     }
 

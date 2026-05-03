@@ -83,7 +83,7 @@ struct BriefingCard: View {
             }
         }
         .padding()
-        .background(.regularMaterial)
+        .hqThemedSurfaceBackground()
         .cornerRadius(12)
     }
 

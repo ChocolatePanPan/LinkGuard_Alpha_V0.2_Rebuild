@@ -98,7 +98,7 @@ private struct ZoneStatLabel: View {
         }
         .frame(maxWidth: .infinity)
         .padding(NV.cardPadding)
-        .background(.regularMaterial)
+        .hqThemedSurfaceBackground()
         .cornerRadius(NV.cardRadius)
     }
 }
@@ -181,7 +181,7 @@ struct ZoneCard: View {
             }
             .padding()
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(.regularMaterial)
+            .hqThemedSurfaceBackground()
             .cornerRadius(NV.cardRadius)
             .overlay(
                 RoundedRectangle(cornerRadius: NV.cardRadius)

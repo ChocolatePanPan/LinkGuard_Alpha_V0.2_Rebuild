@@ -153,7 +153,7 @@ struct TimelineEventCard: View {
             }
         }
         .padding(NV.cardPadding)
-        .background(.regularMaterial)
+        .hqThemedSurfaceBackground()
         .cornerRadius(NV.cardRadius)
     }
 }

@@ -19,25 +19,17 @@ enum NV {
     static let absoluteBlackSurface = Color(red: 0.035, green: 0.038, blue: 0.035)
     #if canImport(UIKit)
     static let bg = Color(UIColor { trait in
-        trait.userInterfaceStyle == .dark
-            ? UIColor(red: 0.012, green: 0.042, blue: 0.032, alpha: 1)
-            : .systemBackground
+        themedBackgroundUIColor(isSystemDark: trait.userInterfaceStyle == .dark)
     })
     static let surface = Color(UIColor { trait in
-        trait.userInterfaceStyle == .dark
-            ? UIColor(red: 0.035, green: 0.082, blue: 0.064, alpha: 1)
-            : .secondarySystemGroupedBackground
+        themedSurfaceUIColor(isSystemDark: trait.userInterfaceStyle == .dark)
     })
     #elseif canImport(AppKit)
     static let bg = Color(NSColor(name: nil) { appearance in
-        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-            ? NSColor(red: 0.012, green: 0.042, blue: 0.032, alpha: 1)
-            : .windowBackgroundColor
+        themedBackgroundNSColor(isSystemDark: appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua)
     })
     static let surface = Color(NSColor(name: nil) { appearance in
-        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-            ? NSColor(red: 0.035, green: 0.082, blue: 0.064, alpha: 1)
-            : .controlBackgroundColor
+        themedSurfaceNSColor(isSystemDark: appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua)
     })
     #endif
     static let danger      = Color(red: 0.82, green: 0.22, blue: 0.22)
@@ -76,13 +68,17 @@ enum NV {
     }
 
     static func panelBackground(appColorScheme: String, colorScheme: ColorScheme) -> Color {
+        surfaceBackground(appColorScheme: appColorScheme, colorScheme: colorScheme, opacity: 0.94)
+    }
+
+    static func surfaceBackground(appColorScheme: String, colorScheme: ColorScheme, opacity: Double = 1) -> Color {
         switch resolvedAppearance(appColorScheme: appColorScheme, colorScheme: colorScheme) {
         case .absoluteBlack:
-            return absoluteBlackSurface.opacity(0.96)
+            return absoluteBlackSurface.opacity(opacity)
         case .dark:
-            return nightVisionSurface.opacity(0.92)
+            return nightVisionSurface.opacity(opacity)
         case .light:
-            return surface.opacity(0.92)
+            return surface.opacity(opacity)
         }
     }
 
@@ -109,6 +105,10 @@ enum NV {
     }
 
     private static func resolvedAppearance(appColorScheme: String, colorScheme: ColorScheme) -> ResolvedAppearance {
+        resolvedAppearance(appColorScheme: appColorScheme, isSystemDark: colorScheme == .dark)
+    }
+
+    private static func resolvedAppearance(appColorScheme: String, isSystemDark: Bool) -> ResolvedAppearance {
         switch appColorScheme {
         case "black":
             return .absoluteBlack
@@ -117,9 +117,64 @@ enum NV {
         case "dark":
             return .dark
         default:
-            return colorScheme == .dark ? .dark : .light
+            return isSystemDark ? .dark : .light
         }
     }
+
+    private static var storedAppColorScheme: String {
+        UserDefaults.standard.string(forKey: "appColorScheme") ?? "dark"
+    }
+
+    #if canImport(UIKit)
+    private static func themedBackgroundUIColor(isSystemDark: Bool) -> UIColor {
+        switch resolvedAppearance(appColorScheme: storedAppColorScheme, isSystemDark: isSystemDark) {
+        case .absoluteBlack:
+            return .black
+        case .dark:
+            return UIColor(red: 0.012, green: 0.042, blue: 0.032, alpha: 1)
+        case .light:
+            return .systemBackground
+        }
+    }
+
+    private static func themedSurfaceUIColor(isSystemDark: Bool) -> UIColor {
+        switch resolvedAppearance(appColorScheme: storedAppColorScheme, isSystemDark: isSystemDark) {
+        case .absoluteBlack:
+            return UIColor(red: 0.035, green: 0.038, blue: 0.035, alpha: 1)
+        case .dark:
+            return UIColor(red: 0.035, green: 0.082, blue: 0.064, alpha: 1)
+        case .light:
+            return .secondarySystemGroupedBackground
+        }
+    }
+    #elseif canImport(AppKit)
+    private static func themedBackgroundNSColor(isSystemDark: Bool) -> NSColor {
+        switch resolvedAppearance(appColorScheme: storedAppColorScheme, isSystemDark: isSystemDark) {
+        case .absoluteBlack:
+            return .black
+        case .dark:
+            return NSColor(red: 0.012, green: 0.042, blue: 0.032, alpha: 1)
+        case .light:
+            return .windowBackgroundColor
+        }
+    }
+
+    private static func themedSurfaceNSColor(isSystemDark: Bool) -> NSColor {
+        switch resolvedAppearance(appColorScheme: storedAppColorScheme, isSystemDark: isSystemDark) {
+        case .absoluteBlack:
+            return NSColor(red: 0.035, green: 0.038, blue: 0.035, alpha: 1)
+        case .dark:
+            return NSColor(red: 0.035, green: 0.082, blue: 0.064, alpha: 1)
+        case .light:
+            return .controlBackgroundColor
+        }
+    }
+
+    static var windowBackgroundNSColor: NSColor {
+        let isSystemDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        return themedBackgroundNSColor(isSystemDark: isSystemDark)
+    }
+    #endif
 
     private enum ResolvedAppearance {
         case light
@@ -354,8 +409,37 @@ struct HQPanel<Content: View>: View {
 }
 
 extension View {
+    func hqThemedPageBackground() -> some View {
+        modifier(HQThemedPageBackgroundModifier())
+    }
+
+    func hqThemedSurfaceBackground(opacity: Double = 0.94) -> some View {
+        modifier(HQThemedSurfaceBackgroundModifier(opacity: opacity))
+    }
+
     func hqPanelChrome(accent: Color = NV.green) -> some View {
         modifier(HQPanelChromeModifier(accent: accent))
+    }
+}
+
+private struct HQThemedPageBackgroundModifier: ViewModifier {
+    @AppStorage("appColorScheme") private var appColorScheme: String = "dark"
+    @Environment(\.colorScheme) private var colorScheme
+
+    func body(content: Content) -> some View {
+        content
+            .background(NV.pageBackground(appColorScheme: appColorScheme, colorScheme: colorScheme).ignoresSafeArea())
+    }
+}
+
+private struct HQThemedSurfaceBackgroundModifier: ViewModifier {
+    @AppStorage("appColorScheme") private var appColorScheme: String = "dark"
+    @Environment(\.colorScheme) private var colorScheme
+    let opacity: Double
+
+    func body(content: Content) -> some View {
+        content
+            .background(NV.surfaceBackground(appColorScheme: appColorScheme, colorScheme: colorScheme, opacity: opacity))
     }
 }
 
