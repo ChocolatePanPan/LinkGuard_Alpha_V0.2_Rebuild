@@ -36,7 +36,6 @@ struct FieldAIChatView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            titleBar
             Divider()
             statusBar
             Divider().background(NV.command.opacity(0.25))
@@ -87,16 +86,6 @@ struct FieldAIChatView: View {
     }
 
     // MARK: - 子元件
-
-    private var titleBar: some View {
-        HStack {
-            Text(L("AI 助理"))
-                .font(.title2).bold()
-            Spacer()
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
-    }
 
     private var statusBar: some View {
         HStack(spacing: 8) {

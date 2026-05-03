@@ -1149,22 +1149,17 @@ struct VictimListView: View {
             }
             .navigationTitle(L("受困者列表"))
             #if os(iOS)
-            .toolbarVisibility(.hidden, for: .navigationBar)
-            #endif
-            .contentMargins(.top, 0, for: .scrollContent)
-            .safeAreaInset(edge: .top) {
-                HStack {
-                    Text(L("受困者列表"))
-                        .font(.title2).bold()
-                    Spacer()
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
                     Text("\(vm.victims.count + vm.localPatients.count)")
                         .font(.caption).bold()
                         .padding(.horizontal, 8).padding(.vertical, 3)
                         .glassEffect(.regular.tint(NV.command), in: .capsule)
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
             }
+            #endif
+            .contentMargins(.top, 0, for: .scrollContent)
         } detail: {
             switch selection {
             case .device(let id):
@@ -1495,7 +1490,7 @@ struct SOSRecordListView: View {
             }
             .navigationTitle(L("SOS 警報"))
             #if os(iOS)
-            .toolbarVisibility(.hidden, for: .navigationBar)
+            .navigationBarTitleDisplayMode(.inline)
             #endif
             .contentMargins(.top, 0, for: .scrollContent)
         }
@@ -1551,22 +1546,6 @@ struct CommandListView: View {
     var body: some View {
         NavigationStack {
             List {
-                // 標題列
-                Section {
-                    HStack {
-                        Text(L("指揮中心命令"))
-                            .font(.title2).bold()
-                        Spacer()
-                        Button(L("全部已讀")) {
-                            vm.markAllCommandsAsRead()
-                        }
-                        .font(.subheadline)
-                        .disabled(vm.unreadCommandCount == 0)
-                    }
-                    .listRowBackground(Color.clear)
-                    .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 16))
-                }
-
                 if vm.commandOrders.isEmpty {
                     Section {
                         HStack {
@@ -1591,8 +1570,18 @@ struct CommandListView: View {
                     }
                 }
             }
+            .navigationTitle(L("指揮中心命令"))
             #if os(iOS)
-            .toolbarVisibility(.hidden, for: .navigationBar)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(L("全部已讀")) {
+                        vm.markAllCommandsAsRead()
+                    }
+                    .font(.subheadline)
+                    .disabled(vm.unreadCommandCount == 0)
+                }
+            }
             #endif
             .contentMargins(.top, 0, for: .scrollContent)
         }
@@ -1939,7 +1928,7 @@ struct ConnectionView: View {
             }
             .navigationTitle(L("連線管理"))
             #if os(iOS)
-            .toolbarVisibility(.hidden, for: .navigationBar)
+            .navigationBarTitleDisplayMode(.inline)
             #endif
             .contentMargins(.top, 0, for: .scrollContent)
             .onAppear {
@@ -2219,7 +2208,16 @@ struct ReinforcementListView: View {
                 }
             }
             #if os(iOS)
-            .toolbarVisibility(.hidden, for: .navigationBar)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        showCompose = true
+                    } label: {
+                        Image(systemName: "plus")
+                    }
+                }
+            }
             #endif
             .contentMargins(.top, 0, for: .scrollContent)
             .sheet(isPresented: $showCompose) {
@@ -2375,7 +2373,7 @@ struct TeamListView: View {
             }
             .navigationTitle(L("分隊通訊群組"))
             #if os(iOS)
-            .toolbarVisibility(.hidden, for: .navigationBar)
+            .navigationBarTitleDisplayMode(.inline)
             #endif
             .contentMargins(.top, 0, for: .scrollContent)
         }

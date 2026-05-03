@@ -9,15 +9,6 @@ struct FieldChatView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                // 標題列
-                HStack {
-                    Text(L("全域通訊頻道"))
-                        .font(.title2).bold()
-                    Spacer()
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-
                 // 連線狀態 banner
                 if !vm.commandClient.isConnected {
                     HStack {

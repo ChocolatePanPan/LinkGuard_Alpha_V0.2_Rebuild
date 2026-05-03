@@ -9,22 +9,6 @@ struct FieldDisasterView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                // 標題列
-                HStack {
-                    Text(L("全區災情概況"))
-                        .font(.title2).bold()
-                    Spacer()
-                    Button {
-                        showHazardReport = true
-                    } label: {
-                        Image(systemName: "exclamationmark.triangle")
-                            .font(.title3)
-                    }
-                    .disabled(!vm.commandClient.isConnected)
-                }
-                .padding(.horizontal)
-                .padding(.top, 8)
-
                 if let site = vm.disasterSite {
                     VStack(alignment: .leading, spacing: 16) {
                         // 建物資訊
@@ -168,7 +152,18 @@ struct FieldDisasterView: View {
             }
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        showHazardReport = true
+                    } label: {
+                        Image(systemName: "exclamationmark.triangle")
+                    }
+                    .disabled(!vm.commandClient.isConnected)
+                }
+            }
             #endif
+            .navigationTitle(L("全區災情概況"))
             .contentMargins(.top, 0, for: .scrollContent)
             .sheet(isPresented: $showHazardReport) {
                 HazardReportSheet(vm: vm)

@@ -46,24 +46,19 @@ struct DecisionView: View {
             }
             .navigationTitle(L("指揮決策"))
             #if os(iOS)
-            .toolbarVisibility(.hidden, for: .navigationBar)
-            #endif
-            .contentMargins(.top, 0, for: .scrollContent)
-            .safeAreaInset(edge: .top) {
-                HStack {
-                    Text(L("指揮命令"))
-                        .font(.title2).bold()
-                    Spacer()
-                    if vm.unreadCommandCount > 0 {
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                if vm.unreadCommandCount > 0 {
+                    ToolbarItem(placement: .navigationBarTrailing) {
                         Button(L("全部已讀")) {
                             vm.markAllCommandsAsRead()
                         }
                         .font(.subheadline)
                     }
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
             }
+            #endif
+            .contentMargins(.top, 0, for: .scrollContent)
         }
         .onChange(of: vm.decisions.count) { oldCount, newCount in
             if newCount > oldCount { triggerHaptic() }

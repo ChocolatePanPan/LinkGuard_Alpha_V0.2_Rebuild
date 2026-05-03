@@ -53,15 +53,6 @@ struct RadioView: View {
 
     private var content: some View {
         VStack(spacing: 0) {
-                // 標題列
-                HStack {
-                    Text(L(titleText))
-                        .font(.title2).bold()
-                    Spacer()
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-
                 // 模式選擇器
                 if showsModePicker {
                     Picker(L("模式"), selection: $mode) {
