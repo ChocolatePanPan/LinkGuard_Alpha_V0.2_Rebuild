@@ -47,6 +47,8 @@ struct DecisionView: View {
             .navigationTitle(L("指揮決策"))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
+            .ignoresSafeArea(.container, edges: .top)
             .toolbar {
                 if vm.unreadCommandCount > 0 {
                     ToolbarItem(placement: .navigationBarTrailing) {

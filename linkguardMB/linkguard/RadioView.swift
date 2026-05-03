@@ -80,6 +80,8 @@ struct RadioView: View {
             .navigationTitle(L(titleText))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
+            .ignoresSafeArea(.container, edges: .top)
             #endif
             .onAppear {
                 briefingManager.serverHost = vm.transcriptionServerHost

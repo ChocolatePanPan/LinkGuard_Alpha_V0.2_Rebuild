@@ -165,6 +165,8 @@ struct FieldNotificationView: View {
             .navigationTitle(L("前線動態通知"))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
+            .ignoresSafeArea(.container, edges: .top)
             #endif
             .contentMargins(.top, 0, for: .scrollContent)
         }

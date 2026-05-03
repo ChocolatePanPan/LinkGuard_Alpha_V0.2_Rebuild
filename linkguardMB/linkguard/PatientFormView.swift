@@ -303,6 +303,8 @@ struct PatientFormView: View {
             .navigationTitle(L("傷員回報"))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
+            .ignoresSafeArea(.container, edges: .top)
             .toolbar {
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer()

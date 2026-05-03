@@ -39,6 +39,8 @@ private struct FieldCallContent: View {
             .navigationTitle(L("通話"))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
+            .ignoresSafeArea(.container, edges: .top)
             #endif
         }
     }

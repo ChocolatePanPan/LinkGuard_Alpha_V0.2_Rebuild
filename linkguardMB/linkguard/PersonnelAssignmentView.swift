@@ -31,6 +31,8 @@ struct PersonnelAssignmentView: View {
             .navigationTitle(L("人員指派"))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
+            .ignoresSafeArea(.container, edges: .top)
             #endif
             .sheet(isPresented: $showAssignSheet) {
                 AssignPersonnelSheet(vm: vm, editing: $editingAssignment)
@@ -310,6 +312,8 @@ struct AssignPersonnelSheet: View {
             }
             .navigationTitle(isEditing ? L("編輯指派") : L("新增人員"))
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
+            .ignoresSafeArea(.container, edges: .top)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(L("取消")) { dismiss() }
