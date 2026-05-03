@@ -291,6 +291,7 @@ final class L10n: ObservableObject {
         "樓層狀態": "Floor Status",
         "樓層（選填）": "Floor (optional)",
         "標題": "Title",
+        "夜視": "Night Vision",
         "正在廣播中…": "Broadcasting…",
         "正在掃描 HQ LoRa 裝置...": "Scanning HQ LoRa devices...",
         "歷史警報": "Alert History",

@@ -4,6 +4,10 @@ import SwiftUI
 struct LinkGuardHQApp: App {
     @StateObject private var viewModel = HQViewModel()
     @StateObject private var l10n = L10n.shared
+    #if os(macOS)
+    @StateObject private var externalDashboardManager = HQExternalDashboardWindowManager()
+    @StateObject private var notificationCueManager = HQNotificationCueManager.shared
+    #endif
     @AppStorage("appColorScheme") private var appColorScheme: String = "dark"
     @AppStorage("hq.uiScale") private var uiScale: Double = 1.0
 
@@ -25,13 +29,29 @@ struct LinkGuardHQApp: App {
                         if viewModel.hqRole == .server {
                             viewModel.startServer()
                         }
+                        #if os(macOS)
+                        externalDashboardManager.start(viewModel: viewModel, l10n: l10n, colorScheme: colorScheme)
+                        #endif
                     }
+                    #if os(macOS)
+                    .onChange(of: appColorScheme) { _, _ in
+                        externalDashboardManager.refresh(colorScheme: colorScheme)
+                    }
+                    .onChange(of: l10n.language) { _, _ in
+                        externalDashboardManager.refresh(colorScheme: colorScheme)
+                    }
+                    #endif
                     .preferredColorScheme(colorScheme)
                     .environment(\.locale, Locale(identifier: l10n.language))
                     .tint(NV.green)
                     .environmentObject(viewModel.udpAudioServer)
                     .environmentObject(l10n)
             }
+            #if os(macOS)
+            .overlay {
+                HQNotificationFlashOverlay(manager: notificationCueManager)
+            }
+            #endif
         }
         #if os(macOS)
         .defaultSize(width: 1200, height: 800)

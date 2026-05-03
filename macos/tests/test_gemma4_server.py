@@ -283,6 +283,24 @@ class TestGenerate:
         assert body["reasoning"]["risk_notes"]
         assert body["reasoning"]["next_actions"]
 
+    def test_generate_ollama_failure_returns_rule_fallback(self, client, tmp_db, mock_ollama):
+        mock_ollama.chat.side_effect = RuntimeError("ollama offline")
+        payload = {
+            "voice_text": "啟動大量傷患機制",
+            "patients": [
+                {"id": "P1", "breathing_rate": 36, "capillary_refill": 3.0, "can_follow_commands": False}
+            ],
+            "weather": {},
+            "resources": "",
+        }
+        resp = client.post("/generate", json=payload)
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["model"] == "rule-fallback"
+        assert body["ai_unavailable"] is True
+        assert "規則備援" in body["decision"]
+        assert body["patients"][0]["priority"] == "紅色"
+
 
 # ---------------------------------------------------------------------------
 # /translate endpoint

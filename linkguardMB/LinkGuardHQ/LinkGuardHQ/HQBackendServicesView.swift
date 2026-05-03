@@ -85,7 +85,7 @@ struct HQBackendServicesView: View {
         }
         .font(.caption.bold())
         .padding(.horizontal, 10).padding(.vertical, 4)
-        .background(Color.black.opacity(0.2))
+        .background(NV.surface.opacity(0.48))
         .cornerRadius(6)
     }
 
@@ -203,7 +203,7 @@ struct HQBackendServicesView: View {
                 .padding(8)
             }
             .frame(maxHeight: 240)
-            .background(Color.black.opacity(0.6))
+            .background(NV.surface.opacity(0.82))
             .cornerRadius(6)
             .padding(.top, 8)
             .onChange(of: state.logTail.count) { newCount in
