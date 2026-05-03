@@ -710,17 +710,20 @@ class HQCommandServer: ObservableObject {
                   let json = try? JSONSerialization.jsonObject(with: payloadData) as? [String: Any] else { return }
             // 支援規範 base format {type, data, ...} 和扁平格式 {lat, lon, ...}
             let locData = (json["data"] as? [String: Any]) ?? json
-            let deviceID = (json["device_id"] as? String) ?? connDeviceMap[connID] ?? connID
+            guard let latitude = Self.doubleValue(locData["lat"]),
+                  let longitude = Self.doubleValue(locData["lon"]) else { return }
+            let deviceID = Self.stringValue(locData["device_id"]) ?? Self.stringValue(json["device_id"]) ?? connDeviceMap[connID] ?? connID
+            let timestamp = Self.doubleValue(locData["timestamp"]).map { Date(timeIntervalSince1970: $0) } ?? Date()
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
                 let locDict: [String: Any] = [
-                    "lat": locData["lat"] as Any,
-                    "lon": locData["lon"] as Any,
-                    "accuracy": locData["accuracy"] as Any,
-                    "role": locData["role"] as? String ?? "",
-                    "name": locData["name"] as? String ?? deviceID,
+                    "lat": latitude,
+                    "lon": longitude,
+                    "accuracy": Self.doubleValue(locData["accuracy"]) ?? -1,
+                    "role": Self.stringValue(locData["role"]) ?? "",
+                    "name": Self.stringValue(locData["name"]) ?? deviceID,
                     "conn_id": connID,
-                    "timestamp": Date(),
+                    "timestamp": timestamp,
                 ]
                 self.deviceLocations[deviceID] = locDict
             }
@@ -1820,6 +1823,20 @@ class HQCommandServer: ObservableObject {
         let msg = WiFiMessage(msgType: msgType, payload: payload)
         guard let data = try? JSONEncoder().encode(msg) else { return nil }
         return data + Data([0x0A])
+    }
+
+    private static func doubleValue(_ value: Any?) -> Double? {
+        if let value = value as? Double { return value }
+        if let value = value as? Int { return Double(value) }
+        if let value = value as? NSNumber { return value.doubleValue }
+        if let value = value as? String { return Double(value) }
+        return nil
+    }
+
+    private static func stringValue(_ value: Any?) -> String? {
+        if let value = value as? String, !value.isEmpty { return value }
+        if let value { return "\(value)" }
+        return nil
     }
 
     private func cleanupConnections() {
