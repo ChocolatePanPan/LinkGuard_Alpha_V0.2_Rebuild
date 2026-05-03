@@ -103,18 +103,10 @@ struct TranslatorView: View {
             }
             .navigationTitle(L("翻譯"))
             #if os(iOS)
-            .toolbarVisibility(.hidden, for: .navigationBar)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
             #endif
             .contentMargins(.top, 0, for: .scrollContent)
-            .safeAreaInset(edge: .top) {
-                HStack {
-                    Text(L("翻譯"))
-                        .font(.title2).bold()
-                    Spacer()
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-            }
         }
         .onChange(of: vm.latestTranslation?.translated) { _, _ in
             isTranslating = false
@@ -124,18 +116,8 @@ struct TranslatorView: View {
     // MARK: - 語言選擇器
 
     private var languageSelector: some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(L("來源語言"))
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                Picker(L("來源"), selection: $sourceLang) {
-                    ForEach(languages, id: \.code) { lang in
-                        Text(lang.name).tag(lang.code)
-                    }
-                }
-                .pickerStyle(.menu)
-            }
+        HStack(alignment: .bottom, spacing: 10) {
+            languagePickerColumn(title: L("來源語言"), label: L("來源"), selection: $sourceLang, options: languages)
 
             Button {
                 guard sourceLang != "auto" else { return }
@@ -144,26 +126,50 @@ struct TranslatorView: View {
                 targetLang = tmp
             } label: {
                 Image(systemName: "arrow.left.arrow.right")
-                    .font(.title3)
-                    .foregroundColor(NV.command)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(sourceLang == "auto" ? .secondary : NV.command)
+                    .frame(width: 34, height: 34)
+                    .background(Color.primary.opacity(0.06))
+                    .clipShape(Circle())
+                    .overlay(
+                        Circle()
+                            .stroke(Color.secondary.opacity(0.18), lineWidth: 1)
+                    )
             }
             .disabled(sourceLang == "auto")
+            .padding(.bottom, 1)
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(L("目標語言"))
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                Picker(L("目標"), selection: $targetLang) {
-                    ForEach(languages.filter { $0.code != "auto" }, id: \.code) { lang in
-                        Text(lang.name).tag(lang.code)
-                    }
-                }
-                .pickerStyle(.menu)
-            }
+            languagePickerColumn(
+                title: L("目標語言"),
+                label: L("目標"),
+                selection: $targetLang,
+                options: languages.filter { $0.code != "auto" }
+            )
         }
         .padding()
         .background(languageSelectorBackground)
         .cornerRadius(12)
+    }
+
+    private func languagePickerColumn(
+        title: String,
+        label: String,
+        selection: Binding<String>,
+        options: [(code: String, name: String)]
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.caption)
+                .foregroundColor(.secondary)
+            Picker(label, selection: selection) {
+                ForEach(options, id: \.code) { lang in
+                    Text(lang.name).tag(lang.code)
+                }
+            }
+            .pickerStyle(.menu)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     // MARK: - 輸入區

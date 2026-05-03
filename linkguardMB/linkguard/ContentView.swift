@@ -3,7 +3,7 @@ import SwiftUI
 // MARK: - Main View
 
 enum AppTab: Hashable {
-    case dashboard, victims, sos, disaster, chat, reinforcement, team, commands, notifications, radio, connection, patientForm, decision, translator, photo, personnelAssignment, more
+    case dashboard, victims, sos, disaster, chat, call, reinforcement, team, commands, notifications, radio, connection, patientForm, decision, translator, photo, personnelAssignment, ai
 }
 
 struct ContentView: View {
@@ -31,6 +31,9 @@ struct ContentView: View {
                         FieldChatView(vm: viewModel)
                     }
                     .badge(viewModel.chatMessages.count)
+                    Tab(L("通話"), systemImage: "phone.fill", value: AppTab.call) {
+                        FieldCallView(vm: viewModel)
+                    }
                     Tab(navLabel("指揮命令", en: "Orders"), systemImage: "brain.head.profile", value: AppTab.decision) {
                         DecisionView(vm: viewModel)
                     }
@@ -43,8 +46,10 @@ struct ContentView: View {
                     SOSRecordListView(vm: viewModel)
                 }
                 .badge(viewModel.unacknowledgedSOSCount)
-                Tab(navLabel("更多", en: "More"), systemImage: "ellipsis.circle", value: AppTab.more) {
-                    MoreHubView(vm: viewModel, selectedTab: $selectedTab)
+                Tab("AI", systemImage: viewModel.isAIServicePaused ? "pause.circle" : "sparkles", value: AppTab.ai) {
+                    NavigationStack {
+                        AIHubView(vm: viewModel)
+                    }
                 }
                 TabSection(L("其他")) {
                     Tab(L("受困者"), systemImage: "person.fill.questionmark", value: AppTab.victims) {
@@ -137,6 +142,19 @@ struct ContentView: View {
                 .zIndex(98)
             }
 
+            if let invite = viewModel.incomingCallInvite {
+                IncomingCallOverlay(
+                    invite: invite,
+                    onAccept: {
+                        viewModel.acceptCall(invite)
+                        selectedTab = .call
+                    },
+                    onDecline: { viewModel.declineCall(invite) }
+                )
+                .transition(.opacity)
+                .zIndex(99)
+            }
+
             // 全螢幕 SOS 警報覆蓋層
             if let victim = viewModel.latestSOSVictim {
                 SOSAlertOverlay(victim: victim) {
@@ -180,6 +198,7 @@ struct ContentView: View {
         .animation(.easeInOut(duration: 0.3), value: viewModel.latestSOSVictim != nil)
         .animation(.easeInOut(duration: 0.3), value: viewModel.latestCriticalCommand != nil)
         .animation(.easeInOut(duration: 0.3), value: viewModel.latestReinforcementRequest != nil)
+        .animation(.easeInOut(duration: 0.3), value: viewModel.incomingCallInvite != nil)
         .animation(.easeInOut(duration: 0.3), value: viewModel.urgentBroadcast != nil)
         .animation(.easeInOut(duration: 0.3), value: viewModel.activePatientWarning != nil)
         .animation(.easeInOut(duration: 0.3), value: externalAlarm != nil)
@@ -212,6 +231,7 @@ struct ExternalAlarmPresentation: Identifiable, Equatable {
         case "sos": return .sos
         case "decision": return .decision
         case "victims": return .victims
+        case "call": return .call
         default: return .notifications
         }
     }
@@ -222,6 +242,7 @@ struct ExternalAlarmPresentation: Identifiable, Equatable {
         case "COMMAND_ORDER", "DECISION": return "exclamationmark.triangle.fill"
         case "PATIENT_WARNING": return "waveform.path.ecg"
         case "PWS_ALERT": return "antenna.radiowaves.left.and.right"
+        case "CALL_INVITE": return "phone.fill"
         default: return "bell.badge.fill"
         }
     }
@@ -316,54 +337,6 @@ struct ExternalAlarmOverlay: View {
     }
 }
 
-// MARK: - More
-
-struct MoreHubView: View {
-    @ObservedObject var vm: LinkGuardViewModel
-    @Binding var selectedTab: AppTab
-    @EnvironmentObject private var l10n: L10n
-
-    private func navLabel(_ zh: String, en: String) -> String {
-        l10n.language == "en" ? en : zh
-    }
-
-    var body: some View {
-        NavigationStack {
-            List {
-                Section("AI") {
-                    NavigationLink {
-                        AIHubView(vm: vm)
-                    } label: {
-                        MoreDestinationLabel(
-                            title: "AI",
-                            subtitle: navLabel("通訊、助理、回報整合功能", en: "Communication, assistant, and reports"),
-                            systemImage: vm.isAIServicePaused ? "pause.circle" : "sparkles",
-                            tint: vm.isAIServicePaused ? .gray : NV.command,
-                            showsChevron: false
-                        )
-                    }
-                }
-
-                Section(L("其他")) {
-                    MoreDestinationRow(title: L("受困者"), systemImage: "person.fill.questionmark") { selectedTab = .victims }
-                    MoreDestinationRow(title: L("增援"), systemImage: "person.badge.plus") { selectedTab = .reinforcement }
-                    MoreDestinationRow(title: L("團隊"), systemImage: "person.3.sequence.fill") { selectedTab = .team }
-                    MoreDestinationRow(title: L("人員指派"), systemImage: "person.badge.key.fill") { selectedTab = .personnelAssignment }
-                    MoreDestinationRow(title: L("通知"), systemImage: "bell.fill") { selectedTab = .notifications }
-                    MoreDestinationRow(title: L("傷員回報"), systemImage: "heart.text.square") { selectedTab = .patientForm }
-                    MoreDestinationRow(title: L("翻譯"), systemImage: "globe") { selectedTab = .translator }
-                }
-
-                Section(navLabel("工具", en: "Tools")) {
-                    MoreDestinationRow(title: L("照片"), systemImage: "photo.on.rectangle.angled") { selectedTab = .photo }
-                    MoreDestinationRow(title: L("連線"), systemImage: "link") { selectedTab = .connection }
-                }
-            }
-            .navigationTitle(navLabel("更多", en: "More"))
-        }
-    }
-}
-
 struct AIHubView: View {
     @ObservedObject var vm: LinkGuardViewModel
     @EnvironmentObject private var l10n: L10n
@@ -394,7 +367,8 @@ struct AIHubView: View {
             }
             .pickerStyle(.segmented)
             .padding(.horizontal, 12)
-            .padding(.vertical, 10)
+            .padding(.top, 4)
+            .padding(.bottom, 8)
 
             Divider()
 
@@ -410,55 +384,8 @@ struct AIHubView: View {
             }
         }
         .navigationTitle("AI")
-    }
-}
-
-struct MoreDestinationRow: View {
-    let title: String
-    var subtitle: String? = nil
-    let systemImage: String
-    var tint: Color = NV.info
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            MoreDestinationLabel(title: title, subtitle: subtitle, systemImage: systemImage, tint: tint)
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-struct MoreDestinationLabel: View {
-    let title: String
-    var subtitle: String? = nil
-    let systemImage: String
-    var tint: Color = NV.info
-    var showsChevron = true
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: systemImage)
-                .font(.title3)
-                .foregroundStyle(tint)
-                .frame(width: 28)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.body)
-                    .foregroundStyle(.primary)
-                if let subtitle {
-                    Text(subtitle)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            Spacer()
-            if showsChevron {
-                Image(systemName: "chevron.right")
-                    .font(.caption.bold())
-                    .foregroundStyle(.tertiary)
-            }
-        }
-        .contentShape(Rectangle())
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.hidden, for: .navigationBar)
     }
 }
 
@@ -1154,6 +1081,7 @@ struct HandoverSummarySheet: View {
             .navigationTitle(L("交班摘要"))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
             #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -1223,22 +1151,18 @@ struct VictimListView: View {
             }
             .navigationTitle(L("受困者列表"))
             #if os(iOS)
-            .toolbarVisibility(.hidden, for: .navigationBar)
-            #endif
-            .contentMargins(.top, 0, for: .scrollContent)
-            .safeAreaInset(edge: .top) {
-                HStack {
-                    Text(L("受困者列表"))
-                        .font(.title2).bold()
-                    Spacer()
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
                     Text("\(vm.victims.count + vm.localPatients.count)")
                         .font(.caption).bold()
                         .padding(.horizontal, 8).padding(.vertical, 3)
                         .glassEffect(.regular.tint(NV.command), in: .capsule)
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
             }
+            #endif
+            .contentMargins(.top, 0, for: .scrollContent)
         } detail: {
             switch selection {
             case .device(let id):
@@ -1569,7 +1493,8 @@ struct SOSRecordListView: View {
             }
             .navigationTitle(L("SOS 警報"))
             #if os(iOS)
-            .toolbarVisibility(.hidden, for: .navigationBar)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
             #endif
             .contentMargins(.top, 0, for: .scrollContent)
         }
@@ -1625,22 +1550,6 @@ struct CommandListView: View {
     var body: some View {
         NavigationStack {
             List {
-                // 標題列
-                Section {
-                    HStack {
-                        Text(L("指揮中心命令"))
-                            .font(.title2).bold()
-                        Spacer()
-                        Button(L("全部已讀")) {
-                            vm.markAllCommandsAsRead()
-                        }
-                        .font(.subheadline)
-                        .disabled(vm.unreadCommandCount == 0)
-                    }
-                    .listRowBackground(Color.clear)
-                    .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 16))
-                }
-
                 if vm.commandOrders.isEmpty {
                     Section {
                         HStack {
@@ -1665,8 +1574,19 @@ struct CommandListView: View {
                     }
                 }
             }
+            .navigationTitle(L("指揮中心命令"))
             #if os(iOS)
-            .toolbarVisibility(.hidden, for: .navigationBar)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(L("全部已讀")) {
+                        vm.markAllCommandsAsRead()
+                    }
+                    .font(.subheadline)
+                    .disabled(vm.unreadCommandCount == 0)
+                }
+            }
             #endif
             .contentMargins(.top, 0, for: .scrollContent)
         }
@@ -1738,6 +1658,7 @@ struct ConnectionView: View {
     @State private var deptInput = ""
     @State private var pairInput = ""
     @State private var nodeIDInput = ""
+    @State private var nicknameInput = ""
     @State private var manualIP = ""
     @State private var manualPort = "8930"
 
@@ -1877,6 +1798,20 @@ struct ConnectionView: View {
 
                 // 節點設定
                 Section(header: Text(L("搜救節點設定"))) {
+                    // 我的暱稱（顯示在指揮中心）
+                    HStack {
+                        Text(L("我的暱稱"))
+                        Spacer()
+                        TextField(L("選填，例：阿明"), text: $nicknameInput)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 140)
+                        Button(L("更新")) {
+                            vm.changeUserNickname(nicknameInput)
+                        }
+                        .font(.caption)
+                        .buttonStyle(.glass)
+                    }
+
                     // 節點 ID
                     HStack {
                         Text(L("節點 ID"))
@@ -1893,9 +1828,7 @@ struct ConnectionView: View {
                         .font(.caption)
                         .buttonStyle(.glass)
                         .disabled(nodeIDInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                    }
-
-                    // 配對碼
+                    }                    // 配對碼
                     HStack {
                         Text(L("配對碼"))
                         Spacer()
@@ -2004,7 +1937,7 @@ struct ConnectionView: View {
                 // 外觀模式
                 Section(header: Text(L("外觀"))) {
                     Picker(L("主題"), selection: $appColorScheme) {
-                        Text(L("深色")).tag("dark")
+                        Text(L("夜視")).tag("dark")
                         Text(L("淺色")).tag("light")
                         Text(L("跟隨系統")).tag("system")
                     }
@@ -2013,13 +1946,15 @@ struct ConnectionView: View {
             }
             .navigationTitle(L("連線管理"))
             #if os(iOS)
-            .toolbarVisibility(.hidden, for: .navigationBar)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
             #endif
             .contentMargins(.top, 0, for: .scrollContent)
             .onAppear {
                 deptInput = vm.nodeStatus.deptCode
                 pairInput = vm.nodeStatus.pairCode
                 nodeIDInput = vm.nodeStatus.nodeID
+                nicknameInput = vm.userNickname
             }
         }
     }
@@ -2293,7 +2228,17 @@ struct ReinforcementListView: View {
                 }
             }
             #if os(iOS)
-            .toolbarVisibility(.hidden, for: .navigationBar)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        showCompose = true
+                    } label: {
+                        Image(systemName: "plus")
+                    }
+                }
+            }
             #endif
             .contentMargins(.top, 0, for: .scrollContent)
             .sheet(isPresented: $showCompose) {
@@ -2307,6 +2252,7 @@ struct ReinforcementListView: View {
                     .navigationTitle(L("呼叫增援"))
                     #if os(iOS)
                     .navigationBarTitleDisplayMode(.inline)
+                    .toolbarBackground(.hidden, for: .navigationBar)
                     #endif
                     .toolbar {
                         ToolbarItem(placement: .cancellationAction) {
@@ -2449,7 +2395,8 @@ struct TeamListView: View {
             }
             .navigationTitle(L("分隊通訊群組"))
             #if os(iOS)
-            .toolbarVisibility(.hidden, for: .navigationBar)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
             #endif
             .contentMargins(.top, 0, for: .scrollContent)
         }

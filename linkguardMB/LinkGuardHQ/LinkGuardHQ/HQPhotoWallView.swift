@@ -6,6 +6,10 @@ import AVKit
 struct HQPhotoWallView: View {
     @ObservedObject var vm: HQViewModel
 
+    private let photoGridColumns = [
+        GridItem(.adaptive(minimum: 280, maximum: 360), spacing: NV.panelSpacing, alignment: .topLeading)
+    ]
+
     private var serverHost: String {
         // 從已連線的 server 取得 Python 後端 IP
         // 照片在 port 8014 — 使用第一個連線的前線裝置 IP 部分
@@ -39,11 +43,12 @@ struct HQPhotoWallView: View {
                 HQEmptyStateView(icon: "photo.on.rectangle.angled", title: L("尚未收到照片回報"))
                     .hqPanelChrome(accent: NV.info)
             } else {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 240, maximum: 360), spacing: NV.panelSpacing)], spacing: NV.panelSpacing) {
+                LazyVGrid(columns: photoGridColumns, alignment: .leading, spacing: NV.panelSpacing) {
                     ForEach(entries) { entry in
                         PhotoCard(data: entry.data)
                     }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
     }
@@ -80,18 +85,21 @@ struct PhotoCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            // 縮圖
             ZStack {
+                Color.secondary.opacity(0.10)
+
                 if let url = thumbnailSource {
                     AsyncImage(url: url) { phase in
                         switch phase {
                         case .success(let image):
-                            image.resizable().scaledToFill()
+                            image
+                                .resizable()
+                                .scaledToFill()
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
                         case .failure:
                             thumbnailPlaceholder
                         default:
                             ProgressView()
-                                .frame(maxWidth: .infinity, minHeight: 150)
                         }
                     }
                 } else {
@@ -108,17 +116,18 @@ struct PhotoCard: View {
             .aspectRatio(4 / 3, contentMode: .fit)
             .frame(maxWidth: .infinity)
             .clipped()
-            .cornerRadius(8)
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             .contentShape(Rectangle())
             .onTapGesture {
                 if fullSource != nil { showFull = true }
             }
 
-            // 資訊
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 4) {
                     Text(photoId)
                         .font(.caption.bold())
+                        .lineLimit(1)
+                        .truncationMode(.middle)
                     if isVideo {
                         Text(L("影片"))
                             .font(.caption2)
@@ -133,32 +142,31 @@ struct PhotoCard: View {
                         .font(.subheadline)
                         .lineLimit(2)
                 }
-                HStack {
-                    Text(sender)
+                let locationLine = [sender, locationDesc].filter { !$0.isEmpty }.joined(separator: " · ")
+                if !locationLine.isEmpty {
+                    Text(locationLine)
                         .font(.caption)
                         .foregroundColor(.secondary)
                         .lineLimit(1)
-                    if !locationDesc.isEmpty {
-                        Text("·")
-                            .foregroundColor(.secondary)
-                        Text(locationDesc)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                            .lineLimit(1)
-                    }
+                        .truncationMode(.tail)
                 }
                 if lat != 0 || lon != 0 {
                     Text("GPS: \(lat, specifier: "%.4f"), \(lon, specifier: "%.4f")")
                         .font(.system(.caption2, design: .monospaced))
                         .foregroundColor(.secondary)
+                        .lineLimit(1)
                 }
             }
-            .padding(.horizontal, 4)
         }
-        .padding(8)
-        .background(NV.surface.opacity(0.5))
-        .cornerRadius(12)
+        .padding(10)
+        .frame(maxWidth: 360, alignment: .topLeading)
         .frame(maxWidth: .infinity, alignment: .topLeading)
+        .hqThemedSurfaceBackground()
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(NV.info.opacity(0.20), lineWidth: NV.strokeWidth)
+        )
         .sheet(isPresented: $showFull) {
             MediaDetailSheet(isVideo: isVideo, url: fullSource) {
                 showFull = false
@@ -168,8 +176,6 @@ struct PhotoCard: View {
 
     private var thumbnailPlaceholder: some View {
         ZStack {
-            Rectangle()
-                .fill(Color.secondary.opacity(0.12))
             Image(systemName: isVideo ? "video" : "photo")
                 .font(.largeTitle)
                 .foregroundColor(.secondary)

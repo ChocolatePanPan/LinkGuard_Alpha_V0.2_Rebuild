@@ -19,6 +19,7 @@ class HQCommandServer: ObservableObject {
     @Published var personalNotifications: [PersonalNotification] = []
     @Published var timelineEvents: [TimelineEvent] = []
     @Published var quickStatuses: [QuickStatus] = []
+    @Published var statusUpdateSequence: Int = 0
     @Published var tasks: [TaskAssignment] = []
     @Published var countdownTimers: [CountdownTimerModel] = []
     @Published var hazardReports: [HazardReport] = []
@@ -26,6 +27,8 @@ class HQCommandServer: ObservableObject {
     @Published var patientReports: [PatientReport] = []
     @Published var radioReports: [HQRadioReport] = []
     @Published var currentBroadcaster: String?
+    @Published var callInvites: [CallInvite] = []
+    @Published var activeCallSession: CallSession?
     // Beta-only features
     @Published var photoAlerts: [[String: Any]] = []
     @Published var latestResourceUpdate: [String: Any]?
@@ -35,8 +38,8 @@ class HQCommandServer: ObservableObject {
     @Published var readStatuses: [String: (total: Int, readCount: Int)] = [:]
     @Published var latestTranslation: HQTranslationResult?
     @Published var activeSOSAlerts: [SOSAlert] = []
-    /// 前線裝置 GPS 位置 {connID: {lat, lon, accuracy, role, name, timestamp}}
-    var deviceLocations: [String: [String: Any]] = [:]
+    /// 前線裝置 GPS 位置 {deviceID: {lat, lon, accuracy, role, name, timestamp}}
+    @Published var deviceLocations: [String: [String: Any]] = [:]
     /// 已連線的 HQ 同伴裝置（其他指揮中心）
     @Published var hqPeers: [HQPeerInfo] = []
 
@@ -67,6 +70,7 @@ class HQCommandServer: ObservableObject {
     @Published var chatReadCounts: [String: Int] = [:]
     /// 已被使用者關閉的 SOS 裝置 ID，防止重複觸發
     private var dismissedSOSDeviceIDs = Set<String>()
+    private var callInviteIndex: [String: CallInvite] = [:]
 
     // MARK: - UDP 音訊中繼
     private var udpAudioListener: NWListener?
@@ -282,6 +286,7 @@ class HQCommandServer: ObservableObject {
             case .failed, .cancelled:
                 print("[HQ-Server] Client disconnected (\(connID))")
                 self.queue.async {
+                    let disconnectedDeviceID = self.connDeviceMap[connID]
                     // 清理 UDP 中繼（不再清 knownUDPDeviceIPs，讓它自然保留）
                     self.connections.removeAll { $0 === connection }
                     self.connectionIDMap.removeValue(forKey: ObjectIdentifier(connection))
@@ -293,6 +298,10 @@ class HQCommandServer: ObservableObject {
                         self.connectedClients = self.connections.count
                         self.fieldUnits.removeAll { $0.id == connID }
                         self.hqPeers.removeAll { $0.id == connID }
+                        self.deviceLocations = self.deviceLocations.filter { key, value in
+                            let locationConnID = value["conn_id"] as? String
+                            return key != disconnectedDeviceID && locationConnID != connID
+                        }
                     }
                 }
             default:
@@ -537,6 +546,7 @@ class HQCommandServer: ObservableObject {
                     self.fieldUnits[idx].teamMembers = report.teamMembers
                     self.fieldUnits[idx].sosCount = report.sosCount
                     self.fieldUnits[idx].lastUpdate = Date()
+                    self.fieldUnits[idx].nickname = report.selfPersonnel?.nickname
                 } else {
                     self.fieldUnits.append(ConnectedFieldUnit(
                         id: connID,
@@ -547,7 +557,8 @@ class HQCommandServer: ObservableObject {
                         victims: report.victims,
                         teamMembers: report.teamMembers,
                         sosCount: report.sosCount,
-                        lastUpdate: Date()
+                        lastUpdate: Date(),
+                        nickname: report.selfPersonnel?.nickname
                     ))
                     self.appendTimelineEvent(TimelineEvent(
                         eventType: .statusReport,
@@ -556,6 +567,7 @@ class HQCommandServer: ObservableObject {
                         source: report.deviceID
                     ))
                 }
+                self.statusUpdateSequence += 1
 
                 // 自動將前線裝置註冊為救援人員
                 if let sp = report.selfPersonnel {
@@ -618,6 +630,7 @@ class HQCommandServer: ObservableObject {
                 guard let self else { return }
                 if self.quickStatuses.contains(where: { $0.id == status.id }) { return }
                 self.quickStatuses.insert(status, at: 0)
+                self.statusUpdateSequence += 1
                 self.appendTimelineEvent(TimelineEvent(
                     eventType: .statusReport,
                     title: "\(status.senderName) 回報狀態",
@@ -699,16 +712,22 @@ class HQCommandServer: ObservableObject {
                   let json = try? JSONSerialization.jsonObject(with: payloadData) as? [String: Any] else { return }
             // 支援規範 base format {type, data, ...} 和扁平格式 {lat, lon, ...}
             let locData = (json["data"] as? [String: Any]) ?? json
-            let deviceID = (json["device_id"] as? String) ?? connDeviceMap[connID] ?? connID
+            guard let latitude = Self.doubleValue(locData["lat"]),
+                  let longitude = Self.doubleValue(locData["lon"]) else { return }
+            let deviceID = Self.stringValue(locData["device_id"]) ?? Self.stringValue(json["device_id"]) ?? connDeviceMap[connID] ?? connID
+            let timestamp = Self.doubleValue(locData["timestamp"]).map { Date(timeIntervalSince1970: $0) } ?? Date()
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
+                let nickname = Self.stringValue(locData["nickname"]) ?? Self.stringValue(json["nickname"])
                 let locDict: [String: Any] = [
-                    "lat": locData["lat"] as Any,
-                    "lon": locData["lon"] as Any,
-                    "accuracy": locData["accuracy"] as Any,
-                    "role": locData["role"] as? String ?? "",
-                    "name": locData["name"] as? String ?? deviceID,
-                    "timestamp": Date(),
+                    "lat": latitude,
+                    "lon": longitude,
+                    "accuracy": Self.doubleValue(locData["accuracy"]) ?? -1,
+                    "role": Self.stringValue(locData["role"]) ?? "",
+                    "name": Self.stringValue(locData["name"]) ?? deviceID,
+                    "nickname": nickname ?? "",
+                    "conn_id": connID,
+                    "timestamp": timestamp,
                 ]
                 self.deviceLocations[deviceID] = locDict
             }
@@ -781,6 +800,21 @@ class HQCommandServer: ObservableObject {
                     source: connID
                 ))
             }
+
+        case "call_invite":
+            guard let payloadData = msg.payload.data(using: .utf8),
+                  let invite = try? JSONDecoder().decode(CallInvite.self, from: payloadData) else { return }
+            handleCallInvite(invite, fromConnID: connID)
+
+        case "call_response":
+            guard let payloadData = msg.payload.data(using: .utf8),
+                  let response = try? JSONDecoder().decode(CallResponse.self, from: payloadData) else { return }
+            handleCallResponse(response, fromConnID: connID)
+
+        case "call_end":
+            guard let payloadData = msg.payload.data(using: .utf8),
+                  let end = try? JSONDecoder().decode(CallEnd.self, from: payloadData) else { return }
+            handleCallEnd(end, fromConnID: connID)
 
         case "radio_report":
             guard let payloadData = msg.payload.data(using: .utf8),
@@ -1077,6 +1111,88 @@ class HQCommandServer: ObservableObject {
         default:
             print("[HQ-Server] Unknown message type: \(msg.msgType)")
         }
+    }
+
+    // MARK: - 通話中繼
+
+    @MainActor private func handleCallInvite(_ invite: CallInvite, fromConnID: String) {
+        callInviteIndex[invite.callID] = invite
+        if !callInvites.contains(where: { $0.callID == invite.callID }) {
+            callInvites.insert(invite, at: 0)
+            if callInvites.count > 100 { callInvites = Array(callInvites.prefix(100)) }
+        }
+        appendTimelineEvent(TimelineEvent(
+            eventType: .chat,
+            title: L("通話邀請：%@", invite.initiatorName),
+            detail: invite.targetDeviceIDs.joined(separator: ", "),
+            source: invite.initiatorID
+        ))
+        guard let data = encodeWiFiMessage(msgType: "call_invite", payload: invite) else { return }
+        sendToDevices(data, targetDeviceIDs: invite.targetDeviceIDs)
+        relayToHQPeers(data, excluding: fromConnID)
+    }
+
+    @MainActor private func handleCallResponse(_ response: CallResponse, fromConnID: String) {
+        var routeTargets = Set<String>()
+        if let invite = callInviteIndex[response.callID] {
+            routeTargets.insert(invite.initiatorID)
+            routeTargets.formUnion(invite.participants)
+            if response.accepted {
+                let participants = Array(routeTargets.union([response.responderID]))
+                activeCallSession = CallSession(
+                    callID: response.callID,
+                    initiatorID: invite.initiatorID,
+                    initiatorName: invite.initiatorName,
+                    participants: participants,
+                    status: .active
+                )
+            }
+        } else if let active = activeCallSession, active.callID == response.callID {
+            routeTargets.formUnion(active.participants)
+        }
+        routeTargets.remove(response.responderID)
+        routeTargets.remove("HQ")
+
+        appendTimelineEvent(TimelineEvent(
+            eventType: .chat,
+            title: response.accepted ? L("通話已接聽") : L("通話已拒絕"),
+            detail: response.responderName,
+            source: response.responderID
+        ))
+        guard let data = encodeWiFiMessage(msgType: "call_response", payload: response) else { return }
+        if !routeTargets.isEmpty {
+            sendToDevices(data, targetDeviceIDs: Array(routeTargets))
+        }
+        relayToHQPeers(data, excluding: fromConnID)
+    }
+
+    @MainActor private func handleCallEnd(_ end: CallEnd, fromConnID: String) {
+        var routeTargets = Set<String>()
+        if var active = activeCallSession, active.callID == end.callID {
+            routeTargets.formUnion(active.participants)
+            active.status = .ended
+            active.endedAt = end.timestamp
+            activeCallSession = nil
+        } else if let invite = callInviteIndex[end.callID] {
+            routeTargets.insert(invite.initiatorID)
+            routeTargets.formUnion(invite.targetDeviceIDs)
+            routeTargets.formUnion(invite.participants)
+        }
+        callInviteIndex.removeValue(forKey: end.callID)
+        routeTargets.remove(end.senderID)
+        routeTargets.remove("HQ")
+
+        appendTimelineEvent(TimelineEvent(
+            eventType: .chat,
+            title: L("通話結束"),
+            detail: end.reason,
+            source: end.senderID
+        ))
+        guard let data = encodeWiFiMessage(msgType: "call_end", payload: end) else { return }
+        if !routeTargets.isEmpty {
+            sendToDevices(data, targetDeviceIDs: Array(routeTargets))
+        }
+        relayToHQPeers(data, excluding: fromConnID)
     }
 
     // MARK: - 翻譯請求
@@ -1543,6 +1659,48 @@ class HQCommandServer: ObservableObject {
         sendToDevices(data, targetDeviceIDs: nil)
     }
 
+    func sendCallInviteFromHQ(_ invite: CallInvite) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.callInviteIndex[invite.callID] = invite
+            self.callInvites.insert(invite, at: 0)
+            self.activeCallSession = CallSession(
+                callID: invite.callID,
+                initiatorID: invite.initiatorID,
+                initiatorName: invite.initiatorName,
+                participants: invite.participants + invite.targetDeviceIDs,
+                status: .ringing
+            )
+            self.appendTimelineEvent(TimelineEvent(
+                eventType: .chat,
+                title: L("HQ 發起通話"),
+                detail: invite.targetDeviceIDs.joined(separator: ", "),
+                source: invite.initiatorID
+            ))
+        }
+        guard let data = encodeWiFiMessage(msgType: "call_invite", payload: invite) else { return }
+        sendToDevices(data, targetDeviceIDs: invite.targetDeviceIDs)
+    }
+
+    func sendCallEndFromHQ(_ end: CallEnd) {
+        let targetDeviceIDs = activeCallSession?.participants.filter { $0 != "HQ" } ?? []
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.activeCallSession = nil
+            self.callInviteIndex.removeValue(forKey: end.callID)
+            self.appendTimelineEvent(TimelineEvent(
+                eventType: .chat,
+                title: L("HQ 結束通話"),
+                detail: end.reason,
+                source: end.senderID
+            ))
+        }
+        guard let data = encodeWiFiMessage(msgType: "call_end", payload: end) else { return }
+        if !targetDeviceIDs.isEmpty {
+            sendToDevices(data, targetDeviceIDs: targetDeviceIDs)
+        }
+    }
+
     /// 中繼後台 JSON 訊息給所有前線裝置（Backend Bridge 呼叫）
     func relayBackendJSON(msgType: String, data: [String: Any]) {
         guard let payloadData = try? JSONSerialization.data(withJSONObject: data),
@@ -1644,6 +1802,18 @@ class HQCommandServer: ObservableObject {
         sendToDevices(data, targetDeviceIDs: nil)
     }
 
+    private func relayToHQPeers(_ data: Data, excluding connID: String) {
+        queue.async { [weak self] in
+            guard let self else { return }
+            for conn in self.connections {
+                guard let cid = self.connectionIDMap[ObjectIdentifier(conn)],
+                      cid != connID,
+                      self.peerConnIDs.contains(cid) else { continue }
+                conn.send(content: data, completion: .contentProcessed { _ in })
+            }
+        }
+    }
+
     private func encodeWiFiMessage<T: Encodable>(msgType: String, payload: T) -> Data? {
         guard let payloadData = try? JSONEncoder().encode(payload),
               let payloadJSON = String(data: payloadData, encoding: .utf8) else { return nil }
@@ -1657,6 +1827,20 @@ class HQCommandServer: ObservableObject {
         let msg = WiFiMessage(msgType: msgType, payload: payload)
         guard let data = try? JSONEncoder().encode(msg) else { return nil }
         return data + Data([0x0A])
+    }
+
+    private static func doubleValue(_ value: Any?) -> Double? {
+        if let value = value as? Double { return value }
+        if let value = value as? Int { return Double(value) }
+        if let value = value as? NSNumber { return value.doubleValue }
+        if let value = value as? String { return Double(value) }
+        return nil
+    }
+
+    private static func stringValue(_ value: Any?) -> String? {
+        if let value = value as? String, !value.isEmpty { return value }
+        if let value { return "\(value)" }
+        return nil
     }
 
     private func cleanupConnections() {
@@ -1819,11 +2003,14 @@ class HQCommandServer: ObservableObject {
             ],
             "resources": fieldUnits.map { unit -> [String: Any] in
                 [
+                    "resource_id": "field-device-\(unit.deviceID)",
                     "name": unit.deviceID,
                     "type": "通訊裝置",
                     "status": unit.isOnline ? "available" : "offline",
                     "total": 1,
                     "available": unit.isOnline ? 1 : 0,
+                    "assigned_zone": "",
+                    "allocations": [],
                 ]
             },
         ]

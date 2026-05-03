@@ -50,7 +50,7 @@ struct HQVictimOverviewView: View {
                         .textFieldStyle(.plain)
                 }
                 .padding(6)
-                .background(.regularMaterial)
+                .hqThemedSurfaceBackground()
                 .cornerRadius(8)
                 .frame(maxWidth: 260)
 
@@ -84,7 +84,7 @@ struct HQVictimOverviewView: View {
             }
             .padding(.horizontal, NV.pagePadding)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .frame(maxWidth: NV.pageMaxWidth, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .center)
         }
         .padding(.bottom, 14)
@@ -279,7 +279,7 @@ private struct VictimRowCard: View {
             }
             .padding(NV.cardPadding)
             .background(isSelected ? NV.command.opacity(NV.tagOpacity) : Color.clear)
-            .background(.regularMaterial)
+            .hqThemedSurfaceBackground()
             .cornerRadius(NV.cardRadius)
             .overlay(
                 RoundedRectangle(cornerRadius: NV.cardRadius)
@@ -497,7 +497,7 @@ private struct VictimDetailPanel: View {
             }
             .padding()
         }
-        .background(.regularMaterial)
+        .hqThemedSurfaceBackground()
     }
 
     private var heartColor: Color {

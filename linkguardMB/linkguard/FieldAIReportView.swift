@@ -35,6 +35,7 @@ struct FieldAIReportView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
+            Divider()
             statusBar
             Divider().background(NV.command.opacity(0.25))
             if vm.isAIServicePaused {
@@ -60,7 +61,11 @@ struct FieldAIReportView: View {
             }
             .aiPausedAppearance(vm.isAIServicePaused)
         }
-        .navigationTitle(L("AI 助理回報"))
+        .navigationTitle(L("AI 回報"))
+        #if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.hidden, for: .navigationBar)
+        #endif
     }
 
     // MARK: 狀態列

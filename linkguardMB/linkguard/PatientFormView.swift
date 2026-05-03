@@ -302,7 +302,8 @@ struct PatientFormView: View {
             }
             .navigationTitle(L("傷員回報"))
             #if os(iOS)
-            .toolbarVisibility(.hidden, for: .navigationBar)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer()
@@ -313,15 +314,6 @@ struct PatientFormView: View {
             }
             #endif
             .contentMargins(.top, 0, for: .scrollContent)
-            .safeAreaInset(edge: .top) {
-                HStack {
-                    Text(L("傷員回報"))
-                        .font(.title2).bold()
-                    Spacer()
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-            }
             .overlay(alignment: .bottom) {
                 if showConfirmation {
                     HStack(spacing: 10) {

@@ -308,6 +308,12 @@ class CommandClient: ObservableObject {
     var onTranslateResult: (([String: Any]) -> Void)?
     /// 收到雙 AI 共識升級觸發（由後端廣播）
     var onEscalationTrigger: (([String: Any]) -> Void)?
+    /// 收到通話邀請
+    var onCallInvite: ((CallInvite) -> Void)?
+    /// 收到通話回覆
+    var onCallResponse: ((CallResponse) -> Void)?
+    /// 收到通話結束
+    var onCallEnd: ((CallEnd) -> Void)?
 
     private var browsers: [NWBrowser] = []
     private var connection: NWConnection?
@@ -619,6 +625,18 @@ class CommandClient: ObservableObject {
             if let ctrl = try? JSONDecoder().decode(RadioControlPayload.self, from: payloadData) {
                 DispatchQueue.main.async { [weak self] in self?.onRadioControl?(ctrl) }
             }
+        case "call_invite":
+            if let invite = try? JSONDecoder().decode(CallInvite.self, from: payloadData) {
+                DispatchQueue.main.async { [weak self] in self?.onCallInvite?(invite) }
+            }
+        case "call_response":
+            if let response = try? JSONDecoder().decode(CallResponse.self, from: payloadData) {
+                DispatchQueue.main.async { [weak self] in self?.onCallResponse?(response) }
+            }
+        case "call_end":
+            if let end = try? JSONDecoder().decode(CallEnd.self, from: payloadData) {
+                DispatchQueue.main.async { [weak self] in self?.onCallEnd?(end) }
+            }
         case "photo_alert":
             if let json = try? JSONSerialization.jsonObject(with: payloadData) as? [String: Any] {
                 let data = json["data"] as? [String: Any] ?? json
@@ -754,6 +772,18 @@ class CommandClient: ObservableObject {
         sendWiFiMessage(msgType: "radio_control", payload: RadioControlPayload(action: "stop", senderName: senderName))
     }
 
+    func sendCallInvite(_ invite: CallInvite) {
+        sendWiFiMessage(msgType: "call_invite", payload: invite)
+    }
+
+    func sendCallResponse(_ response: CallResponse) {
+        sendWiFiMessage(msgType: "call_response", payload: response)
+    }
+
+    func sendCallEnd(_ end: CallEnd) {
+        sendWiFiMessage(msgType: "call_end", payload: end)
+    }
+
     func sendPatientReport(_ report: PatientReport, deviceID: String) {
         // 規範 3.1：傷員回報封包格式
         struct GPSData: Encodable {
@@ -799,7 +829,7 @@ class CommandClient: ObservableObject {
 
     /// 規範 5.1：GPS 位置更新
     func sendLocation(deviceID: String, lat: Double, lon: Double, accuracy: Double,
-                      role: String, name: String) {
+                      role: String, name: String, nickname: String? = nil) {
         struct LocationData: Encodable {
             let lat: Double
             let lon: Double
@@ -807,10 +837,12 @@ class CommandClient: ObservableObject {
             let role: String
             let name: String
             let device_id: String
+            let nickname: String?
         }
         let payload = LocationData(
             lat: lat, lon: lon, accuracy: accuracy,
-            role: role, name: name, device_id: deviceID
+            role: role, name: name, device_id: deviceID,
+            nickname: nickname?.isEmpty == false ? nickname : nil
         )
         sendWiFiMessage(msgType: "location", payload: payload)
     }

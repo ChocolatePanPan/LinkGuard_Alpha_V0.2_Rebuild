@@ -153,6 +153,7 @@ final class BackendServiceState: ObservableObject, Identifiable {
 
 @MainActor
 final class BackendSupervisor: ObservableObject {
+    static let backendDirOverrideKey = "hq.backendDirOverride"
 
     /// Where to find the Python scripts. On a packaged build this is
     /// `~/Library/Application Support/LinkGuardHQ/backend`. In a dev build
@@ -214,6 +215,13 @@ final class BackendSupervisor: ObservableObject {
     /// Preferred layout: bundled `backend/` resource → copied on first launch
     /// to `~/Library/Application Support/LinkGuardHQ/backend/`.
     static func resolveBackendDir() -> URL {
+        if let override = storedBackendDirOverride() {
+            return override
+        }
+        return resolveDefaultBackendDir()
+    }
+
+    static func resolveDefaultBackendDir() -> URL {
         let fm = FileManager.default
         // 1) User Application Support copy (preferred at runtime).
         if let appSupport = try? fm.url(for: .applicationSupportDirectory,
@@ -250,6 +258,59 @@ final class BackendSupervisor: ObservableObject {
         let bin = Bundle.main.bundleURL.deletingLastPathComponent()
         return bin.appendingPathComponent("../../../macos", isDirectory: true)
                    .standardizedFileURL
+    }
+
+    static func storedBackendDirOverride() -> URL? {
+        guard let path = UserDefaults.standard.string(forKey: backendDirOverrideKey),
+              !path.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+        let url = URL(fileURLWithPath: path, isDirectory: true).standardizedFileURL
+        return isUsableBackendDir(url) ? url : nil
+    }
+
+    static func isUsableBackendDir(_ url: URL) -> Bool {
+        let fm = FileManager.default
+        var isDirectory: ObjCBool = false
+        guard fm.fileExists(atPath: url.path, isDirectory: &isDirectory), isDirectory.boolValue else { return false }
+        return fm.fileExists(atPath: url.appendingPathComponent("requirements.txt").path) &&
+            BackendServiceSpec.all.allSatisfy { spec in
+                fm.fileExists(atPath: url.appendingPathComponent(spec.scriptName).path)
+            }
+    }
+
+    var isUsingCustomBackendDir: Bool {
+        Self.storedBackendDirOverride()?.path == backendDir.standardizedFileURL.path
+    }
+
+    func setBackendDirOverride(_ url: URL) {
+        stopAll()
+        let standardizedURL = url.standardizedFileURL
+        UserDefaults.standard.set(standardizedURL.path, forKey: Self.backendDirOverrideKey)
+        backendDir = standardizedURL
+        pythonExecutable = Self.resolvePython(under: backendDir)
+        resetServiceRuntimeState()
+        recomputeAggregate()
+    }
+
+    func resetBackendDirOverride() {
+        stopAll()
+        UserDefaults.standard.removeObject(forKey: Self.backendDirOverrideKey)
+        backendDir = Self.resolveDefaultBackendDir()
+        pythonExecutable = Self.resolvePython(under: backendDir)
+        resetServiceRuntimeState()
+        recomputeAggregate()
+    }
+
+    private func resetServiceRuntimeState() {
+        for state in services {
+            state.pid = nil
+            state.restartCount = 0
+            state.lastError = nil
+            state.logTail.removeAll()
+            state.startedAt = nil
+            state.lastHealthCheck = nil
+            state.status = .stopped
+        }
+        processMetrics.removeAll()
     }
 
     /// Try the per-app venv first, then Homebrew, then system Python.

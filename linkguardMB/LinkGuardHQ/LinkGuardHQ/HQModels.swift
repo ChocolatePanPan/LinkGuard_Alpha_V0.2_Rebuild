@@ -394,6 +394,133 @@ struct ChatMessage: Codable, Identifiable {
     var isBroadcast: Bool { recipientID == nil }
 }
 
+// MARK: - 通話模式
+
+enum CallStatus: String, Codable, CaseIterable {
+    case ringing
+    case active
+    case declined
+    case ended
+    case missed
+
+    var label: String {
+        switch self {
+        case .ringing: return L("響鈴中")
+        case .active: return L("通話中")
+        case .declined: return L("已拒絕")
+        case .ended: return L("已結束")
+        case .missed: return L("未接來電")
+        }
+    }
+}
+
+struct CallInvite: Codable, Identifiable, Equatable {
+    let callID: String
+    let initiatorID: String
+    let initiatorName: String
+    let targetDeviceIDs: [String]
+    var participants: [String]
+    let createdAt: Double
+    let expiresAt: Double
+    let mode: String
+    var status: CallStatus
+
+    var id: String { callID }
+    var isExpired: Bool { Date().timeIntervalSince1970 >= expiresAt }
+
+    init(callID: String = UUID().uuidString,
+         initiatorID: String,
+         initiatorName: String,
+         targetDeviceIDs: [String],
+         participants: [String] = [],
+         createdAt: Double = Date().timeIntervalSince1970,
+         expiresAt: Double? = nil,
+         mode: String = "ptt",
+         status: CallStatus = .ringing) {
+        self.callID = callID
+        self.initiatorID = initiatorID
+        self.initiatorName = initiatorName
+        self.targetDeviceIDs = targetDeviceIDs
+        self.participants = participants.isEmpty ? [initiatorID] : participants
+        self.createdAt = createdAt
+        self.expiresAt = expiresAt ?? (createdAt + 30)
+        self.mode = mode
+        self.status = status
+    }
+}
+
+struct CallResponse: Codable, Identifiable, Equatable {
+    let callID: String
+    let responderID: String
+    let responderName: String
+    let accepted: Bool
+    let timestamp: Double
+
+    var id: String { "\(callID)-\(responderID)-\(timestamp)" }
+
+    init(callID: String,
+         responderID: String,
+         responderName: String,
+         accepted: Bool,
+         timestamp: Double = Date().timeIntervalSince1970) {
+        self.callID = callID
+        self.responderID = responderID
+        self.responderName = responderName
+        self.accepted = accepted
+        self.timestamp = timestamp
+    }
+}
+
+struct CallEnd: Codable, Identifiable, Equatable {
+    let callID: String
+    let senderID: String
+    let reason: String
+    let timestamp: Double
+
+    var id: String { "\(callID)-end-\(timestamp)" }
+
+    init(callID: String,
+         senderID: String,
+         reason: String = "ended",
+         timestamp: Double = Date().timeIntervalSince1970) {
+        self.callID = callID
+        self.senderID = senderID
+        self.reason = reason
+        self.timestamp = timestamp
+    }
+}
+
+struct CallSession: Codable, Identifiable, Equatable {
+    let callID: String
+    let initiatorID: String
+    let initiatorName: String
+    var participants: [String]
+    var status: CallStatus
+    let startedAt: Double
+    var endedAt: Double?
+    let mode: String
+
+    var id: String { callID }
+
+    init(callID: String,
+         initiatorID: String,
+         initiatorName: String,
+         participants: [String],
+         status: CallStatus = .active,
+         startedAt: Double = Date().timeIntervalSince1970,
+         endedAt: Double? = nil,
+         mode: String = "ptt") {
+        self.callID = callID
+        self.initiatorID = initiatorID
+        self.initiatorName = initiatorName
+        self.participants = Array(Set(participants)).sorted()
+        self.status = status
+        self.startedAt = startedAt
+        self.endedAt = endedAt
+        self.mode = mode
+    }
+}
+
 // MARK: - PWS 警報模型
 
 /// PWS 警報類型
@@ -909,7 +1036,16 @@ struct ConnectedFieldUnit: Identifiable {
     var teamMembers: [TeamSummary]
     var sosCount: Int
     var lastUpdate: Date
+    var nickname: String?       // 使用者自訂暱稱（前線設定 → 我的暱稱）
     var isOnline: Bool { Date().timeIntervalSince(lastUpdate) < 45 }
+
+    /// 顯示名稱：有暱稱優先，無則顯示節點 ID
+    var displayName: String {
+        if let nick = nickname?.trimmingCharacters(in: .whitespacesAndNewlines), !nick.isEmpty {
+            return nick
+        }
+        return deviceID
+    }
 }
 
 // MARK: - 快速狀態回報

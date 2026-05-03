@@ -26,8 +26,13 @@ struct HQSettingsView: View {
     @AppStorage("ai.modelProfile") private var aiModelProfileRaw: String = LocalAIModelProfile.singleE4B.rawValue
     @AppStorage("voice.engine") private var voiceEngine: String = "whisperkit"
     @AppStorage("voice.modelSize") private var voiceModelSize: String = "large-v3"
+    @AppStorage(HQNotificationCueManager.Keys.statusUpdatesEnabled) private var statusUpdateNotificationsEnabled = true
+    @AppStorage(HQNotificationCueManager.Keys.statusSoundEnabled) private var statusSoundEnabled = true
+    @AppStorage(HQNotificationCueManager.Keys.statusFlashEnabled) private var statusFlashEnabled = true
 
     @State private var setupAssistantPresented = false
+    @State private var storageLocationMessage: String? = nil
+    @State private var storageLocationMessageIsError = false
 
     private var backendMode: BackendMode {
         BackendMode(rawValue: backendModeRaw) ?? .embedded
@@ -41,6 +46,7 @@ struct HQSettingsView: View {
         HQPage(maxWidth: NV.pageMaxWidth, spacing: NV.pageSpacing) {
             HQPageTitleBar(L("設定"), icon: "gearshape.fill", accent: NV.info)
             generalSection
+            notificationSection
             backendSection
             aiSection
             voiceSection
@@ -64,7 +70,7 @@ struct HQSettingsView: View {
             Picker(L("外觀"), selection: $appColorScheme) {
                 Text(L("跟隨系統")).tag("system")
                 Text(L("淺色")).tag("light")
-                Text(L("深色")).tag("dark")
+                Text(L("夜視")).tag("dark")
                 Text(L("極致黑")).tag("black")
             }
             .pickerStyle(.segmented)
@@ -119,6 +125,42 @@ struct HQSettingsView: View {
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
+        }
+    }
+
+    private var notificationSection: some View {
+        section(L("通知")) {
+            Toggle(isOn: $statusUpdateNotificationsEnabled) {
+                Label(L("所有現場事件通知"), systemImage: "bell.badge.fill")
+            }
+
+            VStack(alignment: .leading, spacing: 10) {
+                Toggle(isOn: $statusSoundEnabled) {
+                    Label(L("音效通知"), systemImage: "speaker.wave.2.fill")
+                }
+                HStack(spacing: 8) {
+                    Label("f1_team_radio.mp3", systemImage: "music.note")
+                        .font(.caption.monospaced())
+                        .foregroundColor(.secondary)
+                    Spacer()
+                    Button {
+                        HQNotificationCueManager.shared.previewFieldEventCue()
+                    } label: {
+                        Label(L("測試通知"), systemImage: "play.fill")
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(!statusSoundEnabled && !statusFlashEnabled)
+                }
+
+                Toggle(isOn: $statusFlashEnabled) {
+                    Label(L("周邊閃光"), systemImage: "rectangle.dashed.badge.record")
+                }
+            }
+            .disabled(!statusUpdateNotificationsEnabled)
+
+            Text(L("照片上傳、語音/電台回報、通訊、SOS、PWS、傷員、增援與狀態更新都會觸發提示。"))
+                .font(.caption)
+                .foregroundColor(.secondary)
         }
     }
 
@@ -478,15 +520,55 @@ struct HQSettingsView: View {
     private var storageSection: some View {
         section(L("儲存")) {
             #if os(macOS)
-            HStack {
-                Text(L("資料夾:"))
-                Text(supervisor.backendDir.path)
-                    .font(.caption.monospaced())
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                Spacer()
-                Button(L("在 Finder 開啟")) {
-                    NSWorkspace.shared.open(supervisor.backendDir)
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 10) {
+                    Text(L("資料夾:"))
+                    Text(supervisor.backendDir.path)
+                        .font(.caption.monospaced())
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    if supervisor.isUsingCustomBackendDir {
+                        Text(L("自訂位置"))
+                            .font(.caption2.bold())
+                            .foregroundColor(NV.info)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(NV.info.opacity(0.12))
+                            .clipShape(Capsule())
+                    }
+                    Spacer()
+                }
+
+                HStack(spacing: 10) {
+                    Button {
+                        chooseBackendDirectory()
+                    } label: {
+                        Label(L("更改位置"), systemImage: "folder.badge.gearshape")
+                    }
+                    .buttonStyle(.borderedProminent)
+
+                    Button {
+                        supervisor.resetBackendDirOverride()
+                        setStorageLocationMessage(L("已重設為預設位置"))
+                    } label: {
+                        Label(L("重設預設"), systemImage: "arrow.counterclockwise")
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(!supervisor.isUsingCustomBackendDir)
+
+                    Button {
+                        NSWorkspace.shared.open(supervisor.backendDir)
+                    } label: {
+                        Label(L("在 Finder 開啟"), systemImage: "folder")
+                    }
+                    .buttonStyle(.bordered)
+                }
+
+                if let storageLocationMessage {
+                    Text(storageLocationMessage)
+                        .font(.caption)
+                        .foregroundColor(storageLocationMessageIsError ? NV.danger : .secondary)
+                        .lineLimit(2)
                 }
             }
             #else
@@ -549,6 +631,32 @@ struct HQSettingsView: View {
             .font(.caption2)
             .foregroundColor(NV.danger)
             .lineLimit(2)
+    }
+
+    private func chooseBackendDirectory() {
+        let panel = NSOpenPanel()
+        panel.title = L("選擇後端資料夾")
+        panel.message = L("請選擇包含 LinkGuard 後端 Python 腳本的資料夾。")
+        panel.prompt = L("選擇")
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.canCreateDirectories = true
+        panel.directoryURL = supervisor.backendDir
+
+        guard panel.runModal() == .OK, let selectedURL = panel.url else { return }
+        guard BackendSupervisor.isUsableBackendDir(selectedURL) else {
+            setStorageLocationMessage(L("選擇的資料夾缺少必要後端檔案。"), isError: true)
+            return
+        }
+
+        supervisor.setBackendDirOverride(selectedURL)
+        setStorageLocationMessage(L("位置已更新。"))
+    }
+
+    private func setStorageLocationMessage(_ message: String, isError: Bool = false) {
+        storageLocationMessage = message
+        storageLocationMessageIsError = isError
     }
 
     /// React to backend-mode change: tell HQBackendBridge where to connect.

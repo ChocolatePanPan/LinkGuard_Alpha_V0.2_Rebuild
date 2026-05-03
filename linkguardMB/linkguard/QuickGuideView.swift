@@ -186,6 +186,7 @@ struct QuickGuideView: View {
             }
             .navigationTitle(L("快速操作手冊"))
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(L("關閉")) { dismiss() }

@@ -14,6 +14,7 @@ enum HQSection: String, CaseIterable, Identifiable {
     case victimOverview = "受困者總覽"
     case personnel = "人員配置"
     case chat = "通訊頻道"
+    case call = "通話"
     case pws = "PWS 警報"
     case briefing = "會報系統"
     case notification = "個人通知"
@@ -43,6 +44,7 @@ enum HQSection: String, CaseIterable, Identifiable {
         .resources,
         .photoWall,
         .chat,
+        .call,
         .broadcast,
         .radio,
         .pws,
@@ -72,6 +74,7 @@ enum HQSection: String, CaseIterable, Identifiable {
         case .victimOverview: return "person.fill.questionmark"
         case .personnel: return "person.badge.plus"
         case .chat: return "bubble.left.and.bubble.right.fill"
+        case .call: return "phone.fill"
         case .pws: return "exclamationmark.triangle.fill"
         case .briefing: return "doc.text.fill"
         case .notification: return "bell.fill"
@@ -165,7 +168,7 @@ struct HQDashboardView: View {
         appColorScheme == "black"
     }
 
-    private var usesBlackNavigationChrome: Bool {
+    private var usesDarkNavigationChrome: Bool {
         isAbsoluteBlackMode || appColorScheme == "dark" || colorScheme == .dark
     }
 
@@ -231,7 +234,7 @@ struct HQDashboardView: View {
     private var centeredDetailContent: some View {
         detailContent
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .background(NV.bg.ignoresSafeArea())
+            .background(NV.pageBackground(appColorScheme: appColorScheme, colorScheme: colorScheme).ignoresSafeArea())
     }
 
     private var bottomNavigationKeyboardShortcuts: some View {
@@ -265,19 +268,15 @@ struct HQDashboardView: View {
 
     @ViewBuilder
     private var navigationChromeBackground: some View {
-        if usesBlackNavigationChrome {
-            Color.black
-        } else {
-            Rectangle().fill(.ultraThinMaterial)
-        }
+        NV.navigationBackground(appColorScheme: appColorScheme, colorScheme: colorScheme)
     }
 
     private func navigationSelectionFill(for section: HQSection) -> Color {
-        Color.black
+        NV.navigationSelectionFill(appColorScheme: appColorScheme, colorScheme: colorScheme, accent: sectionColor(section))
     }
 
     private func navigationSelectionStroke(for section: HQSection) -> Color {
-        usesBlackNavigationChrome ? Color.white.opacity(0.30) : Color.black.opacity(0.22)
+        isAbsoluteBlackMode ? Color.white.opacity(0.30) : sectionColor(section).opacity(usesDarkNavigationChrome ? 0.42 : 0.28)
     }
 
     private func navigationForeground(for section: HQSection, isSelected: Bool) -> Color {
@@ -399,6 +398,7 @@ struct HQDashboardView: View {
             case .victimOverview: HQVictimOverviewView(vm: vm)
             case .personnel: HQPersonnelView(vm: vm)
             case .chat: HQChatView(vm: vm)
+            case .call: HQCallView(vm: vm)
             case .pws: HQPWSView(vm: vm)
             case .briefing: HQBriefingView(vm: vm)
             case .notification: HQNotificationView(vm: vm)
@@ -946,6 +946,7 @@ struct HQDashboardView: View {
         case .victimOverview: return NV.warning
         case .personnel: return NV.info
         case .chat: return NV.command
+        case .call: return NV.command
         case .pws: return NV.danger
         case .briefing: return NV.team
         case .notification: return NV.reinforce
@@ -1069,6 +1070,7 @@ struct HQDashboardView: View {
                 victimOverviewPanel
                     .padding(.horizontal)
             }
+            .padding(.top, NV.pagePadding)
             .padding(.bottom)
         }
     }
@@ -1138,7 +1140,7 @@ struct HQDashboardView: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.regularMaterial)
+        .hqThemedSurfaceBackground()
         .cornerRadius(NV.cardRadius)
     }
 
@@ -1173,7 +1175,7 @@ struct HQDashboardView: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.regularMaterial)
+        .hqThemedSurfaceBackground()
         .cornerRadius(NV.cardRadius)
     }
 
@@ -1241,7 +1243,7 @@ struct HQDashboardView: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.regularMaterial)
+        .hqThemedSurfaceBackground()
         .cornerRadius(NV.cardRadius)
     }
 
@@ -1314,7 +1316,7 @@ struct HQDashboardView: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.regularMaterial)
+        .hqThemedSurfaceBackground()
         .cornerRadius(NV.cardRadius)
     }
 
@@ -1355,7 +1357,7 @@ struct HQDashboardView: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.regularMaterial)
+        .hqThemedSurfaceBackground()
         .cornerRadius(NV.cardRadius)
     }
 
@@ -1397,7 +1399,7 @@ struct HQDashboardView: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.regularMaterial)
+        .hqThemedSurfaceBackground()
         .cornerRadius(NV.cardRadius)
     }
 
@@ -1429,7 +1431,7 @@ struct HQDashboardView: View {
             }
         }
         .padding()
-        .background(.regularMaterial)
+        .hqThemedSurfaceBackground()
         .cornerRadius(NV.cardRadius)
     }
 
@@ -1518,7 +1520,7 @@ struct HQDashboardView: View {
             }
         }
         .padding()
-        .background(.regularMaterial)
+        .hqThemedSurfaceBackground()
         .cornerRadius(NV.cardRadius)
     }
 
@@ -1644,7 +1646,7 @@ struct HQDashboardView: View {
             }
         }
         .padding()
-        .background(.regularMaterial)
+        .hqThemedSurfaceBackground()
         .cornerRadius(NV.cardRadius)
     }
 

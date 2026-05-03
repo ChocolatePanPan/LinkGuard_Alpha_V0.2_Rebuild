@@ -58,6 +58,14 @@ final class UDPAudioServer: ObservableObject, @unchecked Sendable {
     private var recognitionTasks: [String: SFSpeechRecognitionTask] = [:]
     private let audioEngine = AVAudioEngine()
 
+    // 本地播放（16 kHz mono Int16 PCM -> Float32）
+    private var playbackEngine: AVAudioEngine?
+    private var playerNode: AVAudioPlayerNode?
+    private let playbackFormat = AVAudioFormat(commonFormat: .pcmFormatFloat32,
+                                               sampleRate: 16000,
+                                               channels: 1,
+                                               interleaved: false)!
+
     private var silenceTimer: Timer?
 
     // MARK: - 外部音訊輸入（LGAP TCP 串流轉發）
@@ -184,6 +192,7 @@ final class UDPAudioServer: ObservableObject, @unchecked Sendable {
         }
 
         listener?.start(queue: queue)
+        startPlaybackEngine()
         startSilenceDetection()
     }
 
@@ -240,6 +249,8 @@ final class UDPAudioServer: ObservableObject, @unchecked Sendable {
                     deviceID: packet.deviceID
                 )
 
+                self.playLocallyIfNeeded(audioData: packet.audioData, deviceID: packet.deviceID)
+
                 // 更新狀態為 listening
                 DispatchQueue.main.async {
                     self.transcriptionStates[packet.deviceID] = .listening
@@ -265,10 +276,10 @@ final class UDPAudioServer: ObservableObject, @unchecked Sendable {
         // 最小封包: magic(4) + idLen(2) + seq(4) + timestamp(8) = 18
         guard data.count >= 18 else { return nil }
 
-        let magic = data.withUnsafeBytes { $0.load(fromByteOffset: 0, as: UInt32.self).bigEndian }
+        guard let magic = Self.readBigEndianUInt32(from: data, at: 0) else { return nil }
         guard magic == self.magic else { return nil }
 
-        let idLen = data.withUnsafeBytes { $0.load(fromByteOffset: 4, as: UInt16.self).bigEndian }
+        guard let idLen = Self.readBigEndianUInt16(from: data, at: 4) else { return nil }
         let minLen = 6 + Int(idLen) + 12  // header(6) + deviceID(idLen) + sequence(4) + timestamp(8)
         guard data.count >= minLen else { return nil }
 
@@ -276,8 +287,8 @@ final class UDPAudioServer: ObservableObject, @unchecked Sendable {
         guard let deviceID = String(data: idData, encoding: .utf8) else { return nil }
 
         let seqOffset = 6 + Int(idLen)
-        let sequence = data.withUnsafeBytes { $0.load(fromByteOffset: seqOffset, as: UInt32.self).bigEndian }
-        let timestamp = data.withUnsafeBytes { $0.load(fromByteOffset: seqOffset + 4, as: UInt64.self).bigEndian }
+        guard let sequence = Self.readBigEndianUInt32(from: data, at: seqOffset),
+              let timestamp = Self.readBigEndianUInt64(from: data, at: seqOffset + 4) else { return nil }
 
         let audioData = data.subdata(in: (seqOffset + 12)..<data.count)
 
@@ -289,6 +300,43 @@ final class UDPAudioServer: ObservableObject, @unchecked Sendable {
         )
     }
 
+    private static func readBigEndianUInt16(from data: Data, at offset: Int) -> UInt16? {
+        guard hasBytes(data, at: offset, count: 2) else { return nil }
+        return data.withUnsafeBytes { rawBuffer in
+            let byte0 = UInt16(rawBuffer.load(fromByteOffset: offset, as: UInt8.self))
+            let byte1 = UInt16(rawBuffer.load(fromByteOffset: offset + 1, as: UInt8.self))
+            return (byte0 << 8) | byte1
+        }
+    }
+
+    private static func readBigEndianUInt32(from data: Data, at offset: Int) -> UInt32? {
+        guard hasBytes(data, at: offset, count: 4) else { return nil }
+        return data.withUnsafeBytes { rawBuffer in
+            let byte0 = UInt32(rawBuffer.load(fromByteOffset: offset, as: UInt8.self))
+            let byte1 = UInt32(rawBuffer.load(fromByteOffset: offset + 1, as: UInt8.self))
+            let byte2 = UInt32(rawBuffer.load(fromByteOffset: offset + 2, as: UInt8.self))
+            let byte3 = UInt32(rawBuffer.load(fromByteOffset: offset + 3, as: UInt8.self))
+            return (byte0 << 24) | (byte1 << 16) | (byte2 << 8) | byte3
+        }
+    }
+
+    private static func readBigEndianUInt64(from data: Data, at offset: Int) -> UInt64? {
+        guard hasBytes(data, at: offset, count: 8) else { return nil }
+        return data.withUnsafeBytes { rawBuffer in
+            var value: UInt64 = 0
+            for index in 0..<8 {
+                let byte = UInt64(rawBuffer.load(fromByteOffset: offset + index, as: UInt8.self))
+                value = (value << 8) | byte
+            }
+            return value
+        }
+    }
+
+    private static func hasBytes(_ data: Data, at offset: Int, count byteCount: Int) -> Bool {
+        guard offset >= 0, byteCount >= 0, byteCount <= data.count else { return false }
+        return offset <= data.count - byteCount
+    }
+
     // MARK: - 廣播給其他裝置
 
     private func broadcast(data: Data, excludeID: String) {
@@ -296,6 +344,61 @@ final class UDPAudioServer: ObservableObject, @unchecked Sendable {
             guard id != excludeID else { continue }
             connection.send(content: data, contentContext: .finalMessage, isComplete: true, completion: .idempotent)
         }
+    }
+
+    // MARK: - 本地播放
+
+    private func startPlaybackEngine() {
+        guard playbackEngine == nil else { return }
+
+        let engine = AVAudioEngine()
+        let player = AVAudioPlayerNode()
+
+        engine.attach(player)
+        engine.connect(player, to: engine.mainMixerNode, format: playbackFormat)
+
+        do {
+            try engine.start()
+            player.play()
+            playbackEngine = engine
+            playerNode = player
+        } catch {
+            print("[UDPAudioServer] 本地播放啟動失敗: \(error)")
+        }
+    }
+
+    private func stopPlaybackEngine() {
+        playerNode?.stop()
+        playbackEngine?.stop()
+        playerNode = nil
+        playbackEngine = nil
+    }
+
+    private func playLocallyIfNeeded(audioData: Data, deviceID: String) {
+        guard isLocalPlaybackEnabled else { return }
+        guard deviceID != "HQ" else { return }
+        guard audioData.count >= 2 else { return }
+
+        startPlaybackEngine()
+
+        let frameCount = audioData.count / MemoryLayout<Int16>.size
+        guard let buffer = AVAudioPCMBuffer(
+            pcmFormat: playbackFormat,
+            frameCapacity: AVAudioFrameCount(frameCount)
+        ) else { return }
+
+        buffer.frameLength = AVAudioFrameCount(frameCount)
+        guard let channel = buffer.floatChannelData?[0] else { return }
+
+        audioData.withUnsafeBytes { rawBuffer in
+            let samples = rawBuffer.bindMemory(to: Int16.self)
+            for index in 0..<frameCount {
+                channel[index] = Float(samples[index]) / Float(Int16.max)
+            }
+        }
+
+        playerNode?.volume = Float(playbackVolume)
+        playerNode?.scheduleBuffer(buffer, completionHandler: nil)
     }
 
     // MARK: - 第一層：Apple Speech 即時辨識
@@ -553,6 +656,7 @@ final class UDPAudioServer: ObservableObject, @unchecked Sendable {
         recognitionRequests.removeAll()
         recognitionTasks.values.forEach { $0.cancel() }
         recognitionTasks.removeAll()
+        stopPlaybackEngine()
         audioBuffers.removeAll()
         lastPacketTime.removeAll()
         if Thread.isMainThread {

@@ -143,7 +143,6 @@ struct HQDecisionView: View {
                             Spacer()
                             Text(L("目前無受困者資料"))
                                 .font(.subheadline)
-                                                Text(vm.backendBridge.isConnected ? L("AI 生成中…") : L("連接本機後端…"))
                             Spacer()
                         }
                         .padding(.vertical, 20)

@@ -1403,6 +1403,38 @@ def _clean_reasoning_output(raw: str) -> dict:
     return allowed
 
 
+def _rule_fallback_decision(ranked: list, resource_text: str, weather_summary: str, error: Exception) -> str:
+    active = ranked or []
+    critical = [p for p in active if str(p.get("priority", "")) == "紅色"]
+    deceased = [p for p in active if str(p.get("priority", "")) == "黑色"]
+    green = [p for p in active if str(p.get("priority", "")) == "綠色"]
+    top_patients = active[:3]
+
+    if top_patients:
+        patient_lines = []
+        for patient in top_patients:
+            patient_id = patient.get("id") or patient.get("patient_id") or "未知傷患"
+            priority = patient.get("priority", "未分類")
+            reason = patient.get("reason", "")
+            patient_lines.append(f"{patient_id}（{priority}，{reason}）")
+        focus = "；".join(patient_lines)
+    else:
+        focus = "目前無受困者資料，先維持偵查、通訊與安全區域控管。"
+
+    resource_note = resource_text or "現場資源未回報，先保留醫療包、擔架與撤離通道給紅色傷患。"
+    weather_note = weather_summary or t("misc.no_weather")
+    error_text = str(error).strip() or "模型服務暫時不可用"
+
+    return (
+        "【優先處置】AI 模型服務暫時不可用，已改用 START 規則備援決策。"
+        f"目前紅色 {len(critical)} 人、黑色 {len(deceased)} 人、綠色 {len(green)} 人；優先處理：{focus}\n"
+        f"【資源調配】{resource_note}\n"
+        f"【注意事項】氣象資訊：{weather_note}。請同步確認現場危害、撤離路線與通訊狀態，避免等待模型恢復造成決策空窗。\n"
+        "【與上次決策的差異】本次為規則備援輸出，模型恢復後可重新請求 AI 深度建議。\n"
+        f"【系統狀態】Ollama / 模型推理不可用：{error_text}"
+    )
+
+
 @app.post("/generate")
 async def generate(req: GenerateRequest):
     # 1. 對每個 patient 進行完整評分（START + 六維度）並排序
@@ -1494,7 +1526,35 @@ async def generate(req: GenerateRequest):
         ],
         options={**model_options, "temperature": 0.2, "num_predict": 1024},
     )
-    response, profile_info = await _run_profiled_chat(OLLAMA_HOST, chat_kwargs, think=False)
+    try:
+        response, profile_info = await _run_profiled_chat(OLLAMA_HOST, chat_kwargs, think=False)
+    except Exception as e:
+        logger.exception(f"[GENERATE] AI 決策生成失敗，使用規則備援: {e}")
+        decision = _rule_fallback_decision(ranked, resource_text, weather_summary, e)
+        local_ms = int((time.monotonic() - t0) * 1000)
+        request_id = _new_request_id()
+        save_decision(req.voice_text, patient_summary, weather_summary, decision)
+        record_ai_activity("決策生成", target=f"fallback:{runtime_model}", detail=str(e), status="fallback")
+        return api_ok({
+            "decision": decision,
+            "patients": ranked,
+            "model": "rule-fallback",
+            "escalated": False,
+            "provisional": False,
+            "escalation_status": "ai_unavailable",
+            "queue_position": None,
+            "request_id": request_id,
+            "ai_unavailable": True,
+            "error": str(e),
+            "local_model_time_ms": local_ms,
+            "requested_model": runtime_model,
+            "runtime_model": runtime_model,
+            "model_fallback": False,
+            "ai_profile": DUAL_CFG.get("runtime_profile"),
+            "configured_parallel_workers": DUAL_CFG.get("parallel", {}).get("workers", 1) if isinstance(DUAL_CFG.get("parallel"), dict) else 1,
+            "parallel_workers": 0,
+            "parallel_successes": 0,
+        })
     decision = (response.message.content or "").strip()
     local_ms = int((time.monotonic() - t0) * 1000)
 
@@ -1587,9 +1647,12 @@ async def generate(req: GenerateRequest):
             ],
             options={**model_options, "temperature": 0.0, "num_predict": 512},
         )
-        reason_response, _ = await _run_profiled_chat(OLLAMA_HOST, reason_chat_kwargs, think=False)
-        reason_raw = (reason_response.message.content or "").strip()
-        reasoning = _clean_reasoning_output(reason_raw)
+        try:
+            reason_response, _ = await _run_profiled_chat(OLLAMA_HOST, reason_chat_kwargs, think=False)
+            reason_raw = (reason_response.message.content or "").strip()
+            reasoning = _clean_reasoning_output(reason_raw)
+        except Exception as e:
+            logger.warning(f"[GENERATE] 理由摘要生成失敗，略過 reasoning: {e}")
 
     # 7. 儲存決策到記憶（provisional 也存：標記為小模型初判）
     save_decision(req.voice_text, patient_summary, weather_summary, decision)

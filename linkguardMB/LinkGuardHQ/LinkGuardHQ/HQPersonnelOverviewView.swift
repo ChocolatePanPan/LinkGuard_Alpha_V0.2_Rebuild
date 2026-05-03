@@ -35,7 +35,7 @@ struct HQPersonnelOverviewView: View {
                         .textFieldStyle(.plain)
                 }
                 .padding(6)
-                .background(.regularMaterial)
+                .hqThemedSurfaceBackground()
                 .cornerRadius(8)
                 .frame(maxWidth: 300)
 
@@ -55,7 +55,7 @@ struct HQPersonnelOverviewView: View {
             }
             .padding(.horizontal, NV.pagePadding)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .frame(maxWidth: NV.pageMaxWidth, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .center)
         }
         .padding(.bottom, 14)
@@ -84,7 +84,7 @@ struct HQPersonnelOverviewView: View {
             }
             .padding()
             .frame(maxWidth: .infinity, alignment: .leading)
-            .frame(maxWidth: NV.pageMaxWidth, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .center)
         }
     }
@@ -258,7 +258,7 @@ private struct FieldUnitOverviewCard: View {
                 .font(.caption)
         }
         .padding(NV.cardPadding)
-        .background(.regularMaterial)
+        .hqThemedSurfaceBackground()
         .cornerRadius(NV.cardRadius)
     }
 }
@@ -295,7 +295,7 @@ private struct TeamMemberCard: View {
             }
         }
         .padding(NV.cardPadding)
-        .background(.regularMaterial)
+        .hqThemedSurfaceBackground()
         .cornerRadius(NV.cardRadius)
     }
 }
@@ -340,7 +340,7 @@ private struct PersonnelAssignmentCard: View {
             Spacer()
         }
         .padding(NV.cardPadding)
-        .background(.regularMaterial)
+        .hqThemedSurfaceBackground()
         .cornerRadius(NV.cardRadius)
     }
 }

@@ -36,6 +36,7 @@ struct FieldAIChatView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            Divider()
             statusBar
             Divider().background(NV.command.opacity(0.25))
             if vm.isAIServicePaused {
@@ -79,6 +80,10 @@ struct FieldAIChatView: View {
             .aiPausedAppearance(vm.isAIServicePaused)
         }
         .navigationTitle(L("AI 助理"))
+        #if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.hidden, for: .navigationBar)
+        #endif
     }
 
     // MARK: - 子元件

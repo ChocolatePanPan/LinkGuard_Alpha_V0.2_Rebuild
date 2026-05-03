@@ -584,6 +584,148 @@ class HQBackendBridge: ObservableObject {
         }.resume()
     }
 
+    // MARK: - Resource Server HTTP API
+
+    func refreshResources(completion: ((Result<[String: Any], Error>) -> Void)? = nil) {
+        sendResourceRequest(path: "/resources", method: "GET") { [weak self] result in
+            if case .success(let payload) = result {
+                self?.server?.latestResourceUpdate = payload
+            }
+            completion?(result)
+        }
+    }
+
+    func createResource(resourceID: String,
+                        type: String,
+                        name: String,
+                        total: Int,
+                        locationDesc: String,
+                        completion: ((Result<[String: Any], Error>) -> Void)? = nil) {
+        sendResourceMutation(
+            path: "/resources",
+            method: "POST",
+            body: [
+                "resource_id": resourceID,
+                "type": type,
+                "name": name,
+                "total": max(1, total),
+                "location_desc": locationDesc,
+            ],
+            completion: completion
+        )
+    }
+
+    func deployResource(resourceID: String,
+                        assignedZone: String,
+                        locationDesc: String,
+                        quantity: Int = 1,
+                        completion: ((Result<[String: Any], Error>) -> Void)? = nil) {
+        sendResourceMutation(
+            path: "/resources/\(encodedResourceID(resourceID))/deploy",
+            method: "POST",
+            body: [
+                "assigned_to": assignedZone,
+                "assigned_zone": assignedZone,
+                "location_desc": locationDesc,
+                "quantity": max(1, quantity),
+            ],
+            completion: completion
+        )
+    }
+
+    func returnResource(resourceID: String,
+                        assignedZone: String? = nil,
+                        completion: ((Result<[String: Any], Error>) -> Void)? = nil) {
+        if let assignedZone, !assignedZone.isEmpty {
+            sendResourceMutation(
+                path: "/resources/\(encodedResourceID(resourceID))/return_from_zone",
+                method: "POST",
+                body: ["assigned_zone": assignedZone, "quantity": 1],
+                completion: completion
+            )
+        } else {
+            sendResourceMutation(
+                path: "/resources/\(encodedResourceID(resourceID))/return",
+                method: "POST",
+                body: nil,
+                completion: completion
+            )
+        }
+    }
+
+    private func sendResourceMutation(path: String,
+                                      method: String,
+                                      body: [String: Any]?,
+                                      completion: ((Result<[String: Any], Error>) -> Void)? = nil) {
+        sendResourceRequest(path: path, method: method, body: body) { [weak self] result in
+            switch result {
+            case .success:
+                self?.refreshResources(completion: completion)
+            case .failure:
+                completion?(result)
+            }
+        }
+    }
+
+    private func sendResourceRequest(path: String,
+                                     method: String,
+                                     body: [String: Any]? = nil,
+                                     completion: ((Result<[String: Any], Error>) -> Void)? = nil) {
+        let targetHost = backendHost.isEmpty ? "127.0.0.1" : backendHost
+        guard let url = makeBackendURL(host: targetHost, port: 8006, path: path) else {
+            let error = NSError(domain: "LinkGuard.Resource", code: -1,
+                                userInfo: [NSLocalizedDescriptionKey: "Resource Server URL 無效"])
+            lastError = error.localizedDescription
+            completion?(.failure(error))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = method
+        request.timeoutInterval = 12
+        if let body {
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            Task { @MainActor [weak self] in
+                if let error {
+                    self?.lastError = error.localizedDescription
+                    completion?(.failure(error))
+                    return
+                }
+                if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
+                    let message = data.flatMap { String(data: $0, encoding: .utf8) } ?? "HTTP \(http.statusCode)"
+                    let error = NSError(domain: "LinkGuard.Resource", code: http.statusCode,
+                                        userInfo: [NSLocalizedDescriptionKey: message])
+                    self?.lastError = message
+                    completion?(.failure(error))
+                    return
+                }
+                guard let data, !data.isEmpty else {
+                    completion?(.success([:]))
+                    return
+                }
+                do {
+                    let object = try JSONSerialization.jsonObject(with: data)
+                    let payload = object as? [String: Any] ?? [:]
+                    self?.lastError = nil
+                    completion?(.success(payload))
+                } catch {
+                    self?.lastError = error.localizedDescription
+                    completion?(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    private func encodedResourceID(_ resourceID: String) -> String {
+        var allowed = CharacterSet.urlPathAllowed
+        allowed.remove(charactersIn: "/")
+        return resourceID.addingPercentEncoding(withAllowedCharacters: allowed) ?? resourceID
+    }
+
     /// 通用發送方法
     private func sendToBackend(type: String, data: [String: Any], deviceId: String = "HQ") {
         guard isConnected else { return }
@@ -793,6 +935,7 @@ class HQBackendBridge: ObservableObject {
             var tagged = data
             tagged["_source"] = "backend"
             server?.latestStatsUpdate = tagged
+            server?.statusUpdateSequence += 1
             server?.relayBackendJSON(msgType: "stats_update", data: data)
 
         case "resource_update":

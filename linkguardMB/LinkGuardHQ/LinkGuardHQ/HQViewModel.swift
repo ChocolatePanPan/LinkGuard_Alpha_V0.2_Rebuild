@@ -40,6 +40,8 @@ class HQViewModel: ObservableObject {
     @Published var photoServer = HQPhotoServer()
     @Published var udpAudioServer = UDPAudioServer()
     @Published var audioStreamServer = AudioStreamServer()
+    let callAudioManager = HQCallAudioManager()
+    private let notificationCueManager = HQNotificationCueManager.shared
 
     // 命令表單
     @Published var selectedType: CommandType = .searchArea
@@ -121,6 +123,8 @@ class HQViewModel: ObservableObject {
     // 電台會報
     @Published var radioReports: [HQRadioReport] = []
     @Published var currentBroadcaster: String?
+    @Published var callInvites: [CallInvite] = []
+    @Published var activeCallSession: CallSession?
 
     // PADOS 多裝置定向指揮
     enum TargetMode: String, CaseIterable {
@@ -410,6 +414,15 @@ class HQViewModel: ObservableObject {
             .receive(on: DispatchQueue.main)
             .assign(to: &$quickStatuses)
 
+        server.$statusUpdateSequence
+            .receive(on: DispatchQueue.main)
+            .dropFirst()
+            .sink { [weak self] sequence in
+                guard sequence > 0 else { return }
+                self?.notificationCueManager.triggerFieldEventCue()
+            }
+            .store(in: &cancellables)
+
         // 監聽任務
         server.$tasks
             .receive(on: DispatchQueue.main)
@@ -450,6 +463,23 @@ class HQViewModel: ObservableObject {
             .receive(on: DispatchQueue.main)
             .assign(to: &$currentBroadcaster)
 
+        server.$callInvites
+            .receive(on: DispatchQueue.main)
+            .assign(to: &$callInvites)
+
+        server.$activeCallSession
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] session in
+                guard let self else { return }
+                self.activeCallSession = session
+                if let session, session.status == .active {
+                    self.callAudioManager.startSession(callID: session.callID)
+                } else if session == nil || session?.status != .active {
+                    self.callAudioManager.stopSession()
+                }
+            }
+            .store(in: &cancellables)
+
         // Beta-only bindings
         server.$photoAlerts
             .receive(on: DispatchQueue.main)
@@ -483,6 +513,8 @@ class HQViewModel: ObservableObject {
                 }
             }
             .store(in: &cancellables)
+
+        setupIncomingEventCueBindings()
 
         // 監聽 HQ LoRa BLE 收到的命令
         bluetoothManager.onLoRaCommand = { [weak self] cmd in
@@ -528,6 +560,35 @@ class HQViewModel: ObservableObject {
         }
 
         // UDP activeBroadcaster 已透過上方 merge(with:) 合併，不需重複綁定
+    }
+
+    private func setupIncomingEventCueBindings() {
+        bindIncomingEventCue($photoAlerts.map(\.count).eraseToAnyPublisher())
+        bindIncomingEventCue($radioReports.map(\.count).eraseToAnyPublisher())
+        bindIncomingEventCue($chatMessages.map(\.count).eraseToAnyPublisher())
+        bindIncomingEventCue($personalNotifications.map(\.count).eraseToAnyPublisher())
+        bindIncomingEventCue($pwsAlerts.map(\.count).eraseToAnyPublisher())
+        bindIncomingEventCue($hazardReports.map(\.count).eraseToAnyPublisher())
+        bindIncomingEventCue($reinforcementRequests.map(\.count).eraseToAnyPublisher())
+        bindIncomingEventCue($patientReports.map(\.count).eraseToAnyPublisher())
+        bindIncomingEventCue($patientWarnings.map(\.count).eraseToAnyPublisher())
+        bindIncomingEventCue($activeSOSAlerts.map(\.count).eraseToAnyPublisher())
+    }
+
+    private func bindIncomingEventCue(_ countPublisher: AnyPublisher<Int, Never>) {
+        countPublisher
+            .receive(on: DispatchQueue.main)
+            .removeDuplicates()
+            .scan((previous: Optional<Int>.none, current: 0)) { state, current in
+                (previous: state.current, current: current)
+            }
+            .dropFirst()
+            .sink { [weak self] counts in
+                guard let previous = counts.previous,
+                      counts.current > previous else { return }
+                self?.notificationCueManager.triggerFieldEventCue()
+            }
+            .store(in: &cancellables)
     }
 
     // MARK: - 電台音訊本地播放
@@ -1041,6 +1102,44 @@ class HQViewModel: ObservableObject {
         server.personalNotifications = personalNotifications
         server.sendPersonalNotification(notification)
         logEvent(type: .notification, title: L("發送通知：%@", notification.title), detail: "→ \(notification.targetDeviceID)")
+    }
+
+    // MARK: - 通話
+
+    func startCall(to unit: ConnectedFieldUnit) {
+        guard hqRole == .server, server.isRunning, unit.isOnline else { return }
+        let invite = CallInvite(
+            initiatorID: "HQ",
+            initiatorName: senderName,
+            targetDeviceIDs: [unit.deviceID],
+            participants: ["HQ"]
+        )
+        activeCallSession = CallSession(
+            callID: invite.callID,
+            initiatorID: invite.initiatorID,
+            initiatorName: invite.initiatorName,
+            participants: ["HQ", unit.deviceID],
+            status: .ringing
+        )
+        server.sendCallInviteFromHQ(invite)
+        logEvent(type: .chat, title: L("HQ 發起通話"), detail: unit.deviceID)
+    }
+
+    func endCall(reason: String = "ended") {
+        guard let callID = activeCallSession?.callID else { return }
+        callAudioManager.stopSession()
+        server.sendCallEndFromHQ(CallEnd(callID: callID, senderID: "HQ", reason: reason))
+        activeCallSession = nil
+        logEvent(type: .chat, title: L("HQ 結束通話"), detail: reason)
+    }
+
+    func startCallTransmitting() {
+        guard activeCallSession?.status == .active else { return }
+        callAudioManager.startTransmitting()
+    }
+
+    func stopCallTransmitting() {
+        callAudioManager.stopTransmitting()
     }
 
     // MARK: - 任務指派
