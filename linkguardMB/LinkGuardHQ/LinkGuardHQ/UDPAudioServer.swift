@@ -276,10 +276,10 @@ final class UDPAudioServer: ObservableObject, @unchecked Sendable {
         // 最小封包: magic(4) + idLen(2) + seq(4) + timestamp(8) = 18
         guard data.count >= 18 else { return nil }
 
-        let magic = data.withUnsafeBytes { $0.load(fromByteOffset: 0, as: UInt32.self).bigEndian }
+        guard let magic = Self.readBigEndianUInt32(from: data, at: 0) else { return nil }
         guard magic == self.magic else { return nil }
 
-        let idLen = data.withUnsafeBytes { $0.load(fromByteOffset: 4, as: UInt16.self).bigEndian }
+        guard let idLen = Self.readBigEndianUInt16(from: data, at: 4) else { return nil }
         let minLen = 6 + Int(idLen) + 12  // header(6) + deviceID(idLen) + sequence(4) + timestamp(8)
         guard data.count >= minLen else { return nil }
 
@@ -287,8 +287,8 @@ final class UDPAudioServer: ObservableObject, @unchecked Sendable {
         guard let deviceID = String(data: idData, encoding: .utf8) else { return nil }
 
         let seqOffset = 6 + Int(idLen)
-        let sequence = data.withUnsafeBytes { $0.load(fromByteOffset: seqOffset, as: UInt32.self).bigEndian }
-        let timestamp = data.withUnsafeBytes { $0.load(fromByteOffset: seqOffset + 4, as: UInt64.self).bigEndian }
+        guard let sequence = Self.readBigEndianUInt32(from: data, at: seqOffset),
+              let timestamp = Self.readBigEndianUInt64(from: data, at: seqOffset + 4) else { return nil }
 
         let audioData = data.subdata(in: (seqOffset + 12)..<data.count)
 
@@ -298,6 +298,43 @@ final class UDPAudioServer: ObservableObject, @unchecked Sendable {
             timestamp: timestamp,
             audioData: audioData
         )
+    }
+
+    private static func readBigEndianUInt16(from data: Data, at offset: Int) -> UInt16? {
+        guard hasBytes(data, at: offset, count: 2) else { return nil }
+        return data.withUnsafeBytes { rawBuffer in
+            let byte0 = UInt16(rawBuffer.load(fromByteOffset: offset, as: UInt8.self))
+            let byte1 = UInt16(rawBuffer.load(fromByteOffset: offset + 1, as: UInt8.self))
+            return (byte0 << 8) | byte1
+        }
+    }
+
+    private static func readBigEndianUInt32(from data: Data, at offset: Int) -> UInt32? {
+        guard hasBytes(data, at: offset, count: 4) else { return nil }
+        return data.withUnsafeBytes { rawBuffer in
+            let byte0 = UInt32(rawBuffer.load(fromByteOffset: offset, as: UInt8.self))
+            let byte1 = UInt32(rawBuffer.load(fromByteOffset: offset + 1, as: UInt8.self))
+            let byte2 = UInt32(rawBuffer.load(fromByteOffset: offset + 2, as: UInt8.self))
+            let byte3 = UInt32(rawBuffer.load(fromByteOffset: offset + 3, as: UInt8.self))
+            return (byte0 << 24) | (byte1 << 16) | (byte2 << 8) | byte3
+        }
+    }
+
+    private static func readBigEndianUInt64(from data: Data, at offset: Int) -> UInt64? {
+        guard hasBytes(data, at: offset, count: 8) else { return nil }
+        return data.withUnsafeBytes { rawBuffer in
+            var value: UInt64 = 0
+            for index in 0..<8 {
+                let byte = UInt64(rawBuffer.load(fromByteOffset: offset + index, as: UInt8.self))
+                value = (value << 8) | byte
+            }
+            return value
+        }
+    }
+
+    private static func hasBytes(_ data: Data, at offset: Int, count byteCount: Int) -> Bool {
+        guard offset >= 0, byteCount >= 0, byteCount <= data.count else { return false }
+        return offset <= data.count - byteCount
     }
 
     // MARK: - 廣播給其他裝置
