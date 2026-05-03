@@ -313,7 +313,7 @@ struct CallInvite: Codable, Identifiable, Equatable {
          participants: [String] = [],
          createdAt: Double = Date().timeIntervalSince1970,
          expiresAt: Double? = nil,
-         mode: String = "ptt",
+         mode: String = "duplex",
          status: CallStatus = .ringing) {
         self.callID = callID
         self.initiatorID = initiatorID

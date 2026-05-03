@@ -56,7 +56,7 @@ private struct FieldCallContent: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(L("通話"))
                     .font(.title2.bold())
-                Text(L("邀請隊員進入 PTT 通話"))
+                Text(L("與隊員語音通話"))
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
@@ -154,27 +154,33 @@ private struct FieldCallContent: View {
             .frame(maxWidth: .infinity)
 
             if session.status == .active {
-                VStack(spacing: 10) {
-                    ZStack {
+                VStack(spacing: 12) {
+                    HStack(spacing: 6) {
                         Circle()
-                            .fill(audio.isTransmitting ? NV.danger : NV.command.opacity(0.18))
-                            .frame(width: 132, height: 132)
-                            .shadow(color: audio.isTransmitting ? NV.danger.opacity(0.35) : .clear, radius: 18)
-                        VStack(spacing: 8) {
-                            Image(systemName: audio.isTransmitting ? "mic.fill" : "mic")
-                                .font(.system(size: 42, weight: .semibold))
-                            Text(audio.isTransmitting ? L("放開結束") : L("按住說話"))
-                                .font(.caption.bold())
-                        }
-                        .foregroundColor(audio.isTransmitting ? .white : .primary)
+                            .fill(NV.green)
+                            .frame(width: 10, height: 10)
+                        Text(L("通話中"))
+                            .font(.caption.bold())
+                            .foregroundColor(NV.green)
                     }
-                    .gesture(
-                        DragGesture(minimumDistance: 0)
-                            .onChanged { _ in
-                                if !audio.isTransmitting { audio.startTransmitting() }
-                            }
-                            .onEnded { _ in audio.stopTransmitting() }
-                    )
+
+                    Button {
+                        audio.toggleMute()
+                    } label: {
+                        ZStack {
+                            Circle()
+                                .fill(audio.isMuted ? NV.danger : NV.command.opacity(0.18))
+                                .frame(width: 80, height: 80)
+                            Image(systemName: audio.isMuted ? "mic.slash.fill" : "mic.fill")
+                                .font(.system(size: 32, weight: .semibold))
+                                .foregroundColor(audio.isMuted ? .white : .primary)
+                        }
+                    }
+                    .buttonStyle(.plain)
+
+                    Text(audio.isMuted ? L("已靜音") : L("麥克風開啟"))
+                        .font(.caption)
+                        .foregroundColor(.secondary)
 
                     if audio.isReceiving {
                         Label(L("正在接收語音"), systemImage: "speaker.wave.2.fill")
@@ -288,7 +294,7 @@ struct IncomingCallOverlay: View {
                     Text(invite.initiatorName)
                         .font(.title3.weight(.semibold))
                         .foregroundColor(NV.command)
-                    Text(L("邀請你進入 PTT 通話"))
+                    Text(L("邀請你進入語音通話"))
                         .font(.callout)
                         .foregroundColor(.secondary)
                 }
