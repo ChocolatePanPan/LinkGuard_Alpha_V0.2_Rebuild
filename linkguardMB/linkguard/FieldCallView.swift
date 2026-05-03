@@ -72,7 +72,7 @@ private struct FieldCallContent: View {
                 .frame(width: 48, height: 48)
 
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(L("救援 PTT 通話"))
+                    Text(L("與隊員語音通話"))
                         .font(.title3.bold())
                     Text(vm.commandClient.isConnected ? L("Mac HQ 語音中繼可用") : L("未連線 Mac HQ，無法撥打通話"))
                         .font(.caption)
@@ -119,7 +119,7 @@ private struct FieldCallContent: View {
                     VStack(spacing: 4) {
                         Text(vm.commandClient.isConnected ? L("尚無其他線上搜救節點") : L("等待 HQ 連線"))
                             .font(.headline)
-                        Text(vm.commandClient.isConnected ? L("隊員上線後會出現在這裡") : L("連線後即可撥打 PTT 通話"))
+                        Text(vm.commandClient.isConnected ? L("隊員上線後會出現在這裡") : L("連線後即可撥打語音通話"))
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
@@ -182,29 +182,32 @@ private struct FieldCallContent: View {
 
             if session.status == .active {
                 VStack(spacing: 12) {
-                    ZStack {
+                    HStack(spacing: 6) {
                         Circle()
-                            .stroke(audio.isTransmitting ? NV.danger.opacity(0.35) : NV.command.opacity(0.2), lineWidth: 12)
-                            .frame(width: 154, height: 154)
-                        Circle()
-                            .fill(audio.isTransmitting ? NV.danger : NV.command.opacity(0.18))
-                            .frame(width: 126, height: 126)
-                            .shadow(color: audio.isTransmitting ? NV.danger.opacity(0.35) : .clear, radius: 18)
-                        VStack(spacing: 8) {
-                            Image(systemName: audio.isTransmitting ? "mic.fill" : "mic")
-                                .font(.system(size: 42, weight: .semibold))
-                            Text(audio.isTransmitting ? L("放開結束") : L("按住說話"))
-                                .font(.caption.bold())
-                        }
-                        .foregroundColor(audio.isTransmitting ? .white : .primary)
+                            .fill(NV.green)
+                            .frame(width: 10, height: 10)
+                        Text(L("通話中"))
+                            .font(.caption.bold())
+                            .foregroundColor(NV.green)
                     }
-                    .gesture(
-                        DragGesture(minimumDistance: 0)
-                            .onChanged { _ in
-                                if !audio.isTransmitting { audio.startTransmitting() }
-                            }
-                            .onEnded { _ in audio.stopTransmitting() }
-                    )
+
+                    Button {
+                        audio.toggleMute()
+                    } label: {
+                        ZStack {
+                            Circle()
+                                .fill(audio.isMuted ? NV.danger : NV.command.opacity(0.18))
+                                .frame(width: 80, height: 80)
+                            Image(systemName: audio.isMuted ? "mic.slash.fill" : "mic.fill")
+                                .font(.system(size: 32, weight: .semibold))
+                                .foregroundColor(audio.isMuted ? .white : .primary)
+                        }
+                    }
+                    .buttonStyle(.plain)
+
+                    Text(audio.isMuted ? L("已靜音") : L("麥克風開啟"))
+                        .font(.caption)
+                        .foregroundColor(.secondary)
 
                     audioStatusLine
                 }
@@ -493,7 +496,7 @@ struct IncomingCallOverlay: View {
                     Text(invite.initiatorName)
                         .font(.title3.weight(.semibold))
                         .foregroundColor(NV.command)
-                    Text(L("邀請你進入 PTT 通話"))
+                    Text(L("邀請你進入語音通話"))
                         .font(.callout)
                         .foregroundColor(.secondary)
                 }

@@ -5,6 +5,7 @@ import AVFoundation
 final class HQCallAudioManager: ObservableObject {
     @Published var isSessionActive = false
     @Published var isTransmitting = false
+    @Published var isMuted = false
     @Published var connectionError: String?
 
     private var callID = ""
@@ -24,8 +25,10 @@ final class HQCallAudioManager: ObservableObject {
         self.callID = callID
         self.deviceID = deviceID
         connectionError = nil
+        isMuted = false
         isSessionActive = true
         ensureSendConnection(sendRegistrationWhenReady: true)
+        startTransmitting()
     }
 
     func stopSession() {
@@ -34,8 +37,13 @@ final class HQCallAudioManager: ObservableObject {
         sendConnection = nil
         DispatchQueue.main.async {
             self.isSessionActive = false
+            self.isMuted = false
             self.connectionError = nil
         }
+    }
+
+    func toggleMute() {
+        isMuted.toggle()
     }
 
     func startTransmitting() {
@@ -58,6 +66,8 @@ final class HQCallAudioManager: ObservableObject {
 
         inputNode.installTap(onBus: 0, bufferSize: 4096, format: nativeFormat) { [weak self] buffer, _ in
             guard let self else { return }
+            if self.isMuted { return }
+
             let ratio = Self.sampleRate / nativeFormat.sampleRate
             let frameCapacity = AVAudioFrameCount(max(1, Double(buffer.frameLength) * ratio))
             guard let outputBuffer = AVAudioPCMBuffer(pcmFormat: targetFormat, frameCapacity: frameCapacity) else { return }

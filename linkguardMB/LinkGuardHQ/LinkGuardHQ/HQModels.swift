@@ -435,7 +435,7 @@ struct CallInvite: Codable, Identifiable, Equatable {
          participants: [String] = [],
          createdAt: Double = Date().timeIntervalSince1970,
          expiresAt: Double? = nil,
-         mode: String = "ptt",
+         mode: String = "duplex",
          status: CallStatus = .ringing) {
         self.callID = callID
         self.initiatorID = initiatorID
@@ -509,7 +509,7 @@ struct CallSession: Codable, Identifiable, Equatable {
          status: CallStatus = .active,
          startedAt: Double = Date().timeIntervalSince1970,
          endedAt: Double? = nil,
-         mode: String = "ptt") {
+         mode: String = "duplex") {
         self.callID = callID
         self.initiatorID = initiatorID
         self.initiatorName = initiatorName

@@ -7,6 +7,7 @@ final class CallAudioManager: ObservableObject {
     @Published var isSessionActive = false
     @Published var isTransmitting = false
     @Published var isReceiving = false
+    @Published var isMuted = false
     @Published var connectionError: String?
 
     private var callID = ""
@@ -45,11 +46,13 @@ final class CallAudioManager: ObservableObject {
         self.serverHost = cleanHost
         self.deviceID = deviceID
         connectionError = nil
+        isMuted = false
         isSessionActive = true
 
         configurePlaybackSession()
         startRelayListener()
         ensureSendConnection(sendRegistrationWhenReady: true)
+        startTransmitting()
     }
 
     func stopSession() {
@@ -65,8 +68,13 @@ final class CallAudioManager: ObservableObject {
         DispatchQueue.main.async {
             self.isSessionActive = false
             self.isReceiving = false
+            self.isMuted = false
             self.connectionError = nil
         }
+    }
+
+    func toggleMute() {
+        isMuted.toggle()
     }
 
     func startTransmitting() {
@@ -117,6 +125,8 @@ final class CallAudioManager: ObservableObject {
 
         inputNode.installTap(onBus: 0, bufferSize: 4096, format: nativeFormat) { [weak self] buffer, _ in
             guard let self else { return }
+            if self.isMuted { return }
+
             let ratio = Self.sampleRate / nativeFormat.sampleRate
             let frameCapacity = AVAudioFrameCount(max(1, Double(buffer.frameLength) * ratio))
             guard let outputBuffer = AVAudioPCMBuffer(pcmFormat: targetFormat, frameCapacity: frameCapacity) else { return }
