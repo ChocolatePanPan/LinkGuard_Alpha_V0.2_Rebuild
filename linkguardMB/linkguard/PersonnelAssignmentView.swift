@@ -31,8 +31,20 @@ struct PersonnelAssignmentView: View {
             .navigationTitle(L("人員指派"))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.hidden, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        editingAssignment = nil
+                        showAssignSheet = true
+                    } label: {
+                        Image(systemName: "plus.circle.fill")
+                            .font(.title2)
+                    }
+                }
+            }
             #endif
+            .contentMargins(.top, 0, for: .scrollContent)
             .sheet(isPresented: $showAssignSheet) {
                 AssignPersonnelSheet(vm: vm, editing: $editingAssignment)
             }
@@ -43,20 +55,6 @@ struct PersonnelAssignmentView: View {
 
     private var summarySection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text(L("人員指派"))
-                    .font(.largeTitle).bold()
-                Spacer()
-                Button {
-                    editingAssignment = nil
-                    showAssignSheet = true
-                } label: {
-                    Image(systemName: "plus.circle.fill")
-                        .font(.title2)
-                }
-            }
-            .padding(.horizontal)
-
             // 角色分佈
             let roleCounts = Dictionary(grouping: vm.personnelAssignments, by: \.role)
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
@@ -311,7 +309,7 @@ struct AssignPersonnelSheet: View {
             }
             .navigationTitle(isEditing ? L("編輯指派") : L("新增人員"))
             .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.hidden, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(L("取消")) { dismiss() }

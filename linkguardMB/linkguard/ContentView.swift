@@ -385,7 +385,7 @@ struct AIHubView: View {
         }
         .navigationTitle("AI")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(.hidden, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
     }
 }
 
@@ -1081,7 +1081,7 @@ struct HandoverSummarySheet: View {
             .navigationTitle(L("交班摘要"))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.hidden, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
             #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -1152,7 +1152,7 @@ struct VictimListView: View {
             .navigationTitle(L("受困者列表"))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.hidden, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Text("\(vm.victims.count + vm.localPatients.count)")
@@ -1464,18 +1464,6 @@ struct SOSRecordListView: View {
     var body: some View {
         NavigationStack {
             List {
-                // SOS 紀錄
-                Section {
-                    HStack {
-                        Text(L("SOS 警報"))
-                            .font(.title2).bold()
-                        Spacer()
-                    }
-                    .listRowBackground(Color.clear)
-                    .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
-                    .padding(.horizontal, 0)
-                }
-
                 if vm.sosRecords.isEmpty {
                     Section {
                         Text(L("目前沒有 SOS 紀錄"))
@@ -1494,7 +1482,7 @@ struct SOSRecordListView: View {
             .navigationTitle(L("SOS 警報"))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.hidden, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
             #endif
             .contentMargins(.top, 0, for: .scrollContent)
         }
@@ -1577,7 +1565,7 @@ struct CommandListView: View {
             .navigationTitle(L("指揮中心命令"))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.hidden, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(L("全部已讀")) {
@@ -1934,7 +1922,7 @@ struct ConnectionView: View {
             .navigationTitle(L("連線管理"))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.hidden, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
             #endif
             .contentMargins(.top, 0, for: .scrollContent)
             .onAppear {
@@ -2162,23 +2150,6 @@ struct ReinforcementListView: View {
     var body: some View {
         NavigationStack {
             List {
-                // 標題列
-                Section {
-                    HStack {
-                        Text(L("增援請求"))
-                            .font(.title2).bold()
-                        Spacer()
-                        Button {
-                            showCompose = true
-                        } label: {
-                            Image(systemName: "plus.circle.fill")
-                                .font(.title3)
-                        }
-                    }
-                    .listRowBackground(Color.clear)
-                    .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 16))
-                }
-
                 if vm.reinforcementRequests.isEmpty {
                     Section {
                         HStack {
@@ -2213,9 +2184,10 @@ struct ReinforcementListView: View {
                     }
                 }
             }
+            .navigationTitle(L("增援請求"))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.hidden, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
@@ -2238,7 +2210,7 @@ struct ReinforcementListView: View {
                     .navigationTitle(L("呼叫增援"))
                     #if os(iOS)
                     .navigationBarTitleDisplayMode(.inline)
-                    .toolbarBackground(.hidden, for: .navigationBar)
+                    .toolbarBackground(.visible, for: .navigationBar)
                     #endif
                     .toolbar {
                         ToolbarItem(placement: .cancellationAction) {
@@ -2340,16 +2312,6 @@ struct TeamListView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section {
-                    HStack {
-                        Text(L("分隊通訊群組"))
-                            .font(.title2).bold()
-                        Spacer()
-                    }
-                    .listRowBackground(Color.clear)
-                    .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 16))
-                }
-
                 if vm.teamMembers.isEmpty {
                     Section {
                         HStack {
@@ -2382,7 +2344,7 @@ struct TeamListView: View {
             .navigationTitle(L("分隊通訊群組"))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.hidden, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
             #endif
             .contentMargins(.top, 0, for: .scrollContent)
         }

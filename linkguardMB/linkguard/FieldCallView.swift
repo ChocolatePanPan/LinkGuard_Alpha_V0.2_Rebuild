@@ -22,7 +22,6 @@ private struct FieldCallContent: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    header
                     connectionBanner
 
                     if let session = vm.activeCallSession {
@@ -39,28 +38,9 @@ private struct FieldCallContent: View {
             .navigationTitle(L("通話"))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.hidden, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
             #endif
-        }
-    }
-
-    private var header: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "phone.fill")
-                .font(.title2)
-                .foregroundColor(NV.command)
-                .frame(width: 44, height: 44)
-                .background(NV.command.opacity(0.12))
-                .clipShape(Circle())
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(L("通話"))
-                    .font(.title2.bold())
-                Text(L("邀請隊員進入 PTT 通話"))
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-            Spacer()
+            .contentMargins(.top, 0, for: .scrollContent)
         }
     }
 

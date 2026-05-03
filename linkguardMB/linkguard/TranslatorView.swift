@@ -104,7 +104,7 @@ struct TranslatorView: View {
             .navigationTitle(L("翻譯"))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.hidden, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
             #endif
             .contentMargins(.top, 0, for: .scrollContent)
         }

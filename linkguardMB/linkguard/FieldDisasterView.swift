@@ -150,9 +150,10 @@ struct FieldDisasterView: View {
                     .padding(.top, 100)
                 }
             }
+            .navigationTitle(L("全區災情概況"))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.hidden, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
@@ -164,7 +165,6 @@ struct FieldDisasterView: View {
                 }
             }
             #endif
-            .navigationTitle(L("全區災情概況"))
             .contentMargins(.top, 0, for: .scrollContent)
             .sheet(isPresented: $showHazardReport) {
                 HazardReportSheet(vm: vm)
@@ -205,7 +205,7 @@ struct HazardReportSheet: View {
             .navigationTitle(L("回報危險"))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.hidden, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
             #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

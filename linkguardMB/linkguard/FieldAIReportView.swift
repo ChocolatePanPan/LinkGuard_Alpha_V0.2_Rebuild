@@ -64,7 +64,7 @@ struct FieldAIReportView: View {
         .navigationTitle(L("AI 回報"))
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(.hidden, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
         #endif
     }
 
