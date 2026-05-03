@@ -220,6 +220,7 @@ def init_db():
         CREATE INDEX IF NOT EXISTS idx_locations_device_id ON locations(device_id);
         CREATE INDEX IF NOT EXISTS idx_node_status_log_timestamp ON node_status_log(timestamp);
     """)
+    _ensure_column(conn, "resources", "assigned_zone", "TEXT DEFAULT ''")
     conn.commit()
     conn.close()
     print(f"[DB] 資料庫已初始化: {DB_PATH}")
@@ -242,7 +243,6 @@ def save_decision(voice_text: str, patients_summary: str,
              weather_summary, decision_text, trigger_type),
         )
         conn.commit()
-    _ensure_column(conn, "resources", "assigned_zone", "TEXT DEFAULT ''")
     except Exception as e:
         log_event("error", "db", f"save_decision 失敗: {e}", "error")
     finally:

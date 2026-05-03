@@ -1828,11 +1828,14 @@ class HQCommandServer: ObservableObject {
             ],
             "resources": fieldUnits.map { unit -> [String: Any] in
                 [
+                    "resource_id": "field-device-\(unit.deviceID)",
                     "name": unit.deviceID,
                     "type": "通訊裝置",
                     "status": unit.isOnline ? "available" : "offline",
                     "total": 1,
                     "available": unit.isOnline ? 1 : 0,
+                    "assigned_zone": "",
+                    "allocations": [],
                 ]
             },
         ]
