@@ -26,6 +26,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.linkguard.app.ui.theme.NV
+import com.linkguard.app.ui.theme.NVShape
 import kotlinx.coroutines.launch
 
 // =====================================================
@@ -116,7 +117,7 @@ fun OnboardingScreen(
                             }
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = NV.green),
-                        shape = RoundedCornerShape(12.dp),
+                        shape = NVShape.card,
                         modifier = Modifier.defaultMinSize(minHeight = 56.dp, minWidth = 140.dp)
                     ) {
                         Text("Next", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
@@ -127,7 +128,7 @@ fun OnboardingScreen(
                     Button(
                         onClick = { onComplete(selectedRole, deptCode) },
                         colors = ButtonDefaults.buttonColors(containerColor = NV.green),
-                        shape = RoundedCornerShape(12.dp),
+                        shape = NVShape.card,
                         modifier = Modifier.defaultMinSize(minHeight = 56.dp, minWidth = 180.dp)
                     ) {
                         Icon(Icons.Default.RocketLaunch, contentDescription = null, modifier = Modifier.size(20.dp))
@@ -227,12 +228,12 @@ private fun RoleSelectionPage(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(NVShape.card)
                     .background(if (isSelected) NV.green.copy(alpha = 0.15f) else NV.card)
                     .border(
                         width = if (isSelected) 2.dp else 1.dp,
                         color = if (isSelected) NV.green else NV.cardBorder,
-                        shape = RoundedCornerShape(12.dp)
+                        shape = NVShape.card
                     )
                     .clickable { onRoleSelected(roleId) }
                     .padding(16.dp),
@@ -325,9 +326,9 @@ private fun FeatureTourPage() {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
+                .clip(NVShape.card)
                 .background(NV.danger.copy(alpha = 0.1f))
-                .border(1.dp, NV.danger.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+                .border(1.dp, NV.danger.copy(alpha = 0.3f), NVShape.card)
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -422,9 +423,9 @@ private fun FeatureTourCard(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .clip(NVShape.card)
             .background(color.copy(alpha = 0.08f))
-            .border(1.dp, color.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
+            .border(1.dp, color.copy(alpha = 0.2f), NVShape.card)
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)

@@ -28,6 +28,7 @@ import androidx.compose.ui.res.stringResource
 import com.linkguard.app.R
 import com.linkguard.app.model.TranslationResult
 import com.linkguard.app.ui.theme.NV
+import com.linkguard.app.ui.theme.NVShape
 import com.linkguard.app.viewmodel.LinkGuardViewModel
 import java.util.*
 
@@ -244,7 +245,7 @@ fun TranslatorScreen(viewModel: LinkGuardViewModel) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(NV.command.copy(alpha = 0.08f), RoundedCornerShape(12.dp))
+                    .background(NV.command.copy(alpha = 0.08f), NVShape.card)
                     .padding(16.dp)
             ) {
                 Text("${stringResource(R.string.translator_result)} (${r.targetLang})", fontSize = 12.sp, color = NV.textSecondary)

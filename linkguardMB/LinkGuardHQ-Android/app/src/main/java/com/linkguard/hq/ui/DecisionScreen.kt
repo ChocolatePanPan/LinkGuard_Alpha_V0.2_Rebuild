@@ -65,7 +65,7 @@ fun DecisionTab(viewModel: HQViewModel) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = NV.card),
-                shape = RoundedCornerShape(12.dp)
+                shape = NVShape.card
             ) {
                 Column(
                     modifier = Modifier.padding(16.dp),
@@ -167,7 +167,7 @@ private fun DecisionCard(decision: HQDecision) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = NV.card),
-        shape = RoundedCornerShape(12.dp)
+        shape = NVShape.card
     ) {
         Column(
             modifier = Modifier.padding(16.dp),

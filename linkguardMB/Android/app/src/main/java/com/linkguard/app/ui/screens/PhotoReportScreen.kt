@@ -27,6 +27,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import coil.compose.AsyncImage
 import com.linkguard.app.ui.theme.NV
+import com.linkguard.app.ui.theme.NVShape
 import com.linkguard.app.viewmodel.LinkGuardViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -187,7 +188,7 @@ fun PhotoReportScreen(viewModel: LinkGuardViewModel) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = NV.card),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = NVShape.card,
                     elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
                 ) {
                     if (selectedImageUri != null) {
@@ -197,7 +198,7 @@ fun PhotoReportScreen(viewModel: LinkGuardViewModel) {
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .heightIn(max = 280.dp)
-                                .clip(RoundedCornerShape(12.dp)),
+                                .clip(NVShape.card),
                             contentScale = ContentScale.Fit
                         )
                     } else {
@@ -253,7 +254,7 @@ fun PhotoReportScreen(viewModel: LinkGuardViewModel) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = NV.card),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = NVShape.card,
                     elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
                 ) {
                     Column(

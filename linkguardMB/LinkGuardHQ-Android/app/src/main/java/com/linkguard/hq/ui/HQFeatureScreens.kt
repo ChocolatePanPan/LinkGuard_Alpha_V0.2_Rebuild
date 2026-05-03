@@ -416,7 +416,7 @@ fun ChatBubbleItem(msg: ChatMessage, isFromHQ: Boolean) {
             modifier = Modifier
                 .background(
                     if (isFromHQ) NV.command.copy(alpha = 0.2f) else Color.Gray.copy(alpha = 0.15f),
-                    RoundedCornerShape(12.dp)
+                    NVShape.card
                 )
                 .padding(horizontal = 12.dp, vertical = 8.dp)
         ) {
@@ -835,8 +835,8 @@ fun SectionCard(title: String, content: @Composable ColumnScope.() -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(NV.card, RoundedCornerShape(12.dp))
-            .border(1.dp, NV.cardBorder, RoundedCornerShape(12.dp))
+            .background(NV.card, NVShape.card)
+            .border(1.dp, NV.cardBorder, NVShape.card)
             .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
@@ -1007,8 +1007,8 @@ fun HQZoneMapTab(viewModel: HQViewModel) {
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(180.dp)
-                        .background(NV.surface, RoundedCornerShape(12.dp))
-                        .border(1.dp, NV.cardBorder, RoundedCornerShape(12.dp))
+                        .background(NV.surface, NVShape.card)
+                        .border(1.dp, NV.cardBorder, NVShape.card)
                         .padding(12.dp)
                 ) {
                     Canvas(modifier = Modifier.fillMaxSize()) {
@@ -1250,8 +1250,8 @@ private fun ZoneStatCard(label: String, value: String, color: Color, modifier: M
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier
-            .background(NV.card, RoundedCornerShape(10.dp))
-            .border(1.dp, NV.cardBorder, RoundedCornerShape(10.dp))
+            .background(NV.card, NVShape.card)
+            .border(1.dp, NV.cardBorder, NVShape.card)
             .padding(vertical = 10.dp, horizontal = 8.dp)
     ) {
         Text(value, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = color)
@@ -1313,8 +1313,8 @@ private fun ReportCard(report: RadioReport) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(NV.card, RoundedCornerShape(12.dp))
-            .border(1.dp, NV.cardBorder, RoundedCornerShape(12.dp))
+            .background(NV.card, NVShape.card)
+            .border(1.dp, NV.cardBorder, NVShape.card)
             .clickable { expanded = !expanded }
             .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp)
@@ -2041,11 +2041,11 @@ fun HQBroadcastTab(viewModel: HQViewModel) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(NV.card, RoundedCornerShape(12.dp))
+                    .background(NV.card, NVShape.card)
                     .border(
                         1.dp,
                         if (broadcast.priority == "urgent") NV.danger.copy(alpha = 0.5f) else NV.cardBorder,
-                        RoundedCornerShape(12.dp)
+                        NVShape.card
                     )
                     .padding(12.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
@@ -2130,8 +2130,8 @@ fun HQRadioTab(viewModel: HQViewModel) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(NV.card, RoundedCornerShape(12.dp))
-                    .border(1.dp, if (isActive) NV.green.copy(alpha = 0.5f) else NV.cardBorder, RoundedCornerShape(12.dp))
+                    .background(NV.card, NVShape.card)
+                    .border(1.dp, if (isActive) NV.green.copy(alpha = 0.5f) else NV.cardBorder, NVShape.card)
                     .padding(20.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -2180,8 +2180,8 @@ fun HQRadioTab(viewModel: HQViewModel) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(NV.card, RoundedCornerShape(12.dp))
-                    .border(1.dp, if (isRecording) Color(0xFFD13838).copy(alpha = 0.5f) else NV.cardBorder, RoundedCornerShape(12.dp))
+                    .background(NV.card, NVShape.card)
+                    .border(1.dp, if (isRecording) Color(0xFFD13838).copy(alpha = 0.5f) else NV.cardBorder, NVShape.card)
                     .padding(16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -2382,8 +2382,8 @@ fun HQPatientWarningTab(viewModel: HQViewModel) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(NV.card, RoundedCornerShape(12.dp))
-                    .border(1.dp, levelColor.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+                    .background(NV.card, NVShape.card)
+                    .border(1.dp, levelColor.copy(alpha = 0.4f), NVShape.card)
                     .padding(12.dp),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {

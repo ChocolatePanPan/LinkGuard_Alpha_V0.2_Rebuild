@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.linkguard.app.ui.theme.NV
+import com.linkguard.app.ui.theme.NVShape
 
 // =====================================================
 //  NVCard — 統一卡片元件系統
@@ -28,7 +29,7 @@ import com.linkguard.app.ui.theme.NV
 
 /**
  * 標準卡片容器（取代散落各處的 CardContainer）。
- * - 14dp 圓角
+ * - 24dp 圓角（NVShape.card）
  * - 漸變背景（card → 深色）
  * - 色彩邊框帶漸變
  * - 6dp 陰影
@@ -43,11 +44,11 @@ fun NVCard(
         modifier = modifier
             .fillMaxWidth()
             .shadow(
-                6.dp, RoundedCornerShape(14.dp),
+                6.dp, NVShape.card,
                 ambientColor = Color.Black.copy(alpha = 0.5f),
                 spotColor = Color.Black.copy(alpha = 0.3f)
             )
-            .clip(RoundedCornerShape(14.dp))
+            .clip(NVShape.card)
             .background(
                 Brush.verticalGradient(
                     colors = listOf(NV.card, Color(0xFF131920))
@@ -61,7 +62,7 @@ fun NVCard(
                         borderColor.copy(alpha = 0.2f)
                     )
                 ),
-                shape = RoundedCornerShape(14.dp)
+                shape = NVShape.card
             )
             .padding(16.dp),
         content = content
@@ -82,11 +83,11 @@ fun NVAlertCard(
         modifier = modifier
             .fillMaxWidth()
             .shadow(
-                6.dp, RoundedCornerShape(14.dp),
+                6.dp, NVShape.card,
                 ambientColor = Color.Black.copy(alpha = 0.5f),
                 spotColor = Color.Black.copy(alpha = 0.3f)
             )
-            .clip(RoundedCornerShape(14.dp))
+            .clip(NVShape.card)
             .background(
                 Brush.verticalGradient(
                     colors = listOf(NV.card, Color(0xFF131920))
@@ -100,7 +101,7 @@ fun NVAlertCard(
                         NV.cardBorder.copy(alpha = 0.2f)
                     )
                 ),
-                shape = RoundedCornerShape(14.dp)
+                shape = NVShape.card
             )
     ) {
         // 左側色彩條
@@ -136,11 +137,11 @@ fun NVStatCard(
         modifier = modifier
             .defaultMinSize(minHeight = 56.dp)
             .shadow(
-                8.dp, RoundedCornerShape(14.dp),
+                8.dp, NVShape.card,
                 ambientColor = color.copy(alpha = 0.15f),
                 spotColor = color.copy(alpha = 0.1f)
             )
-            .clip(RoundedCornerShape(14.dp))
+            .clip(NVShape.card)
             .background(
                 Brush.verticalGradient(
                     colors = listOf(NV.card, Color(0xFF131920))
@@ -155,7 +156,7 @@ fun NVStatCard(
                         color.copy(alpha = 0.08f)
                     )
                 ),
-                shape = RoundedCornerShape(14.dp)
+                shape = NVShape.card
             )
             .then(
                 if (onClick != null) Modifier.clickable { onClick() } else Modifier
@@ -208,7 +209,7 @@ fun NVEmptyState(
             androidx.compose.material3.Button(
                 onClick = onAction,
                 colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = NV.blue),
-                shape = RoundedCornerShape(8.dp),
+                shape = NVShape.pill,
                 modifier = Modifier.defaultMinSize(minHeight = 56.dp)
             ) {
                 Text(actionLabel, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)

@@ -247,8 +247,8 @@ fun HQDashboardScreen(viewModel: HQViewModel, windowSizeClass: WindowSizeClass? 
             Column(
                 modifier = Modifier
                     .fillMaxWidth(0.8f)
-                    .background(NV.card, RoundedCornerShape(16.dp))
-                    .border(2.dp, NV.danger, RoundedCornerShape(16.dp))
+                    .background(NV.card, NVShape.card)
+                    .border(2.dp, NV.danger, NVShape.card)
                     .padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -842,7 +842,7 @@ fun CommandTab(viewModel: HQViewModel) {
                         enabled = isRunning && title.isNotBlank() && onlineCount > 0,
                         colors = ButtonDefaults.buttonColors(containerColor = NV.warning),
                         modifier = Modifier.fillMaxWidth().height(48.dp),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = NVShape.card
                     ) {
                         Icon(Icons.Default.Send, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
@@ -1162,9 +1162,9 @@ fun HQCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .clip(NVShape.card)
             .background(NV.card)
-            .border(1.dp, borderColor, RoundedCornerShape(12.dp))
+            .border(1.dp, borderColor, NVShape.card)
             .padding(16.dp),
         content = content
     )
@@ -1174,9 +1174,9 @@ fun HQCard(
 fun HQStatCard(label: String, value: String, color: Color, modifier: Modifier = Modifier) {
     Column(
         modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
+            .clip(NVShape.card)
             .background(NV.card)
-            .border(1.dp, NV.cardBorder, RoundedCornerShape(12.dp))
+            .border(1.dp, NV.cardBorder, NVShape.card)
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {

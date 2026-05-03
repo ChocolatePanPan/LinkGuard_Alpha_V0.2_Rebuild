@@ -37,7 +37,7 @@ fun DeviceTargetSelector(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
+            .clip(NVShape.card)
             .background(NV.card)
             .padding(10.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
