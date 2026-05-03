@@ -16,7 +16,6 @@ struct HQPersonnelOverviewView: View {
             content
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .background(NV.bg.ignoresSafeArea())
     }
 
     // MARK: - Header

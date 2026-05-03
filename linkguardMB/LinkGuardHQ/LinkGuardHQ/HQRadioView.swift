@@ -17,7 +17,6 @@ struct HQRadioView: View {
                 transcriptionList
             }
         }
-        .background(NV.bg)
     }
 
     // MARK: - 頂部標題列
@@ -72,7 +71,6 @@ struct HQRadioView: View {
             Spacer()
         }
         .padding(16)
-        .background(NV.bg)
     }
 
     private var broadcasterCard: some View {

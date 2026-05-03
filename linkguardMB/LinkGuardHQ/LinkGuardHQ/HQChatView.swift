@@ -82,7 +82,6 @@ struct HQChatView: View {
             }
             .padding()
         }
-        .background(NV.bg.ignoresSafeArea())
     }
 }
 
