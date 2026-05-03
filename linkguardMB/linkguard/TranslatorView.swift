@@ -105,7 +105,6 @@ struct TranslatorView: View {
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
-            .ignoresSafeArea(.container, edges: .top)
             #endif
             .contentMargins(.top, 0, for: .scrollContent)
         }

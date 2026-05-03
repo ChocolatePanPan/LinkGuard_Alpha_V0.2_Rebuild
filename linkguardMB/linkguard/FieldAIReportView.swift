@@ -65,7 +65,6 @@ struct FieldAIReportView: View {
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
-        .ignoresSafeArea(.container, edges: .top)
         #endif
     }
 

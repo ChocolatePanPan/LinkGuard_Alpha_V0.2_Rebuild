@@ -386,7 +386,6 @@ struct AIHubView: View {
         .navigationTitle("AI")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
-        .ignoresSafeArea(.container, edges: .top)
     }
 }
 
@@ -1083,7 +1082,6 @@ struct HandoverSummarySheet: View {
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
-            .ignoresSafeArea(.container, edges: .top)
             #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -1155,7 +1153,6 @@ struct VictimListView: View {
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
-            .ignoresSafeArea(.container, edges: .top)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Text("\(vm.victims.count + vm.localPatients.count)")
@@ -1498,7 +1495,6 @@ struct SOSRecordListView: View {
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
-            .ignoresSafeArea(.container, edges: .top)
             #endif
             .contentMargins(.top, 0, for: .scrollContent)
         }
@@ -1582,7 +1578,6 @@ struct CommandListView: View {
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
-            .ignoresSafeArea(.container, edges: .top)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(L("全部已讀")) {
@@ -1940,7 +1935,6 @@ struct ConnectionView: View {
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
-            .ignoresSafeArea(.container, edges: .top)
             #endif
             .contentMargins(.top, 0, for: .scrollContent)
             .onAppear {
@@ -2222,7 +2216,6 @@ struct ReinforcementListView: View {
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
-            .ignoresSafeArea(.container, edges: .top)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
@@ -2246,7 +2239,6 @@ struct ReinforcementListView: View {
                     #if os(iOS)
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbarBackground(.hidden, for: .navigationBar)
-                    .ignoresSafeArea(.container, edges: .top)
                     #endif
                     .toolbar {
                         ToolbarItem(placement: .cancellationAction) {
@@ -2391,7 +2383,6 @@ struct TeamListView: View {
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
-            .ignoresSafeArea(.container, edges: .top)
             #endif
             .contentMargins(.top, 0, for: .scrollContent)
         }

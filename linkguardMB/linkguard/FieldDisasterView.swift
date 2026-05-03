@@ -153,7 +153,6 @@ struct FieldDisasterView: View {
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
-            .ignoresSafeArea(.container, edges: .top)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
@@ -207,7 +206,6 @@ struct HazardReportSheet: View {
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
-            .ignoresSafeArea(.container, edges: .top)
             #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

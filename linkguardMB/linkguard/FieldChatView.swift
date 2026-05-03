@@ -135,7 +135,6 @@ struct FieldChatView: View {
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
-            .ignoresSafeArea(.container, edges: .top)
             .toolbar {
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer()

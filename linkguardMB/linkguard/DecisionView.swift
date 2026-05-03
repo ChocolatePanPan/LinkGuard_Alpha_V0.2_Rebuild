@@ -48,7 +48,6 @@ struct DecisionView: View {
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
-            .ignoresSafeArea(.container, edges: .top)
             .toolbar {
                 if vm.unreadCommandCount > 0 {
                     ToolbarItem(placement: .navigationBarTrailing) {
