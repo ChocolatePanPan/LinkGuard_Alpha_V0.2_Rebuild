@@ -1065,6 +1065,7 @@ struct HQDashboardView: View {
                 victimOverviewPanel
                     .padding(.horizontal)
             }
+            .padding(.top, NV.pagePadding)
             .padding(.bottom)
         }
     }

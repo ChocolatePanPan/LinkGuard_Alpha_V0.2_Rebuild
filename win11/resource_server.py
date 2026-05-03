@@ -8,6 +8,7 @@ import asyncio
 import json
 import socket
 from datetime import datetime, timezone, timedelta
+from typing import Optional
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -59,18 +60,35 @@ class CreateResource(BaseModel):
     name: str
     total: int = 1
     location_desc: str = ""
+    assigned_zone: str = ""
 
 
 class UpdateResource(BaseModel):
-    available: int | None = None
-    status: str | None = None
-    assigned_to: str | None = None
-    location_desc: str | None = None
+    available: Optional[int] = None
+    status: Optional[str] = None
+    assigned_to: Optional[str] = None
+    assigned_zone: Optional[str] = None
+    location_desc: Optional[str] = None
 
 
 class DeployResource(BaseModel):
     assigned_to: str
+    assigned_zone: str = ""
     location_desc: str = ""
+    quantity: int = 1
+
+
+class ReturnZoneResource(BaseModel):
+    assigned_zone: str
+    quantity: int = 1
+
+
+def _primary_assignment(resource_id: str) -> tuple[str, str]:
+    allocations = linkguard_db.get_resource_allocations(resource_id)
+    if not allocations:
+        return "", ""
+    first = allocations[0]
+    return first.get("assigned_to", "") or "", first.get("assigned_zone", "") or ""
 
 
 # === 路由 ===
@@ -97,6 +115,7 @@ async def create_resource(req: CreateResource):
         "total": req.total,
         "available": req.total,
         "location_desc": req.location_desc,
+        "assigned_zone": req.assigned_zone,
         "status": "available",
     })
     linkguard_db.log_event(
@@ -120,6 +139,8 @@ async def update_resource(resource_id: str, req: UpdateResource):
         updates["status"] = req.status
     if req.assigned_to is not None:
         updates["assigned_to"] = req.assigned_to
+    if req.assigned_zone is not None:
+        updates["assigned_zone"] = req.assigned_zone
     if req.location_desc is not None:
         updates["location_desc"] = req.location_desc
 
@@ -137,21 +158,33 @@ async def deploy_resource(resource_id: str, req: DeployResource):
         raise HTTPException(status_code=404, detail=t("err.resource_not_found"))
 
     available = existing["available"]
-    if available <= 0:
+    quantity = max(1, req.quantity)
+    if available < quantity:
         raise HTTPException(status_code=400, detail=t("err.no_available_resource"))
 
+    assigned_zone = (req.assigned_zone or req.assigned_to).strip()
+    new_available = available - quantity
+
     linkguard_db.update_resource(resource_id, {
-        "available": available - 1,
+        "available": new_available,
         "status": "in_use",
         "assigned_to": req.assigned_to,
+        "assigned_zone": assigned_zone,
         "location_desc": req.location_desc or existing["location_desc"],
     })
+    linkguard_db.upsert_resource_allocation(
+        resource_id,
+        assigned_zone=assigned_zone,
+        quantity=quantity,
+        location_desc=req.location_desc or existing["location_desc"],
+        assigned_to=req.assigned_to,
+    )
     linkguard_db.log_event(
         "resource_deploy", "resource-server",
-        f"部署資源: {resource_id} → {req.assigned_to}", "info",
+        f"部署資源: {resource_id} x{quantity} → {assigned_zone}", "info",
     )
     await _broadcast_resource_update()
-    return {"status": "ok", "resource_id": resource_id, "available": available - 1}
+    return {"status": "ok", "resource_id": resource_id, "available": new_available}
 
 
 @app.post("/resources/{resource_id}/return")
@@ -160,13 +193,16 @@ async def return_resource(resource_id: str):
     if not existing:
         raise HTTPException(status_code=404, detail=t("err.resource_not_found"))
 
-    new_available = min(existing["available"] + 1, existing["total"])
+    returned = linkguard_db.return_resource_allocation(resource_id, quantity=1)
+    new_available = min(existing["available"] + max(returned, 1), existing["total"])
     status = "available" if new_available == existing["total"] else "in_use"
+    assigned_to, assigned_zone = _primary_assignment(resource_id)
 
     linkguard_db.update_resource(resource_id, {
         "available": new_available,
         "status": status,
-        "assigned_to": "" if status == "available" else existing["assigned_to"],
+        "assigned_to": "" if status == "available" else assigned_to,
+        "assigned_zone": "" if status == "available" else assigned_zone,
     })
     linkguard_db.log_event(
         "resource_return", "resource-server",
@@ -174,6 +210,38 @@ async def return_resource(resource_id: str):
     )
     await _broadcast_resource_update()
     return {"status": "ok", "resource_id": resource_id, "available": new_available}
+
+
+@app.post("/resources/{resource_id}/return_from_zone")
+async def return_resource_from_zone(resource_id: str, req: ReturnZoneResource):
+    existing = linkguard_db.get_resource(resource_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail=t("err.resource_not_found"))
+
+    returned = linkguard_db.return_resource_allocation(
+        resource_id,
+        assigned_zone=req.assigned_zone,
+        quantity=max(1, req.quantity),
+    )
+    if returned <= 0:
+        raise HTTPException(status_code=400, detail="No deployed resource in this zone")
+
+    new_available = min(existing["available"] + returned, existing["total"])
+    status = "available" if new_available == existing["total"] else "in_use"
+    assigned_to, assigned_zone = _primary_assignment(resource_id)
+
+    linkguard_db.update_resource(resource_id, {
+        "available": new_available,
+        "status": status,
+        "assigned_to": "" if status == "available" else assigned_to,
+        "assigned_zone": "" if status == "available" else assigned_zone,
+    })
+    linkguard_db.log_event(
+        "resource_return", "resource-server",
+        f"分區資源回收: {resource_id} x{returned} ← {req.assigned_zone}", "info",
+    )
+    await _broadcast_resource_update()
+    return {"status": "ok", "resource_id": resource_id, "available": new_available, "returned": returned}
 
 
 @app.get("/health")

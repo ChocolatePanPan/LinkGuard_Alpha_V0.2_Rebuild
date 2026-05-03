@@ -24,6 +24,12 @@ def _get_conn() -> sqlite3.Connection:
     return conn
 
 
+def _ensure_column(conn: sqlite3.Connection, table: str, column: str, definition: str):
+    existing = {row["name"] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+    if column not in existing:
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
+
+
 # ============================================================
 # 初始化
 # ============================================================
@@ -156,8 +162,20 @@ def init_db():
             available INTEGER DEFAULT 1,
             location_desc TEXT,
             assigned_to TEXT,
+            assigned_zone TEXT DEFAULT '',
             status TEXT DEFAULT 'available',
             updated_at TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS resource_allocations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            resource_id TEXT,
+            assigned_zone TEXT,
+            assigned_to TEXT,
+            quantity INTEGER DEFAULT 1,
+            location_desc TEXT,
+            updated_at TEXT,
+            UNIQUE(resource_id, assigned_zone)
         );
 
         CREATE TABLE IF NOT EXISTS chats (
@@ -204,6 +222,7 @@ def init_db():
         CREATE INDEX IF NOT EXISTS idx_locations_device_id ON locations(device_id);
         CREATE INDEX IF NOT EXISTS idx_node_status_log_timestamp ON node_status_log(timestamp);
     """)
+    _ensure_column(conn, "resources", "assigned_zone", "TEXT DEFAULT ''")
     conn.commit()
     conn.close()
     print(f"[DB] 資料庫已初始化: {DB_PATH}")
@@ -608,13 +627,14 @@ def save_resource(resource_dict: dict):
         conn.execute(
             """INSERT INTO resources
                (resource_id, type, name, total, available,
-                location_desc, assigned_to, status, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                location_desc, assigned_to, assigned_zone, status, updated_at)
+                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                ON CONFLICT(resource_id) DO UPDATE SET
                  type=excluded.type, name=excluded.name,
                  total=excluded.total, available=excluded.available,
                  location_desc=excluded.location_desc,
                  assigned_to=excluded.assigned_to,
+                                 assigned_zone=excluded.assigned_zone,
                  status=excluded.status, updated_at=excluded.updated_at
             """,
             (
@@ -625,6 +645,7 @@ def save_resource(resource_dict: dict):
                 r.get("available", 1),
                 r.get("location_desc", ""),
                 r.get("assigned_to", ""),
+                r.get("assigned_zone", ""),
                 r.get("status", "available"),
                 now_iso(),
             ),
@@ -642,7 +663,22 @@ def get_all_resources() -> list:
         rows = conn.execute(
             "SELECT * FROM resources ORDER BY type, resource_id"
         ).fetchall()
-        return _rows_to_dicts(rows)
+        resources = _rows_to_dicts(rows)
+        allocation_rows = conn.execute(
+            "SELECT resource_id, assigned_zone, assigned_to, quantity, location_desc, updated_at "
+            "FROM resource_allocations ORDER BY assigned_zone, resource_id"
+        ).fetchall()
+        allocations_by_resource = {}
+        for row in _rows_to_dicts(allocation_rows):
+            allocations_by_resource.setdefault(row.get("resource_id", ""), []).append(row)
+        for resource in resources:
+            allocations = allocations_by_resource.get(resource.get("resource_id", ""), [])
+            resource["allocations"] = allocations
+            if not resource.get("assigned_zone") and len(allocations) == 1:
+                resource["assigned_zone"] = allocations[0].get("assigned_zone", "")
+            if not resource.get("assigned_to") and len(allocations) == 1:
+                resource["assigned_to"] = allocations[0].get("assigned_to", "")
+        return resources
     except Exception as e:
         log_event("error", "db", f"get_all_resources 失敗: {e}", "error")
         return []
@@ -667,7 +703,7 @@ def get_resource(resource_id: str) -> dict | None:
 def update_resource(resource_id: str, updates: dict):
     conn = _get_conn()
     try:
-        allowed = {"available", "status", "assigned_to", "location_desc", "total", "name"}
+        allowed = {"available", "status", "assigned_to", "assigned_zone", "location_desc", "total", "name"}
         sets = []
         vals = []
         for k, v in updates.items():
@@ -686,6 +722,87 @@ def update_resource(resource_id: str, updates: dict):
         conn.commit()
     except Exception as e:
         log_event("error", "db", f"update_resource 失敗: {e}", "error")
+    finally:
+        conn.close()
+
+
+def upsert_resource_allocation(resource_id: str, assigned_zone: str, quantity: int,
+                               location_desc: str = "", assigned_to: str = ""):
+    zone = (assigned_zone or "").strip()
+    if not zone or quantity <= 0:
+        return
+    conn = _get_conn()
+    try:
+        conn.execute(
+            """INSERT INTO resource_allocations
+               (resource_id, assigned_zone, assigned_to, quantity, location_desc, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?)
+               ON CONFLICT(resource_id, assigned_zone) DO UPDATE SET
+                 quantity=resource_allocations.quantity + excluded.quantity,
+                 assigned_to=excluded.assigned_to,
+                 location_desc=excluded.location_desc,
+                 updated_at=excluded.updated_at
+            """,
+            (resource_id, zone, assigned_to or zone, quantity, location_desc, now_iso()),
+        )
+        conn.commit()
+    except Exception as e:
+        log_event("error", "db", f"upsert_resource_allocation 失敗: {e}", "error")
+    finally:
+        conn.close()
+
+
+def return_resource_allocation(resource_id: str, assigned_zone: str = "", quantity: int = 1) -> int:
+    conn = _get_conn()
+    try:
+        remaining = max(1, quantity)
+        params = [resource_id]
+        where = "resource_id = ?"
+        if assigned_zone:
+            where += " AND assigned_zone = ?"
+            params.append(assigned_zone)
+        rows = conn.execute(
+            f"SELECT id, quantity FROM resource_allocations WHERE {where} ORDER BY updated_at DESC",
+            params,
+        ).fetchall()
+        returned = 0
+        for row in rows:
+            if remaining <= 0:
+                break
+            take = min(int(row["quantity"] or 0), remaining)
+            if take <= 0:
+                continue
+            new_quantity = int(row["quantity"]) - take
+            if new_quantity <= 0:
+                conn.execute("DELETE FROM resource_allocations WHERE id = ?", (row["id"],))
+            else:
+                conn.execute(
+                    "UPDATE resource_allocations SET quantity = ?, updated_at = ? WHERE id = ?",
+                    (new_quantity, now_iso(), row["id"]),
+                )
+            returned += take
+            remaining -= take
+        conn.commit()
+        return returned
+    except Exception as e:
+        log_event("error", "db", f"return_resource_allocation 失敗: {e}", "error")
+        return 0
+    finally:
+        conn.close()
+
+
+def get_resource_allocations(resource_id: str) -> list:
+    conn = _get_conn()
+    try:
+        rows = conn.execute(
+            "SELECT resource_id, assigned_zone, assigned_to, quantity, location_desc, updated_at "
+            "FROM resource_allocations WHERE resource_id = ? ORDER BY updated_at DESC",
+            (resource_id,),
+        ).fetchall()
+        return _rows_to_dicts(rows)
+    except Exception as e:
+        log_event("error", "db", f"get_resource_allocations 失敗: {e}", "error")
+        return []
     finally:
         conn.close()
 
