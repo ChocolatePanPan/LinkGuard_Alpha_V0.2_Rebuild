@@ -668,7 +668,7 @@ struct VideoTransferable: Transferable {
     }
 }
 
-// MARK: - 自訂相機控制器（AVCaptureVideoPreviewLayer）
+// MARK: - iOS 原生相機
 
 struct CameraPickerView: UIViewControllerRepresentable {
     @Binding var image: UIImage?
@@ -677,39 +677,69 @@ struct CameraPickerView: UIViewControllerRepresentable {
     @Binding var isVideo: Bool
     @Environment(\.dismiss) private var dismiss
 
-    func makeUIViewController(context: Context) -> PhotoReportCameraViewController {
-        let controller = PhotoReportCameraViewController()
-        controller.delegate = context.coordinator
-        return controller
+    func makeUIViewController(context: Context) -> UIImagePickerController {
+        let picker = UIImagePickerController()
+        picker.delegate = context.coordinator
+        picker.modalPresentationStyle = .fullScreen
+        picker.allowsEditing = false
+        picker.videoQuality = .typeHigh
+
+        if UIImagePickerController.isSourceTypeAvailable(.camera) {
+            picker.sourceType = .camera
+            picker.mediaTypes = UIImagePickerController.availableMediaTypes(for: .camera) ?? [UTType.image.identifier]
+            if picker.mediaTypes.contains(UTType.movie.identifier) {
+                picker.cameraCaptureMode = .photo
+            }
+        } else {
+            picker.sourceType = .photoLibrary
+            picker.mediaTypes = UIImagePickerController.availableMediaTypes(for: .photoLibrary) ?? [UTType.image.identifier, UTType.movie.identifier]
+        }
+
+        return picker
     }
 
-    func updateUIViewController(_ uiViewController: PhotoReportCameraViewController, context: Context) {}
+    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
-    final class Coordinator: NSObject, PhotoReportCameraViewControllerDelegate {
+    final class Coordinator: NSObject, UINavigationControllerDelegate, UIImagePickerControllerDelegate {
         let parent: CameraPickerView
 
         init(_ parent: CameraPickerView) { self.parent = parent }
 
-        func cameraViewControllerDidCancel(_ controller: PhotoReportCameraViewController) {
+        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
             parent.dismiss()
         }
 
-        func cameraViewController(_ controller: PhotoReportCameraViewController, didCapturePhoto image: UIImage) {
-            parent.image = image.normalizedForPhotoReport()
-            parent.videoURL = nil
-            parent.videoThumbnail = nil
-            parent.isVideo = false
+        func imagePickerController(_ picker: UIImagePickerController,
+                                   didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
+            let mediaType = info[.mediaType] as? String
+            if mediaType == UTType.movie.identifier,
+               let url = info[.mediaURL] as? URL {
+                let persistedURL = persistVideo(from: url)
+                parent.videoURL = persistedURL
+                parent.videoThumbnail = thumbnail(for: persistedURL)
+                parent.image = nil
+                parent.isVideo = true
+            } else if let image = info[.originalImage] as? UIImage {
+                parent.image = image.normalizedForPhotoReport()
+                parent.videoURL = nil
+                parent.videoThumbnail = nil
+                parent.isVideo = false
+            }
             parent.dismiss()
         }
 
-        func cameraViewController(_ controller: PhotoReportCameraViewController, didCaptureVideo url: URL) {
-            parent.videoURL = url
-            parent.videoThumbnail = thumbnail(for: url)
-            parent.image = nil
-            parent.isVideo = true
-            parent.dismiss()
+        private func persistVideo(from url: URL) -> URL {
+            let fileExtension = url.pathExtension.isEmpty ? "mov" : url.pathExtension
+            let destination = FileManager.default.temporaryDirectory
+                .appendingPathComponent("camera_video_\(UUID().uuidString).\(fileExtension)")
+            do {
+                try FileManager.default.copyItem(at: url, to: destination)
+                return destination
+            } catch {
+                return url
+            }
         }
 
         private func thumbnail(for url: URL) -> UIImage? {
