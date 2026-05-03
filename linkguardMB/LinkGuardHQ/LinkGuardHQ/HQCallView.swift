@@ -64,9 +64,11 @@ private struct HQCallContent: View {
                                     .background(NV.command.opacity(0.12))
                                     .clipShape(Circle())
                                 VStack(alignment: .leading, spacing: 3) {
-                                    Text(unit.deviceID)
+                                    Text(unit.displayName)
                                         .font(.headline)
-                                    Text(unit.deptCode)
+                                    Text(unit.nickname?.isEmpty == false
+                                         ? "\(unit.deviceID) · \(unit.deptCode)"
+                                         : unit.deptCode)
                                         .font(.caption)
                                         .foregroundColor(.secondary)
                                 }
