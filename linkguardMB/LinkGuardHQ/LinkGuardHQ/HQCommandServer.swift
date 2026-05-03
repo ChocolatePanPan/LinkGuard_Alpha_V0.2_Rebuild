@@ -19,6 +19,7 @@ class HQCommandServer: ObservableObject {
     @Published var personalNotifications: [PersonalNotification] = []
     @Published var timelineEvents: [TimelineEvent] = []
     @Published var quickStatuses: [QuickStatus] = []
+    @Published var statusUpdateSequence: Int = 0
     @Published var tasks: [TaskAssignment] = []
     @Published var countdownTimers: [CountdownTimerModel] = []
     @Published var hazardReports: [HazardReport] = []
@@ -561,6 +562,7 @@ class HQCommandServer: ObservableObject {
                         source: report.deviceID
                     ))
                 }
+                self.statusUpdateSequence += 1
 
                 // 自動將前線裝置註冊為救援人員
                 if let sp = report.selfPersonnel {
@@ -623,6 +625,7 @@ class HQCommandServer: ObservableObject {
                 guard let self else { return }
                 if self.quickStatuses.contains(where: { $0.id == status.id }) { return }
                 self.quickStatuses.insert(status, at: 0)
+                self.statusUpdateSequence += 1
                 self.appendTimelineEvent(TimelineEvent(
                     eventType: .statusReport,
                     title: "\(status.senderName) 回報狀態",

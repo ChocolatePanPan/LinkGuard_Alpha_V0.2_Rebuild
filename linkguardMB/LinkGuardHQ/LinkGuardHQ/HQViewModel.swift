@@ -40,6 +40,7 @@ class HQViewModel: ObservableObject {
     @Published var photoServer = HQPhotoServer()
     @Published var udpAudioServer = UDPAudioServer()
     @Published var audioStreamServer = AudioStreamServer()
+    private let notificationCueManager = HQNotificationCueManager.shared
 
     // 命令表單
     @Published var selectedType: CommandType = .searchArea
@@ -409,6 +410,15 @@ class HQViewModel: ObservableObject {
         server.$quickStatuses
             .receive(on: DispatchQueue.main)
             .assign(to: &$quickStatuses)
+
+        server.$statusUpdateSequence
+            .receive(on: DispatchQueue.main)
+            .dropFirst()
+            .sink { [weak self] sequence in
+                guard sequence > 0 else { return }
+                self?.notificationCueManager.triggerStatusUpdateCue()
+            }
+            .store(in: &cancellables)
 
         // 監聽任務
         server.$tasks

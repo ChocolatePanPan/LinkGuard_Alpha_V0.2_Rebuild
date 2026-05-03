@@ -26,6 +26,9 @@ struct HQSettingsView: View {
     @AppStorage("ai.modelProfile") private var aiModelProfileRaw: String = LocalAIModelProfile.singleE4B.rawValue
     @AppStorage("voice.engine") private var voiceEngine: String = "whisperkit"
     @AppStorage("voice.modelSize") private var voiceModelSize: String = "large-v3"
+    @AppStorage(HQNotificationCueManager.Keys.statusUpdatesEnabled) private var statusUpdateNotificationsEnabled = true
+    @AppStorage(HQNotificationCueManager.Keys.statusSoundEnabled) private var statusSoundEnabled = true
+    @AppStorage(HQNotificationCueManager.Keys.statusFlashEnabled) private var statusFlashEnabled = true
 
     @State private var setupAssistantPresented = false
     @State private var storageLocationMessage: String? = nil
@@ -43,6 +46,7 @@ struct HQSettingsView: View {
         HQPage(maxWidth: NV.pageMaxWidth, spacing: NV.pageSpacing) {
             HQPageTitleBar(L("設定"), icon: "gearshape.fill", accent: NV.info)
             generalSection
+            notificationSection
             backendSection
             aiSection
             voiceSection
@@ -121,6 +125,42 @@ struct HQSettingsView: View {
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
+        }
+    }
+
+    private var notificationSection: some View {
+        section(L("通知")) {
+            Toggle(isOn: $statusUpdateNotificationsEnabled) {
+                Label(L("狀態更新通知"), systemImage: "bell.badge.fill")
+            }
+
+            VStack(alignment: .leading, spacing: 10) {
+                Toggle(isOn: $statusSoundEnabled) {
+                    Label(L("音效通知"), systemImage: "speaker.wave.2.fill")
+                }
+                HStack(spacing: 8) {
+                    Label("f1_team_radio.mp3", systemImage: "music.note")
+                        .font(.caption.monospaced())
+                        .foregroundColor(.secondary)
+                    Spacer()
+                    Button {
+                        HQNotificationCueManager.shared.previewStatusUpdateCue()
+                    } label: {
+                        Label(L("測試通知"), systemImage: "play.fill")
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(!statusSoundEnabled && !statusFlashEnabled)
+                }
+
+                Toggle(isOn: $statusFlashEnabled) {
+                    Label(L("周邊閃光"), systemImage: "rectangle.dashed.badge.record")
+                }
+            }
+            .disabled(!statusUpdateNotificationsEnabled)
+
+            Text(L("快速狀態、前線狀態報告、後端統計更新時會觸發提示。"))
+                .font(.caption)
+                .foregroundColor(.secondary)
         }
     }
 

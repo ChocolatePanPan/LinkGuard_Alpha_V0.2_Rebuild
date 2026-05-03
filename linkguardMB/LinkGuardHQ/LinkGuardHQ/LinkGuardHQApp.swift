@@ -6,6 +6,7 @@ struct LinkGuardHQApp: App {
     @StateObject private var l10n = L10n.shared
     #if os(macOS)
     @StateObject private var externalDashboardManager = HQExternalDashboardWindowManager()
+    @StateObject private var notificationCueManager = HQNotificationCueManager.shared
     #endif
     @AppStorage("appColorScheme") private var appColorScheme: String = "dark"
     @AppStorage("hq.uiScale") private var uiScale: Double = 1.0
@@ -46,6 +47,11 @@ struct LinkGuardHQApp: App {
                     .environmentObject(viewModel.udpAudioServer)
                     .environmentObject(l10n)
             }
+            #if os(macOS)
+            .overlay {
+                HQNotificationFlashOverlay(manager: notificationCueManager)
+            }
+            #endif
         }
         #if os(macOS)
         .defaultSize(width: 1200, height: 800)

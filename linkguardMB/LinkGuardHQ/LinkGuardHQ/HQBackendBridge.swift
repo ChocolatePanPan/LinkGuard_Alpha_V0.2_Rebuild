@@ -793,6 +793,7 @@ class HQBackendBridge: ObservableObject {
             var tagged = data
             tagged["_source"] = "backend"
             server?.latestStatsUpdate = tagged
+            server?.statusUpdateSequence += 1
             server?.relayBackendJSON(msgType: "stats_update", data: data)
 
         case "resource_update":
