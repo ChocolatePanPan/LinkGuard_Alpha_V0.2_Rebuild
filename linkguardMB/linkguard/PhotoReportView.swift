@@ -804,11 +804,17 @@ final class PhotoReportCameraViewController: UIViewController, AVCapturePhotoCap
 
     override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
         super.viewWillTransition(to: size, with: coordinator)
-        controlsView.setLandscapeLayout(size.width > size.height)
         coordinator.animate { [weak self] _ in
             guard let self else { return }
-            self.view.layoutIfNeeded()
-            self.applyControlRotation(self.currentControlRotationAngle(), animated: true)
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            UIView.performWithoutAnimation {
+                self.controlsView.setLandscapeLayout(size.width > size.height)
+                self.applyControlRotation(self.currentControlRotationAngle(), animated: false)
+                self.view.layoutIfNeeded()
+                self.updatePreviewFrameWithoutAnimation()
+            }
+            CATransaction.commit()
         } completion: { [weak self] _ in
             self?.updatePreviewFrameWithoutAnimation()
             self?.updateForCurrentOrientation(animated: false)
@@ -993,17 +999,25 @@ final class PhotoReportCameraViewController: UIViewController, AVCapturePhotoCap
     private func flipCamera() {
         guard !movieOutput.isRecording, canSwitchCamera, let currentPosition = activeDevice?.position else { return }
         let nextPosition: AVCaptureDevice.Position = currentPosition == .back ? .front : .back
-        session.beginConfiguration()
-        let changed = installCameraInput(position: nextPosition)
-        session.commitConfiguration()
-        if changed {
-            updatePreviewMirroring()
-            controlsView.setFlashAvailable(activeDevice?.hasFlash == true)
-            controlsView.setCameraSwitchAvailable(canSwitchCamera)
-            if activeDevice?.hasFlash != true {
-                flashMode = .off
-                controlsView.setFlashMode(flashMode)
+        var changed = false
+        UIView.performWithoutAnimation {
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            session.beginConfiguration()
+            changed = installCameraInput(position: nextPosition)
+            session.commitConfiguration()
+            if changed {
+                lockPreviewOrientation()
+                updatePreviewMirroring()
+                controlsView.setFlashAvailable(activeDevice?.hasFlash == true)
+                controlsView.setCameraSwitchAvailable(canSwitchCamera)
+                if activeDevice?.hasFlash != true {
+                    flashMode = .off
+                    controlsView.setFlashMode(flashMode)
+                }
+                controlsView.layoutIfNeeded()
             }
+            CATransaction.commit()
         }
     }
 
@@ -1090,22 +1104,30 @@ final class PhotoReportCameraViewController: UIViewController, AVCapturePhotoCap
         guard let connection = previewLayer.connection,
               connection.isVideoOrientationSupported
         else { return }
-        connection.videoOrientation = .portrait
-        if #available(iOS 17.0, *), connection.isVideoRotationAngleSupported(0) {
-            connection.videoRotationAngle = 0
+        let isPortraitPreview = view.bounds.height >= view.bounds.width
+        if #available(iOS 17.0, *) {
+            let rotationAngle: CGFloat = isPortraitPreview ? 90 : 0
+            if connection.isVideoRotationAngleSupported(rotationAngle) {
+                connection.videoRotationAngle = rotationAngle
+                return
+            }
         }
+        connection.videoOrientation = isPortraitPreview ? .landscapeRight : .portrait
     }
 
     private func updatePreviewMirroring() {
         guard let connection = previewLayer.connection,
               connection.isVideoMirroringSupported
         else { return }
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
         connection.automaticallyAdjustsVideoMirroring = false
         connection.isVideoMirrored = activeDevice?.position == .front
+        CATransaction.commit()
     }
 
     @objc private func deviceOrientationDidChange() {
-        updateForCurrentOrientation(animated: true)
+        updateForCurrentOrientation(animated: false)
     }
 
     @objc private func cancelTapped() {
@@ -1137,6 +1159,10 @@ final class PhotoReportCameraViewController: UIViewController, AVCapturePhotoCap
 }
 
 private final class PhotoReportCameraControlsView: UIView {
+    private static let cameraYellow = UIColor(red: 1, green: 214.0 / 255.0, blue: 10.0 / 255.0, alpha: 1)
+    private static let captureInnerReadySize: CGFloat = 54
+    private static let captureInnerRecordingSize: CGFloat = 34
+
     var onCapture: (() -> Void)?
     var onModeChanged: ((PhotoReportCaptureMode) -> Void)?
     var onFlipCamera: (() -> Void)?
@@ -1145,9 +1171,15 @@ private final class PhotoReportCameraControlsView: UIView {
     private let panel = UIVisualEffectView(effect: UIBlurEffect(style: .systemUltraThinMaterialDark))
     private let flashButton = UIButton(type: .system)
     private let captureButton = UIButton(type: .custom)
+    private let captureInnerCircle = UIView()
     private let flipButton = UIButton(type: .system)
-    private let modeControl = UISegmentedControl(items: [L("照片"), L("影片")])
+    private let modeSelector = UIStackView()
+    private let photoModeButton = UIButton(type: .system)
+    private let videoModeButton = UIButton(type: .system)
+    private let photoModeDot = UIView()
+    private let videoModeDot = UIView()
     private let actionStack = UIStackView()
+    private let recordingDurationLabel = UILabel()
     private var portraitConstraints: [NSLayoutConstraint] = []
     private var landscapeConstraints: [NSLayoutConstraint] = []
     private var captureMode: PhotoReportCaptureMode = .photo
@@ -1155,6 +1187,9 @@ private final class PhotoReportCameraControlsView: UIView {
     private var isCameraSwitchAvailable = true
     private var isRecording = false
     private var isLandscapeLayout = false
+    private var captureInnerSizeConstraint: NSLayoutConstraint?
+    private var recordingStartDate: Date?
+    private var recordingTimer: Timer?
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -1166,6 +1201,10 @@ private final class PhotoReportCameraControlsView: UIView {
         setupViews()
     }
 
+    deinit {
+        recordingTimer?.invalidate()
+    }
+
     func setLandscapeLayout(_ isLandscape: Bool) {
         guard isLandscape != isLandscapeLayout || portraitConstraints.allSatisfy({ !$0.isActive }) && landscapeConstraints.allSatisfy({ !$0.isActive }) else { return }
         isLandscapeLayout = isLandscape
@@ -1173,7 +1212,8 @@ private final class PhotoReportCameraControlsView: UIView {
         actionStack.axis = isLandscape ? .vertical : .horizontal
         actionStack.alignment = .center
         actionStack.distribution = .fill
-        actionStack.spacing = isLandscape ? 18 : 42
+        actionStack.spacing = isLandscape ? 24 : 52
+        modeSelector.spacing = isLandscape ? 14 : 28
         NSLayoutConstraint.activate(isLandscape ? landscapeConstraints : portraitConstraints)
         panel.layer.cornerRadius = 0
         setNeedsLayout()
@@ -1185,7 +1225,7 @@ private final class PhotoReportCameraControlsView: UIView {
             self.captureButton.transform = transform
             self.flipButton.transform = transform
             self.flashButton.transform = transform
-            self.modeControl.transform = transform
+            self.modeSelector.transform = transform
         }
         if animated {
             UIView.animate(withDuration: 0.22, animations: changes)
@@ -1196,15 +1236,21 @@ private final class PhotoReportCameraControlsView: UIView {
 
     func setCaptureMode(_ mode: PhotoReportCaptureMode) {
         captureMode = mode
-        modeControl.selectedSegmentIndex = mode == .video ? 1 : 0
+        updateModeSelector()
         updateCaptureButton()
     }
 
     func setRecording(_ recording: Bool) {
         isRecording = recording
-        modeControl.isEnabled = !recording
+        photoModeButton.isEnabled = !recording
+        videoModeButton.isEnabled = !recording
         flipButton.isEnabled = !recording && isCameraSwitchAvailable
         flashButton.isEnabled = !recording && flashButton.alpha == 1
+        if recording {
+            startRecordingTimer()
+        } else {
+            stopRecordingTimer()
+        }
         updateCaptureButton()
     }
 
@@ -1232,7 +1278,8 @@ private final class PhotoReportCameraControlsView: UIView {
         captureButton.isEnabled = enabled
         flipButton.isEnabled = enabled && isCameraSwitchAvailable
         flashButton.isEnabled = enabled && flashButton.alpha == 1
-        modeControl.isEnabled = enabled
+        photoModeButton.isEnabled = enabled
+        videoModeButton.isEnabled = enabled
         captureButton.alpha = enabled ? 1 : 0.35
         flipButton.alpha = isCameraSwitchAvailable ? 1 : 0.35
     }
@@ -1240,6 +1287,7 @@ private final class PhotoReportCameraControlsView: UIView {
     override func layoutSubviews() {
         super.layoutSubviews()
         captureButton.layer.cornerRadius = captureButton.bounds.width / 2
+        captureInnerCircle.layer.cornerRadius = captureInnerCircle.bounds.width / 2
     }
 
     private func setupViews() {
@@ -1249,30 +1297,39 @@ private final class PhotoReportCameraControlsView: UIView {
         panel.isUserInteractionEnabled = false
         panel.clipsToBounds = true
         panel.layer.cornerRadius = 22
+        panel.contentView.backgroundColor = UIColor.black.withAlphaComponent(0.5)
         addSubview(panel)
 
-        [flashButton, captureButton, flipButton, modeControl, actionStack].forEach {
+        [flashButton, captureButton, flipButton, modeSelector, actionStack, recordingDurationLabel].forEach {
             $0.translatesAutoresizingMaskIntoConstraints = false
         }
 
         actionStack.axis = .horizontal
         actionStack.alignment = .center
         actionStack.distribution = .fill
-        actionStack.spacing = 42
+        actionStack.spacing = 52
         [flashButton, captureButton, flipButton].forEach { actionStack.addArrangedSubview($0) }
         addSubview(actionStack)
-        addSubview(modeControl)
+        addSubview(modeSelector)
+        addSubview(recordingDurationLabel)
+
+        setupModeSelector()
+        setupRecordingDurationLabel()
 
         configureIconButton(flashButton, image: flashImage(for: flashMode))
         configureIconButton(flipButton, image: UIImage(systemName: "camera.rotate.fill"))
 
-        captureButton.layer.borderWidth = 5
+        captureButton.backgroundColor = .clear
+        captureButton.layer.borderWidth = 4
         captureButton.layer.borderColor = UIColor.white.cgColor
+        captureButton.clipsToBounds = false
+        captureInnerCircle.translatesAutoresizingMaskIntoConstraints = false
+        captureInnerCircle.isUserInteractionEnabled = false
+        captureButton.addSubview(captureInnerCircle)
         captureButton.addTarget(self, action: #selector(captureTapped), for: .touchUpInside)
+        captureButton.addTarget(self, action: #selector(captureTouchDown), for: .touchDown)
+        captureButton.addTarget(self, action: #selector(captureTouchUp), for: [.touchUpInside, .touchUpOutside, .touchCancel])
 
-        modeControl.selectedSegmentIndex = 0
-        modeControl.selectedSegmentTintColor = UIColor(NV.green)
-        modeControl.addTarget(self, action: #selector(modeChanged), for: .valueChanged)
         flashButton.addTarget(self, action: #selector(flashTapped), for: .touchUpInside)
         flipButton.addTarget(self, action: #selector(flipTapped), for: .touchUpInside)
 
@@ -1284,11 +1341,106 @@ private final class PhotoReportCameraControlsView: UIView {
     private func configureIconButton(_ button: UIButton, image: UIImage?) {
         var config = UIButton.Configuration.filled()
         config.image = image
+        config.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(pointSize: 22, weight: .regular)
         config.baseForegroundColor = .white
-        config.baseBackgroundColor = UIColor.white.withAlphaComponent(0.18)
+        config.baseBackgroundColor = UIColor.white.withAlphaComponent(0.12)
         config.cornerStyle = .capsule
         button.configuration = config
         button.tintColor = .white
+    }
+
+    private func setupModeSelector() {
+        modeSelector.axis = .horizontal
+        modeSelector.alignment = .center
+        modeSelector.distribution = .equalCentering
+        modeSelector.spacing = 28
+
+        let photoItem = makeModeItem(button: photoModeButton, dot: photoModeDot, title: L("照片"))
+        let videoItem = makeModeItem(button: videoModeButton, dot: videoModeDot, title: L("影片"))
+        [photoItem, videoItem].forEach { modeSelector.addArrangedSubview($0) }
+
+        photoModeButton.addTarget(self, action: #selector(photoModeTapped), for: .touchUpInside)
+        videoModeButton.addTarget(self, action: #selector(videoModeTapped), for: .touchUpInside)
+        updateModeSelector()
+    }
+
+    private func makeModeItem(button: UIButton, dot: UIView, title: String) -> UIStackView {
+        button.setTitle(title, for: .normal)
+        button.titleLabel?.font = .systemFont(ofSize: 13, weight: .semibold)
+        button.titleLabel?.adjustsFontForContentSizeCategory = true
+        button.contentEdgeInsets = UIEdgeInsets(top: 0, left: 4, bottom: 0, right: 4)
+        button.backgroundColor = .clear
+
+        dot.translatesAutoresizingMaskIntoConstraints = false
+        dot.backgroundColor = Self.cameraYellow
+        dot.layer.cornerRadius = 2.5
+        dot.isHidden = true
+        NSLayoutConstraint.activate([
+            dot.widthAnchor.constraint(equalToConstant: 5),
+            dot.heightAnchor.constraint(equalTo: dot.widthAnchor)
+        ])
+
+        let item = UIStackView(arrangedSubviews: [button, dot])
+        item.axis = .vertical
+        item.alignment = .center
+        item.spacing = 3
+        return item
+    }
+
+    private func updateModeSelector() {
+        let isPhoto = captureMode == .photo
+        photoModeButton.setTitleColor(isPhoto ? Self.cameraYellow : UIColor.white.withAlphaComponent(0.86), for: .normal)
+        videoModeButton.setTitleColor(isPhoto ? UIColor.white.withAlphaComponent(0.86) : Self.cameraYellow, for: .normal)
+        photoModeDot.isHidden = !isPhoto
+        videoModeDot.isHidden = isPhoto
+    }
+
+    private func setupRecordingDurationLabel() {
+        recordingDurationLabel.text = "00:00"
+        recordingDurationLabel.textColor = .white
+        recordingDurationLabel.textAlignment = .center
+        recordingDurationLabel.font = .monospacedDigitSystemFont(ofSize: 15, weight: .semibold)
+        recordingDurationLabel.backgroundColor = UIColor.black.withAlphaComponent(0.46)
+        recordingDurationLabel.layer.cornerRadius = 16
+        recordingDurationLabel.clipsToBounds = true
+        recordingDurationLabel.alpha = 0
+        recordingDurationLabel.isHidden = true
+    }
+
+    private func startRecordingTimer() {
+        recordingTimer?.invalidate()
+        recordingStartDate = Date()
+        updateRecordingDurationLabel()
+        recordingDurationLabel.isHidden = false
+        UIView.animate(withDuration: 0.15, delay: 0, options: [.beginFromCurrentState, .allowUserInteraction]) {
+            self.recordingDurationLabel.alpha = 1
+        }
+        let timer = Timer(timeInterval: 0.25, repeats: true) { [weak self] _ in
+            self?.updateRecordingDurationLabel()
+        }
+        recordingTimer = timer
+        RunLoop.main.add(timer, forMode: .common)
+    }
+
+    private func stopRecordingTimer() {
+        recordingTimer?.invalidate()
+        recordingTimer = nil
+        recordingStartDate = nil
+        UIView.animate(withDuration: 0.15, delay: 0, options: [.beginFromCurrentState, .allowUserInteraction]) {
+            self.recordingDurationLabel.alpha = 0
+        } completion: { _ in
+            self.recordingDurationLabel.isHidden = true
+            self.recordingDurationLabel.text = "00:00"
+        }
+    }
+
+    private func updateRecordingDurationLabel() {
+        guard let recordingStartDate else {
+            recordingDurationLabel.text = "00:00"
+            return
+        }
+        let elapsedSeconds = max(0, Int(Date().timeIntervalSince(recordingStartDate)))
+        recordingDurationLabel.text = String(format: "%02d:%02d", elapsedSeconds / 60, elapsedSeconds % 60)
     }
 
     private func createLayoutConstraints() {
@@ -1297,6 +1449,8 @@ private final class PhotoReportCameraControlsView: UIView {
         let smallButtonSize: CGFloat = 50
         let landscapeStackCenterY = actionStack.centerYAnchor.constraint(equalTo: safe.centerYAnchor)
         landscapeStackCenterY.priority = .defaultHigh
+        let captureInnerSizeConstraint = captureInnerCircle.widthAnchor.constraint(equalToConstant: Self.captureInnerReadySize)
+        self.captureInnerSizeConstraint = captureInnerSizeConstraint
 
         NSLayoutConstraint.activate([
             captureButton.widthAnchor.constraint(equalToConstant: captureSize),
@@ -1305,7 +1459,15 @@ private final class PhotoReportCameraControlsView: UIView {
             flashButton.heightAnchor.constraint(equalTo: flashButton.widthAnchor),
             flipButton.widthAnchor.constraint(equalToConstant: smallButtonSize),
             flipButton.heightAnchor.constraint(equalTo: flipButton.widthAnchor),
-            modeControl.heightAnchor.constraint(equalToConstant: 34)
+            modeSelector.heightAnchor.constraint(equalToConstant: 42),
+            captureInnerSizeConstraint,
+            captureInnerCircle.heightAnchor.constraint(equalTo: captureInnerCircle.widthAnchor),
+            captureInnerCircle.centerXAnchor.constraint(equalTo: captureButton.centerXAnchor),
+            captureInnerCircle.centerYAnchor.constraint(equalTo: captureButton.centerYAnchor),
+            recordingDurationLabel.centerXAnchor.constraint(equalTo: safe.centerXAnchor),
+            recordingDurationLabel.topAnchor.constraint(equalTo: safe.topAnchor, constant: 14),
+            recordingDurationLabel.heightAnchor.constraint(equalToConstant: 32),
+            recordingDurationLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 76)
         ])
 
         portraitConstraints = [
@@ -1317,10 +1479,10 @@ private final class PhotoReportCameraControlsView: UIView {
             actionStack.leadingAnchor.constraint(greaterThanOrEqualTo: safe.leadingAnchor, constant: 24),
             actionStack.trailingAnchor.constraint(lessThanOrEqualTo: safe.trailingAnchor, constant: -24),
             actionStack.bottomAnchor.constraint(equalTo: safe.bottomAnchor, constant: -18),
-            modeControl.centerXAnchor.constraint(equalTo: captureButton.centerXAnchor),
-            modeControl.bottomAnchor.constraint(equalTo: captureButton.topAnchor, constant: -16),
-            modeControl.widthAnchor.constraint(equalToConstant: 220),
-            modeControl.topAnchor.constraint(greaterThanOrEqualTo: panel.topAnchor, constant: 12)
+            modeSelector.centerXAnchor.constraint(equalTo: captureButton.centerXAnchor),
+            modeSelector.bottomAnchor.constraint(equalTo: captureButton.topAnchor, constant: -16),
+            modeSelector.widthAnchor.constraint(equalToConstant: 220),
+            modeSelector.topAnchor.constraint(greaterThanOrEqualTo: panel.topAnchor, constant: 12)
         ]
 
         landscapeConstraints = [
@@ -1330,27 +1492,34 @@ private final class PhotoReportCameraControlsView: UIView {
             panel.widthAnchor.constraint(equalToConstant: 132),
             actionStack.centerXAnchor.constraint(equalTo: panel.centerXAnchor),
             actionStack.topAnchor.constraint(greaterThanOrEqualTo: safe.topAnchor, constant: 44),
-            actionStack.bottomAnchor.constraint(lessThanOrEqualTo: modeControl.topAnchor, constant: -18),
+            actionStack.bottomAnchor.constraint(lessThanOrEqualTo: modeSelector.topAnchor, constant: -18),
             landscapeStackCenterY,
-            modeControl.centerXAnchor.constraint(equalTo: panel.centerXAnchor),
-            modeControl.bottomAnchor.constraint(equalTo: safe.bottomAnchor, constant: -18),
-            modeControl.widthAnchor.constraint(equalToConstant: 108)
+            modeSelector.centerXAnchor.constraint(equalTo: panel.centerXAnchor),
+            modeSelector.bottomAnchor.constraint(equalTo: safe.bottomAnchor, constant: -18),
+            modeSelector.widthAnchor.constraint(equalToConstant: 112)
         ]
     }
 
     private func updateCaptureButton() {
+        let targetInnerSize = isRecording ? Self.captureInnerRecordingSize : Self.captureInnerReadySize
+        captureInnerSizeConstraint?.constant = targetInnerSize
         if isRecording {
-            captureButton.backgroundColor = UIColor(NV.danger)
+            captureInnerCircle.backgroundColor = UIColor(NV.danger)
         } else if captureMode == .video {
-            captureButton.backgroundColor = UIColor(NV.danger).withAlphaComponent(0.9)
+            captureInnerCircle.backgroundColor = UIColor(NV.danger).withAlphaComponent(0.95)
         } else {
-            captureButton.backgroundColor = UIColor.white.withAlphaComponent(0.25)
+            captureInnerCircle.backgroundColor = .white
+        }
+        UIView.animate(withDuration: 0.18, delay: 0, options: [.beginFromCurrentState, .allowUserInteraction]) {
+            self.captureInnerCircle.superview?.layoutIfNeeded()
+            self.captureInnerCircle.layer.cornerRadius = targetInnerSize / 2
         }
     }
 
     private func updateFlashButton() {
         var config = flashButton.configuration
         config?.image = flashImage(for: flashMode)
+        config?.baseForegroundColor = flashMode == .off ? .white : Self.cameraYellow
         flashButton.configuration = config
     }
 
@@ -1366,7 +1535,7 @@ private final class PhotoReportCameraControlsView: UIView {
     }
 
     override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
-        [panel, flashButton, captureButton, flipButton, modeControl].contains { view in
+        [panel, flashButton, captureButton, flipButton, modeSelector].contains { view in
             guard !view.isHidden, view.alpha > 0.01 else { return false }
             return view.point(inside: convert(point, to: view), with: event)
         }
@@ -1376,9 +1545,30 @@ private final class PhotoReportCameraControlsView: UIView {
         onCapture?()
     }
 
-    @objc private func modeChanged() {
-        let mode: PhotoReportCaptureMode = modeControl.selectedSegmentIndex == 1 ? .video : .photo
+    @objc private func captureTouchDown() {
+        UIView.animate(withDuration: 0.12, delay: 0, options: [.beginFromCurrentState, .allowUserInteraction]) {
+            self.captureInnerCircle.transform = CGAffineTransform(scaleX: 0.9, y: 0.9)
+        }
+    }
+
+    @objc private func captureTouchUp() {
+        UIView.animate(withDuration: 0.18, delay: 0, usingSpringWithDamping: 0.78, initialSpringVelocity: 0.5, options: [.beginFromCurrentState, .allowUserInteraction]) {
+            self.captureInnerCircle.transform = .identity
+        }
+    }
+
+    @objc private func photoModeTapped() {
+        selectMode(.photo)
+    }
+
+    @objc private func videoModeTapped() {
+        selectMode(.video)
+    }
+
+    private func selectMode(_ mode: PhotoReportCaptureMode) {
+        guard mode != captureMode else { return }
         captureMode = mode
+        updateModeSelector()
         updateCaptureButton()
         onModeChanged?(mode)
     }
