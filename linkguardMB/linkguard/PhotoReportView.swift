@@ -1058,14 +1058,23 @@ final class PhotoReportCameraViewController: UIViewController, AVCapturePhotoCap
 
     private func previewRotationAngle(for interfaceOrientation: UIInterfaceOrientation) -> CGFloat {
         switch interfaceOrientation {
-        case .landscapeRight:
+        case .landscapeLeft, .landscapeRight:
             return 0
-        case .landscapeLeft:
-            return 180
         case .portraitUpsideDown:
             return 270
         default:
             return 90
+        }
+    }
+
+    private func previewVideoOrientation(for interfaceOrientation: UIInterfaceOrientation) -> AVCaptureVideoOrientation {
+        switch interfaceOrientation {
+        case .landscapeLeft, .landscapeRight:
+            return .portrait
+        case .portraitUpsideDown:
+            return .landscapeLeft
+        default:
+            return .landscapeRight
         }
     }
 
@@ -1129,7 +1138,7 @@ final class PhotoReportCameraViewController: UIViewController, AVCapturePhotoCap
             }
         }
         guard connection.isVideoOrientationSupported else { return }
-        connection.videoOrientation = videoOrientation(for: interfaceOrientation)
+        connection.videoOrientation = previewVideoOrientation(for: interfaceOrientation)
     }
 
     private func updatePreviewMirroring() {
