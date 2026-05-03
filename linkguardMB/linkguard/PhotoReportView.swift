@@ -564,7 +564,11 @@ struct PhotoReportView: View {
         }
 
         appendField("device_id", vm.nodeStatus.nodeID)
-        appendField("sender_name", vm.nodeStatus.nodeID)
+        let trimmedNickname = vm.userNickname.trimmingCharacters(in: .whitespacesAndNewlines)
+        appendField("sender_name", trimmedNickname.isEmpty ? vm.nodeStatus.nodeID : trimmedNickname)
+        if !trimmedNickname.isEmpty {
+            appendField("nickname", trimmedNickname)
+        }
         appendField("lat", "\(lat)")
         appendField("lon", "\(lon)")
         appendField("location_desc", locationDesc)
