@@ -39,17 +39,12 @@ final class UDPAudioServer: ObservableObject, @unchecked Sendable {
     private let queue = DispatchQueue(label: "udp.audio.server", qos: .userInitiated)
     private let magic: UInt32 = 0x4C474244  // "LGBD"
     private let port: NWEndpoint.Port = 9001
-    private let relayPort: NWEndpoint.Port = 9002
 
     private var listener: NWListener?
     private var clientConnections: [String: NWConnection] = [:]
     private var audioBuffers: [String: Data] = [:]
     private var lastPacketTime: [String: Date] = [:]
     private let silenceThreshold: TimeInterval = 2.0
-
-    // relay 到 field:9002（deviceID → IP, IP → outgoing connection）
-    private var deviceIPMap: [String: String] = [:]
-    private var relayOutgoing: [String: NWConnection] = [:]
 
     // WhisperKit（精確辨識）— 公開供 HQSpeechServer 共用
     private(set) var whisperKit: WhisperKit?
@@ -232,18 +227,12 @@ final class UDPAudioServer: ObservableObject, @unchecked Sendable {
                   !data.isEmpty else { return }
 
             if let packet = self.parsePacket(data) {
-                // 登記 client
-                if self.clientConnections[packet.deviceID] == nil {
+                // 記錄 inbound NWConnection（中繼時需要反向送回這條雙向 socket）
+                if self.clientConnections[packet.deviceID] !== connection {
                     self.clientConnections[packet.deviceID] = connection
                     DispatchQueue.main.async {
                         self.connectedClientCount = self.clientConnections.count
                     }
-                }
-
-                // 記錄 deviceID → IP（用於 relay 到 port 9002）
-                if let senderIP = self.extractSenderIP(from: connection),
-                   senderIP != "127.0.0.1" && senderIP != "::1" {
-                    self.deviceIPMap[packet.deviceID] = senderIP
                 }
 
                 self.lastPacketTime[packet.deviceID] = Date()
@@ -364,33 +353,13 @@ final class UDPAudioServer: ObservableObject, @unchecked Sendable {
         raw.components(separatedBy: "%").first ?? raw
     }
 
+    /// 將音訊原封反向送回每一個其他已連線 client。
+    /// 直接用 inbound NWConnection 雙向送，避免依賴 field 的 9002 listener
+    /// （iOS 對 UDP NWListener 的 inbound 接收在 CallKit 切換期間不穩，
+    ///  且來源 IP 反查容易遇到 IPv6 link-local / NAT 問題）。
     private func relayToFieldDevices(data: Data, excludeDeviceID: String) {
-        let excludeIP = deviceIPMap[excludeDeviceID]
-        for (deviceID, ip) in deviceIPMap {
-            guard deviceID != excludeDeviceID, ip != excludeIP else { continue }
-            sendRelayPacket(data, to: ip)
-        }
-    }
-
-    private func sendRelayPacket(_ data: Data, to ip: String) {
-        if let existing = relayOutgoing[ip] {
-            existing.send(content: data, completion: .contentProcessed { _ in })
-        } else {
-            let conn = NWConnection(
-                host: NWEndpoint.Host(ip),
-                port: relayPort,
-                using: .udp
-            )
-            conn.stateUpdateHandler = { [weak self] state in
-                guard let self else { return }
-                self.queue.async {
-                    if case .failed = state {
-                        self.relayOutgoing.removeValue(forKey: ip)
-                    }
-                }
-            }
-            conn.start(queue: queue)
-            relayOutgoing[ip] = conn
+        for (deviceID, conn) in clientConnections {
+            guard deviceID != excludeDeviceID else { continue }
             conn.send(content: data, completion: .contentProcessed { _ in })
         }
     }
@@ -701,9 +670,6 @@ final class UDPAudioServer: ObservableObject, @unchecked Sendable {
         listener = nil
         clientConnections.values.forEach { $0.cancel() }
         clientConnections.removeAll()
-        relayOutgoing.values.forEach { $0.cancel() }
-        relayOutgoing.removeAll()
-        deviceIPMap.removeAll()
         recognitionRequests.values.forEach { $0.endAudio() }
         recognitionRequests.removeAll()
         recognitionTasks.values.forEach { $0.cancel() }

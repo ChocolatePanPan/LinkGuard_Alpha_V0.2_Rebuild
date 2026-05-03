@@ -15,8 +15,6 @@ final class CallAudioManager: ObservableObject {
     private var deviceID = ""
 
     private var sendConnection: NWConnection?
-    private var relayListener: NWListener?
-    private var relayConnections: [NWConnection] = []
     private let queue = DispatchQueue(label: "com.linkguard.call.audio", qos: .userInteractive)
 
     private var captureEngine: AVAudioEngine?
@@ -33,7 +31,6 @@ final class CallAudioManager: ObservableObject {
     private static let lgbdMagic: UInt32 = 0x4C474244
     private static let sampleRate: Double = 16000
     private static let hqUDPPort: UInt16 = 9001
-    private static let relayPort: UInt16 = 9002
 
     func startSession(callID: String, serverHost: String, deviceID: String) {
         let cleanHost = Self.cleanHost(serverHost)
@@ -50,17 +47,12 @@ final class CallAudioManager: ObservableObject {
         isSessionActive = true
 
         configurePlaybackSession()
-        startRelayListener()
         ensureSendConnection(sendRegistrationWhenReady: true)
         startTransmitting()
     }
 
     func stopSession() {
         stopTransmitting()
-        relayListener?.cancel()
-        relayListener = nil
-        relayConnections.forEach { $0.cancel() }
-        relayConnections.removeAll()
         sendConnection?.cancel()
         sendConnection = nil
         stopPlaybackEngine()
@@ -175,6 +167,8 @@ final class CallAudioManager: ObservableObject {
                 if sendRegistrationWhenReady {
                     self.sendRegistrationPacket(over: connection)
                 }
+                // 同一條 UDP socket 雙向使用：HQ 反向送回的中繼音訊會回到這裡
+                self.receiveFromHQ(on: connection)
             case .failed(let error):
                 DispatchQueue.main.async { self.connectionError = error.localizedDescription }
             default:
@@ -183,6 +177,22 @@ final class CallAudioManager: ObservableObject {
         }
         connection.start(queue: queue)
         sendConnection = connection
+    }
+
+    private func receiveFromHQ(on connection: NWConnection) {
+        connection.receiveMessage { [weak self] data, _, _, error in
+            guard let self else { return }
+            if let data, let packet = self.parseLGBDPacket(data), packet.deviceID != self.deviceID {
+                self.playPCMChunk(packet.audioData)
+                DispatchQueue.main.async { self.isReceiving = true }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
+                    self?.isReceiving = false
+                }
+            }
+            if error == nil {
+                self.receiveFromHQ(on: connection)
+            }
+        }
     }
 
     private func sendRegistrationPacket(over connection: NWConnection) {
@@ -210,47 +220,6 @@ final class CallAudioManager: ObservableObject {
         packet.append(pcmData)
 
         connection.send(content: packet, completion: .contentProcessed { _ in })
-    }
-
-    private func startRelayListener() {
-        guard relayListener == nil else { return }
-        do {
-            let params = NWParameters.udp
-            params.allowLocalEndpointReuse = true
-            guard let port = NWEndpoint.Port(rawValue: Self.relayPort) else { return }
-            let listener = try NWListener(using: params, on: port)
-            listener.newConnectionHandler = { [weak self] connection in
-                guard let self else { return }
-                self.relayConnections.append(connection)
-                connection.start(queue: self.queue)
-                self.receiveRelayPacket(on: connection)
-            }
-            listener.stateUpdateHandler = { [weak self] state in
-                if case .failed(let error) = state {
-                    DispatchQueue.main.async { self?.connectionError = error.localizedDescription }
-                }
-            }
-            listener.start(queue: queue)
-            relayListener = listener
-        } catch {
-            connectionError = L("通話收聽啟動失敗")
-        }
-    }
-
-    private func receiveRelayPacket(on connection: NWConnection) {
-        connection.receiveMessage { [weak self] data, _, _, error in
-            guard let self else { return }
-            if let data, let packet = self.parseLGBDPacket(data), packet.deviceID != self.deviceID {
-                self.playPCMChunk(packet.audioData)
-                DispatchQueue.main.async { self.isReceiving = true }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
-                    self?.isReceiving = false
-                }
-            }
-            if error == nil {
-                self.receiveRelayPacket(on: connection)
-            }
-        }
     }
 
     private struct LGBDPacket {
