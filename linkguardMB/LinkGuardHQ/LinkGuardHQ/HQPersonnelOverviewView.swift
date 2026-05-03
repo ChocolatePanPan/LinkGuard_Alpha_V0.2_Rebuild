@@ -55,7 +55,7 @@ struct HQPersonnelOverviewView: View {
             }
             .padding(.horizontal, NV.pagePadding)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .frame(maxWidth: NV.pageMaxWidth, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .center)
         }
         .padding(.bottom, 14)
@@ -84,7 +84,7 @@ struct HQPersonnelOverviewView: View {
             }
             .padding()
             .frame(maxWidth: .infinity, alignment: .leading)
-            .frame(maxWidth: NV.pageMaxWidth, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .center)
         }
     }

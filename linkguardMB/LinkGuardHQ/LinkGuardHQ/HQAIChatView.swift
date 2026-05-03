@@ -120,7 +120,7 @@ struct HQAIChatView: View {
         content()
             .padding(.horizontal, NV.pagePadding)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .frame(maxWidth: NV.pageMaxWidth, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .center)
     }
 

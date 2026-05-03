@@ -190,7 +190,7 @@ struct HQPage<Content: View>: View {
     let spacing: CGFloat
     @ViewBuilder let content: Content
 
-    init(maxWidth: CGFloat = NV.pageMaxWidth,
+    init(maxWidth: CGFloat = .infinity,
          spacing: CGFloat = NV.pageSpacing,
          @ViewBuilder content: () -> Content) {
         self.maxWidth = maxWidth
@@ -326,7 +326,7 @@ struct HQSectionHeader<Trailing: View>: View {
         .padding(.horizontal, NV.pagePadding)
         .padding(.vertical, 16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(maxWidth: NV.pageMaxWidth, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .frame(maxWidth: .infinity, alignment: .center)
     }
 }

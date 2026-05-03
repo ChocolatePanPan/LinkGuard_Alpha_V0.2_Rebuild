@@ -173,6 +173,9 @@ class LinkGuardViewModel: ObservableObject {
     @Published var activeCallSession: CallSession?
     @Published var isCallRinging = false
     let callAudioManager = CallAudioManager()
+    #if os(iOS) && canImport(CallKit)
+    private let callKitManager = CallKitManager()
+    #endif
 
     // 照片回報
     @Published var photoReports: [PhotoReport] = []
@@ -322,6 +325,7 @@ class LinkGuardViewModel: ObservableObject {
             .store(in: &cancellables)
         setupBLECallbacks()
         setupWiFiClient()
+        setupCallKitCallbacks()
         setupAppLifecycleRecovery()
         NotificationManager.shared.requestAuthorization()
         // 載入本地傷患資料
@@ -1368,6 +1372,20 @@ class LinkGuardViewModel: ObservableObject {
 
     // MARK: - 通話
 
+    private func setupCallKitCallbacks() {
+        #if os(iOS) && canImport(CallKit)
+        callKitManager.onAnswer = { [weak self] callID in
+            self?.acceptCallFromCallKit(callID: callID)
+        }
+        callKitManager.onEnd = { [weak self] callID in
+            self?.endCallFromCallKit(callID: callID)
+        }
+        callKitManager.onAudioSessionDeactivated = { [weak self] _ in
+            self?.callAudioManager.stopTransmitting()
+        }
+        #endif
+    }
+
     private var callDisplayName: String {
         let dept = nodeStatus.deptCode.trimmingCharacters(in: .whitespacesAndNewlines)
         return dept.isEmpty ? nodeStatus.nodeID : "\(dept)-\(nodeStatus.nodeID)"
@@ -1388,6 +1406,9 @@ class LinkGuardViewModel: ObservableObject {
             participants: [nodeStatus.nodeID, member.id],
             status: .ringing
         )
+        #if os(iOS) && canImport(CallKit)
+        callKitManager.startOutgoingCall(invite, calleeName: member.id)
+        #endif
         commandClient.sendCallInvite(invite)
     }
 
@@ -1414,6 +1435,9 @@ class LinkGuardViewModel: ObservableObject {
             serverHost: transcriptionServerHost,
             deviceID: nodeStatus.nodeID
         )
+        #if os(iOS) && canImport(CallKit)
+        callKitManager.reportConnected(callID: invite.callID)
+        #endif
     }
 
     func declineCall(_ invite: CallInvite) {
@@ -1427,6 +1451,9 @@ class LinkGuardViewModel: ObservableObject {
         )
         commandClient.sendCallResponse(response)
         markCallInvite(invite.callID, status: .declined)
+        #if os(iOS) && canImport(CallKit)
+        callKitManager.reportEnded(callID: invite.callID, status: .declined)
+        #endif
     }
 
     func endCall(reason: String = "ended") {
@@ -1445,7 +1472,15 @@ class LinkGuardViewModel: ObservableObject {
         isCallRinging = true
         AlarmPlayer.shared.playAlarm()
         startCriticalHaptics()
+        #if os(iOS) && canImport(CallKit)
+        callKitManager.reportIncomingCall(invite) { success in
+            if !success {
+                NotificationManager.shared.sendCallInviteNotification(invite)
+            }
+        }
+        #else
         NotificationManager.shared.sendCallInviteNotification(invite)
+        #endif
 
         callTimeoutWorkItem?.cancel()
         let timeout = DispatchWorkItem { [weak self] in
@@ -1474,10 +1509,16 @@ class LinkGuardViewModel: ObservableObject {
                 serverHost: transcriptionServerHost,
                 deviceID: nodeStatus.nodeID
             )
+            #if os(iOS) && canImport(CallKit)
+            callKitManager.reportConnected(callID: response.callID)
+            #endif
         } else {
             session.status = .declined
             activeCallSession = session
             callAudioManager.stopSession()
+            #if os(iOS) && canImport(CallKit)
+            callKitManager.reportEnded(callID: response.callID, status: .declined)
+            #endif
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak self] in
                 if self?.activeCallSession?.callID == response.callID {
                     self?.activeCallSession = nil
@@ -1521,6 +1562,23 @@ class LinkGuardViewModel: ObservableObject {
         incomingCallInvite = nil
         activeCallSession = nil
         if let callID { markCallInvite(callID, status: finalStatus) }
+        #if os(iOS) && canImport(CallKit)
+        if let callID { callKitManager.reportEnded(callID: callID, status: finalStatus) }
+        #endif
+    }
+
+    func acceptCallFromCallKit(callID: String) {
+        guard let invite = incomingCallInvite, invite.callID == callID else { return }
+        acceptCall(invite)
+    }
+
+    func endCallFromCallKit(callID: String) {
+        if let invite = incomingCallInvite, invite.callID == callID {
+            declineCall(invite)
+            return
+        }
+        guard activeCallSession?.callID == callID else { return }
+        endCall()
     }
 
     // MARK: - 聊天
