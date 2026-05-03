@@ -797,17 +797,19 @@ final class PhotoReportCameraViewController: UIViewController, AVCapturePhotoCap
         previewLayer.frame = view.bounds
         lockPreviewOrientation()
         CATransaction.commit()
-        updateControlsLayout(isLandscape: view.bounds.width > view.bounds.height, animated: false)
+        updateForCurrentOrientation(animated: false)
     }
 
     override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
         super.viewWillTransition(to: size, with: coordinator)
-        updateControlsLayout(isLandscape: size.width > size.height, animated: true)
+        controlsView.setLandscapeLayout(size.width > size.height)
         coordinator.animate { [weak self] _ in
-            self?.view.layoutIfNeeded()
-            self?.controlsView.applyControlRotation(self?.currentControlRotationAngle() ?? 0, animated: true)
+            guard let self else { return }
+            self.view.layoutIfNeeded()
+            self.applyControlRotation(self.currentControlRotationAngle(), animated: true)
         } completion: { [weak self] _ in
             self?.updatePreviewFrameWithoutAnimation()
+            self?.updateForCurrentOrientation(animated: false)
         }
     }
 
@@ -1048,32 +1050,23 @@ final class PhotoReportCameraViewController: UIViewController, AVCapturePhotoCap
     }
 
     private func currentControlRotationAngle() -> CGFloat {
-        switch currentInterfaceOrientation() {
-        case .landscapeLeft:
-            return .pi / 2
-        case .landscapeRight:
-            return -.pi / 2
-        default:
-            return 0
-        }
+        0
     }
 
     private func updateForCurrentOrientation(animated: Bool) {
-        updateControlsLayout(isLandscape: view.bounds.width > view.bounds.height, animated: animated)
-        controlsView.applyControlRotation(currentControlRotationAngle(), animated: animated)
+        controlsView.setLandscapeLayout(view.bounds.width > view.bounds.height)
+        applyControlRotation(currentControlRotationAngle(), animated: animated)
     }
 
-    private func updateControlsLayout(isLandscape: Bool, animated: Bool) {
-        guard isLandscape != isLandscapeLayout else { return }
-        isLandscapeLayout = isLandscape
-        controlsView.setLandscapeLayout(isLandscape)
-
+    private func applyControlRotation(_ angle: CGFloat, animated: Bool) {
+        let changes = {
+            self.cancelButton.transform = CGAffineTransform(rotationAngle: angle)
+        }
+        controlsView.applyControlRotation(angle, animated: animated)
         if animated {
-            UIView.animate(withDuration: 0.25) {
-                self.view.layoutIfNeeded()
-            }
+            UIView.animate(withDuration: 0.22, animations: changes)
         } else {
-            view.layoutIfNeeded()
+            changes()
         }
     }
 
@@ -1176,6 +1169,7 @@ private final class PhotoReportCameraControlsView: UIView {
             self.captureButton.transform = transform
             self.flipButton.transform = transform
             self.flashButton.transform = transform
+            self.modeControl.transform = transform
         }
         if animated {
             UIView.animate(withDuration: 0.22, animations: changes)
@@ -1290,27 +1284,35 @@ private final class PhotoReportCameraControlsView: UIView {
         ])
 
         portraitConstraints = [
-            modeControl.centerXAnchor.constraint(equalTo: content.centerXAnchor),
-            modeControl.topAnchor.constraint(equalTo: content.safeAreaLayoutGuide.topAnchor, constant: 12),
+            panel.leadingAnchor.constraint(equalTo: leadingAnchor),
+            panel.trailingAnchor.constraint(equalTo: trailingAnchor),
+            panel.bottomAnchor.constraint(equalTo: bottomAnchor),
+            panel.heightAnchor.constraint(equalToConstant: 158),
+            modeControl.centerXAnchor.constraint(equalTo: centerXAnchor),
+            modeControl.topAnchor.constraint(equalTo: panel.topAnchor, constant: 12),
             modeControl.widthAnchor.constraint(equalToConstant: 220),
-            captureButton.centerXAnchor.constraint(equalTo: content.centerXAnchor),
-            captureButton.bottomAnchor.constraint(equalTo: content.safeAreaLayoutGuide.bottomAnchor, constant: -18),
+            captureButton.centerXAnchor.constraint(equalTo: centerXAnchor),
+            captureButton.bottomAnchor.constraint(equalTo: safe.bottomAnchor, constant: -18),
             flashButton.centerYAnchor.constraint(equalTo: captureButton.centerYAnchor),
-            flashButton.leadingAnchor.constraint(equalTo: content.safeAreaLayoutGuide.leadingAnchor, constant: 32),
+            flashButton.leadingAnchor.constraint(equalTo: safe.leadingAnchor, constant: 32),
             flipButton.centerYAnchor.constraint(equalTo: captureButton.centerYAnchor),
-            flipButton.trailingAnchor.constraint(equalTo: content.safeAreaLayoutGuide.trailingAnchor, constant: -32)
+            flipButton.trailingAnchor.constraint(equalTo: safe.trailingAnchor, constant: -32)
         ]
 
         landscapeConstraints = [
-            flashButton.centerXAnchor.constraint(equalTo: content.centerXAnchor),
-            flashButton.topAnchor.constraint(equalTo: content.safeAreaLayoutGuide.topAnchor, constant: 56),
-            captureButton.centerXAnchor.constraint(equalTo: content.centerXAnchor),
-            captureButton.centerYAnchor.constraint(equalTo: content.centerYAnchor),
-            flipButton.centerXAnchor.constraint(equalTo: content.centerXAnchor),
+            panel.topAnchor.constraint(equalTo: topAnchor),
+            panel.trailingAnchor.constraint(equalTo: trailingAnchor),
+            panel.bottomAnchor.constraint(equalTo: bottomAnchor),
+            panel.widthAnchor.constraint(equalToConstant: 132),
+            flashButton.centerXAnchor.constraint(equalTo: panel.centerXAnchor),
+            flashButton.topAnchor.constraint(equalTo: safe.topAnchor, constant: 56),
+            captureButton.centerXAnchor.constraint(equalTo: panel.centerXAnchor),
+            captureButton.centerYAnchor.constraint(equalTo: safe.centerYAnchor),
+            flipButton.centerXAnchor.constraint(equalTo: panel.centerXAnchor),
             flipButton.bottomAnchor.constraint(equalTo: modeControl.topAnchor, constant: -18),
-            modeControl.centerXAnchor.constraint(equalTo: content.centerXAnchor),
-            modeControl.bottomAnchor.constraint(equalTo: content.safeAreaLayoutGuide.bottomAnchor, constant: -18),
-            modeControl.widthAnchor.constraint(equalToConstant: 104)
+            modeControl.centerXAnchor.constraint(equalTo: panel.centerXAnchor),
+            modeControl.bottomAnchor.constraint(equalTo: safe.bottomAnchor, constant: -18),
+            modeControl.widthAnchor.constraint(equalToConstant: 108)
         ]
     }
 
@@ -1322,37 +1324,24 @@ private final class PhotoReportCameraControlsView: UIView {
         } else {
             captureButton.backgroundColor = UIColor.white.withAlphaComponent(0.25)
         }
-            panel.leadingAnchor.constraint(equalTo: leadingAnchor),
-            panel.trailingAnchor.constraint(equalTo: trailingAnchor),
-            panel.bottomAnchor.constraint(equalTo: bottomAnchor),
-            panel.heightAnchor.constraint(equalToConstant: 158),
-            modeControl.centerXAnchor.constraint(equalTo: centerXAnchor),
-            modeControl.topAnchor.constraint(equalTo: panel.topAnchor, constant: 12),
-    private func updateFlashButton() {
-            captureButton.centerXAnchor.constraint(equalTo: centerXAnchor),
-            captureButton.bottomAnchor.constraint(equalTo: safe.bottomAnchor, constant: -18),
-        flashButton.configuration = config
-            flashButton.leadingAnchor.constraint(equalTo: safe.leadingAnchor, constant: 32),
+    }
 
-            flipButton.trailingAnchor.constraint(equalTo: safe.trailingAnchor, constant: -32)
+    private func updateFlashButton() {
+        var config = flashButton.configuration
+        config?.image = flashImage(for: flashMode)
+        flashButton.configuration = config
+    }
+
+    private func flashImage(for mode: AVCaptureDevice.FlashMode) -> UIImage? {
         switch mode {
         case .auto:
             return UIImage(systemName: "bolt.badge.a.fill") ?? UIImage(systemName: "bolt.fill")
-            panel.topAnchor.constraint(equalTo: topAnchor),
-            panel.trailingAnchor.constraint(equalTo: trailingAnchor),
-            panel.bottomAnchor.constraint(equalTo: bottomAnchor),
-            panel.widthAnchor.constraint(equalToConstant: 132),
-            flashButton.leadingAnchor.constraint(equalTo: safe.leadingAnchor, constant: 18),
-            flashButton.topAnchor.constraint(equalTo: safe.topAnchor, constant: 72),
+        case .on:
+            return UIImage(systemName: "bolt.fill")
         default:
-            captureButton.centerYAnchor.constraint(equalTo: safe.centerYAnchor),
+            return UIImage(systemName: "bolt.slash.fill")
         }
     }
-
-            modeControl.bottomAnchor.constraint(equalTo: safe.bottomAnchor, constant: -18),
-            modeControl.widthAnchor.constraint(equalToConstant: 108)
-    }
-
 
     override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
         [panel, flashButton, captureButton, flipButton, modeControl].contains { view in
@@ -1360,6 +1349,11 @@ private final class PhotoReportCameraControlsView: UIView {
             return view.point(inside: convert(point, to: view), with: event)
         }
     }
+
+    @objc private func captureTapped() {
+        onCapture?()
+    }
+
     @objc private func modeChanged() {
         let mode: PhotoReportCaptureMode = modeControl.selectedSegmentIndex == 1 ? .video : .photo
         captureMode = mode
