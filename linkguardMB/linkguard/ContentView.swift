@@ -1658,6 +1658,7 @@ struct ConnectionView: View {
     @State private var deptInput = ""
     @State private var pairInput = ""
     @State private var nodeIDInput = ""
+    @State private var nicknameInput = ""
     @State private var manualIP = ""
     @State private var manualPort = "8930"
 
@@ -1797,6 +1798,20 @@ struct ConnectionView: View {
 
                 // 節點設定
                 Section(header: Text(L("搜救節點設定"))) {
+                    // 我的暱稱（顯示在指揮中心）
+                    HStack {
+                        Text(L("我的暱稱"))
+                        Spacer()
+                        TextField(L("選填，例：阿明"), text: $nicknameInput)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 140)
+                        Button(L("更新")) {
+                            vm.changeUserNickname(nicknameInput)
+                        }
+                        .font(.caption)
+                        .buttonStyle(.glass)
+                    }
+
                     // 節點 ID
                     HStack {
                         Text(L("節點 ID"))
@@ -1813,9 +1828,7 @@ struct ConnectionView: View {
                         .font(.caption)
                         .buttonStyle(.glass)
                         .disabled(nodeIDInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                    }
-
-                    // 配對碼
+                    }                    // 配對碼
                     HStack {
                         Text(L("配對碼"))
                         Spacer()
@@ -1941,6 +1954,7 @@ struct ConnectionView: View {
                 deptInput = vm.nodeStatus.deptCode
                 pairInput = vm.nodeStatus.pairCode
                 nodeIDInput = vm.nodeStatus.nodeID
+                nicknameInput = vm.userNickname
             }
         }
     }
