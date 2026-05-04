@@ -93,37 +93,24 @@ struct HQSettingsView: View {
 
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
-                    Label(L("介面縮放"), systemImage: "textformat.size")
+                    Label(L("原生畫質"), systemImage: "display")
                     Spacer()
-                    Text("\(Int((uiScale * 100).rounded()))%")
+                    Text("100%")
                         .font(.caption.monospacedDigit())
                         .foregroundColor(.secondary)
                 }
                 HStack(spacing: 8) {
-                    Button {
-                        uiScale = max(0.8, ((uiScale - 0.1) * 10).rounded() / 10)
-                    } label: {
-                        Image(systemName: "minus.magnifyingglass")
+                    Image(systemName: "checkmark.seal.fill")
+                        .foregroundColor(NV.green)
+                    Text(L("HQ 主畫面以原生尺寸渲染，避免整體縮放造成文字與線條模糊。"))
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Spacer()
+                    if uiScale != 1.0 {
+                        Button(L("清除舊縮放")) { uiScale = 1.0 }
+                            .buttonStyle(.bordered)
                     }
-                    .help(L("縮小"))
-
-                    Slider(value: $uiScale, in: 0.8...1.4, step: 0.1)
-
-                    Button {
-                        uiScale = min(1.4, ((uiScale + 0.1) * 10).rounded() / 10)
-                    } label: {
-                        Image(systemName: "plus.magnifyingglass")
-                    }
-                    .help(L("放大"))
-
-                    Button(L("重設")) {
-                        uiScale = 1.0
-                    }
-                    .buttonStyle(.bordered)
                 }
-                Text(L("也可以使用 Command + + / Command + - 調整。"))
-                    .font(.caption)
-                    .foregroundColor(.secondary)
             }
         }
     }

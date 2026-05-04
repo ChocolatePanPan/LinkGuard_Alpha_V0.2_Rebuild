@@ -182,6 +182,7 @@ final class L10n: ObservableObject {
         "外勤裝置": "Field Devices",
         "外觀": "Appearance",
         "介面縮放": "Interface Zoom",
+        "原生畫質": "Native Rendering",
         "姓名": "Name",
         "完成": "Done",
         "左側": "Left",
@@ -432,6 +433,7 @@ final class L10n: ObservableObject {
         "關聯受困者": "Associated Victims",
         "關閉": "Close",
         "關閉省電模式": "Disable Power Saving",
+        "清除舊縮放": "Clear Previous Zoom",
         "重設": "Reset",
         "重設縮放": "Reset Zoom",
         "集結點": "Assembly Point",
@@ -447,6 +449,7 @@ final class L10n: ObservableObject {
         "縮小": "Zoom Out",
         "下方": "Bottom",
         "也可以使用 Command + + / Command + - 調整。": "You can also use Command + + / Command + - to adjust.",
+        "HQ 主畫面以原生尺寸渲染，避免整體縮放造成文字與線條模糊。": "HQ renders at native size to avoid blurred text and lines from whole-window scaling.",
         "點按左下角 + 新增分區，或在「災害狀態」頁面中新增": "Tap + at bottom-left to add zone, or add in Disaster Status page",
         "點擊查看": "Tap to view",
 
