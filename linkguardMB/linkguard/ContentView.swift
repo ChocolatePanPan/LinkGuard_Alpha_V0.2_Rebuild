@@ -348,7 +348,7 @@ struct CommunicationHubView: View {
         case .message: return navLabel("訊息", en: "Message")
         case .call: return navLabel("通話", en: "Voice Call")
         case .live: return navLabel("即時廣播", en: "Live Broadcast")
-        case .report: return navLabel("固定回報", en: "Briefing Report")
+        case .report: return navLabel("語音會報", en: "Voice Briefing")
         }
     }
 
@@ -380,7 +380,8 @@ struct CommunicationHubView: View {
                     }
                 }
             }
-            .toolbar(.hidden, for: .navigationBar)
+            .navigationTitle(modeTitle(mode))
+            .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.visible, for: .navigationBar)
         }
     }
