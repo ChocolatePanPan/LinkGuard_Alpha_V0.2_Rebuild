@@ -8,6 +8,7 @@ import CallKit
 final class CallKitManager: NSObject {
     var onAnswer: ((String) -> Void)?
     var onEnd: ((String) -> Void)?
+    var onSetMuted: ((String, Bool) -> Void)?
     var onAudioSessionActivated: ((AVAudioSession) -> Void)?
     var onAudioSessionDeactivated: ((AVAudioSession) -> Void)?
 
@@ -23,7 +24,7 @@ final class CallKitManager: NSObject {
         configuration.maximumCallsPerCallGroup = 1
         configuration.maximumCallGroups = 1
         configuration.supportedHandleTypes = [.generic]
-        configuration.includesCallsInRecents = false
+        configuration.includesCallsInRecents = true
         provider = CXProvider(configuration: configuration)
         super.init()
         provider.setDelegate(self, queue: nil)
@@ -65,6 +66,19 @@ final class CallKitManager: NSObject {
             }
             Task { @MainActor in
                 self?.provider.reportOutgoingCall(with: callUUID, startedConnectingAt: Date())
+            }
+        }
+    }
+
+    func answerIncomingCall(callID: String, completion: ((Bool) -> Void)? = nil) {
+        let callUUID = uuid(for: callID)
+        let action = CXAnswerCallAction(call: callUUID)
+        controller.request(CXTransaction(action: action)) { error in
+            if let error {
+                print("[CallKit] answer call failed: \(error.localizedDescription)")
+            }
+            DispatchQueue.main.async {
+                completion?(error == nil)
             }
         }
     }
@@ -155,6 +169,17 @@ extension CallKitManager: CXProviderDelegate {
                 return
             }
             self.onEnd?(callID)
+            action.fulfill()
+        }
+    }
+
+    nonisolated func provider(_ provider: CXProvider, perform action: CXSetMutedCallAction) {
+        Task { @MainActor in
+            guard let callID = self.callID(for: action.callUUID) else {
+                action.fail()
+                return
+            }
+            self.onSetMuted?(callID, action.isMuted)
             action.fulfill()
         }
     }

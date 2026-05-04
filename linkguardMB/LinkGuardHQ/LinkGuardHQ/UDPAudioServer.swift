@@ -42,6 +42,7 @@ final class UDPAudioServer: ObservableObject, @unchecked Sendable {
 
     private var listener: NWListener?
     private var clientConnections: [String: NWConnection] = [:]
+    private var inboundPacketCount: UInt64 = 0
     private var audioBuffers: [String: Data] = [:]
     private var lastPacketTime: [String: Date] = [:]
     private let silenceThreshold: TimeInterval = 2.0
@@ -222,11 +223,18 @@ final class UDPAudioServer: ObservableObject, @unchecked Sendable {
             minimumIncompleteLength: 1,
             maximumLength: 65535
         ) { [weak self] data, _, isComplete, error in
-            guard let self = self,
-                  let data = data,
-                  !data.isEmpty else { return }
+            guard let self = self else { return }
+            if let error {
+                print("[UDPAudioServer] UDP receive error: \(error.localizedDescription)")
+                return
+            }
 
-            if let packet = self.parsePacket(data) {
+            if let data, !data.isEmpty, let packet = self.parsePacket(data) {
+                self.inboundPacketCount &+= 1
+                if self.inboundPacketCount % 50 == 0 {
+                    print("[UDPAudioServer] ↔️ LGBD packets=\(self.inboundPacketCount) from=\(packet.deviceID) bytes=\(packet.audioData.count) clients=\(self.clientConnections.count) complete=\(isComplete)")
+                }
+
                 // 記錄 inbound NWConnection（中繼時需要反向送回這條雙向 socket）
                 if self.clientConnections[packet.deviceID] !== connection {
                     self.clientConnections[packet.deviceID] = connection
@@ -256,9 +264,8 @@ final class UDPAudioServer: ObservableObject, @unchecked Sendable {
                 }
             }
 
-            if !isComplete {
-                self.receiveData(on: connection)
-            }
+            // UDP datagram 多半每包都是 complete；仍要持續 receive 下一包。
+            self.receiveData(on: connection)
         }
     }
 
@@ -360,7 +367,11 @@ final class UDPAudioServer: ObservableObject, @unchecked Sendable {
     private func relayToFieldDevices(data: Data, excludeDeviceID: String) {
         for (deviceID, conn) in clientConnections {
             guard deviceID != excludeDeviceID else { continue }
-            conn.send(content: data, completion: .contentProcessed { _ in })
+            conn.send(content: data, completion: .contentProcessed { error in
+                if let error {
+                    print("[UDPAudioServer] relay to \(deviceID) failed: \(error.localizedDescription)")
+                }
+            })
         }
     }
 

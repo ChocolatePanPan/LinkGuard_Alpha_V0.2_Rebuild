@@ -25,12 +25,28 @@ final class CallAudioManager: ObservableObject {
                                                sampleRate: 16000,
                                                channels: 1,
                                                interleaved: false)!
+    #if os(iOS)
+    private var isUsingCallKitActivatedSession = false
+    #endif
 
     private var sequence: UInt32 = 0
 
     private static let lgbdMagic: UInt32 = 0x4C474244
     private static let sampleRate: Double = 16000
     private static let hqUDPPort: UInt16 = 9001
+
+    #if os(iOS)
+    func configureForActivatedCallSession(_ session: AVAudioSession) {
+        do {
+            try configureCallAudioSession(session, activate: false)
+            isUsingCallKitActivatedSession = true
+            logCurrentRoute(session, prefix: "CallKit activated")
+        } catch {
+            connectionError = L("音訊初始化失敗")
+            print("[CallAudio] CallKit audio session config error: \(error)")
+        }
+    }
+    #endif
 
     func startSession(callID: String, serverHost: String, deviceID: String) {
         let cleanHost = Self.cleanHost(serverHost)
@@ -46,7 +62,18 @@ final class CallAudioManager: ObservableObject {
         isMuted = false
         isSessionActive = true
 
-        configurePlaybackSession()
+        #if os(iOS)
+        if !isUsingCallKitActivatedSession {
+            do {
+                try configureCallAudioSession(AVAudioSession.sharedInstance(), activate: true)
+            } catch {
+                connectionError = L("音訊初始化失敗")
+                print("[CallAudio] fallback audio session error: \(error)")
+                return
+            }
+        }
+        #endif
+        startPlaybackEngine()
         ensureSendConnection(sendRegistrationWhenReady: true)
         startTransmitting()
     }
@@ -67,6 +94,10 @@ final class CallAudioManager: ObservableObject {
 
     func toggleMute() {
         isMuted.toggle()
+    }
+
+    func setMuted(_ muted: Bool) {
+        isMuted = muted
     }
 
     func startTransmitting() {
@@ -90,13 +121,6 @@ final class CallAudioManager: ObservableObject {
             }
             return
         }
-        do {
-            try session.setCategory(.playAndRecord, mode: .voiceChat, options: [.defaultToSpeaker, .allowBluetoothHFP])
-            try session.setActive(true)
-        } catch {
-            connectionError = L("音訊初始化失敗")
-            return
-        }
         #endif
 
         ensureSendConnection(sendRegistrationWhenReady: false)
@@ -104,6 +128,9 @@ final class CallAudioManager: ObservableObject {
 
         let engine = AVAudioEngine()
         let inputNode = engine.inputNode
+        #if os(iOS)
+        try? inputNode.setVoiceProcessingEnabled(true)
+        #endif
         let nativeFormat = inputNode.outputFormat(forBus: 0)
         guard let targetFormat = AVAudioFormat(commonFormat: .pcmFormatInt16,
                                                sampleRate: Self.sampleRate,
@@ -240,18 +267,6 @@ final class CallAudioManager: ObservableObject {
         return LGBDPacket(deviceID: sender, audioData: data.subdata(in: headerEnd..<data.count))
     }
 
-    private func configurePlaybackSession() {
-        #if os(iOS)
-        do {
-            try AVAudioSession.sharedInstance().setCategory(.playAndRecord, mode: .voiceChat, options: [.defaultToSpeaker, .allowBluetoothHFP, .mixWithOthers])
-            try AVAudioSession.sharedInstance().setActive(true)
-        } catch {
-            print("[CallAudio] Audio session error: \(error)")
-        }
-        #endif
-        startPlaybackEngine()
-    }
-
     private func startPlaybackEngine() {
         guard playbackEngine == nil else { return }
         let engine = AVAudioEngine()
@@ -274,9 +289,33 @@ final class CallAudioManager: ObservableObject {
         playerNode = nil
         playbackEngine = nil
         #if os(iOS)
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        let shouldDeactivate = !isUsingCallKitActivatedSession
+        isUsingCallKitActivatedSession = false
+        if shouldDeactivate {
+            try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        }
         #endif
     }
+
+    #if os(iOS)
+    private func configureCallAudioSession(_ session: AVAudioSession, activate: Bool) throws {
+        try session.setCategory(.playAndRecord,
+                                mode: .voiceChat,
+                                options: [.allowBluetoothHFP, .allowBluetoothA2DP])
+        try session.setPreferredSampleRate(Self.sampleRate)
+        try session.setPreferredIOBufferDuration(0.02)
+        if activate {
+            try session.setActive(true)
+        }
+        logCurrentRoute(session, prefix: activate ? "fallback active" : "configured")
+    }
+
+    private func logCurrentRoute(_ session: AVAudioSession, prefix: String) {
+        let inputs = session.currentRoute.inputs.map { "\($0.portName)[\($0.portType.rawValue)]" }.joined(separator: ",")
+        let outputs = session.currentRoute.outputs.map { "\($0.portName)[\($0.portType.rawValue)]" }.joined(separator: ",")
+        print("[CallAudio] \(prefix) route input=\(inputs) output=\(outputs)")
+    }
+    #endif
 
     private func playPCMChunk(_ int16Data: Data) {
         guard let player = playerNode, let engine = playbackEngine else { return }

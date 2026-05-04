@@ -183,6 +183,8 @@ class LinkGuardViewModel: ObservableObject {
     let callAudioManager = CallAudioManager()
     #if os(iOS) && canImport(CallKit)
     private let callKitManager = CallKitManager()
+    private var isCallKitAudioSessionActive = false
+    private var activeCallKitAudioSession: AVAudioSession?
     #endif
 
     // 照片回報
@@ -1431,8 +1433,19 @@ class LinkGuardViewModel: ObservableObject {
         callKitManager.onEnd = { [weak self] callID in
             self?.endCallFromCallKit(callID: callID)
         }
+        callKitManager.onSetMuted = { [weak self] callID, muted in
+            guard self?.activeCallSession?.callID == callID else { return }
+            self?.callAudioManager.setMuted(muted)
+        }
+        callKitManager.onAudioSessionActivated = { [weak self] session in
+            self?.isCallKitAudioSessionActive = true
+            self?.activeCallKitAudioSession = session
+            self?.startActiveCallAudioIfReady()
+        }
         callKitManager.onAudioSessionDeactivated = { [weak self] _ in
-            self?.callAudioManager.stopTransmitting()
+            self?.isCallKitAudioSessionActive = false
+            self?.activeCallKitAudioSession = nil
+            self?.callAudioManager.stopSession()
         }
         #endif
     }
@@ -1463,7 +1476,18 @@ class LinkGuardViewModel: ObservableObject {
         commandClient.sendCallInvite(invite)
     }
 
-    func acceptCall(_ invite: CallInvite) {
+    func acceptCall(_ invite: CallInvite, fromCallKit: Bool = false) {
+        #if os(iOS) && canImport(CallKit)
+        if !fromCallKit {
+            callKitManager.answerIncomingCall(callID: invite.callID) { [weak self] success in
+                if !success {
+                    self?.acceptCall(invite, fromCallKit: true)
+                }
+            }
+            return
+        }
+        #endif
+
         stopIncomingCallAlert()
         incomingCallInvite = nil
         let response = CallResponse(
@@ -1481,11 +1505,7 @@ class LinkGuardViewModel: ObservableObject {
             participants: participants,
             status: .active
         )
-        callAudioManager.startSession(
-            callID: invite.callID,
-            serverHost: transcriptionServerHost,
-            deviceID: nodeStatus.nodeID
-        )
+        startActiveCallAudioIfReady()
         #if os(iOS) && canImport(CallKit)
         callKitManager.reportConnected(callID: invite.callID)
         #endif
@@ -1555,11 +1575,7 @@ class LinkGuardViewModel: ObservableObject {
             }
             session.status = .active
             activeCallSession = session
-            callAudioManager.startSession(
-                callID: response.callID,
-                serverHost: transcriptionServerHost,
-                deviceID: nodeStatus.nodeID
-            )
+            startActiveCallAudioIfReady()
             #if os(iOS) && canImport(CallKit)
             callKitManager.reportConnected(callID: response.callID)
             #endif
@@ -1606,10 +1622,35 @@ class LinkGuardViewModel: ObservableObject {
         stopCriticalHaptics()
     }
 
+    private func startActiveCallAudioIfReady() {
+        guard let session = activeCallSession,
+              session.status == .active,
+              !callAudioManager.isSessionActive else { return }
+
+        #if os(iOS) && canImport(CallKit)
+        guard isCallKitAudioSessionActive,
+              let audioSession = activeCallKitAudioSession else {
+            print("[CallKit] 等待系統啟用通話音訊 session")
+            return
+        }
+        callAudioManager.configureForActivatedCallSession(audioSession)
+        #endif
+
+        callAudioManager.startSession(
+            callID: session.callID,
+            serverHost: transcriptionServerHost,
+            deviceID: nodeStatus.nodeID
+        )
+    }
+
     private func clearCallState(finalStatus: CallStatus) {
         let callID = activeCallSession?.callID ?? incomingCallInvite?.callID
         stopIncomingCallAlert()
         callAudioManager.stopSession()
+        #if os(iOS) && canImport(CallKit)
+        isCallKitAudioSessionActive = false
+        activeCallKitAudioSession = nil
+        #endif
         incomingCallInvite = nil
         activeCallSession = nil
         if let callID { markCallInvite(callID, status: finalStatus) }
@@ -1620,7 +1661,7 @@ class LinkGuardViewModel: ObservableObject {
 
     func acceptCallFromCallKit(callID: String) {
         guard let invite = incomingCallInvite, invite.callID == callID else { return }
-        acceptCall(invite)
+        acceptCall(invite, fromCallKit: true)
     }
 
     func endCallFromCallKit(callID: String) {
