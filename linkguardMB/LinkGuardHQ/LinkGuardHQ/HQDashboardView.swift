@@ -31,6 +31,7 @@ enum HQSection: String, CaseIterable, Identifiable {
     case aiChat = "AI 對話"
     case backendServices = "後端服務"
     case decisionHistory = "AI 決策歷史"
+    case fireDepartments = "消防局聯絡簿"
     case settings = "設定"
 
     static let navigationOrder: [HQSection] = [
@@ -58,6 +59,7 @@ enum HQSection: String, CaseIterable, Identifiable {
         .aiChat,
         .decisionHistory,
         .backendServices,
+        .fireDepartments,
         .settings
     ]
 
@@ -91,6 +93,7 @@ enum HQSection: String, CaseIterable, Identifiable {
         case .aiChat: return "sparkles"
         case .backendServices: return "cpu"
         case .decisionHistory: return "clock.arrow.circlepath"
+        case .fireDepartments: return "flame.fill"
         case .settings: return "gearshape.fill"
         }
     }
@@ -419,6 +422,7 @@ struct HQDashboardView: View {
             case .backendServices: Text(L("僅 macOS 支援")).foregroundColor(.secondary)
             #endif
             case .decisionHistory: HQDecisionHistoryView(vm: vm)
+            case .fireDepartments: HQFireDepartmentDirectoryView(vm: vm)
             #if os(macOS)
             case .settings: HQSettingsView(vm: vm, supervisor: vm.backendSupervisor) {
                 selectedSection = .backendServices
@@ -963,6 +967,7 @@ struct HQDashboardView: View {
         case .aiChat: return NV.command
         case .backendServices: return NV.green
         case .decisionHistory: return NV.command
+        case .fireDepartments: return NV.danger
         case .settings: return NV.info
         }
     }
