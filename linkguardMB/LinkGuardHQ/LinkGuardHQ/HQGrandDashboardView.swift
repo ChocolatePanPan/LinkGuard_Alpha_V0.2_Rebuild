@@ -507,10 +507,25 @@ struct HQGrandDashboardView: View {
     }
 
     private func shortTime(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = Calendar.current.isDateInToday(date) ? "HH:mm" : "M/d HH:mm"
-        return formatter.string(from: date)
+        // 使用 static cache 避免每次渲染都建立 DateFormatter（DateFormatter 初始化昂貴）
+        if Calendar.current.isDateInToday(date) {
+            return Self.todayTimeFormatter.string(from: date)
+        } else {
+            return Self.dateTimeFormatter.string(from: date)
+        }
     }
+
+    private static let todayTimeFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm"
+        return f
+    }()
+
+    private static let dateTimeFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "M/d HH:mm"
+        return f
+    }()
 
     // MARK: - Panel 1: AI 主機健康度
 

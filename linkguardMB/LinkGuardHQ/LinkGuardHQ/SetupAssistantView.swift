@@ -234,7 +234,7 @@ struct SetupAssistantView: View {
             try? await Task.sleep(nanoseconds: 2_000_000_000)
             if supervisor.allHealthy {
                 smokeStatus = .ok
-                smokeDetail = L("9 個服務全部正常")
+                smokeDetail = L("%lld 個服務全部正常", supervisor.services.count)
                 return
             }
         }

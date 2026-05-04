@@ -1,6 +1,40 @@
 import Foundation
 import SwiftUI
 
+// MARK: - 共用 DateFormatter 快取
+// DateFormatter 初始化昂貴，集中宣告為 static 避免在每個 computed property 重複建立。
+
+private enum HQDateFormatters {
+    static let hhmmss: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm:ss"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone(identifier: "Asia/Taipei")
+        return f
+    }()
+    static let hhmm: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone(identifier: "Asia/Taipei")
+        return f
+    }()
+    static let mmddhhmm: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "MM/dd HH:mm"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone(identifier: "Asia/Taipei")
+        return f
+    }()
+    static let mddhhmm: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "M/dd HH:mm"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone(identifier: "Asia/Taipei")
+        return f
+    }()
+}
+
 // MARK: - 事件日誌模型
 
 /// 事件類型
@@ -67,11 +101,7 @@ struct TimelineEvent: Codable, Identifiable {
     }
 
     var timeText: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm:ss"
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = TimeZone(identifier: "Asia/Taipei")
-        return formatter.string(from: Date(timeIntervalSince1970: timestamp))
+        HQDateFormatters.hhmmss.string(from: Date(timeIntervalSince1970: timestamp))
     }
 
     var relativeTimeText: String {
@@ -384,11 +414,7 @@ struct ChatMessage: Codable, Identifiable {
     }
 
     var timeText: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm:ss"
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = TimeZone(identifier: "Asia/Taipei")
-        return formatter.string(from: Date(timeIntervalSince1970: timestamp))
+        HQDateFormatters.hhmmss.string(from: Date(timeIntervalSince1970: timestamp))
     }
 
     var isBroadcast: Bool { recipientID == nil }
@@ -668,9 +694,7 @@ struct BriefingReport: Codable, Identifiable {
     }
 
     var timeText: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MM/dd HH:mm"
-        return formatter.string(from: Date(timeIntervalSince1970: timestamp))
+        HQDateFormatters.mmddhhmm.string(from: Date(timeIntervalSince1970: timestamp))
     }
 }
 
@@ -696,9 +720,7 @@ struct PersonalNotification: Codable, Identifiable {
     }
 
     var timeText: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm:ss"
-        return formatter.string(from: Date(timeIntervalSince1970: timestamp))
+        HQDateFormatters.hhmmss.string(from: Date(timeIntervalSince1970: timestamp))
     }
 }
 
@@ -962,9 +984,7 @@ struct CommandOrder: Identifiable {
     var isRead: Bool
 
     var timeText: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm:ss"
-        return formatter.string(from: time)
+        HQDateFormatters.hhmmss.string(from: time)
     }
 }
 
@@ -1104,9 +1124,9 @@ struct QuickStatus: Codable, Identifiable {
 
     var timeText: String {
         let date = Date(timeIntervalSince1970: timestamp)
-        let fmt = DateFormatter()
-        fmt.dateFormat = Calendar.current.isDateInToday(date) ? "HH:mm" : "M/d HH:mm"
-        return fmt.string(from: date)
+        return Calendar.current.isDateInToday(date)
+            ? HQDateFormatters.hhmm.string(from: date)
+            : HQDateFormatters.mddhhmm.string(from: date)
     }
 }
 
@@ -1164,9 +1184,7 @@ struct TaskAssignment: Codable, Identifiable {
     var isActive: Bool { taskStatus == .pending || taskStatus == .accepted || taskStatus == .inProgress }
 
     var timeText: String {
-        let fmt = DateFormatter()
-        fmt.dateFormat = "M/d HH:mm"
-        return fmt.string(from: Date(timeIntervalSince1970: createdAt))
+        HQDateFormatters.mddhhmm.string(from: Date(timeIntervalSince1970: createdAt))
     }
 }
 
@@ -1242,9 +1260,9 @@ struct HazardReport: Codable, Identifiable {
 
     var timeText: String {
         let date = Date(timeIntervalSince1970: timestamp)
-        let fmt = DateFormatter()
-        fmt.dateFormat = Calendar.current.isDateInToday(date) ? "HH:mm" : "M/d HH:mm"
-        return fmt.string(from: date)
+        return Calendar.current.isDateInToday(date)
+            ? HQDateFormatters.hhmm.string(from: date)
+            : HQDateFormatters.mddhhmm.string(from: date)
     }
 }
 
@@ -1283,8 +1301,7 @@ struct ReinforcementRequest: Identifiable, Codable {
     }
 
     var timeText: String {
-        let f = DateFormatter(); f.dateFormat = "HH:mm:ss"
-        return f.string(from: Date(timeIntervalSince1970: timestamp))
+        HQDateFormatters.hhmmss.string(from: Date(timeIntervalSince1970: timestamp))
     }
 }
 
@@ -1583,8 +1600,7 @@ struct HQTextBroadcast: Identifiable {
     let timestamp: Double
 
     var timeText: String {
-        let f = DateFormatter(); f.dateFormat = "HH:mm:ss"
-        return f.string(from: Date(timeIntervalSince1970: timestamp))
+        HQDateFormatters.hhmmss.string(from: Date(timeIntervalSince1970: timestamp))
     }
 }
 
