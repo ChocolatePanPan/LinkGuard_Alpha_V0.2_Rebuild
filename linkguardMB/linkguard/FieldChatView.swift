@@ -8,6 +8,7 @@ struct FieldChatView: View {
     var showsNavigationTitle: Bool = true
     var showsKeyboardDone: Bool = true
     @State private var draft = ""
+    @FocusState private var isInputFocused: Bool
 
     var body: some View {
         Group {
@@ -104,6 +105,7 @@ struct FieldChatView: View {
                         .textFieldStyle(.roundedBorder)
                         .lineLimit(1...3)
                         .submitLabel(.send)
+                        .focused($isInputFocused)
                         .onSubmit {
                             guard !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
                                   vm.commandClient.isConnected else { return }
@@ -133,6 +135,15 @@ struct FieldChatView: View {
                     }
                     .tint(NV.command)
 
+                    if isInputFocused && showsKeyboardDone {
+                        Button(L("完成")) {
+                            isInputFocused = false
+                        }
+                        .font(.subheadline)
+                        .tint(NV.command)
+                        .transition(.opacity.combined(with: .scale))
+                    }
+
                     Button {
                         vm.sendChat(draft)
                         draft = ""
@@ -149,16 +160,7 @@ struct FieldChatView: View {
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.visible, for: .navigationBar)
-            .toolbar {
-                if showsKeyboardDone {
-                    ToolbarItemGroup(placement: .keyboard) {
-                        Spacer()
-                        Button(L("完成")) {
-                            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-                        }
-                    }
-                }
-            }
+
             #endif
     }
 
