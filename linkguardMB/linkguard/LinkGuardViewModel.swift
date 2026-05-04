@@ -1468,6 +1468,20 @@ class LinkGuardViewModel: ObservableObject {
         return dept.isEmpty ? nodeStatus.nodeID : "\(dept)-\(nodeStatus.nodeID)"
     }
 
+    private func isCallInviteTargetedAtThisDevice(_ invite: CallInvite) -> Bool {
+        let localIDs = [
+            nodeStatus.nodeID,
+            callDisplayName,
+            "field-\(nodeStatus.nodeID)"
+        ]
+        let normalizedLocalIDs = Set(localIDs.map(Self.normalizedCallRouteID))
+        return invite.targetDeviceIDs.contains { normalizedLocalIDs.contains(Self.normalizedCallRouteID($0)) }
+    }
+
+    private static func normalizedCallRouteID(_ id: String) -> String {
+        id.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
     func startCall(to member: TeamMember) {
         guard commandClient.isConnected, member.isOnline, member.id != nodeStatus.nodeID else { return }
         let invite = CallInvite(
@@ -1548,9 +1562,18 @@ class LinkGuardViewModel: ObservableObject {
     }
 
     private func handleIncomingCallInvite(_ invite: CallInvite) {
-        guard invite.initiatorID != nodeStatus.nodeID,
-              invite.targetDeviceIDs.contains(nodeStatus.nodeID),
-              !invite.isExpired else { return }
+        guard invite.initiatorID != nodeStatus.nodeID else {
+            print("[Call] Ignore own invite \(invite.callID)")
+            return
+        }
+        guard isCallInviteTargetedAtThisDevice(invite) else {
+            print("[Call] Invite \(invite.callID) not for this node. targets=\(invite.targetDeviceIDs.joined(separator: ",")) local=\(nodeStatus.nodeID)")
+            return
+        }
+        guard !invite.isExpired else {
+            print("[Call] Ignore expired invite \(invite.callID)")
+            return
+        }
         upsertCallInvite(invite)
         incomingCallInvite = invite
         isCallRinging = true

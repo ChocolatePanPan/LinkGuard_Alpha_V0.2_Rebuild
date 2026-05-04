@@ -379,6 +379,13 @@ class HQCommandServer: ObservableObject {
     }
 
     @MainActor private func handleWiFiMessage(_ msg: WiFiMessage, connID: String) {
+        if let sourceDeviceID = msg.deviceID?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !sourceDeviceID.isEmpty {
+            queue.async { [weak self] in
+                self?.connDeviceMap[connID] = sourceDeviceID
+            }
+        }
+
         switch msg.msgType {
 
         case "hello":
@@ -1128,7 +1135,10 @@ class HQCommandServer: ObservableObject {
             source: invite.initiatorID
         ))
         guard let data = encodeWiFiMessage(msgType: "call_invite", payload: invite) else { return }
-        sendToDevices(data, targetDeviceIDs: invite.targetDeviceIDs)
+        sendToDevices(data,
+                      targetDeviceIDs: invite.targetDeviceIDs,
+                      fallbackToBroadcastOnNoMatch: true,
+                      context: "call_invite \(invite.callID)")
         relayToHQPeers(data, excluding: fromConnID)
     }
 
@@ -1679,7 +1689,10 @@ class HQCommandServer: ObservableObject {
             ))
         }
         guard let data = encodeWiFiMessage(msgType: "call_invite", payload: invite) else { return }
-        sendToDevices(data, targetDeviceIDs: invite.targetDeviceIDs)
+        sendToDevices(data,
+                      targetDeviceIDs: invite.targetDeviceIDs,
+                      fallbackToBroadcastOnNoMatch: true,
+                      context: "hq_call_invite \(invite.callID)")
     }
 
     func sendCallEndFromHQ(_ end: CallEnd) {
@@ -1770,7 +1783,10 @@ class HQCommandServer: ObservableObject {
     // MARK: - PADOS 統一路由
 
     /// 統一路由方法：targetDeviceIDs 為 nil/空 → 廣播全體；有值 → 僅發送給指定裝置
-    private func sendToDevices(_ data: Data, targetDeviceIDs: [String]?) {
+    private func sendToDevices(_ data: Data,
+                               targetDeviceIDs: [String]?,
+                               fallbackToBroadcastOnNoMatch: Bool = false,
+                               context: String = "") {
         queue.async { [weak self] in
             guard let self else { return }
             self.cleanupConnections()
@@ -1786,16 +1802,38 @@ class HQCommandServer: ObservableObject {
             }
 
             // 定向發送：查找匹配 deviceID 的連線
-            let targetSet = Set(targets)
+            let targetSet = Set(targets.map(Self.normalizedRouteID))
+            var sentCount = 0
             for conn in self.connections {
                 guard let connID = self.connectionIDMap[ObjectIdentifier(conn)],
-                      let deviceID = self.connDeviceMap[connID],
-                      targetSet.contains(deviceID) else { continue }
+                      self.connectionMatchesTargets(connID: connID, targetSet: targetSet) else { continue }
+                let deviceID = self.connDeviceMap[connID] ?? connID
                 conn.send(content: data, completion: .contentProcessed { error in
                     if let error { print("[HQ-Server] Send to \(deviceID) failed: \(error)") }
                 })
+                sentCount += 1
+            }
+
+            if sentCount == 0, fallbackToBroadcastOnNoMatch {
+                print("[HQ-Server] ⚠️ No direct target for \(context). targets=\(targets.joined(separator: ",")) known=\(self.connDeviceMap.values.joined(separator: ",")); broadcasting as fallback")
+                for conn in self.connections {
+                    guard let connID = self.connectionIDMap[ObjectIdentifier(conn)],
+                          !self.peerConnIDs.contains(connID) else { continue }
+                    conn.send(content: data, completion: .contentProcessed { error in
+                        if let error { print("[HQ-Server] Fallback call invite send failed: \(error)") }
+                    })
+                }
             }
         }
+    }
+
+    private func connectionMatchesTargets(connID: String, targetSet: Set<String>) -> Bool {
+        let candidates = [connID, connDeviceMap[connID]].compactMap { $0 }
+        return candidates.contains { targetSet.contains(Self.normalizedRouteID($0)) }
+    }
+
+    private static func normalizedRouteID(_ id: String) -> String {
+        id.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
 
     private func broadcastRaw(_ data: Data) {
