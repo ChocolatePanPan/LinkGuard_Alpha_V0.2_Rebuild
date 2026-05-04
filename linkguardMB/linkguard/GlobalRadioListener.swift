@@ -25,6 +25,13 @@ final class GlobalRadioListener {
     private(set) var isActive: Bool = false
     private var observersInstalled: Bool = false
 
+    // 靜音音訊迴圈 — 讓 iOS 認為 app 持續在播放音訊，防止背景暫停
+    #if os(iOS)
+    private var silentEngine: AVAudioEngine?
+    private var silentPlayer: AVAudioPlayerNode?
+    private var silentBuffer: AVAudioPCMBuffer?
+    #endif
+
     private init() {}
 
     /// 在 App 啟動時呼叫一次即可。重複呼叫會 no-op。
@@ -83,6 +90,10 @@ final class GlobalRadioListener {
                        selector: #selector(handleAppForeground),
                        name: UIApplication.willEnterForegroundNotification,
                        object: nil)
+        nc.addObserver(self,
+                       selector: #selector(handleAppBackground),
+                       name: UIApplication.didEnterBackgroundNotification,
+                       object: nil)
 #endif
     }
 
@@ -110,8 +121,57 @@ final class GlobalRadioListener {
     }
 
     @objc private func handleAppForeground() {
-        // 進入前景重新確認 session 狀態
+        // 進入前景重新確認 session 狀態，並停止靜音迴圈（讓真實音訊接手）
         try? AVAudioSession.sharedInstance().setActive(true)
+        stopSilentLoop()
+    }
+
+    @objc private func handleAppBackground() {
+        // 進入背景時啟動靜音迴圈，確保 audio session 有實際播放內容
+        // 讓 iOS 不會暫停/刪除 app 程序
+        startSilentLoop()
+    }
+
+    // MARK: - 靜音音訊迴圈
+
+    private func startSilentLoop() {
+        guard silentEngine == nil else { return }
+        let engine = AVAudioEngine()
+        let player = AVAudioPlayerNode()
+        engine.attach(player)
+
+        // 建立 0.5 秒的靜音 PCM buffer
+        guard let format = AVAudioFormat(standardFormatWithSampleRate: 44100, channels: 1),
+              let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 22050) else { return }
+        buffer.frameLength = 22050
+        // buffer 預設為零填充，即完全靜音
+
+        engine.connect(player, to: engine.mainMixerNode, format: format)
+        engine.mainMixerNode.outputVolume = 0   // 音量設為 0，確保無聲
+
+        do {
+            try engine.start()
+        } catch {
+            print("[GlobalRadio] ⚠️ 靜音引擎啟動失敗: \(error)")
+            return
+        }
+
+        player.scheduleBuffer(buffer, at: nil, options: .loops)
+        player.play()
+
+        silentEngine = engine
+        silentPlayer = player
+        silentBuffer = buffer
+        print("[GlobalRadio] 🔇 靜音保活迴圈已啟動（防止背景被砍）")
+    }
+
+    private func stopSilentLoop() {
+        silentPlayer?.stop()
+        silentEngine?.stop()
+        silentEngine = nil
+        silentPlayer = nil
+        silentBuffer = nil
+        print("[GlobalRadio] 🔇 靜音保活迴圈已停止")
     }
 #endif
 }
