@@ -33,7 +33,7 @@ struct ContentView: View {
                         FieldNotificationView(vm: viewModel)
                     }
                     .badge(viewModel.unreadNotificationCount)
-                    Tab(navLabel("語音通訊", en: "Voice Comms"), systemImage: "antenna.radiowaves.left.and.right", value: AppTab.communication) {
+                    Tab(navLabel("通訊", en: "Comms"), systemImage: "antenna.radiowaves.left.and.right", value: AppTab.communication) {
                         CommunicationHubView(vm: viewModel)
                     }
                     .badge(viewModel.chatMessages.count)
@@ -345,9 +345,9 @@ struct CommunicationHubView: View {
 
     private func modeTitle(_ mode: CommunicationHubMode) -> String {
         switch mode {
-        case .message: return navLabel("訊息", en: "Messages")
-        case .call: return navLabel("通話", en: "Call")
-        case .live: return navLabel("及時廣播", en: "Live Broadcast")
+        case .message: return navLabel("訊息", en: "Message")
+        case .call: return navLabel("通話", en: "Voice Call")
+        case .live: return navLabel("即時廣播", en: "Broadcast")
         case .report: return navLabel("語音回報", en: "Voice Report")
         }
     }
@@ -380,7 +380,7 @@ struct CommunicationHubView: View {
                     }
                 }
             }
-            .navigationTitle(navLabel("語音通訊", en: "Voice Comms"))
+            .navigationTitle(navLabel("通訊", en: "Comms"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.visible, for: .navigationBar)
         }
@@ -402,7 +402,7 @@ struct AIHubView: View {
 
     private func modeTitle(_ mode: AIHubMode) -> String {
         switch mode {
-        case .communication: return navLabel("語音通訊", en: "Voice Comms")
+        case .communication: return navLabel("通訊", en: "Comms")
         case .assistant: return navLabel("助理", en: "Assistant")
         case .report: return navLabel("回報", en: "Report")
         }
