@@ -77,7 +77,7 @@ struct RadioView: View {
                     aiChatContent
                 }
             }
-            .navigationTitle(embedsNavigationStack ? L(titleText) : "")
+            .navigationTitle(L(embedsNavigationStack ? titleText : initialMode.rawValue))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.visible, for: .navigationBar)
