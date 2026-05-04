@@ -1,7 +1,4 @@
 import SwiftUI
-#if canImport(UIKit)
-import UIKit
-#endif
 
 // MARK: - Main View
 
@@ -20,21 +17,9 @@ struct ContentView: View {
         l10n.language == "en" ? en : zh
     }
 
-    private var usesMilkyWayCommandCenter: Bool {
-        #if os(iOS)
-        UIDevice.current.userInterfaceIdiom == .pad
-        #else
-        false
-        #endif
-    }
-
     var body: some View {
         ZStack {
-            Group {
-                if usesMilkyWayCommandCenter {
-                    MilkyWayCommandCenterView(vm: viewModel, selectedTab: $selectedTab, cameFromDashboard: $cameFromDashboard)
-                } else {
-                    TabView(selection: $selectedTab) {
+            TabView(selection: $selectedTab) {
                     Tab(L("總覽"), systemImage: "gauge.with.dots.needle.33percent", value: AppTab.dashboard) {
                         DashboardView(vm: viewModel, selectedTab: $selectedTab, cameFromDashboard: $cameFromDashboard)
                     }
@@ -93,12 +78,10 @@ struct ContentView: View {
                             ConnectionView(vm: viewModel)
                         }
                     }
-                    }
-                    .onChange(of: selectedTab) { oldValue, newValue in
-                        if newValue == .dashboard {
-                            cameFromDashboard = false
-                        }
-                    }
+            }
+            .onChange(of: selectedTab) { oldValue, newValue in
+                if newValue == .dashboard {
+                    cameFromDashboard = false
                 }
             }
             .onReceive(NotificationCenter.default.publisher(for: .linkGuardNotificationRouteRequested)) { notification in
@@ -106,7 +89,7 @@ struct ContentView: View {
             }
 
             // 返回主頁浮動按鈕
-            if !usesMilkyWayCommandCenter && cameFromDashboard && selectedTab != .dashboard && selectedTab != .victims {
+            if cameFromDashboard && selectedTab != .dashboard && selectedTab != .victims {
                 VStack {
                     HStack {
                         Button {

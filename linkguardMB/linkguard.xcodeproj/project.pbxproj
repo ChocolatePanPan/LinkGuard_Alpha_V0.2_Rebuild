@@ -31,6 +31,7 @@
 
 /* Begin PBXFileReference section */
 		79381A5F2F6EBF8100FE8D95 /* linkguard.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = linkguard.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A7037120000000000000001 /* MilkyWayCommand.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MilkyWayCommand.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		79381A6C2F6EBF8300FE8D95 /* linkguardTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = linkguardTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		79381A762F6EBF8300FE8D95 /* linkguardUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = linkguardUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		79381AC82F6FD0CB00FE8D95 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
@@ -43,6 +44,11 @@
 		79381A612F6EBF8100FE8D95 /* linkguard */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = linkguard;
+			sourceTree = "<group>";
+		};
+		A7037120000000000000002 /* MilkyWayCommand */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = MilkyWayCommand;
 			sourceTree = "<group>";
 		};
 		79381A6F2F6EBF8300FE8D95 /* linkguardTests */ = {
@@ -59,6 +65,13 @@
 
 /* Begin PBXFrameworksBuildPhase section */
 		79381A5C2F6EBF8100FE8D95 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A7037120000000000000003 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -87,6 +100,7 @@
 			children = (
 				79881C182F8F76510057449D /* linkguard.xctestplan */,
 				79381A612F6EBF8100FE8D95 /* linkguard */,
+				A7037120000000000000002 /* MilkyWayCommand */,
 				79381A6F2F6EBF8300FE8D95 /* linkguardTests */,
 				79381A792F6EBF8300FE8D95 /* linkguardUITests */,
 				79381A602F6EBF8100FE8D95 /* Products */,
@@ -100,6 +114,7 @@
 			isa = PBXGroup;
 			children = (
 				79381A5F2F6EBF8100FE8D95 /* linkguard.app */,
+				A7037120000000000000001 /* MilkyWayCommand.app */,
 				79381A6C2F6EBF8300FE8D95 /* linkguardTests.xctest */,
 				79381A762F6EBF8300FE8D95 /* linkguardUITests.xctest */,
 			);
@@ -129,6 +144,28 @@
 			);
 			productName = linkguard;
 			productReference = 79381A5F2F6EBF8100FE8D95 /* linkguard.app */;
+			productType = "com.apple.product-type.application";
+		};
+		A7037120000000000000006 /* MilkyWayCommand */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A7037120000000000000009 /* Build configuration list for PBXNativeTarget "MilkyWayCommand" */;
+			buildPhases = (
+				A7037120000000000000005 /* Sources */,
+				A7037120000000000000003 /* Frameworks */,
+				A7037120000000000000004 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				A7037120000000000000002 /* MilkyWayCommand */,
+			);
+			name = MilkyWayCommand;
+			packageProductDependencies = (
+			);
+			productName = MilkyWayCommand;
+			productReference = A7037120000000000000001 /* MilkyWayCommand.app */;
 			productType = "com.apple.product-type.application";
 		};
 		79381A6B2F6EBF8300FE8D95 /* linkguardTests */ = {
@@ -190,6 +227,9 @@
 					79381A5E2F6EBF8100FE8D95 = {
 						CreatedOnToolsVersion = 26.3;
 					};
+					A7037120000000000000006 = {
+						CreatedOnToolsVersion = 26.3;
+					};
 					79381A6B2F6EBF8300FE8D95 = {
 						CreatedOnToolsVersion = 26.3;
 						TestTargetID = 79381A5E2F6EBF8100FE8D95;
@@ -216,6 +256,7 @@
 			projectRoot = "";
 			targets = (
 				79381A5E2F6EBF8100FE8D95 /* linkguard */,
+				A7037120000000000000006 /* MilkyWayCommand */,
 				79381A6B2F6EBF8300FE8D95 /* linkguardTests */,
 				79381A752F6EBF8300FE8D95 /* linkguardUITests */,
 			);
@@ -224,6 +265,13 @@
 
 /* Begin PBXResourcesBuildPhase section */
 		79381A5D2F6EBF8100FE8D95 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A7037120000000000000004 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -254,6 +302,13 @@
 				79381ACB2F6FD0E200FE8D95 /* CommandEngine.swift in Sources */,
 				79381AC92F6FD0CB00FE8D95 /* NotificationManager.swift in Sources */,
 				79381ACD2F6FD37500FE8D95 /* AlarmPlayer.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A7037120000000000000005 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -591,6 +646,74 @@
 			};
 			name = Release;
 		};
+		A7037120000000000000007 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = BXXFZS6XJ3;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Milky Way";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Milky Way 需要區域網路連接周邊救援節點";
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphonesimulator*]" = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.linkguard.milkyway;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 2;
+			};
+			name = Debug;
+		};
+		A7037120000000000000008 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = BXXFZS6XJ3;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Milky Way";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Milky Way 需要區域網路連接周邊救援節點";
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphonesimulator*]" = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.linkguard.milkyway;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 2;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -608,6 +731,15 @@
 			buildConfigurations = (
 				79381A812F6EBF8300FE8D95 /* Debug */,
 				79381A822F6EBF8300FE8D95 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A7037120000000000000009 /* Build configuration list for PBXNativeTarget "MilkyWayCommand" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A7037120000000000000007 /* Debug */,
+				A7037120000000000000008 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
