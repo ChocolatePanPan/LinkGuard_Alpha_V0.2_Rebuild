@@ -1317,10 +1317,29 @@ async def register_bonjour():
 # ============================================================
 # 定時任務
 # ============================================================
-async def _fetch_weather():
-    """從 pws_fetcher 拉取最新氣象資料"""
+async def _fetch_pws():
+    """從 CWA API 拉取真正的 PWS 警報（地震速報 / 颱風警報）"""
     try:
-        from pws_fetcher import fetch_weather
+        from pws_fetcher import fetch_pws_alerts
+        api_key = os.environ.get("CWA_API_KEY",
+                                 "CWA-ABB1DE38-E0CD-4EBA-9723-894AAA62AE5E")
+        alerts = await asyncio.to_thread(fetch_pws_alerts, api_key)
+        for alert in alerts:
+            state.pws_alerts.append(alert)
+            state.add_timeline("pws",
+                               f"PWS 警報: {alert['title']}",
+                               alert.get("content", ""))
+            await field_broadcast(make_hq_msg("pws_alert", alert))
+            await ws_broadcast("pws_alert", alert)
+            print(f"[PWS] 新警報: {alert['alertType']} {alert['title']}")
+    except Exception as e:
+        print(f"[PWS] 拉取失敗: {e}")
+
+
+async def _fetch_weather():
+    """從 weather_fetcher 拉取最新氣象觀測資料（中央氣象署自動測站）"""
+    try:
+        from weather_fetcher import fetch_weather
         api_key = os.environ.get("CWA_API_KEY",
                                  "CWA-ABB1DE38-E0CD-4EBA-9723-894AAA62AE5E")
         station_id = os.environ.get("CWA_STATION", "C0A980")
@@ -1336,8 +1355,9 @@ async def _fetch_weather():
 
 
 async def periodic_tasks():
-    """定時推播統計 + 倒數更新 + 氣象拉取"""
-    weather_interval = 0  # 首次立即拉取
+    """定時推播統計 + 倒數更新 + 氣象拉取 + PWS 警報拉取"""
+    weather_interval = 0   # 首次立即拉取
+    pws_interval = 0       # 首次立即拉取
     while True:
         await asyncio.sleep(5)
         # 推播統計
@@ -1349,11 +1369,16 @@ async def periodic_tasks():
         for c in expired:
             state.countdowns.remove(c)
             await ws_broadcast("countdown_expired", c)
-        # 每 5 分鐘拉取氣象
+        # 每 5 分鐘拉取氣象觀測（中央氣象署自動測站）
         weather_interval += 5
         if weather_interval >= 300:
             weather_interval = 0
             asyncio.create_task(_fetch_weather())
+        # 每 10 分鐘拉取 PWS 災防警報（地震 / 颱風）
+        pws_interval += 5
+        if pws_interval >= 600:
+            pws_interval = 0
+            asyncio.create_task(_fetch_pws())
 
 
 # ============================================================

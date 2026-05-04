@@ -129,6 +129,8 @@ struct HQDashboardView: View {
     @Environment(\.colorScheme) private var colorScheme
     @AppStorage("appColorScheme") private var appColorScheme: String = "dark"
     @AppStorage("hq.navigationPlacement") private var navigationPlacementRaw: String = HQNavigationPlacement.left.rawValue
+    @AppStorage("hq.splitEnabled") private var splitEnabled = false
+    @AppStorage("hq.splitSecondSection") private var splitSecondSectionRaw: String = HQSection.chat.rawValue
     @State private var selectedSection: HQSection? = .dashboard
     @State private var sidebarExpanded = true
     // 任務指派表單
@@ -235,9 +237,65 @@ struct HQDashboardView: View {
     }
 
     private var centeredDetailContent: some View {
-        detailContent
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .background(NV.pageBackground(appColorScheme: appColorScheme, colorScheme: colorScheme).ignoresSafeArea())
+        Group {
+            if splitEnabled, let second = HQSection(rawValue: splitSecondSectionRaw) {
+                HStack(spacing: 0) {
+                    detailContent
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    Divider()
+                    secondPanelContent(for: second)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                }
+            } else {
+                detailContent
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            }
+        }
+        .background(NV.pageBackground(appColorScheme: appColorScheme, colorScheme: colorScheme).ignoresSafeArea())
+    }
+
+    @ViewBuilder
+    private func secondPanelContent(for section: HQSection) -> some View {
+        switch section {
+        case .dashboard: dashboardDetailView
+        case .grandDashboard: HQGrandDashboardView(vm: vm)
+        case .disaster: HQDisasterView(vm: vm)
+        case .personnelOverview: HQPersonnelOverviewView(vm: vm)
+        case .victimOverview: HQVictimOverviewView(vm: vm)
+        case .personnel: HQPersonnelView(vm: vm)
+        case .chat: HQChatView(vm: vm)
+        case .call: HQCallView(vm: vm)
+        case .pws: HQPWSView(vm: vm)
+        case .briefing: HQBriefingView(vm: vm)
+        case .notification: HQNotificationView(vm: vm)
+        case .timeline: HQTimelineView(vm: vm)
+        case .zonemap: HQZoneMapView(vm: vm)
+        case .reports: HQReportsDashboardView(vm: vm)
+        case .decision: HQDecisionView(vm: vm)
+        case .photoWall: HQPhotoWallView(vm: vm)
+        case .stats: HQStatsDashboardView(vm: vm)
+        case .resources: HQResourceView(vm: vm)
+        case .broadcast: HQBroadcastView(vm: vm)
+        case .radio: HQRadioView(vm: vm)
+        case .patientWarning: HQPatientWarningView(vm: vm)
+        case .aiChat: HQAIChatView(vm: vm)
+        case .backendServices:
+            #if os(macOS)
+            HQBackendServicesView(vm: vm, supervisor: vm.backendSupervisor)
+            #else
+            Text(L("僅 macOS 支援")).foregroundColor(.secondary)
+            #endif
+        case .decisionHistory: HQDecisionHistoryView(vm: vm)
+        case .fireDepartments: HQFireDepartmentDirectoryView(vm: vm)
+        case .settings:
+            #if os(macOS)
+            HQSettingsView(vm: vm, supervisor: vm.backendSupervisor) {
+                selectedSection = .backendServices
+            }
+            #else
+            Text(L("僅 macOS 支援")).foregroundColor(.secondary)
+            #endif
+        }
     }
 
     private var bottomNavigationKeyboardShortcuts: some View {
@@ -283,7 +341,8 @@ struct HQDashboardView: View {
     }
 
     private func navigationForeground(for section: HQSection, isSelected: Bool) -> Color {
-        isSelected ? .white : sectionColor(section)
+        if isSelected { return .white }
+        return usesDarkNavigationChrome ? sectionColor(section).opacity(0.90).mix(with: .white, by: 0.30) : sectionColor(section)
     }
 
     @ViewBuilder

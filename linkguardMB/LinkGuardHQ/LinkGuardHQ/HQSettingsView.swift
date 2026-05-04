@@ -29,6 +29,9 @@ struct HQSettingsView: View {
     @AppStorage(HQNotificationCueManager.Keys.statusUpdatesEnabled) private var statusUpdateNotificationsEnabled = true
     @AppStorage(HQNotificationCueManager.Keys.statusSoundEnabled) private var statusSoundEnabled = true
     @AppStorage(HQNotificationCueManager.Keys.statusFlashEnabled) private var statusFlashEnabled = true
+    @AppStorage("hq.splitEnabled") private var splitEnabled = false
+    @AppStorage("hq.splitSecondSection") private var splitSecondSectionRaw: String = HQSection.chat.rawValue
+    @AppStorage("hq.externalDisplayEnabled") private var externalDisplayEnabled: Bool = true
 
     @State private var setupAssistantPresented = false
     @State private var storageLocationMessage: String? = nil
@@ -47,6 +50,7 @@ struct HQSettingsView: View {
             HQPageTitleBar(L("設定"), icon: "gearshape.fill", accent: NV.info)
             generalSection
             notificationSection
+            externalDisplaySection
             backendSection
             aiSection
             voiceSection
@@ -64,6 +68,48 @@ struct HQSettingsView: View {
     }
 
     // MARK: - Sections
+
+    private var externalDisplaySection: some View {
+        let screens = NSScreen.screens
+        let externalScreens = screens.filter { $0 !== NSScreen.main }
+        return section(L("外接螢幕")) {
+            Toggle(isOn: $externalDisplayEnabled) {
+                Label(L("在外接螢幕顯示分儀表板"), systemImage: "rectangle.on.rectangle")
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 6) {
+                    Image(systemName: externalScreens.isEmpty ? "display.slash" : "display.2")
+                        .foregroundColor(externalScreens.isEmpty ? .secondary : NV.green)
+                    Text(externalScreens.isEmpty
+                         ? L("目前沒有偵測到外接螢幕")
+                         : L("偵測到 %lld 張外接螢幕", externalScreens.count))
+                        .font(.caption)
+                        .foregroundColor(externalScreens.isEmpty ? .secondary : NV.green)
+                }
+                if !externalScreens.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        ForEach(Array(zip(externalScreens.indices, externalScreens)), id: \.0) { idx, screen in
+                            let roles = [L("大儀表板"), L("受困者地圖")]
+                            HStack(spacing: 8) {
+                                Text(idx < roles.count ? roles[idx] : L("螢幕 %lld", idx + 1))
+                                    .font(.caption.bold())
+                                    .foregroundColor(.secondary)
+                                Text("\(Int(screen.frame.width))\u00d7\(Int(screen.frame.height))")
+                                    .font(.caption.monospaced())
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    }
+                    .padding(.leading, 20)
+                }
+                Text(L("開啟後，第一張外接螢幕顯示「大儀表板」，第二張顯示「受困者地圖」，插拔螢幕自動更新。"))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            .disabled(!externalDisplayEnabled)
+        }
+    }
 
     private var generalSection: some View {
         section(L("一般")) {
@@ -91,26 +137,65 @@ struct HQSettingsView: View {
             }
             .pickerStyle(.segmented)
 
+            Divider()
+
+            VStack(alignment: .leading, spacing: 8) {
+                Toggle(isOn: $splitEnabled) {
+                    Label(L("分屏模式"), systemImage: "rectangle.split.2x1")
+                }
+                if splitEnabled {
+                    HStack {
+                        Text(L("右側面板"))
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Picker("", selection: $splitSecondSectionRaw) {
+                            ForEach(HQSection.navigationOrder.filter { $0 != .settings }) { sec in
+                                Label(sec.localizedName, systemImage: sec.icon)
+                                    .tag(sec.rawValue)
+                            }
+                        }
+                        .labelsHidden()
+                        .frame(width: 200)
+                    }
+                    Text(L("主內容區分為左右兩欄，左欄為目前選擇的頁面，右欄固定顯示所選項目。"))
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
-                    Label(L("原生畫質"), systemImage: "display")
+                    Label(L("介面縮放"), systemImage: "textformat.size")
                     Spacer()
-                    Text("100%")
+                    Text("\(Int((uiScale * 100).rounded()))%")
                         .font(.caption.monospacedDigit())
                         .foregroundColor(.secondary)
                 }
                 HStack(spacing: 8) {
-                    Image(systemName: "checkmark.seal.fill")
-                        .foregroundColor(NV.green)
-                    Text(L("HQ 主畫面以原生尺寸渲染，避免整體縮放造成文字與線條模糊。"))
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Spacer()
-                    if uiScale != 1.0 {
-                        Button(L("清除舊縮放")) { uiScale = 1.0 }
-                            .buttonStyle(.bordered)
+                    Button {
+                        uiScale = max(0.8, ((uiScale - 0.1) * 10).rounded() / 10)
+                    } label: {
+                        Image(systemName: "minus.magnifyingglass")
                     }
+                    .help(L("縮小"))
+
+                    Slider(value: $uiScale, in: 0.8...1.4, step: 0.1)
+
+                    Button {
+                        uiScale = min(1.4, ((uiScale + 0.1) * 10).rounded() / 10)
+                    } label: {
+                        Image(systemName: "plus.magnifyingglass")
+                    }
+                    .help(L("放大"))
+
+                    Button(L("重設")) {
+                        uiScale = 1.0
+                    }
+                    .buttonStyle(.bordered)
                 }
+                Text(L("也可以使用 Command + + / Command + - 調整。"))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
         }
     }
