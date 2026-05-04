@@ -1,4 +1,7 @@
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 
 // MARK: - Main View
 
@@ -17,71 +20,85 @@ struct ContentView: View {
         l10n.language == "en" ? en : zh
     }
 
+    private var usesMilkyWayCommandCenter: Bool {
+        #if os(iOS)
+        UIDevice.current.userInterfaceIdiom == .pad
+        #else
+        false
+        #endif
+    }
+
     var body: some View {
         ZStack {
-            TabView(selection: $selectedTab) {
-                Tab(L("總覽"), systemImage: "gauge.with.dots.needle.33percent", value: AppTab.dashboard) {
-                    DashboardView(vm: viewModel, selectedTab: $selectedTab, cameFromDashboard: $cameFromDashboard)
-                }
-                TabSection("AI") {
-                    Tab("AI", systemImage: viewModel.isAIServicePaused ? "pause.circle" : "sparkles", value: AppTab.ai) {
-                        AIHubView(vm: viewModel)
+            Group {
+                if usesMilkyWayCommandCenter {
+                    MilkyWayCommandCenterView(vm: viewModel, selectedTab: $selectedTab, cameFromDashboard: $cameFromDashboard)
+                } else {
+                    TabView(selection: $selectedTab) {
+                    Tab(L("總覽"), systemImage: "gauge.with.dots.needle.33percent", value: AppTab.dashboard) {
+                        DashboardView(vm: viewModel, selectedTab: $selectedTab, cameFromDashboard: $cameFromDashboard)
                     }
-                }
-                TabSection(navLabel("通訊", en: "Messages")) {
-                    Tab(L("通知"), systemImage: "bell.fill", value: AppTab.notifications) {
-                        FieldNotificationView(vm: viewModel)
+                    TabSection("AI") {
+                        Tab("AI", systemImage: viewModel.isAIServicePaused ? "pause.circle" : "sparkles", value: AppTab.ai) {
+                            AIHubView(vm: viewModel)
+                        }
                     }
-                    .badge(viewModel.unreadNotificationCount)
-                    Tab(navLabel("通訊", en: "Comms"), systemImage: "antenna.radiowaves.left.and.right", value: AppTab.communication) {
-                        CommunicationHubView(vm: viewModel)
+                    TabSection(navLabel("通訊", en: "Messages")) {
+                        Tab(L("通知"), systemImage: "bell.fill", value: AppTab.notifications) {
+                            FieldNotificationView(vm: viewModel)
+                        }
+                        .badge(viewModel.unreadNotificationCount)
+                        Tab(navLabel("通訊", en: "Comms"), systemImage: "antenna.radiowaves.left.and.right", value: AppTab.communication) {
+                            CommunicationHubView(vm: viewModel)
+                        }
+                        .badge(viewModel.chatMessages.count)
                     }
-                    .badge(viewModel.chatMessages.count)
-                }
-                Tab(L("災情"), systemImage: "building.2", value: AppTab.disaster) {
-                    FieldDisasterView(vm: viewModel)
-                }
-                Tab("SOS", systemImage: "sos.circle.fill", value: AppTab.sos) {
-                    SOSRecordListView(vm: viewModel)
-                }
-                .badge(viewModel.unacknowledgedSOSCount)
-                Tab(navLabel("指揮命令", en: "Orders"), systemImage: "brain.head.profile", value: AppTab.decision) {
-                    DecisionView(vm: viewModel)
-                }
-                .badge(viewModel.decisions.count + viewModel.unreadCommandCount)
-                TabSection(L("其他")) {
-                    Tab(L("受困者"), systemImage: "person.fill.questionmark", value: AppTab.victims) {
-                        VictimListView(vm: viewModel)
+                    Tab(L("災情"), systemImage: "building.2", value: AppTab.disaster) {
+                        FieldDisasterView(vm: viewModel)
                     }
-                    Tab(L("增援"), systemImage: "person.badge.plus", value: AppTab.reinforcement) {
-                        ReinforcementListView(vm: viewModel)
+                    Tab("SOS", systemImage: "sos.circle.fill", value: AppTab.sos) {
+                        SOSRecordListView(vm: viewModel)
                     }
-                    .badge(viewModel.pendingReinforcementCount)
-                    Tab(L("團隊"), systemImage: "person.3.sequence.fill", value: AppTab.team) {
-                        TeamListView(vm: viewModel)
+                    .badge(viewModel.unacknowledgedSOSCount)
+                    Tab(navLabel("指揮命令", en: "Orders"), systemImage: "brain.head.profile", value: AppTab.decision) {
+                        DecisionView(vm: viewModel)
                     }
-                    Tab(L("人員指派"), systemImage: "person.badge.key.fill", value: AppTab.personnelAssignment) {
-                        PersonnelAssignmentView(vm: viewModel)
+                    .badge(viewModel.decisions.count + viewModel.unreadCommandCount)
+                    TabSection(L("其他")) {
+                        Tab(L("受困者"), systemImage: "person.fill.questionmark", value: AppTab.victims) {
+                            VictimListView(vm: viewModel)
+                        }
+                        Tab(L("增援"), systemImage: "person.badge.plus", value: AppTab.reinforcement) {
+                            ReinforcementListView(vm: viewModel)
+                        }
+                        .badge(viewModel.pendingReinforcementCount)
+                        Tab(L("團隊"), systemImage: "person.3.sequence.fill", value: AppTab.team) {
+                            TeamListView(vm: viewModel)
+                        }
+                        Tab(L("人員指派"), systemImage: "person.badge.key.fill", value: AppTab.personnelAssignment) {
+                            PersonnelAssignmentView(vm: viewModel)
+                        }
+                        Tab(L("傷員回報"), systemImage: "heart.text.square", value: AppTab.patientForm) {
+                            PatientFormView(vm: viewModel)
+                        }
+                        Tab(L("翻譯"), systemImage: "globe", value: AppTab.translator) {
+                            TranslatorView(vm: viewModel)
+                        }
                     }
-                    Tab(L("傷員回報"), systemImage: "heart.text.square", value: AppTab.patientForm) {
-                        PatientFormView(vm: viewModel)
+                    TabSection(navLabel("工具", en: "Tools")) {
+                        Tab(L("照片"), systemImage: "photo.on.rectangle.angled", value: AppTab.photo) {
+                            PhotoReportView(vm: viewModel)
+                        }
+                        Tab(L("設定"), systemImage: "gearshape", value: AppTab.connection) {
+                            ConnectionView(vm: viewModel)
+                        }
                     }
-                    Tab(L("翻譯"), systemImage: "globe", value: AppTab.translator) {
-                        TranslatorView(vm: viewModel)
                     }
-                }
-                TabSection(navLabel("工具", en: "Tools")) {
-                    Tab(L("照片"), systemImage: "photo.on.rectangle.angled", value: AppTab.photo) {
-                        PhotoReportView(vm: viewModel)
+                    .onChange(of: selectedTab) { oldValue, newValue in
+                        if newValue == .dashboard {
+                            cameFromDashboard = false
+                        }
                     }
-                    Tab(L("設定"), systemImage: "gearshape", value: AppTab.connection) {
-                        ConnectionView(vm: viewModel)
-                    }
-                }
-            }
-            .onChange(of: selectedTab) { oldValue, newValue in
-                if newValue == .dashboard {
-                    cameFromDashboard = false
                 }
             }
             .onReceive(NotificationCenter.default.publisher(for: .linkGuardNotificationRouteRequested)) { notification in
@@ -89,7 +106,7 @@ struct ContentView: View {
             }
 
             // 返回主頁浮動按鈕
-            if cameFromDashboard && selectedTab != .dashboard && selectedTab != .victims {
+            if !usesMilkyWayCommandCenter && cameFromDashboard && selectedTab != .dashboard && selectedTab != .victims {
                 VStack {
                     HStack {
                         Button {
