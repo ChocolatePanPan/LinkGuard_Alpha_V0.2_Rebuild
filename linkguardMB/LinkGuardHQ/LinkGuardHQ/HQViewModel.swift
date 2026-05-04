@@ -126,6 +126,13 @@ class HQViewModel: ObservableObject {
     @Published var callInvites: [CallInvite] = []
     @Published var activeCallSession: CallSession?
 
+    // HQ 本地 PTT（按住空白鍵 / 點擊廣播圓圈）
+    @Published var isHQPushToTalkActive: Bool = false
+    private var hqPTTEngine: AVAudioEngine?
+    private var hqPTTBuffer = Data()
+    private var hqPTTConverter: AVAudioConverter?
+    private let hqPTTTargetSampleRate: Double = 16000
+
     // PADOS 多裝置定向指揮
     enum TargetMode: String, CaseIterable {
         case broadcast = "廣播全體"
@@ -310,6 +317,19 @@ class HQViewModel: ObservableObject {
         // 語音辨識伺服器：辨識完成後記錄於 HQ + 廣播摘要給前線
         speechServer.onTranscriptionComplete = { [weak self] result in
             guard let self else { return }
+            // 去重：5 秒內相同 senderName 或相同 transcription 視為同一筆（避免
+            // iOS 同時走 LGAP 串流 + multipart upload 造成兩筆記錄）。
+            let trimmed = result.transcription.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty,
+               let dup = self.radioReports.first(where: { existing in
+                   let existingTrim = existing.transcription.trimmingCharacters(in: .whitespacesAndNewlines)
+                   guard !existingTrim.isEmpty else { return false }
+                   guard abs(existing.timestamp.timeIntervalSinceNow) < 5 else { return false }
+                   return existingTrim == trimmed
+               }) {
+                print("[HQ] ⚠️ 重複語音報告已忽略: existing=\(dup.senderName) new=\(result.senderName)")
+                return
+            }
             // 1. 建立 HQRadioReport 顯示在 HQ
             let report = HQRadioReport(
                 senderName: result.senderName,
@@ -606,6 +626,112 @@ class HQViewModel: ObservableObject {
         } catch {
             print("[Radio] ❌ 本地播放失敗: \(error)")
         }
+    }
+
+    // MARK: - HQ 本地 PTT（按空白鍵 / 點擊廣播圓圈）
+
+    /// 開始 HQ 本端麥克風廣播。使用 AVAudioEngine 採集麥克風 → 轉換為 16kHz mono Int16。
+    /// 重複呼叫安全：如已在錄音則直接返回。
+    func startHQPushToTalk() {
+        guard !isHQPushToTalkActive else { return }
+        guard hqRole == .server else {
+            print("[HQ-PTT] 非 server 模式不允許本地廣播")
+            return
+        }
+
+        let engine = AVAudioEngine()
+        let input = engine.inputNode
+        let inputFormat = input.outputFormat(forBus: 0)
+        guard inputFormat.sampleRate > 0, inputFormat.channelCount > 0 else {
+            print("[HQ-PTT] ❌ 麥克風格式無效 sampleRate=\(inputFormat.sampleRate)")
+            return
+        }
+
+        guard let targetFormat = AVAudioFormat(commonFormat: .pcmFormatInt16,
+                                               sampleRate: hqPTTTargetSampleRate,
+                                               channels: 1,
+                                               interleaved: true) else {
+            print("[HQ-PTT] ❌ 無法建立目標格式")
+            return
+        }
+        let converter = AVAudioConverter(from: inputFormat, to: targetFormat)
+        guard converter != nil else {
+            print("[HQ-PTT] ❌ 無法建立轉換器")
+            return
+        }
+
+        hqPTTBuffer.removeAll(keepingCapacity: true)
+        hqPTTConverter = converter
+
+        input.installTap(onBus: 0, bufferSize: 1024, format: inputFormat) { [weak self] buffer, _ in
+            guard let self else { return }
+            guard let conv = self.hqPTTConverter else { return }
+            // 估計轉換後幀數
+            let ratio = self.hqPTTTargetSampleRate / inputFormat.sampleRate
+            let outFrameCapacity = AVAudioFrameCount(Double(buffer.frameLength) * ratio + 16)
+            guard let outBuffer = AVAudioPCMBuffer(pcmFormat: targetFormat,
+                                                   frameCapacity: outFrameCapacity) else { return }
+            var supplied = false
+            var convError: NSError?
+            let status = conv.convert(to: outBuffer, error: &convError) { _, outStatus in
+                if supplied {
+                    outStatus.pointee = .noDataNow
+                    return nil
+                }
+                supplied = true
+                outStatus.pointee = .haveData
+                return buffer
+            }
+            if status == .error {
+                if let convError { print("[HQ-PTT] ❌ 轉換錯誤: \(convError)") }
+                return
+            }
+            guard let int16 = outBuffer.int16ChannelData?[0] else { return }
+            let frameCount = Int(outBuffer.frameLength)
+            guard frameCount > 0 else { return }
+            let byteCount = frameCount * MemoryLayout<Int16>.size
+            let chunk = Data(bytes: int16, count: byteCount)
+            Task { @MainActor [weak self] in
+                self?.hqPTTBuffer.append(chunk)
+            }
+        }
+
+        engine.prepare()
+        do {
+            try engine.start()
+        } catch {
+            input.removeTap(onBus: 0)
+            print("[HQ-PTT] ❌ AudioEngine 啟動失敗: \(error)")
+            return
+        }
+        hqPTTEngine = engine
+        isHQPushToTalkActive = true
+        print("[HQ-PTT] 🎙 開始錄音 inputSR=\(inputFormat.sampleRate)")
+    }
+
+    /// 結束 HQ 本端廣播：封 WAV 送入 SpeechServer 同樣走辨識 + 廣播摘要管線。
+    func stopHQPushToTalk() {
+        guard isHQPushToTalkActive else { return }
+        if let engine = hqPTTEngine {
+            engine.inputNode.removeTap(onBus: 0)
+            engine.stop()
+        }
+        hqPTTEngine = nil
+        hqPTTConverter = nil
+        isHQPushToTalkActive = false
+
+        let pcm = hqPTTBuffer
+        hqPTTBuffer.removeAll(keepingCapacity: true)
+        let durationSec = Double(pcm.count) / 2.0 / hqPTTTargetSampleRate
+        print("[HQ-PTT] ⏹ 結束錄音 duration=\(String(format: "%.2f", durationSec))s bytes=\(pcm.count)")
+        guard durationSec >= 0.3 else {
+            print("[HQ-PTT] ⚠️ 錄音太短忽略")
+            return
+        }
+        speechServer.ingestLocalRecording(pcmInt16: pcm,
+                                          senderName: "HQ 指揮中心",
+                                          locationDesc: "",
+                                          sourceType: .live)
     }
 
     // MARK: - 文字廣播 / 傷患預警

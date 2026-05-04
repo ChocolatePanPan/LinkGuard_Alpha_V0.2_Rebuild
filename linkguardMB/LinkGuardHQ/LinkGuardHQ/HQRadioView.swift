@@ -75,10 +75,10 @@ struct HQRadioView: View {
 
     private var broadcasterCard: some View {
         VStack(spacing: 12) {
-            // 動態波紋指示
+            // HQ PTT 按鈕（按下廣播 / 放開結束）；同時顯示前線廣播狀態波紋
             ZStack {
-                if vm.currentBroadcaster != nil || vm.audioStreamServer.isPlaying {
-                    // 正在廣播 — 顯示動畫波紋
+                let isBroadcasting = vm.isHQPushToTalkActive || vm.currentBroadcaster != nil || vm.audioStreamServer.isPlaying
+                if isBroadcasting {
                     ForEach(0..<3, id: \.self) { i in
                         Circle()
                             .stroke(NV.green.opacity(0.3 - Double(i) * 0.1), lineWidth: 2)
@@ -86,15 +86,33 @@ struct HQRadioView: View {
                     }
                 }
                 Circle()
-                    .fill((vm.currentBroadcaster != nil || vm.audioStreamServer.isPlaying) ? NV.green : NV.greenDim)
+                    .fill(vm.isHQPushToTalkActive ? Color.red : (isBroadcasting ? NV.green : NV.greenDim))
                     .frame(width: 56, height: 56)
-                Image(systemName: (vm.currentBroadcaster != nil || vm.audioStreamServer.isPlaying) ? "mic.fill" : "mic.slash")
+                Image(systemName: isBroadcasting ? "mic.fill" : "mic.slash")
                     .font(.title2)
                     .foregroundColor(.primary)
             }
             .frame(height: 100)
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { _ in
+                        if !vm.isHQPushToTalkActive { vm.startHQPushToTalk() }
+                    }
+                    .onEnded { _ in
+                        if vm.isHQPushToTalkActive { vm.stopHQPushToTalk() }
+                    }
+            )
+            .help(L("按住廣播（也可按住空白鍵）"))
 
-            if vm.audioStreamServer.isPlaying {
+            if vm.isHQPushToTalkActive {
+                Text(L("HQ 廣播中…"))
+                    .font(.headline)
+                    .foregroundColor(.red)
+                Text(L("放開結束並送出"))
+                    .font(.caption)
+                    .foregroundColor(.red.opacity(0.8))
+            } else if vm.audioStreamServer.isPlaying {
                 Text(vm.audioStreamServer.currentSender ?? L("前線裝置"))
                     .font(.headline)
                     .foregroundColor(NV.green)

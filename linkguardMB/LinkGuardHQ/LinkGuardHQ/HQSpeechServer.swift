@@ -408,6 +408,55 @@ final class HQSpeechServer: ObservableObject, @unchecked Sendable {
         }
     }
 
+    // MARK: - HQ 本地直接餵入錄音（HQ PTT）
+    //
+    // HQ 自己的麥克風錄完一段 PCM Int16 16kHz mono，直接呼叫此函式即可走完
+    // 與遠端 /report 上傳完全相同的管線：寫 WAV → 觸發 onTranscriptionComplete
+    // （由 HQViewModel 建立 HQRadioReport + broadcastReportSummary 給所有前線）。
+    // 與遠端 upload 路徑唯一差別：不觸發 onAudioFileReady 以避免 HQ 自己的喇叭
+    // 立即回放自己剛說過的話造成嘯叫。
+    @MainActor
+    @discardableResult
+    func ingestLocalRecording(pcmInt16: Data,
+                              senderName: String,
+                              locationDesc: String = "",
+                              sourceType: RadioSourceType = .live) -> String? {
+        guard !pcmInt16.isEmpty else { return nil }
+
+        let reportId = generateReportId()
+        let audioFileURL = audioDir.appendingPathComponent("\(reportId).wav")
+        do {
+            try writeWAV(pcmData: pcmInt16, to: audioFileURL)
+        } catch {
+            print("[SpeechServer] ❌ HQ PTT WAV 寫入失敗: \(error)")
+            return nil
+        }
+        cleanOldAudioFiles()
+
+        Task { @MainActor in
+            let transcription = await self.transcribeAudioWithTimeout(url: audioFileURL)
+            let duration = self.getAudioDuration(url: audioFileURL)
+            self.processedCount += 1
+            self.lastTranscription = transcription
+
+            let result = SpeechResult(
+                reportId: reportId,
+                senderName: senderName,
+                transcription: transcription,
+                duration: duration,
+                locationLat: 0,
+                locationLon: 0,
+                locationDesc: locationDesc,
+                patientsSnapshot: "[]",
+                weatherSnapshot: "{}",
+                sourceType: sourceType
+            )
+            self.onTranscriptionComplete?(result)
+            print("[SpeechServer] HQ PTT 辨識完成 [\(reportId)] \(senderName): \(transcription.prefix(60))...")
+        }
+        return reportId
+    }
+
     // MARK: - Apple Speech 語音辨識
 
     /// 帶有 60 秒超時的語音辨識（避免在音訊損壞時永久掛起）
