@@ -32,7 +32,19 @@ struct HQExternalDisplayDashboardView: View {
             }
             .padding(spacing)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(NV.bg.ignoresSafeArea())
+            .background {
+                ZStack {
+                    NV.bg.ignoresSafeArea()
+                    Image("Logo")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .padding(60)
+                        .opacity(0.055)
+                        .blendMode(.plusLighter)
+                        .ignoresSafeArea()
+                }
+            }
         }
     }
 

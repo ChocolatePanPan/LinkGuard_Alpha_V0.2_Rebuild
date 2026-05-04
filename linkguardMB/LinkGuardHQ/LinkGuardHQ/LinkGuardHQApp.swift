@@ -13,6 +13,8 @@ struct LinkGuardHQApp: App {
     @StateObject private var spacebarPTT = HQSpacebarPTTMonitor()
     #endif
     @AppStorage("appColorScheme") private var appColorScheme: String = "dark"
+    @AppStorage("hq.uiScale") private var uiScale: Double = 1.0
+    @AppStorage("hq.externalDisplayEnabled") private var externalDisplayEnabled: Bool = true
 
     private var colorScheme: ColorScheme? {
         switch appColorScheme {
@@ -24,6 +26,7 @@ struct LinkGuardHQApp: App {
 
     var body: some Scene {
         WindowGroup {
+            HQZoomContainer(scale: uiScale) {
             HQDashboardView(vm: viewModel)
                 .onAppear {
                     // 只在 server 模式下啟動本地伺服器；
@@ -33,6 +36,7 @@ struct LinkGuardHQApp: App {
                     }
                     #if os(macOS)
                     externalDashboardManager.start(viewModel: viewModel, l10n: l10n, colorScheme: colorScheme)
+                    externalDashboardManager.setEnabled(externalDisplayEnabled)
                     spacebarPTT.attach(viewModel: viewModel)
                     #endif
                 }
@@ -43,12 +47,16 @@ struct LinkGuardHQApp: App {
                 .onChange(of: l10n.language) { _, _ in
                     externalDashboardManager.refresh(colorScheme: colorScheme)
                 }
+                .onChange(of: externalDisplayEnabled) { _, newVal in
+                    externalDashboardManager.setEnabled(newVal)
+                }
                 #endif
                 .preferredColorScheme(colorScheme)
                 .environment(\.locale, Locale(identifier: l10n.language))
                 .tint(NV.green)
                 .environmentObject(viewModel.udpAudioServer)
                 .environmentObject(l10n)
+            } // HQZoomContainer
             #if os(macOS)
             .overlay {
                 HQNotificationFlashOverlay(manager: notificationCueManager)
@@ -57,9 +65,50 @@ struct LinkGuardHQApp: App {
         }
         #if os(macOS)
         .defaultSize(width: 1200, height: 800)
+        .commands {
+            CommandMenu(L("介面縮放")) {
+                Button(L("放大")) { adjustUIScale(by: 0.1) }
+                    .keyboardShortcut("+", modifiers: .command)
+                Button(L("縮小")) { adjustUIScale(by: -0.1) }
+                    .keyboardShortcut("-", modifiers: .command)
+                Divider()
+                Button(L("重設縮放")) { uiScale = 1.0 }
+                    .keyboardShortcut("0", modifiers: .command)
+            }
+        }
         #endif
     }
+
+    private func adjustUIScale(by delta: Double) {
+        let rounded = ((uiScale + delta) * 10).rounded() / 10
+        uiScale = min(max(rounded, 0.8), 1.4)
+    }
 }
+
+#if os(macOS)
+private struct HQZoomContainer<Content: View>: View {
+    let scale: Double
+    @ViewBuilder var content: () -> Content
+
+    private var clampedScale: CGFloat {
+        CGFloat(min(max(scale, 0.8), 1.4))
+    }
+
+    var body: some View {
+        GeometryReader { proxy in
+            content()
+                .frame(width: proxy.size.width / clampedScale,
+                       height: proxy.size.height / clampedScale,
+                       alignment: .topLeading)
+                .scaleEffect(clampedScale, anchor: .topLeading)
+                .frame(width: proxy.size.width,
+                       height: proxy.size.height,
+                       alignment: .topLeading)
+                .clipped()
+        }
+    }
+}
+#endif
 
 #if os(macOS)
 /// 全域空白鍵 PTT 監聽器：

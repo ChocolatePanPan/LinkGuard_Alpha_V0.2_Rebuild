@@ -334,6 +334,10 @@ struct CommunicationHubView: View {
     @ObservedObject var vm: LinkGuardViewModel
     @EnvironmentObject private var l10n: L10n
     @State private var mode: CommunicationHubMode = .message
+    @AppStorage("commSplitEnabled") private var commSplitEnabled = false
+    @Environment(\.horizontalSizeClass) private var sizeClass
+
+    private var isSplitMode: Bool { commSplitEnabled && sizeClass == .regular }
 
     private enum CommunicationHubMode: Hashable, CaseIterable {
         case message, call, live, report
@@ -354,36 +358,67 @@ struct CommunicationHubView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                Picker(L("通訊"), selection: $mode) {
-                    ForEach(CommunicationHubMode.allCases, id: \.self) { item in
-                        Text(modeTitle(item)).tag(item)
+            if isSplitMode {
+                splitContent
+            } else {
+                VStack(spacing: 0) {
+                    Picker(L("通訊"), selection: $mode) {
+                        ForEach(CommunicationHubMode.allCases, id: \.self) { item in
+                            Text(modeTitle(item)).tag(item)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .padding(.horizontal, 12)
+                    .padding(.top, 4)
+                    .padding(.bottom, 8)
+
+                    Divider()
+
+                    Group {
+                        switch mode {
+                        case .message:
+                            FieldChatView(vm: vm, embedsNavigationStack: false, showsNavigationTitle: false, showsKeyboardDone: true)
+                        case .call:
+                            FieldCallView(vm: vm, embedsNavigationStack: false, showsNavigationTitle: false)
+                        case .live:
+                            RadioView(vm: vm, initialMode: .live, showsModePicker: false, embedsNavigationStack: false)
+                        case .report:
+                            RadioView(vm: vm, initialMode: .briefing, showsModePicker: false, embedsNavigationStack: false)
+                        }
                     }
                 }
-                .pickerStyle(.segmented)
-                .padding(.horizontal, 12)
-                .padding(.top, 4)
-                .padding(.bottom, 8)
-
-                Divider()
-
-                Group {
-                    switch mode {
-                    case .message:
-                        FieldChatView(vm: vm, embedsNavigationStack: false, showsNavigationTitle: false, showsKeyboardDone: true)
-                    case .call:
-                        FieldCallView(vm: vm, embedsNavigationStack: false, showsNavigationTitle: false)
-                    case .live:
-                        RadioView(vm: vm, initialMode: .live, showsModePicker: false, embedsNavigationStack: false)
-                    case .report:
-                        RadioView(vm: vm, initialMode: .briefing, showsModePicker: false, embedsNavigationStack: false)
-                    }
-                }
+                .navigationTitle(modeTitle(mode))
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbarBackground(.visible, for: .navigationBar)
             }
-            .navigationTitle(modeTitle(mode))
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.visible, for: .navigationBar)
         }
+    }
+
+    private var splitContent: some View {
+        HStack(spacing: 0) {
+            VStack(spacing: 0) {
+                Text(L("即時廣播"))
+                    .font(.headline)
+                    .padding(.vertical, 8)
+                Divider()
+                RadioView(vm: vm, initialMode: .live, showsModePicker: false, embedsNavigationStack: false)
+            }
+            .frame(maxWidth: .infinity)
+
+            Divider()
+
+            VStack(spacing: 0) {
+                Text(L("訊息"))
+                    .font(.headline)
+                    .padding(.vertical, 8)
+                Divider()
+                FieldChatView(vm: vm, embedsNavigationStack: false, showsNavigationTitle: false, showsKeyboardDone: true)
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .navigationTitle(L("通訊"))
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.visible, for: .navigationBar)
     }
 }
 
@@ -1517,6 +1552,7 @@ struct CommandOrderRow: View {
 struct ConnectionView: View {
     @ObservedObject var vm: LinkGuardViewModel
     @AppStorage("appColorScheme") private var appColorScheme = "dark"
+    @AppStorage("commSplitEnabled") private var commSplitEnabled = false
     @EnvironmentObject var l10n: L10n
     @State private var deptInput = ""
     @State private var pairInput = ""
@@ -1786,6 +1822,18 @@ struct ConnectionView: View {
                     InfoRow(label: L("受困者總數"), value: "\(vm.victims.count)")
                     InfoRow(label: L("線上受困者"), value: "\(vm.onlineVictimCount)")
                     InfoRow(label: L("SOS 求救中"), value: "\(vm.sosVictimCount)")
+                }
+
+                // 界面配置
+                Section(header: Text(L("界面配置")),
+                        footer: Text(L("在 iPad 上將通訊頁面分為左側電台廣播、右側訊息同時顯示。"))) {
+                    Toggle(isOn: $commSplitEnabled) {
+                        HStack {
+                            Image(systemName: "rectangle.split.2x1")
+                                .foregroundColor(NV.info)
+                            Text(L("通訊分屏（iPad）"))
+                        }
+                    }
                 }
 
                 // 語言切換
