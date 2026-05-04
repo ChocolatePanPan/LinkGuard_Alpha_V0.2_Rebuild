@@ -6,6 +6,7 @@ struct FieldChatView: View {
     @ObservedObject var vm: LinkGuardViewModel
     var embedsNavigationStack: Bool = true
     var showsNavigationTitle: Bool = true
+    var showsKeyboardDone: Bool = true
     @State private var draft = ""
 
     var body: some View {
@@ -149,10 +150,12 @@ struct FieldChatView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
-                ToolbarItemGroup(placement: .keyboard) {
-                    Spacer()
-                    Button(L("完成")) {
-                        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                if showsKeyboardDone {
+                    ToolbarItemGroup(placement: .keyboard) {
+                        Spacer()
+                        Button(L("完成")) {
+                            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                        }
                     }
                 }
             }

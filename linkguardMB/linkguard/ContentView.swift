@@ -370,7 +370,7 @@ struct CommunicationHubView: View {
                 Group {
                     switch mode {
                     case .message:
-                        FieldChatView(vm: vm, embedsNavigationStack: false, showsNavigationTitle: false)
+                        FieldChatView(vm: vm, embedsNavigationStack: false, showsNavigationTitle: false, showsKeyboardDone: false)
                     case .call:
                         FieldCallView(vm: vm, embedsNavigationStack: false, showsNavigationTitle: false)
                     case .live:
@@ -383,6 +383,16 @@ struct CommunicationHubView: View {
             .navigationTitle(modeTitle(mode))
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.visible, for: .navigationBar)
+            #if os(iOS)
+            .toolbar {
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button(L("完成")) {
+                        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                    }
+                }
+            }
+            #endif
         }
     }
 }
