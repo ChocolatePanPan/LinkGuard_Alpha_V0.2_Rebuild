@@ -67,7 +67,6 @@ struct FieldAIReportView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.visible, for: .navigationBar)
         #endif
-        #endif
     }
 
     // MARK: 狀態列
@@ -118,6 +117,7 @@ struct FieldAIReportView: View {
                 .foregroundStyle(NV.command)
             TextEditor(text: $rawText)
                 .frame(minHeight: 120, maxHeight: 200)
+                .focused($isTextEditorFocused)
                 .padding(8)
                 .background(NV.command.opacity(0.08))
                 .clipShape(RoundedRectangle(cornerRadius: 10))
@@ -145,6 +145,15 @@ struct FieldAIReportView: View {
             .disabled(rawText.isEmpty && formalText.isEmpty)
 
             Spacer()
+
+            if isTextEditorFocused {
+                Button(L("完成")) {
+                    isTextEditorFocused = false
+                }
+                .buttonStyle(.bordered)
+                .tint(NV.command)
+                .transition(.opacity.combined(with: .scale))
+            }
 
             Button {
                 Task { await formalize() }
