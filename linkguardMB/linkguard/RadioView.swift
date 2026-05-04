@@ -11,7 +11,7 @@ import UIKit
 
 enum RadioMode: String, CaseIterable {
     case live = "即時廣播"
-    case briefing = "固定會報"
+    case briefing = "語音會報"
     case aiChat = "AI 通訊"
 
     static let radioModes: [RadioMode] = [.live, .briefing]
@@ -77,7 +77,7 @@ struct RadioView: View {
                     aiChatContent
                 }
             }
-            .navigationTitle(L(titleText))
+            .navigationTitle(embedsNavigationStack ? L(titleText) : "")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.visible, for: .navigationBar)
