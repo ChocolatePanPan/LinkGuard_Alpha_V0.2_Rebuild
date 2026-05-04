@@ -33,14 +33,10 @@ struct ContentView: View {
                         FieldNotificationView(vm: viewModel)
                     }
                     .badge(viewModel.unreadNotificationCount)
-                    Tab(navLabel("通訊", en: "Messages"), systemImage: "bubble.left.and.bubble.right.fill", value: AppTab.chat) {
-                        FieldChatView(vm: viewModel)
+                    Tab(navLabel("語音通訊", en: "Voice Comms"), systemImage: "antenna.radiowaves.left.and.right", value: AppTab.communication) {
+                        CommunicationHubView(vm: viewModel)
                     }
                     .badge(viewModel.chatMessages.count)
-                    Tab(navLabel("指揮命令", en: "Orders"), systemImage: "brain.head.profile", value: AppTab.decision) {
-                        DecisionView(vm: viewModel)
-                    }
-                    .badge(viewModel.decisions.count + viewModel.unreadCommandCount)
                 }
                 Tab(L("災情"), systemImage: "building.2", value: AppTab.disaster) {
                     FieldDisasterView(vm: viewModel)
@@ -49,11 +45,10 @@ struct ContentView: View {
                     SOSRecordListView(vm: viewModel)
                 }
                 .badge(viewModel.unacknowledgedSOSCount)
-                TabSection(navLabel("通訊", en: "Comms")) {
-                    Tab(navLabel("通訊", en: "Comms"), systemImage: "antenna.radiowaves.left.and.right", value: AppTab.communication) {
-                        CommunicationHubView(vm: viewModel)
-                    }
+                Tab(navLabel("指揮命令", en: "Orders"), systemImage: "brain.head.profile", value: AppTab.decision) {
+                    DecisionView(vm: viewModel)
                 }
+                .badge(viewModel.decisions.count + viewModel.unreadCommandCount)
                 TabSection(L("其他")) {
                     Tab(L("受困者"), systemImage: "person.fill.questionmark", value: AppTab.victims) {
                         VictimListView(vm: viewModel)
@@ -338,10 +333,10 @@ struct ExternalAlarmOverlay: View {
 struct CommunicationHubView: View {
     @ObservedObject var vm: LinkGuardViewModel
     @EnvironmentObject private var l10n: L10n
-    @State private var mode: CommunicationHubMode = .call
+    @State private var mode: CommunicationHubMode = .message
 
     private enum CommunicationHubMode: Hashable, CaseIterable {
-        case call, live, briefing
+        case message, call, live, report
     }
 
     private func navLabel(_ zh: String, en: String) -> String {
@@ -350,9 +345,10 @@ struct CommunicationHubView: View {
 
     private func modeTitle(_ mode: CommunicationHubMode) -> String {
         switch mode {
+        case .message: return navLabel("訊息", en: "Messages")
         case .call: return navLabel("通話", en: "Call")
-        case .live: return navLabel("即時廣播", en: "Live")
-        case .briefing: return navLabel("固定會報", en: "Briefing")
+        case .live: return navLabel("及時廣播", en: "Live Broadcast")
+        case .report: return navLabel("語音回報", en: "Voice Report")
         }
     }
 
@@ -373,16 +369,18 @@ struct CommunicationHubView: View {
 
                 Group {
                     switch mode {
+                    case .message:
+                        FieldChatView(vm: vm)
                     case .call:
                         FieldCallView(vm: vm, embedsNavigationStack: false, showsNavigationTitle: false)
                     case .live:
                         RadioView(vm: vm, initialMode: .live, showsModePicker: false, embedsNavigationStack: false)
-                    case .briefing:
+                    case .report:
                         RadioView(vm: vm, initialMode: .briefing, showsModePicker: false, embedsNavigationStack: false)
                     }
                 }
             }
-            .navigationTitle(navLabel("通訊", en: "Comms"))
+            .navigationTitle(navLabel("語音通訊", en: "Voice Comms"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.visible, for: .navigationBar)
         }
@@ -404,7 +402,7 @@ struct AIHubView: View {
 
     private func modeTitle(_ mode: AIHubMode) -> String {
         switch mode {
-        case .communication: return navLabel("通訊", en: "Comms")
+        case .communication: return navLabel("語音通訊", en: "Voice Comms")
         case .assistant: return navLabel("助理", en: "Assistant")
         case .report: return navLabel("回報", en: "Report")
         }
@@ -539,7 +537,7 @@ struct DashboardView: View {
                             StatCard(title: L("訊息"),
                                      value: "\(vm.chatMessages.count)",
                                      icon: "bubble.left.and.bubble.right.fill")
-                            .onTapGesture { cameFromDashboard = true; selectedTab = .chat }
+                            .onTapGesture { cameFromDashboard = true; selectedTab = .communication }
                             StatCard(title: L("命令"),
                                      value: "\(vm.unreadCommandCount)",
                                      icon: "megaphone.fill")
