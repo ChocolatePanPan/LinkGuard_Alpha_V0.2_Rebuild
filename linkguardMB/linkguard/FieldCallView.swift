@@ -2,15 +2,32 @@ import SwiftUI
 
 struct FieldCallView: View {
     @ObservedObject var vm: LinkGuardViewModel
+    private let embedsNavigationStack: Bool
+    private let showsNavigationTitle: Bool
+
+    init(vm: LinkGuardViewModel, embedsNavigationStack: Bool = true, showsNavigationTitle: Bool = true) {
+        self.vm = vm
+        self.embedsNavigationStack = embedsNavigationStack
+        self.showsNavigationTitle = showsNavigationTitle
+    }
 
     var body: some View {
-        FieldCallContent(vm: vm, audio: vm.callAudioManager)
+        Group {
+            if embedsNavigationStack {
+                NavigationStack {
+                    FieldCallContent(vm: vm, audio: vm.callAudioManager, showsNavigationTitle: showsNavigationTitle)
+                }
+            } else {
+                FieldCallContent(vm: vm, audio: vm.callAudioManager, showsNavigationTitle: showsNavigationTitle)
+            }
+        }
     }
 }
 
 private struct FieldCallContent: View {
     @ObservedObject var vm: LinkGuardViewModel
     @ObservedObject var audio: CallAudioManager
+    let showsNavigationTitle: Bool
     @Environment(\.colorScheme) private var colorScheme
 
     private var onlineMembers: [TeamMember] {
@@ -43,29 +60,35 @@ private struct FieldCallContent: View {
     }
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
-                    callOverviewCard
-
-                    if let session = vm.activeCallSession {
-                        activeCallPanel(session)
-                    } else {
-                        callTargetList
-                    }
-
-                    recentCalls
-                }
-                .padding(16)
-            }
-            .background(callBackground.ignoresSafeArea())
-            .navigationTitle(L("通話"))
-            #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.visible, for: .navigationBar)
-            #endif
-            .contentMargins(.top, 0, for: .scrollContent)
+        if showsNavigationTitle {
+            content
+                .navigationTitle(L("通話"))
+                #if os(iOS)
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbarBackground(.visible, for: .navigationBar)
+                #endif
+        } else {
+            content
         }
+    }
+
+    private var content: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                callOverviewCard
+
+                if let session = vm.activeCallSession {
+                    activeCallPanel(session)
+                } else {
+                    callTargetList
+                }
+
+                recentCalls
+            }
+            .padding(16)
+        }
+        .background(callBackground.ignoresSafeArea())
+        .contentMargins(.top, 0, for: .scrollContent)
     }
 
     private var callOverviewCard: some View {
