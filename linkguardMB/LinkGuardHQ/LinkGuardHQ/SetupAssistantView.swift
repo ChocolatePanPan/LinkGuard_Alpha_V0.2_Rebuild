@@ -121,49 +121,66 @@ struct SetupAssistantView: View {
     private func stepOllama() async {
         ollamaStatus = .running
         ollamaDetail = L("呼叫 http://localhost:11434/api/tags ...")
-        if let url = URL(string: "http://localhost:11434/api/tags") {
-            do {
-                var req = URLRequest(url: url)
-                req.timeoutInterval = 3
-                let (_, resp) = try await URLSession.shared.data(for: req)
-                if let http = resp as? HTTPURLResponse,
-                   (200..<300).contains(http.statusCode) {
-                    ollamaStatus = .ok
-                    ollamaDetail = L("Ollama 已執行於 :11434")
-                    return
-                }
-            } catch { /* fall through to install hint */ }
+        if await isOllamaHTTPReady() {
+            ollamaStatus = .ok
+            ollamaDetail = L("Ollama 已執行於 :11434")
+            return
         }
+
+        guard let ollama = ollamaExecutable() else {
+            ollamaStatus = .failed
+            ollamaDetail = L("找不到 Ollama。請安裝 Ollama 後再執行設定精靈")
+            if let url = URL(string: "https://ollama.com/download") {
+                NSWorkspace.shared.open(url)
+            }
+            return
+        }
+
+        ollamaDetail = L("已找到 Ollama，正在啟動本機服務 ...")
+        runDetached(ollama, args: ["serve"])
+
+        for _ in 0..<12 {
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
+            if await isOllamaHTTPReady() {
+                ollamaStatus = .ok
+                ollamaDetail = L("Ollama 已啟動於 :11434")
+                return
+            }
+        }
+
         ollamaStatus = .failed
-        ollamaDetail = L("找不到 Ollama。請執行: brew install ollama && ollama serve")
-        // Open download page so the user can act.
-        if let url = URL(string: "https://ollama.com/download") {
-            NSWorkspace.shared.open(url)
-        }
+        ollamaDetail = L("Ollama 已安裝但服務未回應，請稍後再按開始或重開 Ollama")
     }
 
     // 2. Model presence
     private func stepModel() async {
         modelStatus = .running
         modelDetail = L("檢查模型 gemma4:e4b ...")
-        guard let url = URL(string: "http://localhost:11434/api/tags") else {
-            modelStatus = .failed; return
+        if await hasOllamaModel("gemma4:e4b") {
+            modelStatus = .ok
+            modelDetail = L("已存在: gemma4:e4b")
+            return
         }
-        do {
-            let (data, _) = try await URLSession.shared.data(from: url)
-            let tags = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["models"] as? [[String: Any]] ?? []
-            let names = tags.compactMap { $0["name"] as? String }
-            if names.contains(where: { $0.hasPrefix("gemma4:e4b") }) {
+
+        if let ollama = ollamaExecutable() {
+            let result = await runShell(ollama, args: ["list"])
+            if result.code == 0, result.output.contains("gemma4:e4b") {
                 modelStatus = .ok
                 modelDetail = L("已存在: gemma4:e4b")
+                return
+            }
+            if result.code == 0 {
+                modelStatus = .failed
+                modelDetail = L("缺少模型，請執行: ollama pull gemma4:e4b")
             } else {
                 modelStatus = .failed
-                modelDetail = L("缺少模型,請於 Terminal 執行: ollama pull gemma4:e4b")
+                modelDetail = result.output.isEmpty ? L("無法讀取 Ollama 模型列表") : result.output
             }
-        } catch {
-            modelStatus = .failed
-            modelDetail = error.localizedDescription
+            return
         }
+
+        modelStatus = .failed
+        modelDetail = L("缺少模型，請執行: ollama pull gemma4:e4b")
     }
 
     // 3. Python venv + pip
@@ -232,6 +249,53 @@ struct SetupAssistantView: View {
     // MARK: - Shell helper
 
     private struct ShellResult { let code: Int32; let output: String }
+
+    private func isOllamaHTTPReady() async -> Bool {
+        guard let url = URL(string: "http://localhost:11434/api/tags") else { return false }
+        do {
+            var req = URLRequest(url: url)
+            req.timeoutInterval = 3
+            let (_, resp) = try await URLSession.shared.data(for: req)
+            guard let http = resp as? HTTPURLResponse else { return false }
+            return (200..<300).contains(http.statusCode)
+        } catch {
+            return false
+        }
+    }
+
+    private func hasOllamaModel(_ modelName: String) async -> Bool {
+        guard let url = URL(string: "http://localhost:11434/api/tags") else { return false }
+        do {
+            var req = URLRequest(url: url)
+            req.timeoutInterval = 5
+            let (data, resp) = try await URLSession.shared.data(for: req)
+            guard let http = resp as? HTTPURLResponse,
+                  (200..<300).contains(http.statusCode) else { return false }
+            let tags = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["models"] as? [[String: Any]] ?? []
+            let names = tags.compactMap { $0["name"] as? String }
+            return names.contains { $0.hasPrefix(modelName) }
+        } catch {
+            return false
+        }
+    }
+
+    private func ollamaExecutable() -> URL? {
+        ["/opt/homebrew/bin/ollama", "/usr/local/bin/ollama", "/usr/bin/ollama"]
+            .first { FileManager.default.isExecutableFile(atPath: $0) }
+            .map { URL(fileURLWithPath: $0) }
+    }
+
+    private func runDetached(_ exec: URL, args: [String]) {
+        DispatchQueue.global().async {
+            let p = Process()
+            p.executableURL = exec
+            p.arguments = args
+            let null = FileHandle(forWritingAtPath: "/dev/null")
+            p.standardOutput = null
+            p.standardError = null
+            try? p.run()
+        }
+    }
 
     private func runShell(_ exec: URL, args: [String]) async -> ShellResult {
         await withCheckedContinuation { (cont: CheckedContinuation<ShellResult, Never>) in
