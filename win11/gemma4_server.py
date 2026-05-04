@@ -60,7 +60,7 @@ from start_triage import (
     triage_START, format_for_llm,
     calculate_total_score, rank_patients, score_dimensions,
 )
-from pws_fetcher import format_weather_for_llm
+from weather_fetcher import format_weather_for_llm
 import linkguard_db
 from utils import api_ok, api_error, health_check_response, send_to_tcp_with_retry, get_local_ip
 from i18n import t, get_locale, set_locale, STRINGS as I18N_STRINGS

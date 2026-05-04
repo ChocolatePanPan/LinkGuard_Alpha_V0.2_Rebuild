@@ -863,7 +863,7 @@ class HQBackendBridge: ObservableObject {
             print("[Bridge] 收到傷患排序: \(patients.count) 人")
 
         case "weather_update":
-            // 後台氣象更新
+            // 後台氣象（中央氣象署自動測站觀測）更新，僅更新顯示用資料，不產生 PWS 警報
             let weather = BackendWeather(
                 temperature: data["temperature"] as? Double,
                 humidity: data["humidity"] as? Double,
@@ -872,19 +872,7 @@ class HQBackendBridge: ObservableObject {
                 obsTime: data["obs_time"] as? String
             )
             backendWeather = weather
-
-            // 轉為 PWSAlert 廣播給前線
-            if let temp = weather.temperature {
-                let alert = PWSAlert(
-                    alertType: .other,
-                    title: L("氣象更新"),
-                    content: L("溫度 %.1f°C｜濕度 %.0f%%｜風速 %.1f m/s",
-                               temp, weather.humidity ?? 0, weather.windSpeed ?? 0),
-                    severity: .info
-                )
-                server?.broadcastPWSAlert(alert)
-            }
-            print("[Bridge] 收到氣象更新: \(data)")
+            print("[Bridge] 收到氣象觀測更新: \(data)")
 
         case "node_status":
             // LoRa 節點狀態

@@ -9,7 +9,7 @@ from datetime import datetime, timezone, timedelta
 from zeroconf import ServiceInfo, Zeroconf
 import httpx
 
-from pws_fetcher import fetch_weather
+from weather_fetcher import fetch_weather
 from mqtt_broker import get_node_status
 import linkguard_db
 from utils import get_local_ip, now_iso, generate_msg_id
