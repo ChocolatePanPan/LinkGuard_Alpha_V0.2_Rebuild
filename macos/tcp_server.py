@@ -759,9 +759,11 @@ async def handle_message(msg: dict, writer: asyncio.StreamWriter):
 # === TCP 連線處理 ===
 
 def normalize_message(raw: dict) -> dict:
-    """將 WiFiMessage 格式 {msgType, payload} 轉換為基礎封包格式 {type, data, device_id, timestamp}"""
+    """將 WiFiMessage 格式 {msgType, deviceID, payload} 轉換為基礎封包格式 {type, data, device_id, timestamp}"""
     if "msgType" in raw and "payload" in raw:
         msg_type = raw["msgType"]
+        # iOS 發送方的 device_id（WiFiMessage.deviceID 欄位，比 inner payload 更可靠）
+        wifi_device_id = raw.get("deviceID") or raw.get("device_id") or "unknown"
         payload_str = raw["payload"]
         try:
             inner = json.loads(payload_str) if isinstance(payload_str, str) else payload_str
@@ -772,13 +774,26 @@ def normalize_message(raw: dict) -> dict:
         if isinstance(inner, dict) and "type" in inner:
             if "timestamp" not in inner:
                 inner["timestamp"] = now_iso()
+            # 補上 device_id（優先 inner，其次 WiFiMessage 頂層 deviceID）
+            if not inner.get("device_id") or inner["device_id"] == "unknown":
+                if wifi_device_id != "unknown":
+                    inner["device_id"] = wifi_device_id
             return inner
+
+        # 從 inner 取 device_id，支援 snake_case 與 camelCase（FieldStatusReport 用 deviceID）
+        inner_device_id = "unknown"
+        if isinstance(inner, dict):
+            inner_device_id = (inner.get("device_id")
+                               or inner.get("deviceID")
+                               or wifi_device_id)
+        else:
+            inner_device_id = wifi_device_id
 
         # 否則以 msgType 當 type，inner 當 data
         return {
             "type": msg_type,
             "data": inner if isinstance(inner, dict) else {},
-            "device_id": inner.get("device_id", "unknown") if isinstance(inner, dict) else "unknown",
+            "device_id": inner_device_id,
             "timestamp": inner.get("timestamp", now_iso()) if isinstance(inner, dict) else now_iso(),
         }
 

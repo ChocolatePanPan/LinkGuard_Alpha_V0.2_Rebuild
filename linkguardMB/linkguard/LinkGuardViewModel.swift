@@ -324,6 +324,19 @@ class LinkGuardViewModel: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in self?.objectWillChange.send() }
             .store(in: &cancellables)
+        // 握手加速：TCP 連線成功後立即送出 status_report，HQ 最多延遲 0.5 秒即完成識別
+        // 若等 30 秒 Timer 才第一次觸發，HQ 的 fieldUnits 會有 30 秒的空窗期
+        commandClient.$isConnected
+            .removeDuplicates()
+            .filter { $0 }           // 只對 false → true 的變化觸發
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                // 短暫延遲讓 resolvedIP 先完成填入
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    self?.sendStatusReport()
+                }
+            }
+            .store(in: &cancellables)
         commandClient.$serverName
             .removeDuplicates()
             .receive(on: DispatchQueue.main)

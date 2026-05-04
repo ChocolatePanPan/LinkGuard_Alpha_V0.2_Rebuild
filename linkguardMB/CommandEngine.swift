@@ -10,6 +10,7 @@ import UIKit
 /// 包裝所有 WiFi 雙向通訊的訊息類型
 struct WiFiMessage: Codable {
     let msgType: String     // "command", "status_report", "command_history"
+    let deviceID: String    // 發送方裝置 ID（供 Python server 路由；Mac HQ 端可忽略）
     let payload: String     // JSON 編碼的 payload
 }
 
@@ -852,7 +853,7 @@ class CommandClient: ObservableObject {
         guard let payloadData = try? JSONEncoder().encode(payload),
               let payloadJSON = String(data: payloadData, encoding: .utf8) else { return }
 
-        let msg = WiFiMessage(msgType: msgType, payload: payloadJSON)
+        let msg = WiFiMessage(msgType: msgType, deviceID: currentDeviceID, payload: payloadJSON)
         guard let data = try? JSONEncoder().encode(msg) else { return }
         let message = data + Data([0x0A])
 
@@ -869,7 +870,7 @@ class CommandClient: ObservableObject {
         let msgType = payload["type"] as? String ?? "unknown"
         guard let payloadData = try? JSONSerialization.data(withJSONObject: payload),
               let payloadJSON = String(data: payloadData, encoding: .utf8) else { return }
-        let msg = WiFiMessage(msgType: msgType, payload: payloadJSON)
+        let msg = WiFiMessage(msgType: msgType, deviceID: currentDeviceID, payload: payloadJSON)
         guard let data = try? JSONEncoder().encode(msg) else { return }
         let message = data + Data([0x0A])
         conn.send(content: message, completion: .contentProcessed { error in
@@ -1011,6 +1012,8 @@ class CommandClient: ObservableObject {
 
     private func startPing() {
         pingTimer?.invalidate()
+        // 立即發送第一次 ping，使 HQ 盡快完成握手（不等 30 秒）
+        sendWiFiMessage(msgType: "ping", payload: ["ts": Date().timeIntervalSince1970])
         pingTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
             self?.sendWiFiMessage(msgType: "ping", payload: ["ts": Date().timeIntervalSince1970])
         }

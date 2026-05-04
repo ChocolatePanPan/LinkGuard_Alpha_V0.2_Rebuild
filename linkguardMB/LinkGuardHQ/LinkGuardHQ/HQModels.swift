@@ -731,6 +731,7 @@ struct WiFiCommand: Codable, Identifiable {
 /// 包裝所有 WiFi 雙向通訊的訊息類型
 struct WiFiMessage: Codable {
     let msgType: String     // "command", "status_report", "command_history"
+    let deviceID: String?   // 發送方裝置 ID（可選，向下相容舊版前線 app）
     let payload: String     // JSON 編碼的 payload
 }
 
