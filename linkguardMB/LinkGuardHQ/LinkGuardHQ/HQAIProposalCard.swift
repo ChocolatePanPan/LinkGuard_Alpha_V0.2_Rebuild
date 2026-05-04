@@ -162,7 +162,7 @@ struct HQAIProposalCard: View {
     // MARK: - Phase E 安全閘行為
 
     private var executeButtonLabel: String {
-        if autoCountdownRemain > 0 { return L("取消 \(autoCountdownRemain)s") }
+        if autoCountdownRemain > 0 { return L("取消 %@s", String(autoCountdownRemain)) }
         return L("執行")
     }
 

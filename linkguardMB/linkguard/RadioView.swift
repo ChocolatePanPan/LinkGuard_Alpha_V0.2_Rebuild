@@ -422,10 +422,10 @@ struct RadioView: View {
 
     private var aiQuickPrompts: [String] {
         [
-            "傷患優先處置建議",
-            "現場風險評估",
-            "需要哪些資源",
-            "撤離路線建議",
+            L("傷患優先處置建議"),
+            L("現場風險評估"),
+            L("需要哪些資源"),
+            L("撤離路線建議"),
         ]
     }
 

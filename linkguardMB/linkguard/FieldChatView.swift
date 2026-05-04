@@ -156,7 +156,7 @@ struct FieldChatView: View {
                 }
                 .padding()
             }
-            .navigationTitle(showsNavigationTitle ? L("全域通訊頻道") : "訊息")
+            .navigationTitle(showsNavigationTitle ? L("全域通訊頻道") : L("訊息"))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.visible, for: .navigationBar)
