@@ -347,8 +347,8 @@ struct CommunicationHubView: View {
         switch mode {
         case .message: return navLabel("訊息", en: "Message")
         case .call: return navLabel("通話", en: "Voice Call")
-        case .live: return navLabel("即時廣播", en: "Broadcast")
-        case .report: return navLabel("語音回報", en: "Voice Report")
+        case .live: return navLabel("即時廣播", en: "Live Broadcast")
+        case .report: return navLabel("固定回報", en: "Briefing Report")
         }
     }
 
@@ -370,7 +370,7 @@ struct CommunicationHubView: View {
                 Group {
                     switch mode {
                     case .message:
-                        FieldChatView(vm: vm)
+                        FieldChatView(vm: vm, embedsNavigationStack: false, showsNavigationTitle: false)
                     case .call:
                         FieldCallView(vm: vm, embedsNavigationStack: false, showsNavigationTitle: false)
                     case .live:
@@ -380,8 +380,7 @@ struct CommunicationHubView: View {
                     }
                 }
             }
-            .navigationTitle(navLabel("通訊", en: "Comms"))
-            .navigationBarTitleDisplayMode(.inline)
+            .toolbar(.hidden, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
         }
     }

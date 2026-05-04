@@ -4,11 +4,24 @@ import SwiftUI
 
 struct FieldChatView: View {
     @ObservedObject var vm: LinkGuardViewModel
+    var embedsNavigationStack: Bool = true
+    var showsNavigationTitle: Bool = true
     @State private var draft = ""
 
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
+        Group {
+            if embedsNavigationStack {
+                NavigationStack {
+                    chatContent
+                }
+            } else {
+                chatContent
+            }
+        }
+    }
+
+    private var chatContent: some View {
+        VStack(spacing: 0) {
                 // 連線狀態 banner
                 if !vm.commandClient.isConnected {
                     HStack {
@@ -131,7 +144,7 @@ struct FieldChatView: View {
                 }
                 .padding()
             }
-            .navigationTitle(L("全域通訊頻道"))
+            .navigationTitle(showsNavigationTitle ? L("全域通訊頻道") : "")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.visible, for: .navigationBar)
@@ -144,7 +157,6 @@ struct FieldChatView: View {
                 }
             }
             #endif
-        }
     }
 
     private static let timeFmt: DateFormatter = {
