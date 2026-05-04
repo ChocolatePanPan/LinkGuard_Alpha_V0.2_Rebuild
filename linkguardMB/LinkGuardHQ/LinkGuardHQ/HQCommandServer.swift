@@ -312,17 +312,23 @@ class HQCommandServer: ObservableObject {
     }
 
     private func sendHistory(to connection: NWConnection) {
-        let recent = Array(sentCommands.prefix(10))
-        guard !recent.isEmpty else { return }
-
-        // 逐筆發送為 WiFiMessage { command }
-        for cmd in recent {
-            guard let cmdData = try? JSONEncoder().encode(cmd),
-                  let cmdJSON = String(data: cmdData, encoding: .utf8) else { continue }
-            let msg = WiFiMessage(msgType: "command", payload: cmdJSON)
-            guard let data = try? JSONEncoder().encode(msg) else { continue }
-            let message = data + Data([0x0A])
-            connection.send(content: message, completion: .contentProcessed { _ in })
+        // sentCommands 是 @Published 屬性，必須在 main thread 讀取，
+        // 避免從 Network background queue 直接存取造成 data race。
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            let recent = Array(self.sentCommands.prefix(10))
+            guard !recent.isEmpty else { return }
+            // 序列化後切回 network queue 發送，不在 main thread 阻塞 I/O
+            self.queue.async {
+                for cmd in recent {
+                    guard let cmdData = try? JSONEncoder().encode(cmd),
+                          let cmdJSON = String(data: cmdData, encoding: .utf8) else { continue }
+                    let msg = WiFiMessage(msgType: "command", payload: cmdJSON)
+                    guard let data = try? JSONEncoder().encode(msg) else { continue }
+                    let message = data + Data([0x0A])
+                    connection.send(content: message, completion: .contentProcessed { _ in })
+                }
+            }
         }
     }
 
