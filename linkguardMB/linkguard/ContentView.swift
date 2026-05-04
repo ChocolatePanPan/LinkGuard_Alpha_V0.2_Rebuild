@@ -333,6 +333,60 @@ struct ExternalAlarmOverlay: View {
     }
 }
 
+struct CommunicationHubView: View {
+    @ObservedObject var vm: LinkGuardViewModel
+    @EnvironmentObject private var l10n: L10n
+    @State private var mode: CommunicationHubMode = .call
+
+    private enum CommunicationHubMode: Hashable, CaseIterable {
+        case call, live, briefing
+    }
+
+    private func navLabel(_ zh: String, en: String) -> String {
+        l10n.language == "en" ? en : zh
+    }
+
+    private func modeTitle(_ mode: CommunicationHubMode) -> String {
+        switch mode {
+        case .call: return navLabel("通話", en: "Call")
+        case .live: return navLabel("即時廣播", en: "Live")
+        case .briefing: return navLabel("固定會報", en: "Briefing")
+        }
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                Picker(L("通訊"), selection: $mode) {
+                    ForEach(CommunicationHubMode.allCases, id: \.self) { item in
+                        Text(modeTitle(item)).tag(item)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal, 12)
+                .padding(.top, 4)
+                .padding(.bottom, 8)
+
+                Divider()
+
+                Group {
+                    switch mode {
+                    case .call:
+                        FieldCallView(vm: vm, embedsNavigationStack: false, showsNavigationTitle: false)
+                    case .live:
+                        RadioView(vm: vm, initialMode: .live, showsModePicker: false, embedsNavigationStack: false)
+                    case .briefing:
+                        RadioView(vm: vm, initialMode: .briefing, showsModePicker: false, embedsNavigationStack: false)
+                    }
+                }
+            }
+            .navigationTitle(navLabel("通訊", en: "Comms"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.visible, for: .navigationBar)
+        }
+    }
+}
+
 struct AIHubView: View {
     @ObservedObject var vm: LinkGuardViewModel
     @EnvironmentObject private var l10n: L10n
