@@ -32,6 +32,7 @@ struct FieldAIReportView: View {
     @State private var lastElapsedMs: Int = 0
     @State private var errorMessage: String = ""
     @State private var dispatched: Bool = false
+    @FocusState private var isTextEditorFocused: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -65,14 +66,7 @@ struct FieldAIReportView: View {
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.visible, for: .navigationBar)
-        .toolbar {
-            ToolbarItemGroup(placement: .keyboard) {
-                Spacer()
-                Button(L("完成")) {
-                    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-                }
-            }
-        }
+        #endif
         #endif
     }
 

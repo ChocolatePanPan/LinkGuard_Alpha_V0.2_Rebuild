@@ -15,6 +15,7 @@ struct TranslatorView: View {
     @State private var targetLang = "en"
     @State private var isTranslating = false
     @State private var errorMessage: String?
+    @FocusState private var isTranslatorFocused: Bool
 
     private let languages: [(code: String, name: String)] = [
         ("auto", L("自動偵測")),
@@ -105,14 +106,6 @@ struct TranslatorView: View {
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.visible, for: .navigationBar)
-            .toolbar {
-                ToolbarItemGroup(placement: .keyboard) {
-                    Spacer()
-                    Button(L("完成")) {
-                        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-                    }
-                }
-            }
             #endif
             .contentMargins(.top, 0, for: .scrollContent)
         }
@@ -186,29 +179,41 @@ struct TranslatorView: View {
         VStack(spacing: 8) {
             TextEditor(text: $inputText)
                 .frame(height: 100)
+                .focused($isTranslatorFocused)
                 .overlay(
                     RoundedRectangle(cornerRadius: 8)
                         .stroke(Color.secondary.opacity(0.3))
                 )
 
-            Button {
-                translate()
-            } label: {
-                HStack {
-                    if isTranslating {
-                        ProgressView()
-                            .tint(.white)
-                    } else {
-                        Image(systemName: "globe")
+            HStack(spacing: 8) {
+                if isTranslatorFocused {
+                    Button(L("完成")) {
+                        isTranslatorFocused = false
                     }
-                    Text(isTranslating ? L("翻譯中...") : L("翻譯"))
+                    .buttonStyle(.bordered)
+                    .tint(NV.command)
+                    .transition(.opacity.combined(with: .scale))
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 10)
+
+                Button {
+                    translate()
+                } label: {
+                    HStack {
+                        if isTranslating {
+                            ProgressView()
+                                .tint(.white)
+                        } else {
+                            Image(systemName: "globe")
+                        }
+                        Text(isTranslating ? L("翻譯中...") : L("翻譯"))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(vm.isAIServicePaused ? .gray : NV.command)
+                .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isTranslating)
             }
-            .buttonStyle(.borderedProminent)
-            .tint(vm.isAIServicePaused ? .gray : NV.command)
-            .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isTranslating)
         }
     }
 

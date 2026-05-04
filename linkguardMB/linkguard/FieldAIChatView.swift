@@ -33,6 +33,7 @@ struct FieldAIChatView: View {
     @State private var isSending: Bool = false
     @State private var typingPulse: Bool = false
     @State private var includeContext: Bool = true
+    @FocusState private var isInputFocused: Bool
 
     var body: some View {
         VStack(spacing: 0) {
@@ -83,14 +84,6 @@ struct FieldAIChatView: View {
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.visible, for: .navigationBar)
-        .toolbar {
-            ToolbarItemGroup(placement: .keyboard) {
-                Spacer()
-                Button(L("完成")) {
-                    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-                }
-            }
-        }
         #endif
     }
 
@@ -240,7 +233,17 @@ struct FieldAIChatView: View {
                 .textFieldStyle(.roundedBorder)
                 .lineLimit(1...4)
                 .disabled(isSending)
+                .focused($isInputFocused)
                 .onSubmit { send() }
+
+            if isInputFocused {
+                Button(L("完成")) {
+                    isInputFocused = false
+                }
+                .font(.subheadline)
+                .tint(NV.green)
+                .transition(.opacity.combined(with: .scale))
+            }
 
             Button {
                 send()

@@ -25,6 +25,7 @@ struct RadioView: View {
     @StateObject private var briefingManager = BriefingRecordManager()
     @StateObject private var liveManager = LiveBroadcastManager()
     @StateObject private var aiChatManager = FieldAIChatManager()
+    @FocusState private var isAIChatFocused: Bool
     private let initialMode: RadioMode
     private let showsModePicker: Bool
     private let embedsNavigationStack: Bool
@@ -81,14 +82,6 @@ struct RadioView: View {
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.visible, for: .navigationBar)
-            .toolbar {
-                ToolbarItemGroup(placement: .keyboard) {
-                    Spacer()
-                    Button(L("完成")) {
-                        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-                    }
-                }
-            }
             #endif
             .onAppear {
                 briefingManager.serverHost = vm.transcriptionServerHost
@@ -389,6 +382,7 @@ struct RadioView: View {
                         .textFieldStyle(.roundedBorder)
                         .lineLimit(1...3)
                         .submitLabel(.send)
+                        .focused($isAIChatFocused)
                         .onSubmit {
                             guard !aiChatManager.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
                                   vm.commandClient.isConnected,
@@ -400,6 +394,14 @@ struct RadioView: View {
                         ProgressView()
                             .frame(width: 24, height: 24)
                     } else {
+                        if isAIChatFocused {
+                            Button(L("完成")) {
+                                isAIChatFocused = false
+                            }
+                            .font(.subheadline)
+                            .tint(NV.command)
+                            .transition(.opacity.combined(with: .scale))
+                        }
                         Button {
                             aiChatManager.send(aiChatManager.draft)
                         } label: {
