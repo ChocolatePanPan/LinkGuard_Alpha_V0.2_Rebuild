@@ -49,10 +49,12 @@ struct ContentView: View {
                     SOSRecordListView(vm: viewModel)
                 }
                 .badge(viewModel.unacknowledgedSOSCount)
-                TabSection(L("其他")) {
+                TabSection(navLabel("通訊", en: "Comms")) {
                     Tab(navLabel("通訊", en: "Comms"), systemImage: "antenna.radiowaves.left.and.right", value: AppTab.communication) {
                         CommunicationHubView(vm: viewModel)
                     }
+                }
+                TabSection(L("其他")) {
                     Tab(L("受困者"), systemImage: "person.fill.questionmark", value: AppTab.victims) {
                         VictimListView(vm: viewModel)
                     }
