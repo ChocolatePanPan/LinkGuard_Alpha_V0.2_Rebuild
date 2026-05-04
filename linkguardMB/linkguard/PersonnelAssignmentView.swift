@@ -321,6 +321,14 @@ struct AssignPersonnelSheet: View {
                     }
                     .disabled(!isEditing && name.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
+                #if os(iOS)
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button(L("完成")) {
+                        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                    }
+                }
+                #endif
             }
             .onAppear {
                 if let edit = editing {

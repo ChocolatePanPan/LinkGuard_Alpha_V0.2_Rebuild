@@ -217,6 +217,14 @@ struct HazardReportSheet: View {
                         dismiss()
                     }
                 }
+                #if os(iOS)
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button(L("完成")) {
+                        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                    }
+                }
+                #endif
             }
         }
     }
