@@ -16,8 +16,10 @@ final class L10n: ObservableObject {
 
     /// 翻譯方法
     func t(_ key: String) -> String {
-        if language == "zh-Hant" { return key }
-        return Self.enDict[key] ?? key
+        if language.hasPrefix("en") {
+            return Self.enDict[key] ?? key
+        }
+        return key
     }
 
     /// 帶格式參數的翻譯
@@ -577,6 +579,7 @@ final class L10n: ObservableObject {
         "開始使用": "Get Started",
         // 電台
         "即時廣播": "Live Broadcast",
+        "語音會報": "Voice Briefing",
         "固定會報": "Scheduled Briefing",
         // 翻譯
         "已透過備援路由完成翻譯": "Translation completed via fallback route",
@@ -674,6 +677,7 @@ final class L10n: ObservableObject {
         "SOS 警報由受困者裝置（BLE 手環）觸發": "SOS alerts are triggered by victim devices (BLE wristbands)",
         "「AI 助理」頁面可直接向 AI 提問": "Use the AI Assistant page to ask AI directly",
         "「即時廣播」：按住 PTT 按鈕說話，放開結束": "Live Broadcast: hold PTT to talk, release to finish",
+        "「語音會報」：點擊錄音 → 再點停止 → 自動上傳": "Voice Briefing: tap Record, then Stop, then auto-upload",
         "「固定會報」：點擊錄音 → 再點停止 → 自動上傳": "Briefing: tap Record, then Stop, then auto-upload",
         "「通訊」頁面為全域文字聊天頻道": "The Communication page is a global text chat channel",
         "下方有災情摘要、最新事件日誌": "Below are disaster summary and latest event logs",

@@ -14,7 +14,7 @@ struct ContentView: View {
     @State private var externalAlarm: ExternalAlarmPresentation?
 
     private func navLabel(_ zh: String, en: String) -> String {
-        l10n.language == "en" ? en : zh
+        l10n.language.hasPrefix("en") ? en : zh
     }
 
     var body: some View {
@@ -79,6 +79,7 @@ struct ContentView: View {
                         }
                     }
             }
+            .id("tabview-lang-\(l10n.language)")
             .onChange(of: selectedTab) { oldValue, newValue in
                 if newValue == .dashboard {
                     cameFromDashboard = false
@@ -344,7 +345,7 @@ struct CommunicationHubView: View {
     }
 
     private func navLabel(_ zh: String, en: String) -> String {
-        l10n.language == "en" ? en : zh
+        l10n.language.hasPrefix("en") ? en : zh
     }
 
     private func modeTitle(_ mode: CommunicationHubMode) -> String {
@@ -432,7 +433,7 @@ struct AIHubView: View {
     }
 
     private func navLabel(_ zh: String, en: String) -> String {
-        l10n.language == "en" ? en : zh
+        l10n.language.hasPrefix("en") ? en : zh
     }
 
     private func modeTitle(_ mode: AIHubMode) -> String {
