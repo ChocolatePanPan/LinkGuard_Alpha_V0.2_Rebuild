@@ -3,7 +3,7 @@ import SwiftUI
 // MARK: - Main View
 
 enum AppTab: Hashable {
-    case dashboard, victims, sos, disaster, chat, call, reinforcement, team, commands, notifications, radio, connection, patientForm, decision, translator, photo, personnelAssignment, ai
+    case dashboard, victims, sos, disaster, chat, call, reinforcement, team, commands, notifications, radio, connection, patientForm, decision, translator, photo, personnelAssignment, ai, communication
 }
 
 struct ContentView: View {
@@ -23,17 +23,20 @@ struct ContentView: View {
                 Tab(L("總覽"), systemImage: "gauge.with.dots.needle.33percent", value: AppTab.dashboard) {
                     DashboardView(vm: viewModel, selectedTab: $selectedTab, cameFromDashboard: $cameFromDashboard)
                 }
-                TabSection(navLabel("通訊", en: "Messages")) {
-                    Tab(L("電台"), systemImage: "antenna.radiowaves.left.and.right", value: AppTab.radio) {
-                        RadioView(vm: viewModel)
+                TabSection("AI") {
+                    Tab("AI", systemImage: viewModel.isAIServicePaused ? "pause.circle" : "sparkles", value: AppTab.ai) {
+                        AIHubView(vm: viewModel)
                     }
+                }
+                TabSection(navLabel("通訊", en: "Messages")) {
+                    Tab(L("通知"), systemImage: "bell.fill", value: AppTab.notifications) {
+                        FieldNotificationView(vm: viewModel)
+                    }
+                    .badge(viewModel.unreadNotificationCount)
                     Tab(navLabel("通訊", en: "Messages"), systemImage: "bubble.left.and.bubble.right.fill", value: AppTab.chat) {
                         FieldChatView(vm: viewModel)
                     }
                     .badge(viewModel.chatMessages.count)
-                    Tab(L("通話"), systemImage: "phone.fill", value: AppTab.call) {
-                        FieldCallView(vm: viewModel)
-                    }
                     Tab(navLabel("指揮命令", en: "Orders"), systemImage: "brain.head.profile", value: AppTab.decision) {
                         DecisionView(vm: viewModel)
                     }
@@ -46,10 +49,10 @@ struct ContentView: View {
                     SOSRecordListView(vm: viewModel)
                 }
                 .badge(viewModel.unacknowledgedSOSCount)
-                Tab("AI", systemImage: viewModel.isAIServicePaused ? "pause.circle" : "sparkles", value: AppTab.ai) {
-                    AIHubView(vm: viewModel)
-                }
                 TabSection(L("其他")) {
+                    Tab(navLabel("通訊", en: "Comms"), systemImage: "antenna.radiowaves.left.and.right", value: AppTab.communication) {
+                        CommunicationHubView(vm: viewModel)
+                    }
                     Tab(L("受困者"), systemImage: "person.fill.questionmark", value: AppTab.victims) {
                         VictimListView(vm: viewModel)
                     }
@@ -63,10 +66,6 @@ struct ContentView: View {
                     Tab(L("人員指派"), systemImage: "person.badge.key.fill", value: AppTab.personnelAssignment) {
                         PersonnelAssignmentView(vm: viewModel)
                     }
-                    Tab(L("通知"), systemImage: "bell.fill", value: AppTab.notifications) {
-                        FieldNotificationView(vm: viewModel)
-                    }
-                    .badge(viewModel.unreadNotificationCount)
                     Tab(L("傷員回報"), systemImage: "heart.text.square", value: AppTab.patientForm) {
                         PatientFormView(vm: viewModel)
                     }
@@ -93,7 +92,7 @@ struct ContentView: View {
             }
 
             // 返回主頁浮動按鈕
-            if cameFromDashboard && selectedTab != .dashboard {
+            if cameFromDashboard && selectedTab != .dashboard && selectedTab != .victims {
                 VStack {
                     HStack {
                         Button {
@@ -144,7 +143,7 @@ struct ContentView: View {
                     invite: invite,
                     onAccept: {
                         viewModel.acceptCall(invite)
-                        selectedTab = .call
+                        selectedTab = .communication
                     },
                     onDecline: { viewModel.declineCall(invite) }
                 )
@@ -228,7 +227,7 @@ struct ExternalAlarmPresentation: Identifiable, Equatable {
         case "sos": return .sos
         case "decision": return .decision
         case "victims": return .victims
-        case "call": return .call
+        case "call": return .communication
         default: return .notifications
         }
     }
@@ -956,9 +955,7 @@ struct VictimListView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Text("\(vm.victims.count + vm.localPatients.count)")
-                        .font(.caption).bold()
-                        .padding(.horizontal, 8).padding(.vertical, 3)
-                        .glassEffect(.regular.tint(NV.command), in: .capsule)
+                        .font(.subheadline.bold())
                 }
             }
             #endif
