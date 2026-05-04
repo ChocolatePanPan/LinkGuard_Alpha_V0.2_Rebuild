@@ -733,6 +733,12 @@ struct WiFiMessage: Codable {
     let msgType: String     // "command", "status_report", "command_history"
     let deviceID: String?   // 發送方裝置 ID（可選，向下相容舊版前線 app）
     let payload: String     // JSON 編碼的 payload
+
+    init(msgType: String, deviceID: String? = nil, payload: String) {
+        self.msgType = msgType
+        self.deviceID = deviceID
+        self.payload = payload
+    }
 }
 
 /// 前線 App → 指揮中心：裝置狀態報告
