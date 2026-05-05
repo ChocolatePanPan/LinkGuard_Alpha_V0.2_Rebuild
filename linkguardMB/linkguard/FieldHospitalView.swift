@@ -144,14 +144,14 @@ struct FieldHospitalView: View {
         }
     }
 
-    // MARK: - 篩選 header（不在 List 內，效能佳）
+    // MARK: - 篩選 header
 
     private var filterHeader: some View {
         VStack(spacing: 0) {
             // 搜尋列
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass").foregroundColor(.secondary)
-                TextField("搜尋縣市 / 醫院名稱", text: $query)
+                TextField(L("搜尋縣市 / 醫院名稱"), text: $query)
                     .autocorrectionDisabled()
                 if !query.isEmpty {
                     Button { query = "" } label: {
@@ -168,7 +168,7 @@ struct FieldHospitalView: View {
                     } else {
                         Image(systemName: selectedCity != nil && locator.detectedCity == selectedCity
                               ? "location.fill" : "location")
-                            .foregroundColor(.blue)
+                            .foregroundColor(NV.info)
                     }
                 }
                 .buttonStyle(.plain)
@@ -181,13 +181,12 @@ struct FieldHospitalView: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .background(Color(.systemBackground))
 
             if let err = locator.errorMsg {
-                Text(err).font(.caption2).foregroundColor(.red).padding(.horizontal, 12)
+                Text(err).font(.caption2).foregroundColor(NV.danger).padding(.horizontal, 12).padding(.bottom, 4)
             } else if let city = locator.detectedCity {
-                Label("已定位至：\(city)", systemImage: "location.fill")
-                    .font(.caption2).foregroundColor(.blue).padding(.horizontal, 12)
+                Label("\(L("已定位至"))：\(city)", systemImage: "location.fill")
+                    .font(.caption2).foregroundColor(NV.info).padding(.horizontal, 12).padding(.bottom, 4)
             }
 
             Divider()
@@ -195,11 +194,12 @@ struct FieldHospitalView: View {
             // 區域 chips
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 6) {
-                    chip(label: "全部區域", accent: .blue, isSelected: selectedRegion == nil) {
+                    chip(label: L("全部區域"), accent: NV.info, isSelected: selectedRegion == nil) {
                         selectedRegion = nil; selectedCity = nil
+                        availableCities = allCitiesByRegion[nil] ?? []
                     }
                     ForEach(allRegions, id: \.self) { r in
-                        chip(label: r.rawValue, accent: .blue, isSelected: selectedRegion == r) {
+                        chip(label: r.rawValue, accent: NV.info, isSelected: selectedRegion == r) {
                             selectedRegion = r; selectedCity = nil
                         }
                     }
@@ -207,16 +207,17 @@ struct FieldHospitalView: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
             }
-            .background(Color(.systemBackground))
+
+            Divider()
 
             // 縣市 chips
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 6) {
-                    chip(label: "全部縣市", accent: .teal, isSelected: selectedCity == nil) {
+                    chip(label: L("全部縣市"), accent: NV.command, isSelected: selectedCity == nil) {
                         selectedCity = nil
                     }
                     ForEach(availableCities, id: \.self) { city in
-                        chip(label: city, accent: .teal, isSelected: selectedCity == city) {
+                        chip(label: city, accent: NV.command, isSelected: selectedCity == city) {
                             selectedCity = city
                         }
                     }
@@ -224,12 +225,13 @@ struct FieldHospitalView: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
             }
-            .background(Color(.systemBackground))
+
+            Divider()
 
             // 層級 chips
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 6) {
-                    chip(label: "全部層級", accent: .green, isSelected: selectedLevel == nil) {
+                    chip(label: L("全部層級"), accent: NV.green, isSelected: selectedLevel == nil) {
                         selectedLevel = nil
                     }
                     ForEach(allLevels, id: \.self) { lv in
@@ -241,9 +243,6 @@ struct FieldHospitalView: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
             }
-            .background(Color(.systemBackground))
-
-            Divider()
         }
     }
 
