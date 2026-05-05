@@ -13,7 +13,13 @@ private class PatientLocationManager: NSObject, ObservableObject, CLLocationMana
         manager.delegate = self
         manager.desiredAccuracy = kCLLocationAccuracyBest
         manager.requestWhenInUseAuthorization()
-        manager.startUpdatingLocation()
+    }
+
+    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        if manager.authorizationStatus == .authorizedWhenInUse ||
+           manager.authorizationStatus == .authorizedAlways {
+            manager.startUpdatingLocation()
+        }
     }
 
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
@@ -299,6 +305,7 @@ struct PatientFormView: View {
                     .disabled(!isFormValid)
                 }
             }
+        }
         .navigationTitle(L("傷員回報"))
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
@@ -330,6 +337,7 @@ struct PatientFormView: View {
                     .animation(.spring(), value: showConfirmation)
                 }
             }
+        }
     }
 
     // MARK: - 語音轉錄

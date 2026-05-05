@@ -2102,11 +2102,12 @@ struct ReinforcementListView: View {
                                 .font(.title).foregroundColor(.secondary)
                             Text(L("目前沒有增援請求"))
                                 .font(.subheadline).foregroundColor(.secondary)
-                            }
-                            Spacer()
-                        }.padding()
+                        }
+                        Spacer()
                     }
-                } else {
+                    .padding()
+                }
+            } else {
                     // 待處理（別人發的）
                     let pending = vm.reinforcementRequests.filter { !$0.isFromSelf && $0.status == .pending }
                     if !pending.isEmpty {

@@ -114,13 +114,9 @@ struct FieldHospitalView: View {
                     }
                 }
                 .listStyle(.plain)
-        }
-        .navigationTitle(L("後送醫院（\(FieldHospitalDirectory.all.count) 家）"))
-        #if os(iOS)
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(.visible, for: .navigationBar)
-        #endif
-        .onChange(of: query) { q in
+            }
+            .manualTopBar44(title: L("後送醫院（\(FieldHospitalDirectory.all.count) 家）"))
+            .onChange(of: query) { q in
                 debounceTask?.cancel()
                 debounceTask = Just(q)
                     .delay(for: .milliseconds(250), scheduler: RunLoop.main)
@@ -129,14 +125,14 @@ struct FieldHospitalView: View {
                         recompute()
                     }
             }
-            .onChange(of: selectedRegion) { _ in
+            .onChange(of: selectedRegion) { _, _ in
                 availableCities = allCitiesByRegion[selectedRegion] ?? []
                 if let sel = selectedCity, !availableCities.contains(sel) { selectedCity = nil }
                 recompute()
             }
-            .onChange(of: selectedCity) { _ in recompute() }
-            .onChange(of: selectedLevel) { _ in recompute() }
-            .onChange(of: locator.detectedCity) { city in
+            .onChange(of: selectedCity) { _, _ in recompute() }
+            .onChange(of: selectedLevel) { _, _ in recompute() }
+            .onChange(of: locator.detectedCity) { _, city in
                 guard let city else { return }
                 selectedCity = city
                 selectedRegion = nil
