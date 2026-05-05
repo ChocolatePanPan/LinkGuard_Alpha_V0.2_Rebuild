@@ -187,3 +187,35 @@ struct MWResourceItem: Identifiable {
     var location: String
     var condition: MWSeverity
 }
+
+enum MWFailoverState: String, CaseIterable, Identifiable {
+    case standby
+    case takingOver
+    case active
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .standby: "待命"
+        case .takingOver: "接管中"
+        case .active: "已接管"
+        }
+    }
+
+    var detail: String {
+        switch self {
+        case .standby: "主伺服器正常，本機維持熱備援。"
+        case .takingOver: "主伺服器異常，正在切換本機服務。"
+        case .active: "本機已接手核心服務，維持現場指揮。"
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .standby: MWTheme.cyan
+        case .takingOver: MWTheme.amber
+        case .active: MWTheme.green
+        }
+    }
+}

@@ -22,6 +22,9 @@ struct MilkyWayCommandCenterView: View {
                             Text(vm.operationName)
                                 .font(.title3.bold())
                                 .lineLimit(1)
+                            Text("二級指揮（可接管替代伺服器 / 無 AI）")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                             HStack(spacing: 8) {
                                 Circle()
                                     .fill(vm.commandNetworkEnabled ? MWTheme.green : MWTheme.amber)
@@ -370,6 +373,8 @@ private struct SettingsPanel: View {
                 .textFieldStyle(.roundedBorder)
             TextField("作戰名稱", text: $vm.operationName)
                 .textFieldStyle(.roundedBorder)
+            ControlStatusLine(title: "替代伺服器", value: vm.failoverState.title, color: vm.failoverState.color)
+            ControlStatusLine(title: "AI 功能", value: "停用", color: MWTheme.cyan)
         }
         .mwPanel()
     }

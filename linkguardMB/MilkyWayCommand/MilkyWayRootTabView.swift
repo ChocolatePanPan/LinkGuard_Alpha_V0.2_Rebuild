@@ -1,6 +1,6 @@
 import SwiftUI
 
-// MARK: - 根 TabView（6 個主功能）
+// MARK: - 根 TabView（6 個主功能，無 AI）
 
 struct MilkyWayRootTabView: View {
     @ObservedObject var vm: MilkyWayCommandViewModel
@@ -19,8 +19,8 @@ struct MilkyWayRootTabView: View {
             Tab("傷患表單", systemImage: "stethoscope") {
                 MWPatientTab()
             }
-            Tab("AI 助手", systemImage: "brain.head.profile") {
-                MWAIChatTab()
+            Tab("替代伺服器", systemImage: "server.rack") {
+                MWBackupServerTab(vm: vm)
             }
             Tab("照片報告", systemImage: "camera.fill") {
                 MWPhotoTab()
