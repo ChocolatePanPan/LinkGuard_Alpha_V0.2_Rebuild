@@ -28,23 +28,15 @@ struct PersonnelAssignmentView: View {
                 }
                 .padding(.bottom)
             }
-            .navigationTitle(L("人員指派"))
-            #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.visible, for: .navigationBar)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        editingAssignment = nil
-                        showAssignSheet = true
-                    } label: {
-                        Image(systemName: "plus.circle.fill")
-                            .font(.title2)
-                    }
-                }
-            }
-            #endif
             .contentMargins(.top, 0, for: .scrollContent)
+            .manualTopBar44(
+                title: L("人員指派"),
+                trailingSystemImage: "plus.circle.fill",
+                onTrailingTap: {
+                    editingAssignment = nil
+                    showAssignSheet = true
+                }
+            )
             .sheet(isPresented: $showAssignSheet) {
                 AssignPersonnelSheet(vm: vm, editing: $editingAssignment)
             }

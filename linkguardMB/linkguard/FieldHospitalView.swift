@@ -116,9 +116,7 @@ struct FieldHospitalView: View {
                 }
                 .listStyle(.plain)
             }
-            .navigationTitle(L("後送醫院（\(FieldHospitalDirectory.all.count) 家）"))
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.visible, for: .navigationBar)
+            .manualTopBar44(title: L("後送醫院（\(FieldHospitalDirectory.all.count) 家）"))
             .onChange(of: query) { q in
                 debounceTask?.cancel()
                 debounceTask = Just(q)

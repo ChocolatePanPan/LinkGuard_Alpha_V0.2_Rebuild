@@ -102,12 +102,8 @@ struct TranslatorView: View {
                 }
                 .padding()
             }
-            .navigationTitle(L("翻譯"))
-            #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.visible, for: .navigationBar)
-            #endif
             .contentMargins(.top, 0, for: .scrollContent)
+            .manualTopBar44(title: L("翻譯"))
         }
         .onChange(of: vm.latestTranslation?.translated) { _, _ in
             isTranslating = false

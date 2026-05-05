@@ -1053,17 +1053,6 @@ struct VictimListView: View {
                     Label(L("已回報傷患（表單填寫）"), systemImage: "heart.text.square")
                 }
             }
-            .navigationTitle(L("受困者列表"))
-            #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.visible, for: .navigationBar)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Text("\(vm.victims.count + vm.localPatients.count)")
-                        .font(.subheadline.bold())
-                }
-            }
-            #endif
             .contentMargins(.top, 0, for: .scrollContent)
         } detail: {
             switch selection {
@@ -1083,6 +1072,10 @@ struct VictimListView: View {
                 placeholder
             }
         }
+        .manualTopBar44(
+            title: L("受困者列表"),
+            trailingText: "\(vm.victims.count + vm.localPatients.count)"
+        )
     }
 
     private var placeholder: some View {
@@ -1871,10 +1864,7 @@ struct ConnectionView: View {
                     .pickerStyle(.segmented)
                 }
             }
-            .navigationTitle(L("設定"))
             #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer()
@@ -1885,6 +1875,7 @@ struct ConnectionView: View {
             }
             #endif
             .contentMargins(.top, 0, for: .scrollContent)
+            .manualTopBar44(title: L("設定"))
             .onAppear {
                 deptInput = vm.nodeStatus.deptCode
                 pairInput = vm.nodeStatus.pairCode
@@ -2145,21 +2136,14 @@ struct ReinforcementListView: View {
                     }
                 }
             }
-            .navigationTitle(L("增援請求"))
-            #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.visible, for: .navigationBar)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        showCompose = true
-                    } label: {
-                        Image(systemName: "plus")
-                    }
-                }
-            }
-            #endif
             .contentMargins(.top, 0, for: .scrollContent)
+            .manualTopBar44(
+                title: L("增援請求"),
+                trailingSystemImage: "plus",
+                onTrailingTap: {
+                    showCompose = true
+                }
+            )
             .sheet(isPresented: $showCompose) {
                 NavigationStack {
                     Form {
@@ -2302,12 +2286,8 @@ struct TeamListView: View {
                     }
                 }
             }
-            .navigationTitle(L("分隊通訊群組"))
-            #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.visible, for: .navigationBar)
-            #endif
             .contentMargins(.top, 0, for: .scrollContent)
+            .manualTopBar44(title: L("分隊通訊群組"))
         }
     }
 }
