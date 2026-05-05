@@ -8,48 +8,34 @@ struct MilkyWayCommandCenterView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
+            ZStack {
+                LinearGradient(
+                    colors: [
+                        MWTheme.bg,
+                        MWTheme.surface.opacity(0.72),
+                        MWTheme.bg
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .ignoresSafeArea()
 
-                    // ── 狀態 Header ──
-                    HStack(spacing: 14) {
-                        Image(systemName: "sparkles")
-                            .font(.title2.bold())
-                            .foregroundStyle(MWTheme.green)
-                            .frame(width: 52, height: 52)
-                            .background(MWTheme.green.opacity(0.14), in: RoundedRectangle(cornerRadius: 10))
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(vm.operationName)
-                                .font(.title3.bold())
-                                .lineLimit(1)
-                            Text("二級指揮（可接管替代伺服器 / 無 AI）")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            HStack(spacing: 8) {
-                                Circle()
-                                    .fill(vm.commandNetworkEnabled ? MWTheme.green : MWTheme.amber)
-                                    .frame(width: 8, height: 8)
-                                Text(vm.commandNetworkEnabled ? "本機指揮網運作中" : "離線作戰模式")
-                                    .font(.caption.bold())
-                                    .foregroundStyle(vm.commandNetworkEnabled ? MWTheme.green : MWTheme.amber)
-                            }
-                            Text(vm.localNodeName)
-                                .font(.caption.monospaced())
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        VStack(alignment: .trailing, spacing: 6) {
-                            Text(vm.countdownText)
-                                .font(.title2.bold().monospacedDigit())
-                                .foregroundStyle(vm.activeCountdownEnd == nil ? .secondary : MWTheme.amber)
-                            Text("倒數")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .padding(16)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(MWTheme.surface.opacity(0.78), in: RoundedRectangle(cornerRadius: 12))
+                Circle()
+                    .fill(MWTheme.cyan.opacity(0.14))
+                    .frame(width: 280, height: 280)
+                    .blur(radius: 50)
+                    .offset(x: 170, y: -250)
+
+                Circle()
+                    .fill(MWTheme.violet.opacity(0.10))
+                    .frame(width: 260, height: 260)
+                    .blur(radius: 45)
+                    .offset(x: -180, y: 290)
+
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        CommandTierBanner(vm: vm)
+                        BridgeHeader(vm: vm)
 
                     // ── Metric 卡片（4 個，自適應）──
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 12)], spacing: 12) {
@@ -139,9 +125,16 @@ struct MilkyWayCommandCenterView: View {
                                     .padding(.vertical, 10)
                                     .contentShape(Rectangle())
                                 }
-                                .buttonStyle(.borderedProminent)
-                                .tint(selectedRoute == route ? MWTheme.green : MWTheme.surface)
-                                .buttonBorderShape(.capsule)
+                                .buttonStyle(.plain)
+                                .foregroundStyle(selectedRoute == route ? MWTheme.textOnColor : .secondary)
+                                .background(
+                                    Capsule()
+                                        .fill(selectedRoute == route ? MWTheme.green : MWTheme.elevated.opacity(0.85))
+                                )
+                                .overlay(
+                                    Capsule()
+                                        .strokeBorder(MWTheme.cyan.opacity(selectedRoute == route ? 0.0 : 0.24), lineWidth: 1)
+                                )
                             }
                         }
                         .padding(.horizontal, 2)
@@ -160,10 +153,94 @@ struct MilkyWayCommandCenterView: View {
                 }
                 .padding(16)
             }
-            .background(MWTheme.bg.ignoresSafeArea())
-            .navigationTitle("Milky Way 指揮中心")
+            }
+            .navigationTitle("Milky Way 戰情橋")
             .navigationBarTitleDisplayMode(.inline)
         }
+    }
+}
+
+private struct CommandTierBanner: View {
+    @ObservedObject var vm: MilkyWayCommandViewModel
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Label("SECONDARY COMMAND NODE", systemImage: "shield.lefthalf.filled")
+                .font(.caption.bold())
+                .foregroundStyle(MWTheme.textOnColor)
+            Spacer()
+            StatusChip(
+                title: vm.failoverState.title,
+                icon: "arrow.triangle.2.circlepath.circle.fill",
+                color: vm.failoverState.color
+            )
+            StatusChip(title: "AI OFF", icon: "brain.slash", color: MWTheme.cyan)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(
+                    LinearGradient(
+                        colors: [MWTheme.green.opacity(0.85), MWTheme.cyan.opacity(0.7)],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+        )
+    }
+}
+
+private struct BridgeHeader: View {
+    @ObservedObject var vm: MilkyWayCommandViewModel
+
+    var body: some View {
+        HStack(spacing: 16) {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 10) {
+                    Image(systemName: "command")
+                        .font(.title2.bold())
+                        .foregroundStyle(MWTheme.cyan)
+                        .frame(width: 42, height: 42)
+                        .background(MWTheme.cyan.opacity(0.15), in: RoundedRectangle(cornerRadius: 10))
+                    Text(vm.operationName)
+                        .font(.title3.bold())
+                        .lineLimit(1)
+                }
+                Text("二級指揮節點：可接管替代伺服器、維持任務派送與通訊同步")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                HStack(spacing: 8) {
+                    Circle()
+                        .fill(vm.commandNetworkEnabled ? MWTheme.green : MWTheme.amber)
+                        .frame(width: 8, height: 8)
+                    Text(vm.commandNetworkEnabled ? "本機指揮網運作中" : "離線作戰模式")
+                        .font(.caption.bold())
+                        .foregroundStyle(vm.commandNetworkEnabled ? MWTheme.green : MWTheme.amber)
+                    Text(vm.localNodeName)
+                        .font(.caption.monospaced())
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Spacer(minLength: 12)
+
+            VStack(alignment: .trailing, spacing: 6) {
+                Text(vm.countdownText)
+                    .font(.system(size: 30, weight: .bold, design: .rounded).monospacedDigit())
+                    .foregroundStyle(vm.activeCountdownEnd == nil ? .secondary : MWTheme.amber)
+                Text("TACTICAL TIMER")
+                    .font(.caption2.bold())
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(MWTheme.surface.opacity(0.85), in: RoundedRectangle(cornerRadius: 14))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .strokeBorder(MWTheme.cyan.opacity(0.2), lineWidth: 1)
+        )
     }
 }
 
@@ -481,7 +558,11 @@ private struct MetricTile: View {
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .frame(height: 126)
-        .background(MWTheme.surface.opacity(0.78), in: RoundedRectangle(cornerRadius: 8))
+        .background(MWTheme.surface.opacity(0.86), in: RoundedRectangle(cornerRadius: 12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .strokeBorder(metric.color.opacity(0.28), lineWidth: 1)
+        )
     }
 }
 
@@ -500,7 +581,11 @@ private struct MWPanelModifier: ViewModifier {
         content
             .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(MWTheme.surface.opacity(0.76), in: RoundedRectangle(cornerRadius: 8))
+            .background(MWTheme.surface.opacity(0.82), in: RoundedRectangle(cornerRadius: 12))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .strokeBorder(MWTheme.cyan.opacity(0.16), lineWidth: 1)
+            )
     }
 }
 
