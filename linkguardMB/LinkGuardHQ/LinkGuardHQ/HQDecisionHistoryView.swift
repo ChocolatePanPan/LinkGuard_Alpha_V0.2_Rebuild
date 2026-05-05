@@ -19,20 +19,44 @@ private struct DecisionRow: Identifiable, Decodable {
     let confidence: Double?
     let device_id: String?
     let raw_json: String?
+    let voice_text: String?
+    let patients_summary: String?
+    let weather_summary: String?
+    let decision_text: String?
+    let trigger_type: String?
 
     enum CodingKeys: String, CodingKey {
         case id, timestamp, msg_type, summary, confidence, device_id, raw_json
+        case voice_text, patients_summary, weather_summary, decision_text, trigger_type
+    }
+
+    var displayType: String? {
+        firstNonEmpty(msg_type, trigger_type)
+    }
+
+    var displaySummary: String {
+        firstNonEmpty(summary, decision_text, voice_text, patients_summary, raw_json) ?? "—"
+    }
+
+    var searchableText: String {
+        [displaySummary, displayType, device_id, voice_text, patients_summary, weather_summary]
+            .compactMap { $0?.lowercased() }
+            .joined(separator: " ")
+    }
+
+    private func firstNonEmpty(_ values: String?...) -> String? {
+        values.compactMap { value in
+            let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed?.isEmpty == false ? trimmed : nil
+        }.first
     }
 }
 
 private struct DecisionsResponse: Decodable {
+    let status: String?
+    let timestamp: String?
     let decisions: [DecisionRow]
     let total: Int
-}
-
-private struct ApiEnvelope<T: Decodable>: Decodable {
-    let ok: Bool
-    let data: T?
 }
 
 struct HQDecisionHistoryView: View {
@@ -116,7 +140,7 @@ struct HQDecisionHistoryView: View {
                 Text(r.timestamp)
                     .font(.caption.monospaced())
                     .foregroundColor(.secondary)
-                if let t = r.msg_type, !t.isEmpty {
+                if let t = r.displayType, !t.isEmpty {
                     Text(t)
                         .font(.caption.bold())
                         .padding(.horizontal, 6).padding(.vertical, 2)
@@ -134,7 +158,7 @@ struct HQDecisionHistoryView: View {
                         .foregroundColor(c >= 0.8 ? NV.green : (c >= 0.5 ? .yellow : NV.danger))
                 }
             }
-            Text(r.summary ?? "—")
+            Text(r.displaySummary)
                 .font(.body)
                 .foregroundColor(.white.opacity(0.9))
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -154,9 +178,7 @@ struct HQDecisionHistoryView: View {
         let q = search.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard !q.isEmpty else { return rows }
         return rows.filter { r in
-            (r.summary?.lowercased().contains(q) ?? false)
-                || (r.msg_type?.lowercased().contains(q) ?? false)
-                || (r.device_id?.lowercased().contains(q) ?? false)
+            r.searchableText.contains(q)
         }
     }
 
@@ -185,9 +207,9 @@ struct HQDecisionHistoryView: View {
                       (200..<300).contains(http.statusCode) else {
                     throw URLError(.badServerResponse)
                 }
-                let env = try JSONDecoder().decode(ApiEnvelope<DecisionsResponse>.self, from: data)
+                let response = try JSONDecoder().decode(DecisionsResponse.self, from: data)
                 await MainActor.run {
-                    rows = env.data?.decisions ?? []
+                    rows = response.decisions
                     isLoading = false
                 }
             } catch {

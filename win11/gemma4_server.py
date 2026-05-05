@@ -2576,6 +2576,17 @@ def get_history():
     return api_ok({"history": rows})
 
 
+@app.get("/decisions")
+def list_decisions(limit: int = 50):
+    """Return AI decision history for LinkGuardHQ Decision History."""
+    try:
+        limit = max(1, min(int(limit), 500))
+    except (TypeError, ValueError):
+        limit = 50
+    rows = linkguard_db.get_recent_decisions(limit)
+    return api_ok({"decisions": rows, "total": len(rows)})
+
+
 @app.delete("/history")
 def clear_history():
     conn = linkguard_db._get_conn()
