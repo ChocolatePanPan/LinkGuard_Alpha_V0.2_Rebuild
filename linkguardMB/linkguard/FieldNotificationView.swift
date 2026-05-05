@@ -8,39 +8,21 @@ struct FieldNotificationView: View {
     var body: some View {
         NavigationStack {
             List {
-                // 訊息紀錄（發送 & 接收）
-                if !vm.chatMessages.isEmpty {
-                    Section(header: Label(L("訊息紀錄"), systemImage: "message.fill")) {
-                        ForEach(Array(vm.chatMessages.suffix(50).reversed())) { msg in
-                            let isSent = msg.senderID == vm.nodeStatus.nodeID
-                            HStack(spacing: 10) {
-                                Image(systemName: isSent ? "arrow.up.circle.fill" : "arrow.down.circle.fill")
-                                    .foregroundColor(isSent ? NV.command : NV.info)
-                                    .font(.title3)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    HStack {
-                                        Text(msg.senderName)
-                                            .font(.caption).bold()
-                                            .foregroundColor(isSent ? NV.command : .primary)
-                                        Spacer()
-                                        Text(tsText(msg.timestamp))
-                                            .font(.caption2).foregroundColor(.secondary)
-                                    }
-                                    Text(msg.content)
-                                        .font(.subheadline)
-                                        .lineLimit(2)
-                                }
-                            }
+                // ── 統一活動記錄（主要）──
+                Section(header: Label(L("所有通知"), systemImage: "list.bullet.rectangle.fill")) {
+                    if vm.activityLog.isEmpty {
+                        Text(L("暫無記錄"))
+                            .font(.caption).foregroundColor(.secondary)
+                    } else {
+                        ForEach(vm.activityLog) { entry in
+                            activityRow(entry)
                         }
                     }
                 }
 
-                // 個人通知
-                Section(header: Label(L("個人通知"), systemImage: "bell.fill")) {
-                    if vm.personalNotifications.isEmpty {
-                        Text(L("無通知"))
-                            .font(.caption).foregroundColor(.secondary)
-                    } else {
+                // 個人通知（詳細）
+                if !vm.personalNotifications.isEmpty {
+                    Section(header: Label(L("個人通知"), systemImage: "bell.fill")) {
                         ForEach(vm.personalNotifications) { notif in
                             HStack(spacing: 10) {
                                 Image(systemName: notif.isRead ? "bell" : "bell.badge.fill")
@@ -228,6 +210,46 @@ struct FieldNotificationView: View {
             .toolbarBackground(.visible, for: .navigationBar)
             #endif
             .contentMargins(.top, 0, for: .scrollContent)
+        }
+    }
+
+    @ViewBuilder
+    private func activityRow(_ entry: ActivityLogEntry) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: entry.kind.icon)
+                .foregroundColor(kindColor(entry.kind))
+                .font(.title3)
+                .frame(width: 28)
+            VStack(alignment: .leading, spacing: 2) {
+                HStack {
+                    Text(entry.title)
+                        .font(.subheadline).bold()
+                        .lineLimit(1)
+                    Spacer()
+                    Text(entry.timeText)
+                        .font(.caption2).foregroundColor(.secondary)
+                }
+                if !entry.detail.isEmpty {
+                    Text(entry.detail)
+                        .font(.caption).foregroundColor(.secondary)
+                        .lineLimit(2)
+                }
+            }
+        }
+    }
+
+    private func kindColor(_ kind: ActivityKind) -> Color {
+        switch kind {
+        case .sentMessage:          return NV.command
+        case .receivedMessage:      return NV.info
+        case .personalNotification: return NV.info
+        case .hqDecision:           return NV.command
+        case .pwsAlert:             return NV.danger
+        case .briefing:             return NV.info
+        case .broadcast:            return NV.command
+        case .sos:                  return NV.danger
+        case .reinforcement:        return NV.warning
+        case .hazard:               return NV.danger
         }
     }
 

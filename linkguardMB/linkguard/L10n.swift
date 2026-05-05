@@ -359,6 +359,8 @@ final class L10n: ObservableObject {
         "無效回應": "Invalid Response",
         "無通知": "No Notifications",
         "訊息紀錄": "Message Log",
+        "所有通知": "All Notifications",
+        "暫無記錄": "No Records Yet",
         "照片": "Photos",
         "照片/影片回報": "Photo/Video Report",
         "照片/影片說明": "Photo/Video Description",

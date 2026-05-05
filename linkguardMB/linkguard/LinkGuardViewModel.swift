@@ -139,6 +139,9 @@ class LinkGuardViewModel: ObservableObject {
     @Published var personalNotifications: [PersonalNotification] = []
     @Published var unreadNotificationCount: Int = 0
 
+    // 統一活動記錄（通知頁使用）
+    @Published var activityLog: [ActivityLogEntry] = []
+
     // 快速狀態回報
     @Published var quickStatuses: [QuickStatus] = []
 
@@ -422,6 +425,10 @@ class LinkGuardViewModel: ObservableObject {
                     // 自動送出已讀回條（非自己發送的訊息）
                     if chat.senderID != self.nodeStatus.nodeID {
                         self.commandClient.sendChatReadReceipt(messageIds: [chat.id])
+                        self.appendActivity(kind: .receivedMessage,
+                                            title: chat.senderName,
+                                            detail: chat.content,
+                                            timestamp: Date(timeIntervalSince1970: chat.timestamp))
                     }
                 }
             }
@@ -452,6 +459,7 @@ class LinkGuardViewModel: ObservableObject {
                 if alert.isActive && self.pastStartupGrace {
                     NotificationManager.shared.sendPWSAlertNotification(alert: alert)
                 }
+                self.appendActivity(kind: .pwsAlert, title: alert.title, detail: alert.content)
             }
         }
         commandClient.onBriefing = { [weak self] briefing in
@@ -459,6 +467,7 @@ class LinkGuardViewModel: ObservableObject {
                 guard let self else { return }
                 self.briefings.insert(briefing, at: 0)
                 if self.briefings.count > 50 { self.briefings = Array(self.briefings.prefix(50)) }
+                self.appendActivity(kind: .briefing, title: briefing.title, detail: "by \(briefing.author)")
             }
         }
         commandClient.onEscalationTrigger = { [weak self] json in
@@ -475,6 +484,7 @@ class LinkGuardViewModel: ObservableObject {
                 if self.pastStartupGrace {
                     NotificationManager.shared.sendPersonalNotification(notification)
                 }
+                self.appendActivity(kind: .personalNotification, title: notification.title, detail: notification.content)
             }
         }
         commandClient.onQuickStatus = { [weak self] qs in
@@ -516,6 +526,7 @@ class LinkGuardViewModel: ObservableObject {
                 if !self.hazardReports.contains(where: { $0.id == hazard.id }) {
                     self.hazardReports.insert(hazard, at: 0)
                     if self.hazardReports.count > 100 { self.hazardReports = Array(self.hazardReports.prefix(100)) }
+                    self.appendActivity(kind: .hazard, title: L("危險標記"), detail: hazard.description)
                 }
             }
         }
@@ -525,6 +536,7 @@ class LinkGuardViewModel: ObservableObject {
                 if !self.reinforcementRequests.contains(where: { $0.id == request.id }) {
                     self.reinforcementRequests.insert(request, at: 0)
                     if self.reinforcementRequests.count > 50 { self.reinforcementRequests = Array(self.reinforcementRequests.prefix(50)) }
+                    self.appendActivity(kind: .reinforcement, title: "\(L("增援請求")): \(request.fromTeam)", detail: request.message)
                     self.handleIncomingReinforcement(from: request.fromTeam, message: request.message, location: request.location)
                 }
             }
@@ -549,6 +561,9 @@ class LinkGuardViewModel: ObservableObject {
                     if self.decisions.count > 100 {
                         self.decisions = Array(self.decisions.prefix(100))
                     }
+                    // 只為新決策記錄活動（更新不重複記錄）
+                    let summary = String(decision.decision.prefix(60))
+                    self.appendActivity(kind: .hqDecision, title: L("HQ 決策"), detail: summary)
                 }
                 // 啟動靜默期內只記錄不推播
                 guard self.pastStartupGrace == true else { return }
@@ -636,6 +651,7 @@ class LinkGuardViewModel: ObservableObject {
                     self.urgentBroadcast = broadcast
                     NotificationManager.shared.sendUrgentBroadcastNotification(broadcast: broadcast)
                 }
+                self.appendActivity(kind: .broadcast, title: "\(senderName) \(L("廣播"))", detail: message)
                 // 自動回覆已讀回條
                 self.commandClient.sendMessageAck(messageId: broadcastId, messageType: "text_broadcast")
             }
@@ -682,6 +698,7 @@ class LinkGuardViewModel: ObservableObject {
                 )
                 self.sosRecords.insert(record, at: 0)
                 if self.sosRecords.count > 100 { self.sosRecords = Array(self.sosRecords.prefix(100)) }
+                self.appendActivity(kind: .sos, title: "SOS: \(senderName)", detail: message.isEmpty ? locationDescription : message)
                 // 啟動靜默期內只記錄不彈警報，避免歷史同步灌爆
                 guard self.pastStartupGrace else { return }
                 // 建立臨時 VictimNode 觸發全螢幕 SOS 覆蓋
@@ -1724,6 +1741,7 @@ class LinkGuardViewModel: ObservableObject {
         chatMessages.append(chat)
         commandClient.sendChatMessage(chat)
         chatDraft = ""
+        appendActivity(kind: .sentMessage, title: "\(nodeStatus.deptCode)-\(nodeStatus.nodeID)", detail: content)
     }
 
     /// 解析訊息中的 @ 提及，對比 personnelAssignments / teamMembers 後回傳對應 id 列表
@@ -1766,6 +1784,14 @@ class LinkGuardViewModel: ObservableObject {
             personalNotifications[idx].isRead = true
             unreadNotificationCount = personalNotifications.filter { !$0.isRead }.count
         }
+    }
+
+    // MARK: - 統一活動記錄
+
+    func appendActivity(kind: ActivityKind, title: String, detail: String, timestamp: Date = Date()) {
+        let entry = ActivityLogEntry(kind: kind, title: title, detail: detail, timestamp: timestamp)
+        activityLog.insert(entry, at: 0)
+        if activityLog.count > 300 { activityLog = Array(activityLog.prefix(300)) }
     }
 
     // MARK: - 快速狀態回報

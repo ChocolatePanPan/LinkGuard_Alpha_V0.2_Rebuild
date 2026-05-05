@@ -25,6 +25,54 @@ enum LGDateFormat {
     }()
 }
 
+// MARK: - 統一活動記錄
+
+enum ActivityKind: String, Codable {
+    case sentMessage, receivedMessage
+    case personalNotification
+    case hqDecision
+    case pwsAlert
+    case briefing
+    case broadcast
+    case sos
+    case reinforcement
+    case hazard
+
+    var icon: String {
+        switch self {
+        case .sentMessage:          return "arrow.up.circle.fill"
+        case .receivedMessage:      return "arrow.down.circle.fill"
+        case .personalNotification: return "bell.fill"
+        case .hqDecision:           return "checkmark.seal.fill"
+        case .pwsAlert:             return "exclamationmark.triangle.fill"
+        case .briefing:             return "doc.text.fill"
+        case .broadcast:            return "megaphone.fill"
+        case .sos:                  return "sos.circle.fill"
+        case .reinforcement:        return "person.badge.plus"
+        case .hazard:               return "exclamationmark.octagon.fill"
+        }
+    }
+
+    var defaultColor: String { "info" }
+}
+
+struct ActivityLogEntry: Identifiable {
+    let id: String
+    var kind: ActivityKind
+    var title: String
+    var detail: String
+    var timestamp: Date
+
+    init(id: String = UUID().uuidString, kind: ActivityKind, title: String, detail: String, timestamp: Date = Date()) {
+        self.id = id; self.kind = kind; self.title = title; self.detail = detail; self.timestamp = timestamp
+    }
+
+    var timeText: String {
+        let fmt = Calendar.current.isDateInToday(timestamp) ? LGDateFormat.hm : LGDateFormat.mdHmShort
+        return fmt.string(from: timestamp)
+    }
+}
+
 // MARK: - 災害狀態模型
 
 enum CollapseType: String, Codable, CaseIterable {
