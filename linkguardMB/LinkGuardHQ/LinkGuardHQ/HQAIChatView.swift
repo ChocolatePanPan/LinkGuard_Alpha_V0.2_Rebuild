@@ -303,6 +303,9 @@ struct HQAIChatView: View {
         let history = messages.dropLast().suffix(12).map { ["role": $0.role, "content": $0.content] }
         Task {
             do {
+                #if os(macOS)
+                try await vm.prepareAIChatBackendIfNeeded()
+                #endif
                 let result = try await postChat(host: host, message: text, history: Array(history))
                 await MainActor.run {
                     messages.append(result)

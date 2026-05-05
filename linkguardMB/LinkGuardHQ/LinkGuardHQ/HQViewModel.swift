@@ -550,33 +550,35 @@ class HQViewModel: ObservableObject {
             object: nil,
             queue: .main
         ) { [weak self] notification in
-            guard let self,
-                  let userInfo = notification.userInfo,
+            guard let userInfo = notification.userInfo,
                   let text = userInfo["text"] as? String,
                   let deviceID = userInfo["device_id"] as? String else { return }
-            let report = HQRadioReport(
-                senderName: deviceID,
-                transcription: text,
-                locationDesc: "",
-                reportId: UUID().uuidString,
-                patientsCount: 0,
-                weatherSnapshot: "",
-                sourceType: .live
-            )
-            self.radioReports.insert(report, at: 0)
-            let wLocalIP = self.speechServer.getLocalIP()
-            let wAudioUrl = "http://\(wLocalIP):8003/audio/\(report.reportId)"
-            self.server.broadcastReportSummary(RadioReportSummary(
-                reportId: report.reportId,
-                senderName: deviceID,
-                transcription: text,
-                timestamp: Date().timeIntervalSince1970,
-                locationDesc: "",
-                patientsCount: 0,
-                audioUrl: wAudioUrl
-            ))
-            self.logEvent(type: .briefing, title: "Whisper 轉錄：\(deviceID)",
-                          detail: String(text.prefix(50)) + "...")
+            Task { @MainActor [weak self, text, deviceID] in
+                guard let self else { return }
+                let report = HQRadioReport(
+                    senderName: deviceID,
+                    transcription: text,
+                    locationDesc: "",
+                    reportId: UUID().uuidString,
+                    patientsCount: 0,
+                    weatherSnapshot: "",
+                    sourceType: .live
+                )
+                self.radioReports.insert(report, at: 0)
+                let wLocalIP = self.speechServer.getLocalIP()
+                let wAudioUrl = "http://\(wLocalIP):8003/audio/\(report.reportId)"
+                self.server.broadcastReportSummary(RadioReportSummary(
+                    reportId: report.reportId,
+                    senderName: deviceID,
+                    transcription: text,
+                    timestamp: Date().timeIntervalSince1970,
+                    locationDesc: "",
+                    patientsCount: 0,
+                    audioUrl: wAudioUrl
+                ))
+                self.logEvent(type: .briefing, title: "Whisper 轉錄：\(deviceID)",
+                              detail: String(text.prefix(50)) + "...")
+            }
         }
 
         // UDP activeBroadcaster 已透過上方 merge(with:) 合併，不需重複綁定
@@ -948,6 +950,24 @@ class HQViewModel: ObservableObject {
         ensureMacLocalBackend()
         guard hqRole == .server, backendMode == .embedded else { return }
         backendSupervisor.startAIServiceIfNeeded()
+    }
+
+    func prepareAIChatBackendIfNeeded(timeout: TimeInterval = 60) async throws {
+        guard hqRole == .server, backendMode == .embedded else { return }
+        ensureMacLocalAIService()
+
+        if backendSupervisor.isAIServicePaused {
+            let reason = backendSupervisor.aiServicePauseReason ?? "AI服務暫停"
+            throw NSError(domain: "HQAIChat", code: 10,
+                          userInfo: [NSLocalizedDescriptionKey: reason])
+        }
+
+        let aiReady = await backendSupervisor.waitForHealthy(BackendServiceSpec.aiServiceID, timeout: timeout)
+        guard aiReady else {
+            let detail = backendSupervisor.services.first { $0.id == BackendServiceSpec.aiServiceID }?.lastError
+            throw NSError(domain: "HQAIChat", code: 11,
+                          userInfo: [NSLocalizedDescriptionKey: detail ?? "Gemma4 AI 尚未就緒，請在後端服務頁確認 Gemma4 AI 已啟動"])
+        }
     }
     #endif
 
