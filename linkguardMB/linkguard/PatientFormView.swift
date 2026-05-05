@@ -305,7 +305,6 @@ struct PatientFormView: View {
                     .disabled(!isFormValid)
                 }
             }
-        }
         .navigationTitle(L("傷員回報"))
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
@@ -338,7 +337,6 @@ struct PatientFormView: View {
                 }
             }
         }
-    }
 
     // MARK: - 語音轉錄
 

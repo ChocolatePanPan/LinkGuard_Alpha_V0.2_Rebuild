@@ -1472,15 +1472,15 @@ final class FieldAIChatManager: ObservableObject {
             guard let httpResp = response as? HTTPURLResponse, httpResp.statusCode == 200 else {
                 return ChatResult(reply: "", escalateDetected: false, consensusFired: false)
             }
-            guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let dataDict = json["data"] as? [String: Any],
-                  let reply = dataDict["reply"] as? String else {
+            guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
                 return ChatResult(reply: "", escalateDetected: false, consensusFired: false)
             }
+            let payload = responsePayload(from: json)
+            let reply = payload["reply"] as? String ?? ""
 
             var escalateDetected = false
             var consensusFired = false
-            if let esc = dataDict["escalation"] as? [String: Any] {
+            if let esc = payload["escalation"] as? [String: Any] {
                 escalateDetected = (esc["detected"] as? Bool) ?? false
                 consensusFired = (esc["consensus_fired"] as? Bool) ?? false
             }
@@ -1531,19 +1531,19 @@ final class FieldAIChatManager: ObservableObject {
 
                 guard let (data, response) = try? await URLSession.shared.data(for: request),
                       let httpResp = response as? HTTPURLResponse, httpResp.statusCode == 200,
-                      let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                      let dataDict = json["data"] as? [String: Any],
-                      let status = dataDict["status"] as? String else {
+                      let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
                     continue
                 }
+                let payload = responsePayload(from: json)
+                guard let status = payload["status"] as? String else { continue }
 
                 activeEscalation?.status = status
-                if let pos = dataDict["queue_position"] as? Int {
+                if let pos = payload["queue_position"] as? Int {
                     activeEscalation?.queuePosition = pos
                 }
 
                 if status == "done" {
-                    let finalDecision = dataDict["final_decision"] as? String ?? ""
+                    let finalDecision = payload["final_decision"] as? String ?? ""
                     activeEscalation?.finalDecision = finalDecision
                     let msg = AIChatMessage(
                         role: "assistant",
@@ -1557,7 +1557,7 @@ final class FieldAIChatManager: ObservableObject {
                     activeEscalation = nil
                     return
                 } else if status == "failed" {
-                    let errDetail = dataDict["error"] as? String ?? L("未知錯誤")
+                    let errDetail = payload["error"] as? String ?? L("未知錯誤")
                     let msg = AIChatMessage(
                         role: "system",
                         content: L("主模型處理失敗：%@，將使用現場 AI 的判斷", errDetail),
@@ -1593,5 +1593,9 @@ final class FieldAIChatManager: ObservableObject {
             h = String(h.dropFirst(7))
         }
         return h
+    }
+
+    private func responsePayload(from json: [String: Any]) -> [String: Any] {
+        (json["data"] as? [String: Any]) ?? json
     }
 }
