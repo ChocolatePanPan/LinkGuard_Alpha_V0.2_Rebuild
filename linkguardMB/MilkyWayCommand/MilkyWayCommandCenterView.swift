@@ -32,127 +32,65 @@ struct MilkyWayCommandCenterView: View {
                     .blur(radius: 45)
                     .offset(x: -180, y: 290)
 
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
+                VStack(spacing: 0) {
+                    // ── 頂部固定區：Banner + BridgeHeader + Route Chips ──
+                    VStack(alignment: .leading, spacing: 12) {
                         CommandTierBanner(vm: vm)
                         BridgeHeader(vm: vm)
 
-                    // ── Metric 卡片（4 個，自適應）──
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 12)], spacing: 12) {
-                        ForEach(vm.metrics) { metric in
-                            MetricTile(metric: metric)
-                        }
-                    }
-
-                    // ── 快速命令 ──
-                    VStack(alignment: .leading, spacing: 12) {
-                        SectionHeader(title: "快速命令", icon: "bolt.fill")
-                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                            ForEach(MWCommandPreset.allCases) { preset in
-                                Button {
-                                    vm.issue(preset)
-                                } label: {
-                                    VStack(spacing: 8) {
-                                        Image(systemName: preset.icon)
-                                            .font(.title2.bold())
-                                        Text(preset.title)
-                                            .font(.subheadline.bold())
-                                            .lineLimit(1)
-                                            .minimumScaleFactor(0.8)
+                        // ── 面板選擇器（觸控 Chip，固定不滾動） ──
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 8) {
+                                ForEach(MilkyWayRoute.allCases) { route in
+                                    Button {
+                                        selectedRoute = route
+                                    } label: {
+                                        HStack(spacing: 6) {
+                                            Image(systemName: route.icon)
+                                            Text(route.title)
+                                                .font(.subheadline.bold())
+                                        }
+                                        .padding(.horizontal, 14)
+                                        .padding(.vertical, 10)
+                                        .contentShape(Rectangle())
                                     }
-                                    .frame(maxWidth: .infinity)
-                                    .frame(height: 88)
-                                    .contentShape(Rectangle())
+                                    .buttonStyle(.plain)
+                                    .foregroundStyle(selectedRoute == route ? MWTheme.textOnColor : .secondary)
+                                    .background(
+                                        Capsule()
+                                            .fill(selectedRoute == route ? MWTheme.green : MWTheme.elevated.opacity(0.85))
+                                    )
+                                    .overlay(
+                                        Capsule()
+                                            .strokeBorder(MWTheme.cyan.opacity(selectedRoute == route ? 0.0 : 0.24), lineWidth: 1)
+                                    )
                                 }
-                                .buttonStyle(.borderedProminent)
-                                .buttonBorderShape(.roundedRectangle(radius: 10))
-                                .tint(preset.color)
                             }
+                            .padding(.horizontal, 2)
                         }
                     }
-                    .mwPanel()
+                    .padding(16)
+                    .background(MWTheme.bg.opacity(0.96))
 
-                    // ── 倒數管制 ──
-                    VStack(alignment: .leading, spacing: 12) {
-                        SectionHeader(title: "倒數管制", icon: "timer")
-                        HStack(spacing: 10) {
-                            CountdownButton(title: "3 分鐘") { vm.startCountdown(minutes: 3) }
-                            CountdownButton(title: "5 分鐘") { vm.startCountdown(minutes: 5) }
-                            CountdownButton(title: "10 分鐘") { vm.startCountdown(minutes: 10) }
-                        }
-                        if vm.activeCountdownEnd != nil {
-                            Button(role: .destructive) {
-                                vm.cancelCountdown()
-                            } label: {
-                                Label("取消倒數", systemImage: "xmark.circle.fill")
-                                    .frame(maxWidth: .infinity)
-                                    .frame(height: 44)
-                                    .contentShape(Rectangle())
-                            }
-                            .buttonStyle(.bordered)
-                        }
-                        Button {
-                            vm.toggleNetwork()
-                        } label: {
-                            Label(
-                                vm.commandNetworkEnabled ? "關閉指揮網" : "開啟指揮網",
-                                systemImage: vm.commandNetworkEnabled
-                                    ? "antenna.radiowaves.left.and.right.slash"
-                                    : "antenna.radiowaves.left.and.right"
-                            )
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 48)
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(vm.commandNetworkEnabled ? MWTheme.amber : MWTheme.green)
-                    }
-                    .mwPanel()
+                    Divider()
+                        .overlay(MWTheme.cyan.opacity(0.14))
 
-                    // ── 面板選擇器（觸控 Chip） ──
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
-                            ForEach(MilkyWayRoute.allCases) { route in
-                                Button {
-                                    selectedRoute = route
-                                } label: {
-                                    HStack(spacing: 6) {
-                                        Image(systemName: route.icon)
-                                        Text(route.title)
-                                            .font(.subheadline.bold())
-                                    }
-                                    .padding(.horizontal, 14)
-                                    .padding(.vertical, 10)
-                                    .contentShape(Rectangle())
-                                }
-                                .buttonStyle(.plain)
-                                .foregroundStyle(selectedRoute == route ? MWTheme.textOnColor : .secondary)
-                                .background(
-                                    Capsule()
-                                        .fill(selectedRoute == route ? MWTheme.green : MWTheme.elevated.opacity(0.85))
-                                )
-                                .overlay(
-                                    Capsule()
-                                        .strokeBorder(MWTheme.cyan.opacity(selectedRoute == route ? 0.0 : 0.24), lineWidth: 1)
-                                )
+                    // ── 可捲動動態面板 ──
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 16) {
+                            switch selectedRoute {
+                            case .overview:   OverviewPanel(vm: vm)
+                            case .incidents:  IncidentPanel(vm: vm)
+                            case .teams:      TeamPanel(vm: vm)
+                            case .tasks:      TaskPanel(vm: vm)
+                            case .comms:      LogPanel(vm: vm)
+                            case .resources:  ResourcePanel(vm: vm)
+                            case .settings:   SettingsPanel(vm: vm)
                             }
                         }
-                        .padding(.horizontal, 2)
-                    }
-
-                    // ── 動態面板 ──
-                    switch selectedRoute {
-                    case .overview:   OverviewPanel(vm: vm)
-                    case .incidents:  IncidentPanel(vm: vm)
-                    case .teams:      TeamPanel(vm: vm)
-                    case .tasks:      TaskPanel(vm: vm)
-                    case .comms:      LogPanel(vm: vm)
-                    case .resources:  ResourcePanel(vm: vm)
-                    case .settings:   SettingsPanel(vm: vm)
+                        .padding(16)
                     }
                 }
-                .padding(16)
-            }
             }
             .navigationTitle("Milky Way 戰情橋")
             .navigationBarTitleDisplayMode(.inline)
@@ -249,12 +187,79 @@ private struct OverviewPanel: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
+            // ── Metric 卡片 ──
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 156), spacing: 12)], spacing: 12) {
                 ForEach(vm.metrics) { metric in
                     MetricTile(metric: metric)
                 }
             }
 
+            // ── 快速命令 ──
+            VStack(alignment: .leading, spacing: 12) {
+                SectionHeader(title: "快速命令", icon: "bolt.fill")
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                    ForEach(MWCommandPreset.allCases) { preset in
+                        Button {
+                            vm.issue(preset)
+                        } label: {
+                            VStack(spacing: 8) {
+                                Image(systemName: preset.icon)
+                                    .font(.title2.bold())
+                                Text(preset.title)
+                                    .font(.subheadline.bold())
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.8)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 88)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .buttonBorderShape(.roundedRectangle(radius: 10))
+                        .tint(preset.color)
+                    }
+                }
+            }
+            .mwPanel()
+
+            // ── 倒數管制 ──
+            VStack(alignment: .leading, spacing: 12) {
+                SectionHeader(title: "倒數管制", icon: "timer")
+                HStack(spacing: 10) {
+                    CountdownButton(title: "3 分鐘") { vm.startCountdown(minutes: 3) }
+                    CountdownButton(title: "5 分鐘") { vm.startCountdown(minutes: 5) }
+                    CountdownButton(title: "10 分鐘") { vm.startCountdown(minutes: 10) }
+                }
+                if vm.activeCountdownEnd != nil {
+                    Button(role: .destructive) {
+                        vm.cancelCountdown()
+                    } label: {
+                        Label("取消倒數", systemImage: "xmark.circle.fill")
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 44)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.bordered)
+                }
+                Button {
+                    vm.toggleNetwork()
+                } label: {
+                    Label(
+                        vm.commandNetworkEnabled ? "關閉指揮網" : "開啟指揮網",
+                        systemImage: vm.commandNetworkEnabled
+                            ? "antenna.radiowaves.left.and.right.slash"
+                            : "antenna.radiowaves.left.and.right"
+                    )
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 48)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(vm.commandNetworkEnabled ? MWTheme.amber : MWTheme.green)
+            }
+            .mwPanel()
+
+            // ── 態勢摘要（左右分欄）──
             HStack(alignment: .top, spacing: 16) {
                 IncidentPanel(vm: vm, compact: true)
                     .frame(maxWidth: .infinity)
