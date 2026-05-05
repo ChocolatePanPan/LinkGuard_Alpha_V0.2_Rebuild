@@ -6,9 +6,7 @@ struct MilkyWayCommandApp: App {
 
     var body: some Scene {
         WindowGroup {
-            MilkyWayCommandCenterView(vm: viewModel)
-                .preferredColorScheme(.dark)
-                .tint(MWTheme.green)
+            MilkyWayRootTabView(vm: viewModel)
         }
     }
 }
