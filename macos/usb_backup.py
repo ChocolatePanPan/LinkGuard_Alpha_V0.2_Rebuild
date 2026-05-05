@@ -326,6 +326,18 @@ def deploy_replay(usb_path: str):
         else:
             print(f"[USB] 警告: {src_server} 不存在，跳過 server.py 部署")
 
+        # 複製 macOS 啟動器（.command 雙擊即可跑）
+        src_cmd = os.path.join(REPLAY_DIR, "start_replay.command")
+        if os.path.exists(src_cmd):
+            dst_cmd = os.path.join(usb_replay, "start_replay.command")
+            shutil.copy2(src_cmd, dst_cmd)
+            try:
+                import stat
+                os.chmod(dst_cmd, os.stat(dst_cmd).st_mode | stat.S_IXUSR | stat.S_IXGRP)
+            except OSError:
+                pass
+            print(f"[USB] 已部署 start_replay.command 到 {usb_replay}")
+
         # 寫入 requirements.txt（讓使用者在任意機器上可 pip install）
         req_path = os.path.join(usb_replay, "requirements.txt")
         with open(req_path, "w", encoding="utf-8", newline="\n") as f:
