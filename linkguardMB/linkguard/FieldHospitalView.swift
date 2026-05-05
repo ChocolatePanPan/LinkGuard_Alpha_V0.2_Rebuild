@@ -73,6 +73,7 @@ private let allCitiesByRegion: [FieldHospital.Region?: [String]] = {
 
 struct FieldHospitalView: View {
     @StateObject private var locator = FieldCityLocator()
+    @EnvironmentObject private var l10n: L10n
 
     // 篩選狀態
     @State private var query = ""
@@ -90,33 +91,34 @@ struct FieldHospitalView: View {
 
     var body: some View {
         NavigationStack {
-            List {
-                ForEach(filteredGroups, id: \.region) { group in
-                    Section {
-                        ForEach(group.items) { h in
-                            HospitalRow(h: h)
-                        }
-                    } header: {
-                        HStack(spacing: 4) {
-                            Image(systemName: "mappin.and.ellipse")
-                            Text("\(group.region.rawValue)（\(group.items.count) 家）")
-                        }
-                    }
-                }
-                if filteredGroups.isEmpty {
-                    Section {
-                        Label("沒有符合的醫院", systemImage: "magnifyingglass")
-                            .foregroundColor(.secondary)
-                    }
-                }
-            }
-            .listStyle(.plain)
-            .navigationTitle("後送醫院（\(FieldHospitalDirectory.all.count) 家）")
-            .navigationBarTitleDisplayMode(.inline)
-            // 篩選控制列固定在頂部（不隨 List 滾動）
-            .safeAreaInset(edge: .top, spacing: 0) {
+            VStack(spacing: 0) {
                 filterHeader
+                Divider()
+                List {
+                    ForEach(filteredGroups, id: \.region) { group in
+                        Section {
+                            ForEach(group.items) { h in
+                                HospitalRow(h: h)
+                            }
+                        } header: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "mappin.and.ellipse")
+                                Text("\(group.region.rawValue)（\(group.items.count) 家）")
+                            }
+                        }
+                    }
+                    if filteredGroups.isEmpty {
+                        Section {
+                            Label(L("沒有符合的醫院"), systemImage: "magnifyingglass")
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
+                .listStyle(.plain)
             }
+            .navigationTitle(L("後送醫院（\(FieldHospitalDirectory.all.count) 家）"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.visible, for: .navigationBar)
             .onChange(of: query) { q in
                 debounceTask?.cancel()
                 debounceTask = Just(q)
@@ -128,6 +130,7 @@ struct FieldHospitalView: View {
             }
             .onChange(of: selectedRegion) { _ in
                 availableCities = allCitiesByRegion[selectedRegion] ?? []
+                if let sel = selectedCity, !availableCities.contains(sel) { selectedCity = nil }
                 recompute()
             }
             .onChange(of: selectedCity) { _ in recompute() }
@@ -136,6 +139,7 @@ struct FieldHospitalView: View {
                 guard let city else { return }
                 selectedCity = city
                 selectedRegion = nil
+                availableCities = allCitiesByRegion[nil] ?? []
             }
         }
     }
