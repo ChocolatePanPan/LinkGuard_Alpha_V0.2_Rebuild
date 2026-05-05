@@ -57,17 +57,20 @@ struct ContentView: View {
                             VictimListView(vm: viewModel)
                                 .navigationTitle(L("受困者列表"))
                                 .navigationBarTitleDisplayMode(.inline)
+                                .toolbarBackground(.visible, for: .navigationBar)
                         }
                         Tab(L("增援"), systemImage: "person.badge.plus", value: AppTab.reinforcement) {
                             ReinforcementListView(vm: viewModel)
                                 .navigationTitle(L("增援請求"))
                                 .navigationBarTitleDisplayMode(.inline)
+                                .toolbarBackground(.visible, for: .navigationBar)
                         }
                         .badge(viewModel.pendingReinforcementCount)
                         Tab(L("團隊"), systemImage: "person.3.sequence.fill", value: AppTab.team) {
                             TeamListView(vm: viewModel)
                                 .navigationTitle(L("分隊通訊群組"))
                                 .navigationBarTitleDisplayMode(.inline)
+                                .toolbarBackground(.visible, for: .navigationBar)
                         }
                         Tab(L("人員指派"), systemImage: "person.badge.key.fill", value: AppTab.personnelAssignment) {
                             PersonnelAssignmentView(vm: viewModel)
