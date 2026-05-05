@@ -1840,7 +1840,6 @@ struct ConnectionView: View {
             .pickerStyle(.segmented)
                 }
             }
-        }
         .navigationTitle(L("設定"))
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)

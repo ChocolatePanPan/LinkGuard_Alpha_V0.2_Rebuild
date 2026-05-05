@@ -90,11 +90,10 @@ struct FieldHospitalView: View {
     @State private var debounceTask: AnyCancellable? = nil
 
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                filterHeader
-                Divider()
-                List {
+        VStack(spacing: 0) {
+            filterHeader
+            Divider()
+            List {
                     ForEach(filteredGroups, id: \.region) { group in
                         Section {
                             ForEach(group.items) { h in
@@ -115,9 +114,13 @@ struct FieldHospitalView: View {
                     }
                 }
                 .listStyle(.plain)
-            }
-            .manualTopBar44(title: L("後送醫院（\(FieldHospitalDirectory.all.count) 家）"))
-            .onChange(of: query) { q in
+        }
+        .navigationTitle(L("後送醫院（\(FieldHospitalDirectory.all.count) 家）"))
+        #if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.visible, for: .navigationBar)
+        #endif
+        .onChange(of: query) { q in
                 debounceTask?.cancel()
                 debounceTask = Just(q)
                     .delay(for: .milliseconds(250), scheduler: RunLoop.main)
@@ -139,7 +142,6 @@ struct FieldHospitalView: View {
                 selectedRegion = nil
                 availableCities = allCitiesByRegion[nil] ?? []
             }
-        }
     }
 
     // MARK: - 篩選 header

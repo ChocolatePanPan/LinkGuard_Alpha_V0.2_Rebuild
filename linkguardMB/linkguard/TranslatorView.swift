@@ -49,12 +49,11 @@ struct TranslatorView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: 16) {
-                    if vm.isAIServicePaused {
-                        AIServicePausedBanner(message: vm.aiServicePauseMessage)
-                    }
+        ScrollView {
+            VStack(spacing: 16) {
+                if vm.isAIServicePaused {
+                    AIServicePausedBanner(message: vm.aiServicePauseMessage)
+                }
 
                     // 連線狀態提示
                     if !vm.isWiFiCommandMode {
@@ -103,8 +102,11 @@ struct TranslatorView: View {
                 .padding()
             }
             .contentMargins(.top, 0, for: .scrollContent)
-            .manualTopBar44(title: L("翻譯"))
-        }
+        .navigationTitle(L("翻譯"))
+        #if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.visible, for: .navigationBar)
+        #endif
         .onChange(of: vm.latestTranslation?.translated) { _, _ in
             isTranslating = false
         }

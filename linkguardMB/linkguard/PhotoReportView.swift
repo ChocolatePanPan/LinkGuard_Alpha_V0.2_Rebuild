@@ -38,12 +38,11 @@ struct PhotoReportView: View {
     private var isUploadDisabled: Bool { (selectedImage == nil && selectedVideoURL == nil) || isUploading }
 
     var body: some View {
-        NavigationStack {
-            Group {
-                if isCompactLandscape {
-                    landscapeContent
-                } else {
-                    Form {
+        Group {
+            if isCompactLandscape {
+                landscapeContent
+            } else {
+                Form {
                         // 預覽
                         Section {
                             if isVideo, let thumb = videoThumbnail {
@@ -133,22 +132,24 @@ struct PhotoReportView: View {
                         }
                     }
                 }
-            }
-            #if os(iOS)
-            .toolbar {
-                ToolbarItemGroup(placement: .keyboard) {
-                    Spacer()
-                    Button(L("完成")) {
-                        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-                    }
+        }
+        .navigationTitle(L("照片/影片回報"))
+        #if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.visible, for: .navigationBar)
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button(L("完成")) {
+                    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
                 }
             }
-            #endif
-            .contentMargins(.top, 0, for: .scrollContent)
-            .manualTopBar44(title: L("照片/影片回報"))
-            .safeAreaInset(edge: .bottom) {
-                uploadBar
-            }
+        }
+        #endif
+        .contentMargins(.top, 0, for: .scrollContent)
+        .safeAreaInset(edge: .bottom) {
+            uploadBar
+        }
             .fullScreenCover(isPresented: $showCamera, onDismiss: {
                 requestCameraInterfaceOrientations(.allButUpsideDown)
             }) {
@@ -188,7 +189,6 @@ struct PhotoReportView: View {
             } message: {
                 Text(alertMessage)
             }
-        }
     }
 
     private var landscapeContent: some View {
