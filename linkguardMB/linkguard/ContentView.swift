@@ -55,42 +55,57 @@ struct ContentView: View {
                     TabSection(L("其他")) {
                         Tab(L("受困者"), systemImage: "person.fill.questionmark", value: AppTab.victims) {
                             VictimListView(vm: viewModel)
+                                .navigationTitle(L("受困者列表"))
                                 .navigationBarTitleDisplayMode(.inline)
                         }
                         Tab(L("增援"), systemImage: "person.badge.plus", value: AppTab.reinforcement) {
                             ReinforcementListView(vm: viewModel)
+                                .navigationTitle(L("增援請求"))
                                 .navigationBarTitleDisplayMode(.inline)
                         }
                         .badge(viewModel.pendingReinforcementCount)
                         Tab(L("團隊"), systemImage: "person.3.sequence.fill", value: AppTab.team) {
                             TeamListView(vm: viewModel)
+                                .navigationTitle(L("分隊通訊群組"))
                                 .navigationBarTitleDisplayMode(.inline)
                         }
                         Tab(L("人員指派"), systemImage: "person.badge.key.fill", value: AppTab.personnelAssignment) {
                             PersonnelAssignmentView(vm: viewModel)
+                                .navigationTitle(L("人員指派"))
                                 .navigationBarTitleDisplayMode(.inline)
+                                .toolbarBackground(.visible, for: .navigationBar)
                         }
                         Tab(L("傷員回報"), systemImage: "heart.text.square", value: AppTab.patientForm) {
                             PatientFormView(vm: viewModel)
+                                .navigationTitle(L("傷員回報"))
                                 .navigationBarTitleDisplayMode(.inline)
+                                .toolbarBackground(.visible, for: .navigationBar)
                         }
                         Tab(L("翻譯"), systemImage: "globe", value: AppTab.translator) {
                             TranslatorView(vm: viewModel)
+                                .navigationTitle(L("翻譯"))
                                 .navigationBarTitleDisplayMode(.inline)
+                                .toolbarBackground(.visible, for: .navigationBar)
                         }
                         Tab(L("後送醫院"), systemImage: "cross.fill", value: AppTab.hospitals) {
                             FieldHospitalView()
+                                .navigationTitle(L("後送醫院"))
                                 .navigationBarTitleDisplayMode(.inline)
+                                .toolbarBackground(.visible, for: .navigationBar)
                         }
                     }
                     TabSection(navLabel("工具", en: "Tools")) {
                         Tab(L("照片"), systemImage: "photo.on.rectangle.angled", value: AppTab.photo) {
                             PhotoReportView(vm: viewModel)
+                                .navigationTitle(L("照片/影片回報"))
                                 .navigationBarTitleDisplayMode(.inline)
+                                .toolbarBackground(.visible, for: .navigationBar)
                         }
                         Tab(L("設定"), systemImage: "gearshape", value: AppTab.connection) {
                             ConnectionView(vm: viewModel)
+                                .navigationTitle(L("設定"))
                                 .navigationBarTitleDisplayMode(.inline)
+                                .toolbarBackground(.visible, for: .navigationBar)
                         }
                     }
             }
