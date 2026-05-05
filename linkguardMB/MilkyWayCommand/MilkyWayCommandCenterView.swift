@@ -1,226 +1,166 @@
 import SwiftUI
 
+// MARK: - 指揮中心主頁（TabView tab 用，觸控優化）
+
 struct MilkyWayCommandCenterView: View {
     @ObservedObject var vm: MilkyWayCommandViewModel
+    @State private var selectedRoute: MilkyWayRoute = .overview
 
     var body: some View {
-        NavigationSplitView {
-            MilkyWaySidebar(vm: vm)
-                .navigationSplitViewColumnWidth(min: 252, ideal: 292, max: 320)
-        } content: {
-            MilkyWayControlColumn(vm: vm)
-                .navigationSplitViewColumnWidth(min: 306, ideal: 352, max: 390)
-        } detail: {
-            MilkyWayDetailSurface(vm: vm)
-        }
-        .navigationSplitViewStyle(.balanced)
-        .background(MWTheme.bg.ignoresSafeArea())
-    }
-}
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
 
-private struct MilkyWaySidebar: View {
-    @ObservedObject var vm: MilkyWayCommandViewModel
-
-    var body: some View {
-        List {
-            Section {
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack(spacing: 10) {
+                    // ── 狀態 Header ──
+                    HStack(spacing: 14) {
                         Image(systemName: "sparkles")
                             .font(.title2.bold())
                             .foregroundStyle(MWTheme.green)
-                            .frame(width: 44, height: 44)
-                            .background(MWTheme.green.opacity(0.14), in: RoundedRectangle(cornerRadius: 8))
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text("Milky Way")
+                            .frame(width: 52, height: 52)
+                            .background(MWTheme.green.opacity(0.14), in: RoundedRectangle(cornerRadius: 10))
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(vm.operationName)
                                 .font(.title3.bold())
-                            Text("獨立 iPad 指揮中心")
-                                .font(.caption.weight(.semibold))
+                                .lineLimit(1)
+                            HStack(spacing: 8) {
+                                Circle()
+                                    .fill(vm.commandNetworkEnabled ? MWTheme.green : MWTheme.amber)
+                                    .frame(width: 8, height: 8)
+                                Text(vm.commandNetworkEnabled ? "本機指揮網運作中" : "離線作戰模式")
+                                    .font(.caption.bold())
+                                    .foregroundStyle(vm.commandNetworkEnabled ? MWTheme.green : MWTheme.amber)
+                            }
+                            Text(vm.localNodeName)
+                                .font(.caption.monospaced())
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        VStack(alignment: .trailing, spacing: 6) {
+                            Text(vm.countdownText)
+                                .font(.title2.bold().monospacedDigit())
+                                .foregroundStyle(vm.activeCountdownEnd == nil ? .secondary : MWTheme.amber)
+                            Text("倒數")
+                                .font(.caption2)
                                 .foregroundStyle(.secondary)
                         }
                     }
+                    .padding(16)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(MWTheme.surface.opacity(0.78), in: RoundedRectangle(cornerRadius: 12))
 
-                    HStack(spacing: 8) {
-                        Circle()
-                            .fill(vm.commandNetworkEnabled ? MWTheme.green : MWTheme.amber)
-                            .frame(width: 8, height: 8)
-                        Text(vm.commandNetworkEnabled ? "本機指揮網運作中" : "離線作戰模式")
-                            .font(.caption.bold())
-                            .foregroundStyle(vm.commandNetworkEnabled ? MWTheme.green : MWTheme.amber)
-                    }
-
-                    Text(vm.localNodeName)
-                        .font(.caption.monospaced())
-                        .foregroundStyle(.secondary)
-                }
-                .padding(12)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(MWTheme.surface.opacity(0.78), in: RoundedRectangle(cornerRadius: 8))
-                .listRowInsets(EdgeInsets(top: 14, leading: 14, bottom: 14, trailing: 14))
-            }
-
-            Section("作戰面板") {
-                ForEach(MilkyWayRoute.allCases) { route in
-                    Button {
-                        vm.selectedRoute = route
-                    } label: {
-                        HStack(spacing: 10) {
-                            Image(systemName: route.icon)
-                                .frame(width: 22)
-                                .foregroundStyle(vm.selectedRoute == route ? MWTheme.green : .secondary)
-                            Text(route.title)
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(vm.selectedRoute == route ? .primary : .secondary)
-                            Spacer()
+                    // ── Metric 卡片（4 個，自適應）──
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 12)], spacing: 12) {
+                        ForEach(vm.metrics) { metric in
+                            MetricTile(metric: metric)
                         }
-                        .frame(minHeight: 34)
                     }
-                    .buttonStyle(.plain)
-                    .listRowBackground(vm.selectedRoute == route ? MWTheme.green.opacity(0.14) : Color.clear)
-                }
-            }
-        }
-        .listStyle(.sidebar)
-        .scrollContentBackground(.hidden)
-        .background(MWTheme.bg.ignoresSafeArea())
-    }
-}
 
-private struct MilkyWayControlColumn: View {
-    @ObservedObject var vm: MilkyWayCommandViewModel
-
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("作戰控制")
-                        .font(.title2.bold())
-                    ControlStatusLine(title: "中樞模式", value: "獨立", color: MWTheme.green)
-                    ControlStatusLine(title: "節點", value: vm.localNodeName, color: MWTheme.cyan)
-                    ControlStatusLine(title: "資料來源", value: "本機作戰資料", color: MWTheme.violet)
-                    Button {
-                        vm.toggleNetwork()
-                    } label: {
-                        Label(vm.commandNetworkEnabled ? "關閉指揮網" : "開啟指揮網", systemImage: vm.commandNetworkEnabled ? "antenna.radiowaves.left.and.right.slash" : "antenna.radiowaves.left.and.right")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(vm.commandNetworkEnabled ? MWTheme.amber : MWTheme.green)
-                }
-                .mwPanel()
-
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("快速命令")
-                        .font(.headline)
-                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-                        ForEach(MWCommandPreset.allCases) { preset in
-                            Button {
-                                vm.issue(preset)
-                            } label: {
-                                VStack(spacing: 8) {
-                                    Image(systemName: preset.icon)
-                                        .font(.title3.bold())
-                                    Text(preset.title)
-                                        .font(.caption.bold())
-                                        .lineLimit(1)
-                                        .minimumScaleFactor(0.75)
+                    // ── 快速命令 ──
+                    VStack(alignment: .leading, spacing: 12) {
+                        SectionHeader(title: "快速命令", icon: "bolt.fill")
+                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                            ForEach(MWCommandPreset.allCases) { preset in
+                                Button {
+                                    vm.issue(preset)
+                                } label: {
+                                    VStack(spacing: 8) {
+                                        Image(systemName: preset.icon)
+                                            .font(.title2.bold())
+                                        Text(preset.title)
+                                            .font(.subheadline.bold())
+                                            .lineLimit(1)
+                                            .minimumScaleFactor(0.8)
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 88)
+                                    .contentShape(Rectangle())
                                 }
-                                .frame(maxWidth: .infinity)
-                                .frame(height: preset == .evacuate ? 86 : 76)
+                                .buttonStyle(.borderedProminent)
+                                .buttonBorderShape(.roundedRectangle(radius: 10))
+                                .tint(preset.color)
                             }
-                            .buttonStyle(.borderedProminent)
-                            .buttonBorderShape(.roundedRectangle(radius: 8))
-                            .tint(preset.color)
                         }
                     }
-                }
-                .mwPanel()
+                    .mwPanel()
 
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack {
-                        Text("倒數管制")
-                            .font(.headline)
-                        Spacer()
-                        Text(vm.countdownText)
-                            .font(.headline.monospacedDigit())
-                            .foregroundStyle(vm.activeCountdownEnd == nil ? .secondary : MWTheme.amber)
-                    }
-                    HStack(spacing: 8) {
-                        CountdownButton(title: "3m") { vm.startCountdown(minutes: 3) }
-                        CountdownButton(title: "5m") { vm.startCountdown(minutes: 5) }
-                        CountdownButton(title: "10m") { vm.startCountdown(minutes: 10) }
-                    }
-                    if vm.activeCountdownEnd != nil {
-                        Button(role: .destructive) {
-                            vm.cancelCountdown()
+                    // ── 倒數管制 ──
+                    VStack(alignment: .leading, spacing: 12) {
+                        SectionHeader(title: "倒數管制", icon: "timer")
+                        HStack(spacing: 10) {
+                            CountdownButton(title: "3 分鐘") { vm.startCountdown(minutes: 3) }
+                            CountdownButton(title: "5 分鐘") { vm.startCountdown(minutes: 5) }
+                            CountdownButton(title: "10 分鐘") { vm.startCountdown(minutes: 10) }
+                        }
+                        if vm.activeCountdownEnd != nil {
+                            Button(role: .destructive) {
+                                vm.cancelCountdown()
+                            } label: {
+                                Label("取消倒數", systemImage: "xmark.circle.fill")
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 44)
+                                    .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                        Button {
+                            vm.toggleNetwork()
                         } label: {
-                            Label("取消倒數", systemImage: "xmark.circle.fill")
-                                .frame(maxWidth: .infinity)
+                            Label(
+                                vm.commandNetworkEnabled ? "關閉指揮網" : "開啟指揮網",
+                                systemImage: vm.commandNetworkEnabled
+                                    ? "antenna.radiowaves.left.and.right.slash"
+                                    : "antenna.radiowaves.left.and.right"
+                            )
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 48)
+                            .contentShape(Rectangle())
                         }
-                        .buttonStyle(.bordered)
+                        .buttonStyle(.borderedProminent)
+                        .tint(vm.commandNetworkEnabled ? MWTheme.amber : MWTheme.green)
+                    }
+                    .mwPanel()
+
+                    // ── 面板選擇器（觸控 Chip） ──
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(MilkyWayRoute.allCases) { route in
+                                Button {
+                                    selectedRoute = route
+                                } label: {
+                                    HStack(spacing: 6) {
+                                        Image(systemName: route.icon)
+                                        Text(route.title)
+                                            .font(.subheadline.bold())
+                                    }
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 10)
+                                    .contentShape(Rectangle())
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .tint(selectedRoute == route ? MWTheme.green : MWTheme.surface)
+                                .buttonBorderShape(.capsule)
+                            }
+                        }
+                        .padding(.horizontal, 2)
+                    }
+
+                    // ── 動態面板 ──
+                    switch selectedRoute {
+                    case .overview:   OverviewPanel(vm: vm)
+                    case .incidents:  IncidentPanel(vm: vm)
+                    case .teams:      TeamPanel(vm: vm)
+                    case .tasks:      TaskPanel(vm: vm)
+                    case .comms:      LogPanel(vm: vm)
+                    case .resources:  ResourcePanel(vm: vm)
+                    case .settings:   SettingsPanel(vm: vm)
                     }
                 }
-                .mwPanel()
-
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("即時訊號")
-                        .font(.headline)
-                    SignalRow(title: "危急事件", value: "\(vm.incidents.filter { $0.severity == .critical || $0.severity == .urgent }.count)", icon: "exclamationmark.triangle.fill", color: MWTheme.red)
-                    SignalRow(title: "隊伍在線", value: "\(vm.teams.count)", icon: "person.3.fill", color: MWTheme.cyan)
-                    SignalRow(title: "待辦任務", value: "\(vm.tasks.filter { $0.progress < 1 }.count)", icon: "checklist", color: MWTheme.amber)
-                }
-                .mwPanel()
+                .padding(16)
             }
-            .padding(16)
+            .background(MWTheme.bg.ignoresSafeArea())
+            .navigationTitle("Milky Way 指揮中心")
+            .navigationBarTitleDisplayMode(.inline)
         }
-        .background(MWTheme.bg.ignoresSafeArea())
-    }
-}
-
-private struct MilkyWayDetailSurface: View {
-    @ObservedObject var vm: MilkyWayCommandViewModel
-
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                HStack(alignment: .center, spacing: 12) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(vm.operationName)
-                            .font(.system(size: 34, weight: .bold, design: .rounded))
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.78)
-                        Text("為 iPad 打造的獨立作戰中樞")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    StatusChip(title: vm.commandNetworkEnabled ? "指揮網" : "離線", icon: vm.commandNetworkEnabled ? "wifi" : "wifi.slash", color: vm.commandNetworkEnabled ? MWTheme.green : MWTheme.amber)
-                    StatusChip(title: "非 Mac HQ", icon: "ipad", color: MWTheme.cyan)
-                }
-                .mwPanel()
-
-                switch vm.selectedRoute {
-                case .overview:
-                    OverviewPanel(vm: vm)
-                case .incidents:
-                    IncidentPanel(vm: vm)
-                case .teams:
-                    TeamPanel(vm: vm)
-                case .tasks:
-                    TaskPanel(vm: vm)
-                case .comms:
-                    LogPanel(vm: vm)
-                case .resources:
-                    ResourcePanel(vm: vm)
-                case .settings:
-                    SettingsPanel(vm: vm)
-                }
-            }
-            .padding(20)
-        }
-        .background(MWTheme.bg.ignoresSafeArea())
-        .navigationTitle("Milky Way")
-        .navigationBarTitleDisplayMode(.inline)
     }
 }
 

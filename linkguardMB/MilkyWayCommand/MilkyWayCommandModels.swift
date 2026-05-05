@@ -13,6 +13,12 @@ enum MWTheme {
     static let textOnColor = Color(red: 0.02, green: 0.028, blue: 0.035)
 }
 
+// 觸控最小尺寸（HIG: ≥44pt）
+enum MWTouch {
+    static let minH: CGFloat = 52    // 可點擊元素最小高度
+    static let cardH: CGFloat = 88   // 主要卡片高度
+}
+
 enum MilkyWayRoute: String, CaseIterable, Identifiable, Hashable {
     case overview
     case incidents
