@@ -7,8 +7,18 @@ final class MilkyWayCommandViewModel: ObservableObject {
     @Published var selectedRoute: MilkyWayRoute = .overview
     @Published var commandNetworkEnabled = true
     @Published var localNodeName = "MW-iPad-01"
-    @Published var operationName = "Milky Way 指揮中心"
+    @Published var operationName = "Milky Way 二級指揮節點"
     @Published var activeCountdownEnd: Date?
+    @Published var failoverState: MWFailoverState = .standby
+    @Published var upstreamServer = "Mac HQ 127.0.0.1:9001"
+    @Published var standbyEndpoint = "MW iPad 10.0.0.45:9001"
+    @Published var lastHeartbeatAt = Date()
+    @Published var managedServices = [
+        "TCP Aggregator :9000",
+        "Resource API :8006",
+        "Photo API :8004",
+        "MQTT Bridge :1883"
+    ]
     @Published var incidents: [MWIncident]
     @Published var teams: [MWTeamUnit]
     @Published var tasks: [MWTaskItem]
@@ -35,8 +45,8 @@ final class MilkyWayCommandViewModel: ObservableObject {
             MWTaskItem(title: "Alpha 搜索區回報", owner: "Alpha", due: "3 分鐘", progress: 0.72, severity: .urgent)
         ]
         logs = [
-            MWLogEntry(title: "獨立中樞啟動", detail: "本機 iPad 指揮中心已就緒。", time: Date().addingTimeInterval(-60), color: MWTheme.green),
-            MWLogEntry(title: "任務同步", detail: "載入本機作戰資料，不連接 Mac HQ。", time: Date().addingTimeInterval(-50), color: MWTheme.cyan)
+            MWLogEntry(title: "二級指揮節點啟動", detail: "本機 iPad 指揮中心已就緒（不含 AI）。", time: Date().addingTimeInterval(-60), color: MWTheme.green),
+            MWLogEntry(title: "熱備援待命", detail: "持續監看主伺服器，可即時切換替代服務。", time: Date().addingTimeInterval(-50), color: MWTheme.cyan)
         ]
         resources = [
             MWResourceItem(name: "氧氣瓶", amount: "6 支", location: "醫療區", condition: .urgent),
@@ -55,8 +65,13 @@ final class MilkyWayCommandViewModel: ObservableObject {
             MWMetric(title: "危急事件", value: "\(incidents.filter { $0.severity == .critical || $0.severity == .urgent }.count)", icon: "exclamationmark.triangle.fill", color: MWTheme.red),
             MWMetric(title: "作戰隊伍", value: "\(teams.count)", icon: "person.3.fill", color: MWTheme.cyan),
             MWMetric(title: "待辦任務", value: "\(tasks.filter { $0.progress < 1 }.count)", icon: "checklist", color: MWTheme.amber),
-            MWMetric(title: "資源品項", value: "\(resources.count)", icon: "shippingbox.fill", color: MWTheme.violet)
+            MWMetric(title: "備援狀態", value: failoverState.title, icon: "arrow.triangle.2.circlepath.circle.fill", color: failoverState.color)
         ]
+    }
+
+    var heartbeatText: String {
+        let sec = max(0, Int(Date().timeIntervalSince(lastHeartbeatAt)))
+        return "\(sec)s 前"
     }
 
     var countdownText: String {
@@ -103,6 +118,44 @@ final class MilkyWayCommandViewModel: ObservableObject {
             detail: commandNetworkEnabled ? "本機中樞接受周邊節點連線。" : "本機中樞改為離線作戰。",
             time: Date(),
             color: commandNetworkEnabled ? MWTheme.green : MWTheme.amber
+        ), at: 0)
+    }
+
+    func recordHeartbeat() {
+        lastHeartbeatAt = Date()
+    }
+
+    func activateBackupServer() {
+        guard failoverState != .active else { return }
+        failoverState = .takingOver
+        logs.insert(MWLogEntry(
+            title: "替代伺服器接管中",
+            detail: "開始切換核心服務到本機節點。",
+            time: Date(),
+            color: MWTheme.amber
+        ), at: 0)
+
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
+            self.failoverState = .active
+            self.recordHeartbeat()
+            self.logs.insert(MWLogEntry(
+                title: "替代伺服器已接管",
+                detail: "本機節點接手服務，持續維持通訊與任務派送。",
+                time: Date(),
+                color: MWTheme.green
+            ), at: 0)
+        }
+    }
+
+    func returnToStandby() {
+        failoverState = .standby
+        recordHeartbeat()
+        logs.insert(MWLogEntry(
+            title: "返回熱備援待命",
+            detail: "主伺服器可用，本機切回二級指揮節點。",
+            time: Date(),
+            color: MWTheme.cyan
         ), at: 0)
     }
 }
