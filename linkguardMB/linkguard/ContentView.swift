@@ -52,33 +52,42 @@ struct ContentView: View {
                     TabSection(L("其他")) {
                         Tab(L("受困者"), systemImage: "person.fill.questionmark", value: AppTab.victims) {
                             VictimListView(vm: viewModel)
+                                .navigationBarTitleDisplayMode(.inline)
                         }
                         Tab(L("增援"), systemImage: "person.badge.plus", value: AppTab.reinforcement) {
                             ReinforcementListView(vm: viewModel)
+                                .navigationBarTitleDisplayMode(.inline)
                         }
                         .badge(viewModel.pendingReinforcementCount)
                         Tab(L("團隊"), systemImage: "person.3.sequence.fill", value: AppTab.team) {
                             TeamListView(vm: viewModel)
+                                .navigationBarTitleDisplayMode(.inline)
                         }
                         Tab(L("人員指派"), systemImage: "person.badge.key.fill", value: AppTab.personnelAssignment) {
                             PersonnelAssignmentView(vm: viewModel)
+                                .navigationBarTitleDisplayMode(.inline)
                         }
                         Tab(L("傷員回報"), systemImage: "heart.text.square", value: AppTab.patientForm) {
                             PatientFormView(vm: viewModel)
+                                .navigationBarTitleDisplayMode(.inline)
                         }
                         Tab(L("翻譯"), systemImage: "globe", value: AppTab.translator) {
                             TranslatorView(vm: viewModel)
+                                .navigationBarTitleDisplayMode(.inline)
                         }
                         Tab(L("後送醫院"), systemImage: "cross.fill", value: AppTab.hospitals) {
                             FieldHospitalView()
+                                .navigationBarTitleDisplayMode(.inline)
                         }
                     }
                     TabSection(navLabel("工具", en: "Tools")) {
                         Tab(L("照片"), systemImage: "photo.on.rectangle.angled", value: AppTab.photo) {
                             PhotoReportView(vm: viewModel)
+                                .navigationBarTitleDisplayMode(.inline)
                         }
                         Tab(L("設定"), systemImage: "gearshape", value: AppTab.connection) {
                             ConnectionView(vm: viewModel)
+                                .navigationBarTitleDisplayMode(.inline)
                         }
                     }
             }
