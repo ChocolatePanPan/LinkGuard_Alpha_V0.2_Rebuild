@@ -36,31 +36,27 @@ struct DecisionView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            Group {
-                if timelineItems.isEmpty {
-                    emptyState
-                } else {
-                    timelineList
-                }
+        Group {
+            if timelineItems.isEmpty {
+                emptyState
+            } else {
+                timelineList
             }
-            .navigationTitle(L("指揮決策"))
-            #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.visible, for: .navigationBar)
-            .toolbar {
-                if vm.unreadCommandCount > 0 {
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        Button(L("全部已讀")) {
-                            vm.markAllCommandsAsRead()
-                        }
-                        .font(.subheadline)
-                    }
-                }
-            }
-            #endif
-            .contentMargins(.top, 0, for: .scrollContent)
         }
+        .outerNavigationTitle(L("指揮決策"))
+        #if os(iOS)
+        .toolbar {
+            if vm.unreadCommandCount > 0 {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(L("全部已讀")) {
+                        vm.markAllCommandsAsRead()
+                    }
+                    .font(.subheadline)
+                }
+            }
+        }
+        #endif
+        .contentMargins(.top, 0, for: .scrollContent)
         .onChange(of: vm.decisions.count) { oldCount, newCount in
             if newCount > oldCount { triggerHaptic() }
         }

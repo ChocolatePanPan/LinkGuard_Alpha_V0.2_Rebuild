@@ -27,7 +27,7 @@ struct PersonnelAssignmentView: View {
             }
             .padding(.bottom)
         }
-        .navigationTitle(L("人員指派"))
+        .outerNavigationTitle(L("人員指派"))
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.visible, for: .navigationBar)

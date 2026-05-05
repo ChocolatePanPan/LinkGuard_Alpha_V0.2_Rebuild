@@ -43,13 +43,22 @@ struct ContentView: View {
                     }
                     Tab(L("災情"), systemImage: "building.2", value: AppTab.disaster) {
                         FieldDisasterView(vm: viewModel)
+                            .navigationTitle(L("全區災情概況"))
+                            .navigationBarTitleDisplayMode(.inline)
+                            .toolbarBackground(.visible, for: .navigationBar)
                     }
                     Tab("SOS", systemImage: "sos.circle.fill", value: AppTab.sos) {
                         SOSRecordListView(vm: viewModel)
+                            .navigationTitle(L("SOS 警報"))
+                            .navigationBarTitleDisplayMode(.inline)
+                            .toolbarBackground(.visible, for: .navigationBar)
                     }
                     .badge(viewModel.unacknowledgedSOSCount)
                     Tab(navLabel("指揮命令", en: "Orders"), systemImage: "brain.head.profile", value: AppTab.decision) {
                         DecisionView(vm: viewModel)
+                            .navigationTitle(L("指揮決策"))
+                            .navigationBarTitleDisplayMode(.inline)
+                            .toolbarBackground(.visible, for: .navigationBar)
                     }
                     .badge(viewModel.decisions.count + viewModel.unreadCommandCount)
                     TabSection(L("其他")) {
@@ -1062,7 +1071,7 @@ struct VictimListView: View {
                 Label(L("已回報傷患（表單填寫）"), systemImage: "heart.text.square")
             }
         }
-        .navigationTitle(L("受困者列表"))
+        .outerNavigationTitle(L("受困者列表"))
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.visible, for: .navigationBar)
@@ -1349,30 +1358,24 @@ struct SOSRecordListView: View {
     @ObservedObject var vm: LinkGuardViewModel
 
     var body: some View {
-        NavigationStack {
-            List {
-                if vm.sosRecords.isEmpty {
-                    Section {
-                        Text(L("目前沒有 SOS 紀錄"))
-                            .foregroundColor(.secondary)
-                    }
-                } else {
-                    Section(header: Text(L("SOS 紀錄"))) {
-                        ForEach(vm.sosRecords) { record in
-                            SOSRecordRow(record: record) {
-                                vm.acknowledgeRecord(record)
-                            }
+        List {
+            if vm.sosRecords.isEmpty {
+                Section {
+                    Text(L("目前沒有 SOS 紀錄"))
+                        .foregroundColor(.secondary)
+                }
+            } else {
+                Section(header: Text(L("SOS 紀錄"))) {
+                    ForEach(vm.sosRecords) { record in
+                        SOSRecordRow(record: record) {
+                            vm.acknowledgeRecord(record)
                         }
                     }
                 }
             }
-            .navigationTitle(L("SOS 警報"))
-            #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.visible, for: .navigationBar)
-            #endif
-            .contentMargins(.top, 0, for: .scrollContent)
         }
+        .outerNavigationTitle(L("SOS 警報"))
+        .contentMargins(.top, 0, for: .scrollContent)
     }
 }
 
@@ -1447,50 +1450,46 @@ struct CommandListView: View {
     @ObservedObject var vm: LinkGuardViewModel
 
     var body: some View {
-        NavigationStack {
-            List {
-                if vm.commandOrders.isEmpty {
-                    Section {
-                        HStack {
-                            Spacer()
-                            VStack(spacing: 8) {
-                                Image(systemName: "megaphone")
-                                    .font(.title).foregroundColor(.secondary)
-                                Text(L("等待指揮中心命令..."))
-                                    .font(.subheadline).foregroundColor(.secondary)
-                            }
-                            Spacer()
+        List {
+            if vm.commandOrders.isEmpty {
+                Section {
+                    HStack {
+                        Spacer()
+                        VStack(spacing: 8) {
+                            Image(systemName: "megaphone")
+                                .font(.title).foregroundColor(.secondary)
+                            Text(L("等待指揮中心命令..."))
+                                .font(.subheadline).foregroundColor(.secondary)
                         }
-                        .padding()
+                        Spacer()
                     }
-                } else {
-                    Section(header: Text(L("指揮命令"))) {
-                        ForEach(vm.commandOrders) { order in
-                            CommandOrderRow(order: order) {
-                                vm.markCommandAsRead(order)
-                            }
+                    .padding()
+                }
+            } else {
+                Section(header: Text(L("指揮命令"))) {
+                    ForEach(vm.commandOrders) { order in
+                        CommandOrderRow(order: order) {
+                            vm.markCommandAsRead(order)
                         }
                     }
                 }
             }
-            .navigationTitle(L("指揮中心命令"))
-            #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.visible, for: .navigationBar)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(L("全部已讀")) {
-                        vm.markAllCommandsAsRead()
-                    }
-                    .font(.subheadline)
-                    .disabled(vm.unreadCommandCount == 0)
-                }
-            }
-            #endif
-            .contentMargins(.top, 0, for: .scrollContent)
         }
-    }
+        .outerNavigationTitle(L("指揮中心命令"))
+        #if os(iOS)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button(L("全部已讀")) {
+                    vm.markAllCommandsAsRead()
+                }
+                .font(.subheadline)
+                .disabled(vm.unreadCommandCount == 0)
+            }
+        }
+        #endif
+        .contentMargins(.top, 0, for: .scrollContent)
 }
+    }
 
 struct CommandOrderRow: View {
     let order: CommandOrder
@@ -1855,7 +1854,7 @@ struct ConnectionView: View {
             .pickerStyle(.segmented)
                 }
             }
-        .navigationTitle(L("設定"))
+        .outerNavigationTitle(L("設定"))
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.visible, for: .navigationBar)
@@ -2129,7 +2128,7 @@ struct ReinforcementListView: View {
                 }
             }
             .contentMargins(.top, 0, for: .scrollContent)
-            .navigationTitle(L("增援請求"))
+            .outerNavigationTitle(L("增援請求"))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.visible, for: .navigationBar)
@@ -2281,7 +2280,7 @@ struct TeamListView: View {
                 }
             }
         }
-        .navigationTitle(L("分隊通訊群組"))
+        .outerNavigationTitle(L("分隊通訊群組"))
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.visible, for: .navigationBar)

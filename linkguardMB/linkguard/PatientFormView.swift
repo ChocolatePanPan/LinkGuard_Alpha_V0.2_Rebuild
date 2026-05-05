@@ -305,8 +305,7 @@ struct PatientFormView: View {
                     .disabled(!isFormValid)
                 }
             }
-        }
-        .navigationTitle(L("傷員回報"))
+        .outerNavigationTitle(L("傷員回報"))
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.visible, for: .navigationBar)
@@ -321,21 +320,20 @@ struct PatientFormView: View {
         #endif
         .contentMargins(.top, 0, for: .scrollContent)
         .overlay(alignment: .bottom) {
-                if showConfirmation {
-                    HStack(spacing: 10) {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundColor(NV.green)
-                        Text(confirmationMessage)
-                            .font(.subheadline)
-                            .foregroundColor(.primary)
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 12)
-                    .glassEffect(.regular.tint(NV.green.opacity(0.2)), in: .capsule)
-                    .padding(.bottom, 20)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                    .animation(.spring(), value: showConfirmation)
+            if showConfirmation {
+                HStack(spacing: 10) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(NV.green)
+                    Text(confirmationMessage)
+                        .font(.subheadline)
+                        .foregroundColor(.primary)
                 }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 12)
+                .glassEffect(.regular.tint(NV.green.opacity(0.2)), in: .capsule)
+                .padding(.bottom, 20)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .animation(.spring(), value: showConfirmation)
             }
         }
     }

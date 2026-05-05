@@ -4,6 +4,99 @@ import UIKit
 #endif
 
 #if canImport(UIKit)
+private struct OuterNavigationTitleWriter: UIViewControllerRepresentable {
+    let title: String
+
+    func makeUIViewController(context: Context) -> Controller {
+        Controller(title: title)
+    }
+
+    func updateUIViewController(_ uiViewController: Controller, context: Context) {
+        uiViewController.titleText = title
+        uiViewController.applySoon()
+    }
+
+    final class Controller: UIViewController {
+        var titleText: String
+
+        init(title: String) {
+            self.titleText = title
+            super.init(nibName: nil, bundle: nil)
+        }
+
+        @available(*, unavailable)
+        required init?(coder: NSCoder) {
+            fatalError("init(coder:) has not been implemented")
+        }
+
+        override func viewDidLoad() {
+            super.viewDidLoad()
+            view.backgroundColor = .clear
+            view.isUserInteractionEnabled = false
+        }
+
+        override func didMove(toParent parent: UIViewController?) {
+            super.didMove(toParent: parent)
+            applySoon()
+        }
+
+        override func viewDidAppear(_ animated: Bool) {
+            super.viewDidAppear(animated)
+            applySoon()
+        }
+
+        override func viewDidLayoutSubviews() {
+            super.viewDidLayoutSubviews()
+            applySoon()
+        }
+
+        func applySoon() {
+            DispatchQueue.main.async { [weak self] in
+                self?.applyTitleToOuterNavigationItem()
+            }
+        }
+
+        private func applyTitleToOuterNavigationItem() {
+            guard !titleText.isEmpty else { return }
+
+            var current: UIViewController? = self
+            while let controller = current {
+                if let navigationController = controller.navigationController {
+                    let target = navigationController.topViewController ?? controller
+                    target.navigationItem.title = titleText
+                    target.navigationItem.largeTitleDisplayMode = .never
+                    navigationController.navigationBar.prefersLargeTitles = false
+
+                    let appearance = navigationController.navigationBar.standardAppearance.copy()
+                    appearance.titleTextAttributes[.foregroundColor] = UIColor.label
+                    appearance.titleTextAttributes[.font] = UIFont.systemFont(ofSize: 17, weight: .semibold)
+                    navigationController.navigationBar.standardAppearance = appearance
+                    navigationController.navigationBar.compactAppearance = appearance
+                    navigationController.navigationBar.scrollEdgeAppearance = appearance
+                    return
+                }
+                current = controller.parent
+            }
+        }
+    }
+}
+
+private struct OuterNavigationTitleModifier: ViewModifier {
+    let title: String
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        content
+            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .background {
+                OuterNavigationTitleWriter(title: title)
+                    .frame(width: 0, height: 0)
+            }
+    }
+}
+
 private struct ManualTopBarUIView: UIViewRepresentable {
     let title: String
     let backTitle: String
@@ -187,6 +280,10 @@ private struct ManualTopBar44Modifier: ViewModifier {
 }
 
 extension View {
+    func outerNavigationTitle(_ title: String) -> some View {
+        modifier(OuterNavigationTitleModifier(title: title))
+    }
+
     func manualTopBar44(
         title: String,
         trailingText: String? = nil,
@@ -205,6 +302,10 @@ extension View {
 }
 #else
 extension View {
+    func outerNavigationTitle(_ title: String) -> some View {
+        navigationTitle(title)
+    }
+
     func manualTopBar44(
         title: String,
         trailingText: String? = nil,

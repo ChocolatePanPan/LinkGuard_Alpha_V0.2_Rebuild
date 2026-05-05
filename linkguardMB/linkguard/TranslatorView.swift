@@ -102,7 +102,7 @@ struct TranslatorView: View {
                 .padding()
             }
             .contentMargins(.top, 0, for: .scrollContent)
-        .navigationTitle(L("翻譯"))
+        .outerNavigationTitle(L("翻譯"))
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.visible, for: .navigationBar)
