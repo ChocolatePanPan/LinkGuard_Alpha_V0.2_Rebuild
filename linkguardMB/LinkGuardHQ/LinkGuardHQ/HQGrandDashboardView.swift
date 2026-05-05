@@ -313,11 +313,32 @@ struct HQGrandDashboardView: View {
         if vm.backendSupervisor.isAIServicePaused {
             return vm.backendSupervisor.aiServicePauseReason ?? L("AI服務暫停")
         }
-        guard let service = vm.backendSupervisor.services.first(where: { $0.id == BackendServiceSpec.aiServiceID }) else {
+        guard let service = embeddedAIService else {
             return L("未設定")
         }
         if service.status == .stopped { return L("待命") }
         return backendStatusText(service.status)
+    }
+
+    private var embeddedAIService: BackendServiceState? {
+        vm.backendSupervisor.services.first { $0.id == BackendServiceSpec.aiServiceID }
+    }
+
+    private var shouldPollAIBackend: Bool {
+        guard !host.isEmpty else { return false }
+        if vm.hqRole == .peer { return true }
+        #if os(macOS)
+        if vm.backendMode == .embedded {
+            return !vm.backendSupervisor.isAIServicePaused && embeddedAIService?.status == .healthy
+        }
+        #endif
+        return true
+    }
+
+    private func clearAIBackendSnapshot() {
+        aiHealth = nil
+        pendingCommands = []
+        lastFetchError = nil
     }
 
     private var fieldRows: [DashboardInfoRow] {
@@ -766,7 +787,11 @@ struct HQGrandDashboardView: View {
     }
 
     private func refreshAll() async {
-        guard !host.isEmpty, !isLoading else { return }
+        guard !isLoading else { return }
+        guard shouldPollAIBackend else {
+            clearAIBackendSnapshot()
+            return
+        }
         isLoading = true
         defer { isLoading = false }
         await fetchAIHealth()
