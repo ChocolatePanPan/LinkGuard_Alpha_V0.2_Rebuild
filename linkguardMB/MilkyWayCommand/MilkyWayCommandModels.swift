@@ -2,15 +2,24 @@ import Foundation
 import SwiftUI
 
 enum MWTheme {
-    static let bg = Color(red: 0.035, green: 0.045, blue: 0.06)
-    static let surface = Color(red: 0.075, green: 0.09, blue: 0.115)
-    static let elevated = Color(red: 0.105, green: 0.12, blue: 0.15)
-    static let green = Color(red: 0.35, green: 0.94, blue: 0.67)
-    static let cyan = Color(red: 0.32, green: 0.78, blue: 0.98)
-    static let amber = Color(red: 1.0, green: 0.72, blue: 0.28)
-    static let red = Color(red: 1.0, green: 0.34, blue: 0.31)
-    static let violet = Color(red: 0.64, green: 0.58, blue: 1.0)
-    static let textOnColor = Color(red: 0.02, green: 0.028, blue: 0.035)
+    // 深宇宙藍黑（有別於前線 NV 的暗綠黑）
+    static let bg       = Color(red: 0.04,  green: 0.05,  blue: 0.14)
+    // 深藍艦橋表面
+    static let surface  = Color(red: 0.07,  green: 0.09,  blue: 0.22)
+    // 抬升層
+    static let elevated = Color(red: 0.11,  green: 0.15,  blue: 0.30)
+    // 電光藍（指揮主色，取代青綠，與前線明顯區別）
+    static let green    = Color(red: 0.18,  green: 0.62,  blue: 1.00)
+    // 冰青藍（輔色，圖示、欄位前綴）
+    static let cyan     = Color(red: 0.55,  green: 0.88,  blue: 1.00)
+    // 琥珀（警告、離線）
+    static let amber    = Color(red: 1.00,  green: 0.72,  blue: 0.28)
+    // 危險紅
+    static let red      = Color(red: 1.00,  green: 0.34,  blue: 0.31)
+    // 用戶訊息泡泡
+    static let violet   = Color(red: 0.64,  green: 0.58,  blue: 1.00)
+    // 色塊上的文字
+    static let textOnColor = Color.white
 }
 
 // 觸控最小尺寸（HIG: ≥44pt）
