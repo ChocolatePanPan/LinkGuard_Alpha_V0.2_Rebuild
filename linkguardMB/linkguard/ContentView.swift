@@ -238,6 +238,7 @@ struct ContentView: View {
         .animation(.easeInOut(duration: 0.3), value: viewModel.urgentBroadcast != nil)
         .animation(.easeInOut(duration: 0.3), value: viewModel.activePatientWarning != nil)
         .animation(.easeInOut(duration: 0.3), value: externalAlarm != nil)
+        .dismissKeyboardOnBlankTap()
     }
 
     private func handleNotificationRoute(_ notification: Notification) {
