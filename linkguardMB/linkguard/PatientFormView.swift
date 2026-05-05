@@ -77,17 +77,16 @@ struct PatientFormView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            Form {
-                // 傷員 ID（自動生成，僅顯示預覽）
-                Section {
-                    HStack {
-                        Text(L("傷員 ID"))
-                            .foregroundColor(.secondary)
-                        Spacer()
-                        Text("P\(Int(Date().timeIntervalSince1970))")
-                            .font(.system(.caption, design: .monospaced))
-                            .foregroundColor(.secondary)
+        Form {
+            // 傷員 ID（自動生成，僅顯示預覽）
+            Section {
+                HStack {
+                    Text(L("傷員 ID"))
+                        .foregroundColor(.secondary)
+                    Spacer()
+                    Text("P\(Int(Date().timeIntervalSince1970))")
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundColor(.secondary)
                     }
                 } header: {
                     Text(L("自動生成"))
