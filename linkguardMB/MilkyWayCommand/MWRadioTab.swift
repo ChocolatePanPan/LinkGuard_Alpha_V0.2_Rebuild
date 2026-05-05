@@ -7,7 +7,6 @@ struct MWRadioTab: View {
     @ObservedObject var vm: MilkyWayCommandViewModel
     @State private var selectedChannel: MWRadioChannel = .cmd
     @State private var pttActive = false
-    @State private var messages: [MWRadioMessage] = MWRadioMessage.samples
     @State private var draft = ""
     @Environment(\.horizontalSizeClass) private var hSizeClass
 
@@ -135,7 +134,7 @@ struct MWRadioTab: View {
             // 訊息紀錄
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 8) {
-                    ForEach(messages.filter { $0.channel == selectedChannel.rawValue || $0.channel == "all" }) { msg in
+                    ForEach(vm.radioMessages.filter { $0.channel == selectedChannel.rawValue || $0.channel == "all" }) { msg in
                         MWRadioMessageRow(msg: msg)
                     }
                 }
@@ -205,7 +204,7 @@ struct MWRadioTab: View {
     private func sendText() {
         let text = draft.trimmingCharacters(in: .whitespaces)
         guard !text.isEmpty else { return }
-        messages.insert(MWRadioMessage(channel: selectedChannel.rawValue, sender: "指揮官", content: text, time: Date()), at: 0)
+        vm.radioMessages.insert(MWRadioMessage(channel: selectedChannel.rawValue, sender: "指揮官", content: text, time: Date()), at: 0)
         draft = ""
         vm.logs.insert(MWLogEntry(title: "電台發送", detail: "[\(selectedChannel.name)] \(text)", time: Date(), color: MWTheme.cyan), at: 0)
     }

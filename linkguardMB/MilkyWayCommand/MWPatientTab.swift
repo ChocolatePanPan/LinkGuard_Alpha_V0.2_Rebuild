@@ -13,7 +13,14 @@ private final class MWPatientLocationManager: NSObject, ObservableObject, CLLoca
         manager.delegate = self
         manager.desiredAccuracy = kCLLocationAccuracyBest
         manager.requestWhenInUseAuthorization()
-        manager.startUpdatingLocation()
+        // startUpdatingLocation() 等授權後在 delegate 裡呼叫
+    }
+
+    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        if manager.authorizationStatus == .authorizedWhenInUse ||
+           manager.authorizationStatus == .authorizedAlways {
+            manager.startUpdatingLocation()
+        }
     }
 
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
@@ -47,6 +54,8 @@ struct MWPatientTab: View {
     // 回饋
     @State private var showConfirmation = false
     @State private var confirmationMessage = ""
+    // 傷員 ID 在表單建立時就固定，進入送出時不再重算
+    @State private var patientId: String = "P\(Int(Date().timeIntervalSince1970))"
 
     // iPad 雙欄判斷
     @Environment(\.horizontalSizeClass) private var hSizeClass
@@ -153,7 +162,7 @@ struct MWPatientTab: View {
         HStack {
             Text("傷員 ID").foregroundStyle(.secondary)
             Spacer()
-            Text("P\(Int(Date().timeIntervalSince1970))")
+            Text(patientId)
                 .font(.caption.monospaced())
                 .foregroundStyle(.secondary)
         }
@@ -300,7 +309,7 @@ struct MWPatientTab: View {
 
     private func submitPatient() {
         var lines: [String] = []
-        lines.append("傷員 ID：P\(Int(Date().timeIntervalSince1970))")
+        lines.append("傷員 ID：\(patientId)")
         if !patientName.isEmpty { lines.append("姓名：\(patientName)") }
         if !nationalId.isEmpty { lines.append("身分證：\(nationalId)") }
         if let age = calculatedAge { lines.append("年齡：\(age) 歲") }

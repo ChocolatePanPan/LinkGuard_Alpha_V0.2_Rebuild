@@ -24,6 +24,7 @@ final class MilkyWayCommandViewModel: ObservableObject {
     @Published var tasks: [MWTaskItem]
     @Published var logs: [MWLogEntry]
     @Published var resources: [MWResourceItem]
+    @Published var radioMessages: [MWRadioMessage] = MWRadioMessage.samples
 
     private var timer: Timer?
 

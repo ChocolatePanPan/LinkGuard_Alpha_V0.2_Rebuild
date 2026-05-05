@@ -115,7 +115,7 @@ struct MWHospitalTab: View {
             .safeAreaInset(edge: .top, spacing: 0) {
                 filterHeader
             }
-            .onChange(of: query) { q in
+            .onChange(of: query) { _, q in
                 debounceTask?.cancel()
                 debounceTask = Just(q)
                     .delay(for: .milliseconds(250), scheduler: RunLoop.main)
@@ -124,13 +124,13 @@ struct MWHospitalTab: View {
                         recompute()
                     }
             }
-            .onChange(of: selectedRegion) { _ in
+            .onChange(of: selectedRegion) { _, _ in
                 availableCities = mwAllCitiesByRegion[selectedRegion] ?? []
                 recompute()
             }
-            .onChange(of: selectedCity) { _ in recompute() }
-            .onChange(of: selectedLevel) { _ in recompute() }
-            .onChange(of: locator.detectedCity) { city in
+            .onChange(of: selectedCity) { _, _ in recompute() }
+            .onChange(of: selectedLevel) { _, _ in recompute() }
+            .onChange(of: locator.detectedCity) { _, city in
                 guard let city else { return }
                 selectedCity = city
                 selectedRegion = nil

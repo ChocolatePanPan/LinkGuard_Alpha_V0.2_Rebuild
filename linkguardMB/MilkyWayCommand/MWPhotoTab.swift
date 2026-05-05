@@ -14,7 +14,14 @@ private final class MWPhotoLocationManager: NSObject, ObservableObject, CLLocati
         manager.delegate = self
         manager.desiredAccuracy = kCLLocationAccuracyBest
         manager.requestWhenInUseAuthorization()
-        manager.startUpdatingLocation()
+        // startUpdatingLocation() 等授權後在 delegate 裡呼叫，避免第一次安裝 GPS 永久無效
+    }
+
+    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        if manager.authorizationStatus == .authorizedWhenInUse ||
+           manager.authorizationStatus == .authorizedAlways {
+            manager.startUpdatingLocation()
+        }
     }
 
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
@@ -252,7 +259,8 @@ struct MWPhotoTab: View {
             form.append("\(lat)".data(using: .utf8) ?? Data(), name: "lat")
             form.append("\(lon)".data(using: .utf8) ?? Data(), name: "lon")
 
-            guard let url = URL(string: "http://\(serverHost):8003/upload") else { failed += 1; continue }
+            // port 8004：photo_server.py 監聽埠
+            guard let url = URL(string: "http://\(serverHost):8004/upload") else { failed += 1; continue }
             var req = URLRequest(url: url)
             req.httpMethod = "POST"
             req.setValue("multipart/form-data; boundary=\(form.boundary)", forHTTPHeaderField: "Content-Type")
