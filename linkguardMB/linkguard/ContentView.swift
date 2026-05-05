@@ -26,15 +26,18 @@ struct ContentView: View {
                     TabSection("AI") {
                         Tab("AI", systemImage: viewModel.isAIServicePaused ? "pause.circle" : "sparkles", value: AppTab.ai) {
                             AIHubView(vm: viewModel)
+                                .navigationBarTitleDisplayMode(.inline)
                         }
                     }
                     TabSection(navLabel("通訊", en: "Messages")) {
                         Tab(L("通知"), systemImage: "bell.fill", value: AppTab.notifications) {
                             FieldNotificationView(vm: viewModel)
+                                .navigationBarTitleDisplayMode(.inline)
                         }
                         .badge(viewModel.unreadNotificationCount)
                         Tab(navLabel("通訊", en: "Comms"), systemImage: "antenna.radiowaves.left.and.right", value: AppTab.communication) {
                             CommunicationHubView(vm: viewModel)
+                                .navigationBarTitleDisplayMode(.inline)
                         }
                         .badge(viewModel.chatMessages.count)
                     }
