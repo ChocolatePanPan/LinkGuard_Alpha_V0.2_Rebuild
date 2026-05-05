@@ -8,38 +8,44 @@ struct PersonnelAssignmentView: View {
     @State private var editingAssignment: PersonnelAssignment?
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
 
-                    // 概覽統計
-                    summarySection
+                // 概覽統計
+                summarySection
 
-                    // 按區域分組顯示
-                    if !vm.personnelAssignments.isEmpty {
-                        zoneGroupedSection
-                    }
-
-                    // 未分配人員
-                    unassignedSection
-
-                    // 全部人員列表
-                    allAssignmentsSection
+                // 按區域分組顯示
+                if !vm.personnelAssignments.isEmpty {
+                    zoneGroupedSection
                 }
-                .padding(.bottom)
+
+                // 未分配人員
+                unassignedSection
+
+                // 全部人員列表
+                allAssignmentsSection
             }
-            .contentMargins(.top, 0, for: .scrollContent)
-            .manualTopBar44(
-                title: L("人員指派"),
-                trailingSystemImage: "plus.circle.fill",
-                onTrailingTap: {
+            .padding(.bottom)
+        }
+        .navigationTitle(L("人員指派"))
+        #if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.visible, for: .navigationBar)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button {
                     editingAssignment = nil
                     showAssignSheet = true
+                } label: {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.title2)
                 }
-            )
-            .sheet(isPresented: $showAssignSheet) {
-                AssignPersonnelSheet(vm: vm, editing: $editingAssignment)
             }
+        }
+        #endif
+        .contentMargins(.top, 0, for: .scrollContent)
+        .sheet(isPresented: $showAssignSheet) {
+            AssignPersonnelSheet(vm: vm, editing: $editingAssignment)
         }
     }
 

@@ -300,19 +300,22 @@ struct PatientFormView: View {
                     .disabled(!isFormValid)
                 }
             }
-            #if os(iOS)
-            .toolbar {
-                ToolbarItemGroup(placement: .keyboard) {
-                    Spacer()
-                    Button(L("完成")) {
-                        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-                    }
+        }
+        .navigationTitle(L("傷員回報"))
+        #if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.visible, for: .navigationBar)
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button(L("完成")) {
+                    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
                 }
             }
-            #endif
-            .contentMargins(.top, 0, for: .scrollContent)
-            .manualTopBar44(title: L("傷員回報"))
-            .overlay(alignment: .bottom) {
+        }
+        #endif
+        .contentMargins(.top, 0, for: .scrollContent)
+        .overlay(alignment: .bottom) {
                 if showConfirmation {
                     HStack(spacing: 10) {
                         Image(systemName: "checkmark.circle.fill")

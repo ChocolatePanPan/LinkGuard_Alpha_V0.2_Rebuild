@@ -1548,14 +1548,13 @@ struct ConnectionView: View {
     @State private var manualPort = "8930"
 
     var body: some View {
-        NavigationStack {
-            List {
-                // 藍牙連線
-                Section(header: Text(L("藍牙連線"))) {
-                    HStack {
-                        Image(systemName: vm.isBluetoothConnected ? "bluetooth.connected" : "bluetooth")
-                            .foregroundColor(vm.isBluetoothConnected ? NV.green : .gray)
-                            .font(.title2)
+        List {
+            // 藍牙連線
+            Section(header: Text(L("藍牙連線"))) {
+                HStack {
+                    Image(systemName: vm.isBluetoothConnected ? "bluetooth.connected" : "bluetooth")
+                        .foregroundColor(vm.isBluetoothConnected ? NV.green : .gray)
+                        .font(.title2)
                         VStack(alignment: .leading, spacing: 4) {
                             Text(vm.isBluetoothConnected ? L("已連接") : L("未連接"))
                                 .font(.headline)
@@ -1838,27 +1837,29 @@ struct ConnectionView: View {
                         Text(L("淺色")).tag("light")
                         Text(L("跟隨系統")).tag("system")
                     }
-                    .pickerStyle(.segmented)
+            .pickerStyle(.segmented)
                 }
             }
-            #if os(iOS)
-            .toolbar {
-                ToolbarItemGroup(placement: .keyboard) {
-                    Spacer()
-                    Button(L("完成")) {
-                        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-                    }
+        }
+        .navigationTitle(L("設定"))
+        #if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.visible, for: .navigationBar)
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button(L("完成")) {
+                    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
                 }
             }
-            #endif
-            .contentMargins(.top, 0, for: .scrollContent)
-            .manualTopBar44(title: L("設定"))
-            .onAppear {
-                deptInput = vm.nodeStatus.deptCode
-                pairInput = vm.nodeStatus.pairCode
-                nodeIDInput = vm.nodeStatus.nodeID
-                nicknameInput = vm.userNickname
-            }
+        }
+        #endif
+        .contentMargins(.top, 0, for: .scrollContent)
+        .onAppear {
+            deptInput = vm.nodeStatus.deptCode
+            pairInput = vm.nodeStatus.pairCode
+            nodeIDInput = vm.nodeStatus.nodeID
+            nicknameInput = vm.userNickname
         }
     }
 }
@@ -2236,40 +2237,42 @@ struct TeamListView: View {
     @ObservedObject var vm: LinkGuardViewModel
 
     var body: some View {
-        NavigationStack {
-            List {
-                if vm.teamMembers.isEmpty {
-                    Section {
-                        HStack {
-                            Spacer()
-                            VStack(spacing: 8) {
-                                Image(systemName: "person.3.fill")
-                                    .font(.title).foregroundColor(.secondary)
-                                Text(L("尚未發現其他搜救節點"))
-                                    .font(.subheadline).foregroundColor(.secondary)
-                            }
-                            Spacer()
-                        }.padding()
-                    }
-                } else {
-                    Section(header: Text(L("線上 (%lld)", vm.onlineTeamCount))) {
-                        ForEach(vm.teamMembers.filter(\.isOnline)) { member in
-                            TeamMemberRow(member: member)
+        List {
+            if vm.teamMembers.isEmpty {
+                Section {
+                    HStack {
+                        Spacer()
+                        VStack(spacing: 8) {
+                            Image(systemName: "person.3.fill")
+                                .font(.title).foregroundColor(.secondary)
+                            Text(L("尚未發現其他搜救節點"))
+                                .font(.subheadline).foregroundColor(.secondary)
                         }
+                        Spacer()
+                    }.padding()
+                }
+            } else {
+                Section(header: Text(L("線上 (%lld)", vm.onlineTeamCount))) {
+                    ForEach(vm.teamMembers.filter(\.isOnline)) { member in
+                        TeamMemberRow(member: member)
                     }
-                    let offline = vm.teamMembers.filter { !$0.isOnline }
-                    if !offline.isEmpty {
-                        Section(header: Text(L("離線"))) {
-                            ForEach(offline) { member in
-                                TeamMemberRow(member: member)
-                            }
+                }
+                let offline = vm.teamMembers.filter { !$0.isOnline }
+                if !offline.isEmpty {
+                    Section(header: Text(L("離線"))) {
+                        ForEach(offline) { member in
+                            TeamMemberRow(member: member)
                         }
                     }
                 }
             }
-            .contentMargins(.top, 0, for: .scrollContent)
-            .manualTopBar44(title: L("分隊通訊群組"))
         }
+        .navigationTitle(L("分隊通訊群組"))
+        #if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.visible, for: .navigationBar)
+        #endif
+        .contentMargins(.top, 0, for: .scrollContent)
     }
 }
 
