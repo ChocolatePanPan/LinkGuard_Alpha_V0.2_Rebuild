@@ -9,7 +9,8 @@ final class HQExternalDashboardWindowManager: ObservableObject {
     private weak var l10n: L10n?
     private var colorScheme: ColorScheme?
     private var screenObserver: NSObjectProtocol?
-    private var windows: [ExternalDisplayRole: NSWindow] = [:]    @Published private(set) var externalScreenCount: Int = 0
+    private var windows: [ExternalDisplayRole: NSWindow] = [:]
+    @Published private(set) var externalScreenCount: Int = 0
     private var enabled: Bool = true
 
     func setEnabled(_ value: Bool) {
@@ -64,7 +65,7 @@ final class HQExternalDashboardWindowManager: ObservableObject {
     private func syncWindow() {
         externalScreenCount = externalScreens.count
         let screenAssignments = Array(zip(ExternalDisplayRole.allCases, externalScreens))
-        let activeRoles = Set(screenAssignments.map(\.0))
+        let activeRoles = Set(screenAssignments.map { $0.0 })
 
         guard viewModel != nil, l10n != nil, enabled else {
             closeAllWindows()

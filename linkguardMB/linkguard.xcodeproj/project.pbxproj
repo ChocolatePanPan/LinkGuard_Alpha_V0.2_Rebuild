@@ -31,24 +31,19 @@
 
 /* Begin PBXFileReference section */
 		79381A5F2F6EBF8100FE8D95 /* linkguard.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = linkguard.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		A7037120000000000000001 /* MilkyWayCommand.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MilkyWayCommand.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		79381A6C2F6EBF8300FE8D95 /* linkguardTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = linkguardTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		79381A762F6EBF8300FE8D95 /* linkguardUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = linkguardUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		79381AC82F6FD0CB00FE8D95 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
 		79381ACA2F6FD0E200FE8D95 /* CommandEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandEngine.swift; sourceTree = "<group>"; };
 		79381ACC2F6FD37500FE8D95 /* AlarmPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlarmPlayer.swift; sourceTree = "<group>"; };
 		79881C182F8F76510057449D /* linkguard.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = linkguard.xctestplan; sourceTree = "<group>"; };
+		A7037120000000000000001 /* MilkyWayCommand.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MilkyWayCommand.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		79381A612F6EBF8100FE8D95 /* linkguard */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = linkguard;
-			sourceTree = "<group>";
-		};
-		A7037120000000000000002 /* MilkyWayCommand */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = MilkyWayCommand;
 			sourceTree = "<group>";
 		};
 		79381A6F2F6EBF8300FE8D95 /* linkguardTests */ = {
@@ -61,17 +56,15 @@
 			path = linkguardUITests;
 			sourceTree = "<group>";
 		};
+		A7037120000000000000002 /* MilkyWayCommand */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = MilkyWayCommand;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		79381A5C2F6EBF8100FE8D95 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		A7037120000000000000003 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -86,6 +79,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		79381A732F6EBF8300FE8D95 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A7037120000000000000003 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -146,28 +146,6 @@
 			productReference = 79381A5F2F6EBF8100FE8D95 /* linkguard.app */;
 			productType = "com.apple.product-type.application";
 		};
-		A7037120000000000000006 /* MilkyWayCommand */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = A7037120000000000000009 /* Build configuration list for PBXNativeTarget "MilkyWayCommand" */;
-			buildPhases = (
-				A7037120000000000000005 /* Sources */,
-				A7037120000000000000003 /* Frameworks */,
-				A7037120000000000000004 /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			fileSystemSynchronizedGroups = (
-				A7037120000000000000002 /* MilkyWayCommand */,
-			);
-			name = MilkyWayCommand;
-			packageProductDependencies = (
-			);
-			productName = MilkyWayCommand;
-			productReference = A7037120000000000000001 /* MilkyWayCommand.app */;
-			productType = "com.apple.product-type.application";
-		};
 		79381A6B2F6EBF8300FE8D95 /* linkguardTests */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 79381A832F6EBF8300FE8D95 /* Build configuration list for PBXNativeTarget "linkguardTests" */;
@@ -214,6 +192,28 @@
 			productReference = 79381A762F6EBF8300FE8D95 /* linkguardUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
+		A7037120000000000000006 /* MilkyWayCommand */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A7037120000000000000009 /* Build configuration list for PBXNativeTarget "MilkyWayCommand" */;
+			buildPhases = (
+				A7037120000000000000005 /* Sources */,
+				A7037120000000000000003 /* Frameworks */,
+				A7037120000000000000004 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				A7037120000000000000002 /* MilkyWayCommand */,
+			);
+			name = MilkyWayCommand;
+			packageProductDependencies = (
+			);
+			productName = MilkyWayCommand;
+			productReference = A7037120000000000000001 /* MilkyWayCommand.app */;
+			productType = "com.apple.product-type.application";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -227,9 +227,6 @@
 					79381A5E2F6EBF8100FE8D95 = {
 						CreatedOnToolsVersion = 26.3;
 					};
-					A7037120000000000000006 = {
-						CreatedOnToolsVersion = 26.3;
-					};
 					79381A6B2F6EBF8300FE8D95 = {
 						CreatedOnToolsVersion = 26.3;
 						TestTargetID = 79381A5E2F6EBF8100FE8D95;
@@ -237,6 +234,9 @@
 					79381A752F6EBF8300FE8D95 = {
 						CreatedOnToolsVersion = 26.3;
 						TestTargetID = 79381A5E2F6EBF8100FE8D95;
+					};
+					A7037120000000000000006 = {
+						CreatedOnToolsVersion = 26.3;
 					};
 				};
 			};
@@ -271,13 +271,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		A7037120000000000000004 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		79381A6A2F6EBF8300FE8D95 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -286,6 +279,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		79381A742F6EBF8300FE8D95 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A7037120000000000000004 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -305,13 +305,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		A7037120000000000000005 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		79381A682F6EBF8300FE8D95 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -320,6 +313,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		79381A722F6EBF8300FE8D95 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A7037120000000000000005 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -735,15 +735,6 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		A7037120000000000000009 /* Build configuration list for PBXNativeTarget "MilkyWayCommand" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				A7037120000000000000007 /* Debug */,
-				A7037120000000000000008 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
 		79381A832F6EBF8300FE8D95 /* Build configuration list for PBXNativeTarget "linkguardTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -758,6 +749,15 @@
 			buildConfigurations = (
 				79381A872F6EBF8300FE8D95 /* Debug */,
 				79381A882F6EBF8300FE8D95 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A7037120000000000000009 /* Build configuration list for PBXNativeTarget "MilkyWayCommand" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A7037120000000000000007 /* Debug */,
+				A7037120000000000000008 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
