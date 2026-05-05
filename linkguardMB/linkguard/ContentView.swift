@@ -889,9 +889,6 @@ struct DashboardView: View {
                 }
                 .padding(.bottom)
             }
-            #if os(iOS)
-            .toolbarVisibility(.hidden, for: .navigationBar)
-            #endif
             .contentMargins(.top, 0, for: .scrollContent)
             .sheet(isPresented: $showHandoverSummary) {
                 HandoverSummarySheet(vm: vm)
