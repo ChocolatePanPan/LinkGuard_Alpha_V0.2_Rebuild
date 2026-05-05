@@ -32,19 +32,7 @@ struct HQExternalDisplayDashboardView: View {
             }
             .padding(spacing)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background {
-                ZStack {
-                    NV.bg.ignoresSafeArea()
-                    Image("Logo")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .padding(60)
-                        .opacity(0.055)
-                        .blendMode(.plusLighter)
-                        .ignoresSafeArea()
-                }
-            }
+            .background(NV.bg.ignoresSafeArea())
         }
     }
 
@@ -66,6 +54,16 @@ struct HQExternalDisplayDashboardView: View {
                 }
             }
         }
+        .overlay(alignment: .center) {
+            Image("Logo")
+                .resizable()
+                .scaledToFit()
+                .padding(22)
+                .opacity(0.20)
+                .blendMode(.plusLighter)
+                .allowsHitTesting(false)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
     private var weatherContent: some View {

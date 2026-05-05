@@ -3,7 +3,7 @@ import SwiftUI
 // MARK: - Main View
 
 enum AppTab: Hashable {
-    case dashboard, victims, sos, disaster, chat, call, reinforcement, team, commands, notifications, radio, connection, patientForm, decision, translator, photo, personnelAssignment, ai, communication
+    case dashboard, victims, sos, disaster, chat, call, reinforcement, team, commands, notifications, radio, connection, patientForm, decision, translator, photo, personnelAssignment, ai, communication, hospitals
 }
 
 struct ContentView: View {
@@ -68,6 +68,9 @@ struct ContentView: View {
                         }
                         Tab(L("翻譯"), systemImage: "globe", value: AppTab.translator) {
                             TranslatorView(vm: viewModel)
+                        }
+                        Tab(L("後送醫院"), systemImage: "cross.fill", value: AppTab.hospitals) {
+                            FieldHospitalView()
                         }
                     }
                     TabSection(navLabel("工具", en: "Tools")) {

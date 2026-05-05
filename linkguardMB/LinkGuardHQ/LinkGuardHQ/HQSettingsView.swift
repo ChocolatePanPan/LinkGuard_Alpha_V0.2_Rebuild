@@ -95,7 +95,7 @@ struct HQSettingsView: View {
                                 Text(idx < roles.count ? roles[idx] : L("螢幕 %lld", idx + 1))
                                     .font(.caption.bold())
                                     .foregroundColor(.secondary)
-                                Text("\(Int(screen.frame.width))\u00d7\(Int(screen.frame.height))")
+                                Text("\(Int(screen.frame.width))\u{00D7}\(Int(screen.frame.height))")
                                     .font(.caption.monospaced())
                                     .foregroundColor(.secondary)
                             }
