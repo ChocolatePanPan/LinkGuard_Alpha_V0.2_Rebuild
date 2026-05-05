@@ -2166,7 +2166,6 @@ struct ReinforcementListView: View {
             }
         }
     }
-}
 
 struct ReinforcementRequestRow: View {
     let request: ReinforcementRequest
