@@ -1010,78 +1010,55 @@ struct HandoverSummarySheet: View {
 
 // MARK: - Victim List
 
-/// 統一選取識別：可能是 BLE/LoRa 受困者裝置（VictimNode），也可能是表單回報的傷患（PatientReport）
-private enum VictimSelection: Hashable {
-    case device(String)   // VictimNode.id
-    case patient(String)  // PatientReport.patientId
-}
-
 struct VictimListView: View {
     @ObservedObject var vm: LinkGuardViewModel
-    @State private var selection: VictimSelection?
 
     var body: some View {
-        NavigationSplitView {
-            List(selection: $selection) {
-                // 裝置受困者：BLE/LoRa 偵測到的心率/SOS 訊號
-                Section {
-                    if vm.victims.isEmpty {
-                        Text(L("尚未發現受困者..."))
-                            .font(.caption).foregroundColor(.secondary)
-                    } else {
-                        ForEach(vm.victims) { victim in
+        List {
+            // 裝置受困者：BLE/LoRa 偵測到的心率/SOS 訊號
+            Section {
+                if vm.victims.isEmpty {
+                    Text(L("尚未發現受困者..."))
+                        .font(.caption).foregroundColor(.secondary)
+                } else {
+                    ForEach(vm.victims) { victim in
+                        NavigationLink(destination: VictimDetailView(victim: victim)) {
                             VictimRow(victim: victim)
-                                .tag(VictimSelection.device(victim.id))
                         }
                     }
-                } header: {
-                    Label(L("裝置受困者（即時訊號）"), systemImage: "antenna.radiowaves.left.and.right")
                 }
-
-                // 已回報傷患：搜救人員填表上傳的詳細傷患資料
-                Section {
-                    if vm.localPatients.isEmpty {
-                        Text(L("尚未回報傷患..."))
-                            .font(.caption).foregroundColor(.secondary)
-                    } else {
-                        ForEach(vm.localPatients.reversed()) { patient in
-                            PatientReportRow(patient: patient)
-                                .tag(VictimSelection.patient(patient.patientId))
-                        }
-                    }
-                } header: {
-                    Label(L("已回報傷患（表單填寫）"), systemImage: "heart.text.square")
-                }
+            } header: {
+                Label(L("裝置受困者（即時訊號）"), systemImage: "antenna.radiowaves.left.and.right")
             }
-            .contentMargins(.top, 0, for: .scrollContent)
-        } detail: {
-            switch selection {
-            case .device(let id):
-                if let victim = vm.victims.first(where: { $0.id == id }) {
-                    VictimDetailView(victim: victim)
+
+            // 已回報傷患：搜救人員填表上傳的詳細傷患資料
+            Section {
+                if vm.localPatients.isEmpty {
+                    Text(L("尚未回報傷患..."))
+                        .font(.caption).foregroundColor(.secondary)
                 } else {
-                    placeholder
+                    ForEach(vm.localPatients.reversed()) { patient in
+                        NavigationLink(destination: PatientReportDetailView(patient: patient)) {
+                            PatientReportRow(patient: patient)
+                        }
+                    }
                 }
-            case .patient(let pid):
-                if let patient = vm.localPatients.first(where: { $0.patientId == pid }) {
-                    PatientReportDetailView(patient: patient)
-                } else {
-                    placeholder
-                }
-            case .none:
-                placeholder
+            } header: {
+                Label(L("已回報傷患（表單填寫）"), systemImage: "heart.text.square")
             }
         }
-        .manualTopBar44(
-            title: L("受困者列表"),
-            trailingText: "\(vm.victims.count + vm.localPatients.count)"
-        )
-    }
-
-    private var placeholder: some View {
-        ContentUnavailableView(L("選擇受困者"),
-            systemImage: "person.wave.2",
-            description: Text(L("從列表中選擇一位受困者查看詳細資訊")))
+        .navigationTitle(L("受困者列表"))
+        #if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.visible, for: .navigationBar)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Text("\(vm.victims.count + vm.localPatients.count)")
+                    .font(.subheadline.bold())
+            }
+        }
+        #endif
+        .contentMargins(.top, 0, for: .scrollContent)
     }
 }
 
@@ -2100,17 +2077,16 @@ struct ReinforcementListView: View {
     @State private var composeLocation = ""
 
     var body: some View {
-        NavigationStack {
-            List {
-                if vm.reinforcementRequests.isEmpty {
-                    Section {
-                        HStack {
-                            Spacer()
-                            VStack(spacing: 8) {
-                                Image(systemName: "person.badge.plus")
-                                    .font(.title).foregroundColor(.secondary)
-                                Text(L("目前沒有增援請求"))
-                                    .font(.subheadline).foregroundColor(.secondary)
+        List {
+            if vm.reinforcementRequests.isEmpty {
+                Section {
+                    HStack {
+                        Spacer()
+                        VStack(spacing: 8) {
+                            Image(systemName: "person.badge.plus")
+                                .font(.title).foregroundColor(.secondary)
+                            Text(L("目前沒有增援請求"))
+                                .font(.subheadline).foregroundColor(.secondary)
                             }
                             Spacer()
                         }.padding()
@@ -2137,13 +2113,18 @@ struct ReinforcementListView: View {
                 }
             }
             .contentMargins(.top, 0, for: .scrollContent)
-            .manualTopBar44(
-                title: L("增援請求"),
-                trailingSystemImage: "plus",
-                onTrailingTap: {
-                    showCompose = true
+            .navigationTitle(L("增援請求"))
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button { showCompose = true } label: {
+                        Image(systemName: "plus")
+                    }
                 }
-            )
+            }
+            #endif
             .sheet(isPresented: $showCompose) {
                 NavigationStack {
                     Form {
