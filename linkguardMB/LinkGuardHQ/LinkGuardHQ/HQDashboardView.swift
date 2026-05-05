@@ -193,7 +193,7 @@ struct HQDashboardView: View {
                     .zIndex(999)
             }
         }
-        .onChange(of: vm.showSOSOverlay) { show in
+        .onChange(of: vm.showSOSOverlay) { _, show in
             if show {
                 sosFlash = true
                 HQAlarmPlayer.shared.playSOSAlarm()
@@ -891,7 +891,7 @@ struct HQDashboardView: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
             }
-            .onChange(of: selectedSectionValue) { section in
+            .onChange(of: selectedSectionValue) { _, section in
                 if shouldRevealBottomNavigationSelection {
                     withAnimation(.easeInOut(duration: 0.18)) {
                         proxy.scrollTo(section)
@@ -1740,7 +1740,7 @@ struct HQDashboardView: View {
             guard name.hasPrefix("en") else { continue }
             var addr = ptr.pointee.ifa_addr.pointee
             var hostname = [CChar](repeating: 0, count: Int(NI_MAXHOST))
-            withUnsafePointer(to: &addr) { addrPtr in
+            _ = withUnsafePointer(to: &addr) { addrPtr in
                 addrPtr.withMemoryRebound(to: sockaddr.self, capacity: 1) { sockPtr in
                     getnameinfo(sockPtr, socklen_t(sa.sa_len), &hostname, socklen_t(hostname.count), nil, 0, NI_NUMERICHOST)
                 }

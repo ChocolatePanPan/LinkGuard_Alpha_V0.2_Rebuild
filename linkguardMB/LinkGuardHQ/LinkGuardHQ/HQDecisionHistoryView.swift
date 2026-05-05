@@ -66,7 +66,7 @@ struct HQDecisionHistoryView: View {
             }
             .pickerStyle(.segmented)
             .frame(width: 200)
-            .onChange(of: limit) { _ in reload() }
+            .onChange(of: limit) { _, _ in reload() }
             Button { reload() } label: {
                 Label(L("重新載入"), systemImage: "arrow.clockwise")
             }

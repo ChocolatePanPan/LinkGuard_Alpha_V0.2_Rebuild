@@ -1,5 +1,6 @@
 import SwiftUI
 import CoreLocation
+import MapKit
 #if os(macOS)
 import AppKit
 #endif
@@ -12,7 +13,6 @@ private final class HQCityLocator: NSObject, ObservableObject, CLLocationManager
     @Published var errorMsg: String? = nil
 
     private let manager = CLLocationManager()
-    private let geocoder = CLGeocoder()
 
     override init() {
         super.init()
@@ -53,18 +53,72 @@ private final class HQCityLocator: NSObject, ObservableObject, CLLocationManager
 
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let loc = locations.first else { isLocating = false; return }
-        geocoder.reverseGeocodeLocation(loc) { [weak self] placemarks, _ in
-            DispatchQueue.main.async {
+        reverseGeocodeCity(from: loc)
+    }
+
+    private func reverseGeocodeCity(from location: CLLocation) {
+        if #available(macOS 26.0, *) {
+            reverseGeocodeCityWithMapKit(from: location)
+        } else {
+            reverseGeocodeCityWithCoreLocation(from: location)
+        }
+    }
+
+    @available(macOS 26.0, *)
+    private func reverseGeocodeCityWithMapKit(from location: CLLocation) {
+        guard let request = MKReverseGeocodingRequest(location: location) else {
+            DispatchQueue.main.async { [weak self] in
                 self?.isLocating = false
-                guard let pm = placemarks?.first else { return }
-                // 取 subAdministrativeArea 或 administrativeArea（縣市名稱）
-                let raw = pm.subAdministrativeArea ?? pm.administrativeArea ?? ""
-                // 將「台」正規化為「臺」以對應資料庫
-                let normalized = raw.replacingOccurrences(of: "台", with: "臺")
-                // 從資料庫比對縣市
-                let allCities = Array(Set(HQHospitalDirectory.all.map(\.city)))
-                self?.detectedCity = allCities.first { $0.hasPrefix(normalized) || normalized.hasPrefix($0) }
-                    ?? allCities.first { $0.contains(normalized) || normalized.contains($0) }
+                self?.errorMsg = "定位失敗"
+            }
+            return
+        }
+
+        request.getMapItems { [weak self] mapItems, error in
+            DispatchQueue.main.async {
+                guard error == nil else {
+                    self?.isLocating = false
+                    self?.errorMsg = "定位失敗"
+                    return
+                }
+                let item = mapItems?.first
+                let addressRepresentations = item?.addressRepresentations
+                let address = item?.address
+                self?.applyReverseGeocodedCity(candidates: [
+                    addressRepresentations?.cityName,
+                    addressRepresentations?.cityWithContext,
+                    addressRepresentations?.cityWithContext(.full),
+                    address?.shortAddress,
+                    address?.fullAddress
+                ].compactMap { $0 })
+            }
+        }
+    }
+
+    private func reverseGeocodeCityWithCoreLocation(from location: CLLocation) {
+        if #unavailable(macOS 26.0) {
+            let geocoder = CLGeocoder()
+            geocoder.reverseGeocodeLocation(location) { [weak self] placemarks, _ in
+                DispatchQueue.main.async {
+                    let placemark = placemarks?.first
+                    self?.applyReverseGeocodedCity(candidates: [
+                        placemark?.subAdministrativeArea,
+                        placemark?.administrativeArea
+                    ].compactMap { $0 })
+                }
+            }
+        }
+    }
+
+    private func applyReverseGeocodedCity(candidates: [String]) {
+        isLocating = false
+        let allCities = Array(Set(HQHospitalDirectory.all.map(\.city)))
+        for raw in candidates {
+            let normalized = raw.replacingOccurrences(of: "台", with: "臺")
+            if let city = allCities.first(where: { $0.hasPrefix(normalized) || normalized.hasPrefix($0) })
+                ?? allCities.first(where: { $0.contains(normalized) || normalized.contains($0) }) {
+                detectedCity = city
+                return
             }
         }
     }
@@ -235,7 +289,7 @@ struct HQHospitalDirectoryView: View {
                 }
             }
             .hqPanelChrome(accent: NV.info)
-            .onChange(of: locator.detectedCity) { city in
+            .onChange(of: locator.detectedCity) { _, city in
                 applyDetectedCity(city)
             }
 
