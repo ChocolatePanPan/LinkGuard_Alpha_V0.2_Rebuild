@@ -35,7 +35,7 @@ private struct DecisionRow: Identifiable, Decodable {
     }
 
     var displaySummary: String {
-        firstNonEmpty(summary, decision_text, voice_text, patients_summary, raw_json) ?? "—"
+        firstNonEmpty(summary, decision_text, voice_text, patients_summary, raw_json) ?? L("無內容")
     }
 
     var searchableText: String {
@@ -160,11 +160,11 @@ struct HQDecisionHistoryView: View {
             }
             Text(r.displaySummary)
                 .font(.body)
-                .foregroundColor(.white.opacity(0.9))
+                .foregroundColor(.primary)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(10)
-        .background(NV.surface.opacity(0.88))
+        .hqThemedSurfaceBackground()
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 8, style: .continuous)

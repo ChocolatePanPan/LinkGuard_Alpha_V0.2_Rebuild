@@ -318,6 +318,7 @@ final class L10n: ObservableObject {
         "這會停止本機服務，清除所有本機設定、任務狀態、資料庫、照片、音訊與報告檔案。此操作無法復原。": "This stops local services and clears all local settings, mission state, databases, photos, audio, and report files. This cannot be undone.",
         "無符合條件的團隊成員": "No matching team members",
         "無符合條件的外勤裝置": "No matching field devices",
+        "無內容": "No content",
         "無連線裝置": "No connected devices",
         "照片": "Photos",
         "照片伺服器 (HTTP)": "Photo Server (HTTP)",
