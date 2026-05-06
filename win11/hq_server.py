@@ -1129,6 +1129,7 @@ async def handle_dashboard_command(cmd: dict, ws: web.WebSocketResponse):
     elif action == "update_disaster_site":
         state.disaster_site = data
         state.add_timeline("disaster", "災害現場更新", data.get("buildingName", ""))
+        await field_broadcast(make_hq_msg("disaster_update", state.disaster_site))
         await ws_broadcast("disaster_site", state.disaster_site)
 
     elif action == "assign_personnel":
@@ -1151,6 +1152,7 @@ async def handle_dashboard_command(cmd: dict, ws: web.WebSocketResponse):
             state.personnel.append(assignment)
         state.add_timeline("personnel", f"人員配置: {assignment['name']}",
                           f"{assignment['role']} → {assignment['assignedZone']}")
+        await field_broadcast(make_hq_msg("personnel_assignment", state.personnel))
         await ws_broadcast("personnel", {"list": state.personnel})
 
     elif action == "remove_personnel":
@@ -1158,6 +1160,7 @@ async def handle_dashboard_command(cmd: dict, ws: web.WebSocketResponse):
         if pid.startswith("field-"):
             return  # 前線自動同步的人員不可刪除
         state.personnel = [p for p in state.personnel if p.get("id") != pid]
+        await field_broadcast(make_hq_msg("personnel_assignment", state.personnel))
         await ws_broadcast("personnel", {"list": state.personnel})
 
     elif action == "create_task":
@@ -1194,11 +1197,13 @@ async def handle_dashboard_command(cmd: dict, ws: web.WebSocketResponse):
         state.briefings.append(briefing)
         state.add_timeline("briefing", f"會報: {briefing['title']}",
                           briefing["type"])
+        await field_broadcast(make_hq_msg("briefing", briefing))
         await ws_broadcast("briefing", briefing)
 
     elif action == "dismiss_sos":
         sos_id = data.get("sos_id", "")
         state.sos_alerts = [s for s in state.sos_alerts if s.get("id") != sos_id]
+        await field_broadcast(make_hq_msg("sos_cancel_alert", {"sos_id": sos_id, "ack_by": "HQ"}))
         await ws_broadcast("sos_dismissed", {"sos_id": sos_id})
 
     elif action == "request_decision":
@@ -1214,12 +1219,20 @@ async def handle_dashboard_command(cmd: dict, ws: web.WebSocketResponse):
             "created_at": time.time(),
         }
         state.countdowns.append(cd)
+        timer_payload = {
+            "id": cd["id"],
+            "title": cd["label"],
+            "durationSeconds": cd["seconds"],
+            "startedAt": cd["created_at"],
+            "isBroadcast": not bool(cd.get("target_device")),
+            "targetDeviceID": cd.get("target_device") or "",
+        }
         target = data.get("target_device")
         if target and target in state.field_clients:
             await field_send(state.field_clients[target],
-                           make_hq_msg("countdown", cd))
+                           make_hq_msg("timer_sync", timer_payload))
         else:
-            await field_broadcast(make_hq_msg("countdown", cd))
+            await field_broadcast(make_hq_msg("timer_sync", timer_payload))
         await ws_broadcast("countdown", cd)
 
     elif action == "reinforce_reply":

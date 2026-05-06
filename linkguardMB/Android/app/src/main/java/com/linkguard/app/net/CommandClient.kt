@@ -215,7 +215,7 @@ class CommandClient(private val context: Context) {
                             id = c.optString("id", ""), type = c.optString("type", ""),
                             priority = c.optInt("priority", 0), title = c.optString("title", ""),
                             detail = c.optString("detail", ""), sender = c.optString("sender", ""),
-                            timestamp = c.optDouble("timestamp", 0.0)
+                            timestamp = c.flexTimestamp("timestamp")
                         ))
                     }
                 }
@@ -231,7 +231,7 @@ class CommandClient(private val context: Context) {
                             senderName = c.optString("senderName", ""),
                             recipientID = c.optString("recipientID", null),
                             content = c.optString("content", ""),
-                            timestamp = c.optDouble("timestamp", 0.0),
+                            timestamp = c.flexTimestamp("timestamp"),
                             isRead = c.optBoolean("isRead", false),
                             mentions = mentionsList
                         ))
@@ -256,7 +256,7 @@ class CommandClient(private val context: Context) {
                                     role = PersonnelRole.fromKey(c.optString("role", "")),
                                     assignedZone = c.optString("assignedZone", ""),
                                     assignedFloor = c.optString("assignedFloor", ""),
-                                    timestamp = c.optDouble("timestamp", 0.0)
+                                    timestamp = c.flexTimestamp("timestamp")
                                 ))
                             }
                         } else {
@@ -268,7 +268,7 @@ class CommandClient(private val context: Context) {
                                 role = PersonnelRole.fromKey(c.optString("role", "")),
                                 assignedZone = c.optString("assignedZone", ""),
                                 assignedFloor = c.optString("assignedFloor", ""),
-                                timestamp = c.optDouble("timestamp", 0.0)
+                                timestamp = c.flexTimestamp("timestamp")
                             ))
                         }
                     }
@@ -281,7 +281,7 @@ class CommandClient(private val context: Context) {
                             alertType = PWSAlertType.fromKey(c.optString("alertType", "")),
                             severity = PWSSeverity.fromKey(c.optString("severity", "")),
                             title = c.optString("title", ""), content = c.optString("content", ""),
-                            publisher = c.optString("publisher", "HQ"), publishTime = c.optDouble("publishTime", 0.0),
+                            publisher = c.optString("publisher", "HQ"), publishTime = c.flexTimestamp("publishTime", "timestamp"),
                             isActive = c.optBoolean("isActive", true)
                         ))
                     }
@@ -304,7 +304,7 @@ class CommandClient(private val context: Context) {
                             id = c.optString("id", ""),
                             type = BriefingType.fromKey(c.optString("type", "")),
                             title = c.optString("title", ""), author = c.optString("author", ""),
-                            sections = sections, timestamp = c.optDouble("timestamp", 0.0)
+                            sections = sections, timestamp = c.flexTimestamp("timestamp")
                         ))
                     }
                 }
@@ -339,19 +339,20 @@ class CommandClient(private val context: Context) {
                             detail = c.optString("detail", ""), assigneeID = c.optString("assigneeID", ""),
                             assigneeName = c.optString("assigneeName", ""), zone = c.optString("zone", ""),
                             priority = c.optInt("priority", 0), status = c.optString("status", "pending"),
-                            createdAt = c.optDouble("createdAt", 0.0),
-                            dueTime = if (c.has("dueTime") && !c.isNull("dueTime")) c.optDouble("dueTime", 0.0) else null
+                            createdAt = c.flexTimestamp("createdAt", "created_at", "timestamp"),
+                            dueTime = c.optionalFlexTimestamp("dueTime", "due_time")
                         ))
                     }
                 }
-                "timer_sync" -> {
+                "timer_sync", "countdown" -> {
                     if (payload.isNotEmpty()) {
                         val c = JSONObject(payload)
                         onTimerSync?.invoke(CountdownTimerModel(
-                            id = c.optString("id", ""), title = c.optString("title", ""),
-                            durationSeconds = c.optInt("durationSeconds", 0), startedAt = c.optDouble("startedAt", 0.0),
-                            isBroadcast = c.optBoolean("isBroadcast", true),
-                            targetDeviceID = c.optString("targetDeviceID", "")
+                            id = c.optString("id", ""), title = c.flexString("title", "label"),
+                            durationSeconds = c.flexInt("durationSeconds", "seconds", "duration_seconds"),
+                            startedAt = c.flexTimestamp("startedAt", "created_at", "createdAt", "timestamp"),
+                            isBroadcast = c.optBoolean("isBroadcast", c.optBoolean("is_broadcast", true)),
+                            targetDeviceID = c.flexString("targetDeviceID", "targetDeviceId", "target_device_id", "target_device")
                         ))
                     }
                 }
@@ -407,7 +408,7 @@ class CommandClient(private val context: Context) {
                         ))
                     }
                 }
-                "decision" -> {
+                "decision", "decision_update", "hq_decision" -> {
                     if (payload.isNotEmpty()) {
                         val c = JSONObject(payload)
                         val patients = mutableListOf<PatientDecisionEntry>()
@@ -960,6 +961,30 @@ class CommandClient(private val context: Context) {
             if (value.isNotEmpty()) return value
         }
         return ""
+    }
+
+    private fun JSONObject.flexInt(vararg keys: String): Int {
+        for (key in keys) {
+            if (!has(key) || isNull(key)) continue
+            val value = opt(key)
+            when (value) {
+                is Number -> return value.toInt()
+                is String -> value.trim().toIntOrNull()?.let { return it }
+            }
+        }
+        return 0
+    }
+
+    private fun JSONObject.flexTimestamp(vararg keys: String): Double {
+        return optionalFlexTimestamp(*keys) ?: currentEpochSeconds()
+    }
+
+    private fun JSONObject.optionalFlexTimestamp(vararg keys: String): Double? {
+        for (key in keys) {
+            if (!has(key) || isNull(key)) continue
+            return parseFlexibleTimestamp(opt(key))
+        }
+        return null
     }
 
     private fun parseFlexibleTimestamp(value: Any?): Double {

@@ -499,6 +499,11 @@ class CommandClient: ObservableObject {
             if let msg = try? JSONDecoder().decode(WiFiMessage.self, from: Data(messageData)) {
                 handleWiFiMessage(msg)
             }
+            // 相容 Python Command Center / HQ Server：{type, data, timestamp}
+            else if let envelope = try? JSONSerialization.jsonObject(with: Data(messageData)) as? [String: Any],
+                    handleHQEnvelope(envelope) {
+                continue
+            }
             // 向下相容：嘗試解析為單一命令
             else if let cmd = try? JSONDecoder().decode(WiFiCommand.self, from: Data(messageData)) {
                 handleCommand(cmd)
@@ -512,8 +517,155 @@ class CommandClient: ObservableObject {
 
     private func handleWiFiMessage(_ msg: WiFiMessage) {
         guard let payloadData = msg.payload.data(using: .utf8) else { return }
+        handleMessage(type: msg.msgType, payloadData: payloadData)
+    }
 
-        switch msg.msgType {
+    @discardableResult
+    private func handleHQEnvelope(_ envelope: [String: Any]) -> Bool {
+        let rawType = (envelope["msgType"] as? String) ?? (envelope["type"] as? String) ?? ""
+        guard !rawType.isEmpty else { return false }
+
+        if let payload = envelope["payload"] as? String,
+           let payloadData = payload.data(using: .utf8) {
+            handleMessage(type: rawType, payloadData: payloadData)
+            return true
+        }
+
+        guard let dataObject = envelope["data"],
+              let payloadData = payloadData(from: dataObject) else { return false }
+        handleMessage(type: rawType, payloadData: payloadData)
+        return true
+    }
+
+    private func payloadData(from object: Any) -> Data? {
+        if let string = object as? String { return string.data(using: .utf8) }
+        guard JSONSerialization.isValidJSONObject(object) else { return nil }
+        return try? JSONSerialization.data(withJSONObject: object)
+    }
+
+    private func normalizedMessageType(_ rawType: String) -> String {
+        switch rawType {
+        case "hq_command": return "command"
+        case "hq_decision": return "decision"
+        case "countdown": return "timer_sync"
+        case "text_broadcast": return "text_broadcast_rx"
+        default: return rawType
+        }
+    }
+
+    private func normalizedPayloadData(for msgType: String, payloadData: Data) -> Data {
+        guard let object = try? JSONSerialization.jsonObject(with: payloadData) else { return payloadData }
+        let normalized = normalizedPayloadObject(for: msgType, payload: object)
+        return self.payloadData(from: normalized) ?? payloadData
+    }
+
+    private func normalizedPayloadObject(for msgType: String, payload: Any) -> Any {
+        if var dict = payload as? [String: Any] {
+            normalizePayloadDictionary(&dict, for: msgType)
+            return dict
+        }
+        if let array = payload as? [Any] {
+            return array.map { item in
+                guard var dict = item as? [String: Any] else { return item }
+                normalizePayloadDictionary(&dict, for: msgType)
+                return dict
+            }
+        }
+        return payload
+    }
+
+    private func normalizePayloadDictionary(_ dict: inout [String: Any], for msgType: String) {
+        switch msgType {
+        case "command", "chat_message", "briefing", "quick_status", "hazard_report", "reinforcement_request", "reinforcement_reply", "report_summary", "personal_notification":
+            normalizeEpochFields(&dict, keys: ["timestamp"])
+        case "personnel_assignment":
+            normalizeEpochFields(&dict, keys: ["timestamp"])
+        case "pws_alert":
+            normalizeEpochFields(&dict, keys: ["publishTime", "expireTime"])
+        case "task_assignment":
+            normalizeEpochFields(&dict, keys: ["createdAt", "dueTime"])
+        case "timer_sync":
+            dict = normalizedTimerDictionary(dict)
+        default:
+            break
+        }
+    }
+
+    private func normalizeEpochFields(_ dict: inout [String: Any], keys: [String]) {
+        for key in keys {
+            guard let seconds = epochSeconds(from: dict[key]) else { continue }
+            dict[key] = seconds
+        }
+    }
+
+    private func normalizedTimerDictionary(_ dict: [String: Any]) -> [String: Any] {
+        var timer = dict
+        let title = stringValue(from: timer["title"]) ?? stringValue(from: timer["label"]) ?? L("倒數")
+        let duration = intValue(from: timer["durationSeconds"] ?? timer["seconds"] ?? timer["duration_seconds"]) ?? 0
+        let startedAt = epochSeconds(from: timer["startedAt"] ?? timer["created_at"] ?? timer["createdAt"] ?? timer["timestamp"])
+            ?? Date().timeIntervalSince1970
+        let target = stringValue(from: timer["targetDeviceID"] ?? timer["targetDeviceId"] ?? timer["target_device_id"] ?? timer["target_device"]) ?? ""
+        timer["title"] = title
+        timer["durationSeconds"] = duration
+        timer["startedAt"] = startedAt
+        timer["targetDeviceID"] = target
+        timer["isBroadcast"] = boolValue(from: timer["isBroadcast"] ?? timer["is_broadcast"]) ?? target.isEmpty
+        return timer
+    }
+
+    private func epochSeconds(from value: Any?) -> Double? {
+        guard let value, !(value is NSNull) else { return nil }
+        if let number = value as? NSNumber { return number.doubleValue }
+        if let double = value as? Double { return double }
+        if let int = value as? Int { return Double(int) }
+        if let string = value as? String {
+            let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let numeric = Double(trimmed) { return numeric }
+            let fractional = ISO8601DateFormatter()
+            fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            if let date = fractional.date(from: trimmed) { return date.timeIntervalSince1970 }
+            let basic = ISO8601DateFormatter()
+            basic.formatOptions = [.withInternetDateTime]
+            if let date = basic.date(from: trimmed) { return date.timeIntervalSince1970 }
+        }
+        return nil
+    }
+
+    private func intValue(from value: Any?) -> Int? {
+        guard let value, !(value is NSNull) else { return nil }
+        if let int = value as? Int { return int }
+        if let number = value as? NSNumber { return number.intValue }
+        if let double = value as? Double { return Int(double) }
+        if let string = value as? String { return Int(string.trimmingCharacters(in: .whitespacesAndNewlines)) }
+        return nil
+    }
+
+    private func boolValue(from value: Any?) -> Bool? {
+        guard let value, !(value is NSNull) else { return nil }
+        if let bool = value as? Bool { return bool }
+        if let number = value as? NSNumber { return number.boolValue }
+        if let string = value as? String {
+            switch string.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+            case "true", "yes", "1": return true
+            case "false", "no", "0": return false
+            default: return nil
+            }
+        }
+        return nil
+    }
+
+    private func stringValue(from value: Any?) -> String? {
+        guard let value, !(value is NSNull) else { return nil }
+        if let string = value as? String { return string }
+        if let number = value as? NSNumber { return number.stringValue }
+        return nil
+    }
+
+    private func handleMessage(type rawType: String, payloadData rawPayloadData: Data) {
+        let msgType = normalizedMessageType(rawType)
+        let payloadData = normalizedPayloadData(for: msgType, payloadData: rawPayloadData)
+
+        switch msgType {
         case "command":
             if let cmd = try? JSONDecoder().decode(WiFiCommand.self, from: payloadData) {
                 handleCommand(cmd)
@@ -529,6 +681,8 @@ class CommandClient: ObservableObject {
         case "personnel_assignment":
             if let assignments = try? JSONDecoder().decode([PersonnelAssignment].self, from: payloadData) {
                 DispatchQueue.main.async { [weak self] in self?.onPersonnelAssignment?(assignments) }
+            } else if let assignment = try? JSONDecoder().decode(PersonnelAssignment.self, from: payloadData) {
+                DispatchQueue.main.async { [weak self] in self?.onPersonnelAssignment?([assignment]) }
             }
         case "pws_alert":
             if let alert = try? JSONDecoder().decode(PWSAlert.self, from: payloadData) {

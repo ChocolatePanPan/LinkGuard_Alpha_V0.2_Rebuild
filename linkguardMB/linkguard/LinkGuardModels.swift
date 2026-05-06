@@ -245,6 +245,42 @@ struct DisasterSite: Codable {
         self.rallyPoint = rallyPoint; self.note = note
         self.lastUpdated = Date().timeIntervalSince1970
     }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.buildingName = try container.decodeIfPresent(String.self, forKey: .buildingName) ?? ""
+        self.address = try container.decodeIfPresent(String.self, forKey: .address) ?? ""
+        self.aboveGroundFloors = try container.decodeIfPresent(Int.self, forKey: .aboveGroundFloors) ?? 1
+        self.undergroundFloors = try container.decodeIfPresent(Int.self, forKey: .undergroundFloors) ?? 0
+        let collapseRaw = try container.decodeIfPresent(String.self, forKey: .collapseType) ?? ""
+        self.collapseType = CollapseType(rawValue: collapseRaw) ?? .unknown
+        self.floors = (try? container.decodeIfPresent([FloorStatus].self, forKey: .floors)) ?? []
+        self.zones = (try? container.decodeIfPresent([RescueZone].self, forKey: .zones)) ?? []
+        self.hazards = (try? container.decodeIfPresent([HazardType].self, forKey: .hazards)) ?? []
+        self.entryPoints = (try? container.decodeIfPresent([EntryPoint].self, forKey: .entryPoints)) ?? []
+        self.rallyPoint = try container.decodeIfPresent(String.self, forKey: .rallyPoint) ?? ""
+        self.note = try container.decodeIfPresent(String.self, forKey: .note) ?? ""
+        self.lastUpdated = Self.decodeTimestamp(from: container, key: .lastUpdated) ?? Date().timeIntervalSince1970
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case buildingName, address, aboveGroundFloors, undergroundFloors, collapseType
+        case floors, zones, hazards, entryPoints, rallyPoint, note, lastUpdated
+    }
+
+    private static func decodeTimestamp(from container: KeyedDecodingContainer<CodingKeys>, key: CodingKeys) -> Double? {
+        if let value = try? container.decode(Double.self, forKey: key) { return value }
+        if let value = try? container.decode(Int.self, forKey: key) { return Double(value) }
+        if let value = try? container.decode(String.self, forKey: key) {
+            if let numeric = Double(value) { return numeric }
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            if let date = formatter.date(from: value) { return date.timeIntervalSince1970 }
+            formatter.formatOptions = [.withInternetDateTime]
+            return formatter.date(from: value)?.timeIntervalSince1970
+        }
+        return nil
+    }
 }
 
 // MARK: - 人員配置
@@ -282,6 +318,36 @@ struct PersonnelAssignment: Codable, Identifiable {
         self.assignedZone = assignedZone
         self.assignedFloor = assignedFloor; self.role = role
         self.timestamp = Date().timeIntervalSince1970
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decodeIfPresent(String.self, forKey: .id) ?? UUID().uuidString
+        self.name = try container.decodeIfPresent(String.self, forKey: .name) ?? ""
+        self.nickname = try container.decodeIfPresent(String.self, forKey: .nickname)
+        self.assignedZone = try container.decodeIfPresent(String.self, forKey: .assignedZone) ?? ""
+        self.assignedFloor = try container.decodeIfPresent(String.self, forKey: .assignedFloor) ?? ""
+        let roleRaw = try container.decodeIfPresent(String.self, forKey: .role) ?? ""
+        self.role = PersonnelRole(rawValue: roleRaw) ?? .search
+        self.timestamp = Self.decodeTimestamp(from: container, key: .timestamp) ?? Date().timeIntervalSince1970
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, name, nickname, assignedZone, assignedFloor, role, timestamp
+    }
+
+    private static func decodeTimestamp(from container: KeyedDecodingContainer<CodingKeys>, key: CodingKeys) -> Double? {
+        if let value = try? container.decode(Double.self, forKey: key) { return value }
+        if let value = try? container.decode(Int.self, forKey: key) { return Double(value) }
+        if let value = try? container.decode(String.self, forKey: key) {
+            if let numeric = Double(value) { return numeric }
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            if let date = formatter.date(from: value) { return date.timeIntervalSince1970 }
+            formatter.formatOptions = [.withInternetDateTime]
+            return formatter.date(from: value)?.timeIntervalSince1970
+        }
+        return nil
     }
 
     var displayLabel: String {
@@ -543,6 +609,13 @@ struct BriefingSection: Codable, Identifiable {
     let id: String; var title: String; var content: String
     init(id: String = UUID().uuidString, title: String, content: String = "") {
         self.id = id; self.title = title; self.content = content
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decodeIfPresent(String.self, forKey: .id) ?? UUID().uuidString
+        self.title = try container.decodeIfPresent(String.self, forKey: .title) ?? ""
+        self.content = try container.decodeIfPresent(String.self, forKey: .content) ?? ""
     }
 }
 

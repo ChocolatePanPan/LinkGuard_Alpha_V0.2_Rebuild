@@ -443,12 +443,17 @@ class LinkGuardViewModel: ObservableObject {
             }
         }
         commandClient.onDisasterUpdate = { [weak self] site in
-            DispatchQueue.main.async { self?.disasterSite = site }
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.disasterSite = site
+                self.appendActivity(kind: .command, title: L("收到災情更新"), detail: site.buildingName)
+            }
         }
         commandClient.onPersonnelAssignment = { [weak self] assignments in
             DispatchQueue.main.async {
                 guard let self else { return }
                 self.personnelAssignments = assignments
+                self.appendActivity(kind: .task, title: L("收到人員配置更新"), detail: L("%lld 筆", assignments.count))
             }
         }
         commandClient.onPWSAlert = { [weak self] alert in
