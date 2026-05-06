@@ -15,7 +15,7 @@ struct FieldDisasterView: View {
                         VStack(alignment: .leading, spacing: 8) {
                             if !site.buildingName.isEmpty {
                                 HStack {
-                                    Text(L("名稱")).font(.caption).foregroundCo＝、ㄊlor(.secondary)
+                                    Text(L("名稱")).font(.caption).foregroundColor(.secondary)
                                     Spacer()
                                     Text(site.buildingName).bold()
                                 }

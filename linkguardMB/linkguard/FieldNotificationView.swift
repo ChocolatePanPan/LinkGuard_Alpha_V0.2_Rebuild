@@ -243,6 +243,7 @@ struct FieldNotificationView: View {
         case .sentMessage:          return NV.command
         case .receivedMessage:      return NV.info
         case .personalNotification: return NV.info
+        case .command:              return NV.command
         case .hqDecision:           return NV.command
         case .pwsAlert:             return NV.danger
         case .briefing:             return NV.info
@@ -250,6 +251,13 @@ struct FieldNotificationView: View {
         case .sos:                  return NV.danger
         case .reinforcement:        return NV.warning
         case .hazard:               return NV.danger
+        case .patientWarning:       return NV.danger
+        case .deviceAlert:          return NV.warning
+        case .call:                 return NV.info
+        case .task:                 return NV.command
+        case .timer:                return NV.warning
+        case .patientReport:        return NV.info
+        case .quickStatus:          return NV.command
         }
     }
 

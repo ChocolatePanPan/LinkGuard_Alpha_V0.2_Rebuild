@@ -30,6 +30,7 @@ enum LGDateFormat {
 enum ActivityKind: String, Codable {
     case sentMessage, receivedMessage
     case personalNotification
+    case command
     case hqDecision
     case pwsAlert
     case briefing
@@ -37,12 +38,20 @@ enum ActivityKind: String, Codable {
     case sos
     case reinforcement
     case hazard
+    case patientWarning
+    case deviceAlert
+    case call
+    case task
+    case timer
+    case patientReport
+    case quickStatus
 
     var icon: String {
         switch self {
         case .sentMessage:          return "arrow.up.circle.fill"
         case .receivedMessage:      return "arrow.down.circle.fill"
         case .personalNotification: return "bell.fill"
+        case .command:              return "megaphone.fill"
         case .hqDecision:           return "checkmark.seal.fill"
         case .pwsAlert:             return "exclamationmark.triangle.fill"
         case .briefing:             return "doc.text.fill"
@@ -50,6 +59,13 @@ enum ActivityKind: String, Codable {
         case .sos:                  return "sos.circle.fill"
         case .reinforcement:        return "person.badge.plus"
         case .hazard:               return "exclamationmark.octagon.fill"
+        case .patientWarning:       return "heart.text.square.fill"
+        case .deviceAlert:          return "antenna.radiowaves.left.and.right.slash"
+        case .call:                 return "phone.fill"
+        case .task:                 return "checklist.checked"
+        case .timer:                return "timer"
+        case .patientReport:        return "cross.case.fill"
+        case .quickStatus:          return "paperplane.fill"
         }
     }
 
@@ -550,12 +566,110 @@ struct PersonalNotification: Codable, Identifiable {
     let id: String; var targetDeviceID: String; var title: String; var content: String
     var timestamp: Double; var isRead: Bool
 
-    init(id: String = UUID().uuidString, targetDeviceID: String, title: String, content: String) {
+    init(
+        id: String = UUID().uuidString,
+        targetDeviceID: String,
+        title: String,
+        content: String,
+        timestamp: Double = Date().timeIntervalSince1970,
+        isRead: Bool = false
+    ) {
         self.id = id; self.targetDeviceID = targetDeviceID; self.title = title
-        self.content = content; self.timestamp = Date().timeIntervalSince1970; self.isRead = false
+        self.content = content; self.timestamp = timestamp; self.isRead = isRead
     }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: FlexibleCodingKey.self)
+        self.id = Self.decodeString(from: container, keys: ["id"]) ?? UUID().uuidString
+        self.targetDeviceID = Self.decodeString(
+            from: container,
+            keys: ["targetDeviceID", "targetDeviceId", "target_device_id", "target_device"]
+        ) ?? ""
+        self.title = Self.decodeString(from: container, keys: ["title"]) ?? ""
+        self.content = Self.decodeString(from: container, keys: ["content", "message", "body"]) ?? ""
+        self.timestamp = Self.decodeTimestamp(from: container, keys: ["timestamp", "time", "created_at"])
+            ?? Date().timeIntervalSince1970
+        self.isRead = Self.decodeBool(from: container, keys: ["isRead", "is_read", "read"]) ?? false
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(targetDeviceID, forKey: .targetDeviceID)
+        try container.encode(title, forKey: .title)
+        try container.encode(content, forKey: .content)
+        try container.encode(timestamp, forKey: .timestamp)
+        try container.encode(isRead, forKey: .isRead)
+    }
+
     var timeText: String {
         LGDateFormat.hms.string(from: Date(timeIntervalSince1970: timestamp))
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, targetDeviceID, title, content, timestamp, isRead
+    }
+
+    private struct FlexibleCodingKey: CodingKey {
+        var stringValue: String
+        var intValue: Int?
+
+        init?(stringValue: String) { self.stringValue = stringValue }
+        init?(intValue: Int) { self.stringValue = "\(intValue)"; self.intValue = intValue }
+    }
+
+    private static func decodeString(
+        from container: KeyedDecodingContainer<FlexibleCodingKey>,
+        keys: [String]
+    ) -> String? {
+        for keyName in keys {
+            guard let key = FlexibleCodingKey(stringValue: keyName) else { continue }
+            if let value = try? container.decode(String.self, forKey: key) { return value }
+            if let value = try? container.decode(Int.self, forKey: key) { return String(value) }
+            if let value = try? container.decode(Double.self, forKey: key) { return String(value) }
+        }
+        return nil
+    }
+
+    private static func decodeTimestamp(
+        from container: KeyedDecodingContainer<FlexibleCodingKey>,
+        keys: [String]
+    ) -> Double? {
+        for keyName in keys {
+            guard let key = FlexibleCodingKey(stringValue: keyName) else { continue }
+            if let value = try? container.decode(Double.self, forKey: key) { return value }
+            if let value = try? container.decode(Int.self, forKey: key) { return Double(value) }
+            if let value = try? container.decode(String.self, forKey: key) {
+                if let numeric = Double(value) { return numeric }
+                if let date = isoDate(from: value) { return date.timeIntervalSince1970 }
+            }
+        }
+        return nil
+    }
+
+    private static func decodeBool(
+        from container: KeyedDecodingContainer<FlexibleCodingKey>,
+        keys: [String]
+    ) -> Bool? {
+        for keyName in keys {
+            guard let key = FlexibleCodingKey(stringValue: keyName) else { continue }
+            if let value = try? container.decode(Bool.self, forKey: key) { return value }
+            if let value = try? container.decode(Int.self, forKey: key) { return value != 0 }
+            if let value = try? container.decode(String.self, forKey: key) {
+                let normalized = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                if ["true", "yes", "1"].contains(normalized) { return true }
+                if ["false", "no", "0"].contains(normalized) { return false }
+            }
+        }
+        return nil
+    }
+
+    private static func isoDate(from value: String) -> Date? {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = formatter.date(from: value) { return date }
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter.date(from: value)
     }
 }
 

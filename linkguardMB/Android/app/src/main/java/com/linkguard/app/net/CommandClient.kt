@@ -11,6 +11,8 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.*
 import java.net.Socket
+import java.time.Instant
+import java.time.OffsetDateTime
 
 class CommandClient(private val context: Context) {
 
@@ -310,10 +312,11 @@ class CommandClient(private val context: Context) {
                     if (payload.isNotEmpty()) {
                         val c = JSONObject(payload)
                         onPersonalNotification?.invoke(PersonalNotification(
-                            id = c.optString("id", ""), targetDeviceID = c.optString("targetDeviceID", ""),
+                            id = c.flexString("id").ifBlank { java.util.UUID.randomUUID().toString() },
+                            targetDeviceID = c.flexString("targetDeviceID", "targetDeviceId", "target_device_id", "target_device"),
                             title = c.optString("title", ""), content = c.optString("content", ""),
-                            timestamp = c.optDouble("timestamp", 0.0),
-                            isRead = c.optBoolean("isRead", false)
+                            timestamp = parseFlexibleTimestamp(c.opt("timestamp") ?: c.opt("time") ?: c.opt("created_at")),
+                            isRead = c.optBoolean("isRead", c.optBoolean("is_read", false))
                         ))
                     }
                 }
@@ -950,6 +953,31 @@ class CommandClient(private val context: Context) {
             } catch (e: Exception) { Log.e(TAG, "Send patient_warning failed: ${e.message}") }
         }.start()
     }
+
+    private fun JSONObject.flexString(vararg keys: String): String {
+        for (key in keys) {
+            val value = optString(key, "").trim()
+            if (value.isNotEmpty()) return value
+        }
+        return ""
+    }
+
+    private fun parseFlexibleTimestamp(value: Any?): Double {
+        if (value == null || value == JSONObject.NULL) return currentEpochSeconds()
+        return when (value) {
+            is Number -> value.toDouble()
+            is String -> {
+                val trimmed = value.trim()
+                trimmed.toDoubleOrNull()
+                    ?: runCatching { OffsetDateTime.parse(trimmed).toInstant().toEpochMilli() / 1000.0 }.getOrElse {
+                        runCatching { Instant.parse(trimmed).toEpochMilli() / 1000.0 }.getOrDefault(currentEpochSeconds())
+                    }
+            }
+            else -> currentEpochSeconds()
+        }
+    }
+
+    private fun currentEpochSeconds(): Double = System.currentTimeMillis() / 1000.0
 
     private fun sendRaw(data: String): Boolean {
         val w = writer

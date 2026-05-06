@@ -478,13 +478,25 @@ class LinkGuardViewModel: ObservableObject {
         commandClient.onPersonalNotification = { [weak self] notification in
             DispatchQueue.main.async {
                 guard let self else { return }
-                self.personalNotifications.insert(notification, at: 0)
+                var isNewNotification = false
+                if let index = self.personalNotifications.firstIndex(where: { $0.id == notification.id }) {
+                    self.personalNotifications[index] = notification
+                } else {
+                    isNewNotification = true
+                    self.personalNotifications.insert(notification, at: 0)
+                    self.unreadNotificationCount += 1
+                }
                 if self.personalNotifications.count > 100 { self.personalNotifications = Array(self.personalNotifications.prefix(100)) }
-                self.unreadNotificationCount += 1
-                if self.pastStartupGrace {
+                if isNewNotification && self.pastStartupGrace {
                     NotificationManager.shared.sendPersonalNotification(notification)
                 }
-                self.appendActivity(kind: .personalNotification, title: notification.title, detail: notification.content)
+                self.appendActivity(
+                    kind: .personalNotification,
+                    title: "\(L("指揮中心通知")): \(notification.title)",
+                    detail: notification.content,
+                    timestamp: Date(timeIntervalSince1970: notification.timestamp),
+                    id: "personal-\(notification.id)"
+                )
             }
         }
         commandClient.onQuickStatus = { [weak self] qs in
@@ -504,6 +516,7 @@ class LinkGuardViewModel: ObservableObject {
                 } else {
                     self.tasks.insert(task, at: 0)
                 }
+                self.appendActivity(kind: .task, title: L("收到任務指派"), detail: task.title)
             }
         }
         commandClient.onTimerSync = { [weak self] timer in
@@ -512,12 +525,14 @@ class LinkGuardViewModel: ObservableObject {
                 if !self.countdownTimers.contains(where: { $0.id == timer.id }) {
                     self.countdownTimers.append(timer)
                     self.startCountdownRefresh()
+                    self.appendActivity(kind: .timer, title: L("收到倒數計時"), detail: timer.title)
                 }
             }
         }
         commandClient.onTimerCancel = { [weak self] timerID in
             DispatchQueue.main.async {
                 self?.countdownTimers.removeAll { $0.id == timerID }
+                self?.appendActivity(kind: .timer, title: L("倒數計時取消"), detail: timerID)
             }
         }
         commandClient.onHazardReport = { [weak self] hazard in
@@ -536,7 +551,6 @@ class LinkGuardViewModel: ObservableObject {
                 if !self.reinforcementRequests.contains(where: { $0.id == request.id }) {
                     self.reinforcementRequests.insert(request, at: 0)
                     if self.reinforcementRequests.count > 50 { self.reinforcementRequests = Array(self.reinforcementRequests.prefix(50)) }
-                    self.appendActivity(kind: .reinforcement, title: "\(L("增援請求")): \(request.fromTeam)", detail: request.message)
                     self.handleIncomingReinforcement(from: request.fromTeam, message: request.message, location: request.location)
                 }
             }
@@ -547,6 +561,7 @@ class LinkGuardViewModel: ObservableObject {
                 if let idx = self.reinforcementRequests.firstIndex(where: { $0.id == reply.id }) {
                     self.reinforcementRequests[idx] = reply
                 }
+                self.appendActivity(kind: .reinforcement, title: L("收到增援回覆"), detail: "\(reply.fromTeam) · \(reply.status.rawValue)")
             }
         }
         commandClient.onDecision = { [weak self] decision in
@@ -590,6 +605,7 @@ class LinkGuardViewModel: ObservableObject {
                 )
                 self.radioReports.insert(report, at: 0)
                 if self.radioReports.count > 50 { self.radioReports = Array(self.radioReports.prefix(50)) }
+                self.appendActivity(kind: .briefing, title: L("收到電台會報"), detail: summary.transcription)
 
                 // 自動播放收到的電台音訊（尊重 autoPlay 設定）
                 if self.autoPlayRadio,
@@ -743,6 +759,7 @@ class LinkGuardViewModel: ObservableObject {
                 )
                 self.patientWarnings.insert(warning, at: 0)
                 if self.patientWarnings.count > 100 { self.patientWarnings = Array(self.patientWarnings.prefix(100)) }
+                self.appendActivity(kind: .patientWarning, title: "\(L("收到傷患預警")): \(warning.patientId)", detail: warning.message)
                 // 啟動靜默期內只記錄不彈警報
                 guard self.pastStartupGrace else { return }
                 self.activePatientWarning = warning
@@ -841,6 +858,7 @@ class LinkGuardViewModel: ObservableObject {
 
         commandOrders.insert(order, at: 0)
         if commandOrders.count > 100 { commandOrders = Array(commandOrders.prefix(100)) }
+        appendActivity(kind: .command, title: "\(L("收到命令")): \(order.title)", detail: order.detail, timestamp: order.time)
 
         // 啟動靜默期內只記錄不彈警報
         guard pastStartupGrace else { return }
@@ -1248,6 +1266,7 @@ class LinkGuardViewModel: ObservableObject {
             let wasOnline = previousOnlineStates[victim.id] ?? victim.isOnline
             if wasOnline && !victim.isOnline {
                 NotificationManager.shared.sendOfflineNotification(victimID: victim.id)
+                appendActivity(kind: .deviceAlert, title: L("裝置離線"), detail: victim.id)
             }
             previousOnlineStates[victim.id] = victim.isOnline
 
@@ -1256,6 +1275,7 @@ class LinkGuardViewModel: ObservableObject {
                 NotificationManager.shared.sendLowBatteryNotification(
                     victimID: victim.id, battery: victim.battery
                 )
+                appendActivity(kind: .deviceAlert, title: L("低電量警告"), detail: "\(victim.id) · \(victim.battery)%")
             }
         }
 
@@ -1268,12 +1288,14 @@ class LinkGuardViewModel: ObservableObject {
                     battery: newVictim.battery, time: Date(), isAcknowledged: false
                 )
                 sosRecords.insert(record, at: 0)
+                appendActivity(kind: .sos, title: "SOS: \(newVictim.id)", detail: newVictim.distanceText)
                 triggerSOSNotification(for: newVictim)
             }
         }
 
         if let sosRecord = simulation.maybeToggleSOS(&victims) {
             sosRecords.insert(sosRecord, at: 0)
+            appendActivity(kind: .sos, title: "SOS: \(sosRecord.victimID)", detail: sosRecord.distance)
             if let v = victims.first(where: { $0.id == sosRecord.victimID }) {
                 triggerSOSNotification(for: v)
             }
@@ -1371,6 +1393,7 @@ class LinkGuardViewModel: ObservableObject {
             respondedBy: [], isFromSelf: true
         )
         reinforcementRequests.insert(request, at: 0)
+        appendActivity(kind: .reinforcement, title: L("已送出增援請求"), detail: message.isEmpty ? location : message)
         // WiFi 優先
         if commandClient.isConnected {
             commandClient.sendReinforcementRequest(request)
@@ -1386,6 +1409,7 @@ class LinkGuardViewModel: ObservableObject {
         if let idx = reinforcementRequests.firstIndex(where: { $0.id == request.id }) {
             reinforcementRequests[idx].status = .accepted
             reinforcementRequests[idx].respondedBy.append(nodeStatus.nodeID)
+            appendActivity(kind: .reinforcement, title: L("已接受增援請求"), detail: request.message)
             // WiFi 優先
             if commandClient.isConnected {
                 commandClient.sendReinforcementReply(reinforcementRequests[idx])
@@ -1402,6 +1426,7 @@ class LinkGuardViewModel: ObservableObject {
     func declineReinforcement(_ request: ReinforcementRequest) {
         if let idx = reinforcementRequests.firstIndex(where: { $0.id == request.id }) {
             reinforcementRequests[idx].status = .declined
+            appendActivity(kind: .reinforcement, title: L("已拒絕增援請求"), detail: request.message)
             // WiFi 優先
             if commandClient.isConnected {
                 commandClient.sendReinforcementReply(reinforcementRequests[idx])
@@ -1423,6 +1448,7 @@ class LinkGuardViewModel: ObservableObject {
             respondedBy: [], isFromSelf: false
         )
         reinforcementRequests.insert(request, at: 0)
+        appendActivity(kind: .reinforcement, title: "\(L("收到增援請求")): \(team)", detail: message)
         // 啟動靜默期內只記錄不彈警報
         guard pastStartupGrace else { return }
         latestReinforcementRequest = request
@@ -1443,6 +1469,7 @@ class LinkGuardViewModel: ObservableObject {
             if accepted {
                 reinforcementRequests[idx].status = .accepted
             }
+            appendActivity(kind: .reinforcement, title: L("收到增援回覆"), detail: "\(team) · \(accepted ? L("已接受") : L("已拒絕"))")
         }
     }
 
@@ -1592,6 +1619,7 @@ class LinkGuardViewModel: ObservableObject {
             return
         }
         upsertCallInvite(invite)
+        appendActivity(kind: .call, title: L("收到通話邀請"), detail: invite.initiatorName)
         incomingCallInvite = invite
         isCallRinging = true
         AlarmPlayer.shared.playAlarm()
@@ -1788,8 +1816,12 @@ class LinkGuardViewModel: ObservableObject {
 
     // MARK: - 統一活動記錄
 
-    func appendActivity(kind: ActivityKind, title: String, detail: String, timestamp: Date = Date()) {
-        let entry = ActivityLogEntry(kind: kind, title: title, detail: detail, timestamp: timestamp)
+    func appendActivity(kind: ActivityKind, title: String, detail: String, timestamp: Date = Date(), id: String = UUID().uuidString) {
+        let entry = ActivityLogEntry(id: id, kind: kind, title: title, detail: detail, timestamp: timestamp)
+        if let idx = activityLog.firstIndex(where: { $0.id == id }) {
+            activityLog[idx] = entry
+            return
+        }
         activityLog.insert(entry, at: 0)
         if activityLog.count > 300 { activityLog = Array(activityLog.prefix(300)) }
     }
@@ -1806,6 +1838,7 @@ class LinkGuardViewModel: ObservableObject {
         )
         quickStatuses.insert(status, at: 0)
         commandClient.sendQuickStatus(status)
+        appendActivity(kind: .quickStatus, title: L("已送出快速狀態"), detail: type.label)
     }
 
     // MARK: - 任務管理
@@ -1814,6 +1847,7 @@ class LinkGuardViewModel: ObservableObject {
         guard let idx = tasks.firstIndex(where: { $0.id == taskID }) else { return }
         tasks[idx].status = newStatus.rawValue
         commandClient.sendTaskUpdate(tasks[idx])
+        appendActivity(kind: .task, title: L("已更新任務狀態"), detail: "\(tasks[idx].title) · \(newStatus.label)")
     }
 
     var activeTaskCount: Int { tasks.filter(\.isActive).count }
@@ -1832,6 +1866,7 @@ class LinkGuardViewModel: ObservableObject {
             timestamp: Date().timeIntervalSince1970
         )
         commandClient.sendHQCommand(cmd)
+        appendActivity(kind: .command, title: "\(L("已送出命令")): \(title)", detail: detail)
     }
 
     /// 透過 HQ 啟動倒數計時器
@@ -1840,12 +1875,14 @@ class LinkGuardViewModel: ObservableObject {
         countdownTimers.append(timer)
         startCountdownRefresh()
         commandClient.sendHQTimerStart(timer)
+        appendActivity(kind: .timer, title: L("已啟動倒數計時"), detail: title)
     }
 
     /// 透過 HQ 取消倒數計時器
     func cancelHQTimer(_ timerID: String) {
         countdownTimers.removeAll { $0.id == timerID }
         commandClient.sendHQTimerCancel(timerID: timerID)
+        appendActivity(kind: .timer, title: L("已取消倒數計時"), detail: timerID)
     }
 
     /// 透過 HQ 指派任務
@@ -1858,6 +1895,7 @@ class LinkGuardViewModel: ObservableObject {
         )
         tasks.insert(task, at: 0)
         commandClient.sendHQTaskAssign(task)
+        appendActivity(kind: .task, title: L("已送出任務指派"), detail: task.title)
     }
 
     // MARK: - 倒數計時器
@@ -1872,6 +1910,7 @@ class LinkGuardViewModel: ObservableObject {
                 let expired = self.countdownTimers.filter(\.isExpired)
                 if !expired.isEmpty {
                     for timer in expired {
+                        self.appendActivity(kind: .timer, title: L("倒數計時結束"), detail: timer.title)
                         NotificationManager.shared.sendCommandNotification(
                             order: CommandOrder(
                                 id: UUID(),
@@ -1909,6 +1948,7 @@ class LinkGuardViewModel: ObservableObject {
         )
         hazardReports.insert(report, at: 0)
         commandClient.sendHazardReport(report)
+        appendActivity(kind: .hazard, title: L("已送出危險標記"), detail: description.isEmpty ? zone : description)
     }
 
     func sendPatientReport(_ report: PatientReport) {
@@ -1921,6 +1961,7 @@ class LinkGuardViewModel: ObservableObject {
         // 持久化到本地
         localPatients.append(report)
         PersistenceManager.shared.save(key: "localPatients", value: localPatients)
+        appendActivity(kind: .patientReport, title: L("已送出傷患回報"), detail: report.name.isEmpty ? report.patientId : report.name)
     }
 
     // MARK: - 交班摘要
@@ -2074,6 +2115,7 @@ class LinkGuardViewModel: ObservableObject {
         currentSOSId = sosId
         isSOSActive = true
         commandClient.sendSOS(senderName: nodeStatus.nodeID)
+        appendActivity(kind: .sos, title: L("已送出 SOS"), detail: nodeStatus.nodeID)
     }
 
     /// 取消 SOS
@@ -2082,12 +2124,14 @@ class LinkGuardViewModel: ObservableObject {
         commandClient.sendSOSCancel(sosId: sosId)
         isSOSActive = false
         currentSOSId = nil
+        appendActivity(kind: .sos, title: L("已取消 SOS"), detail: sosId)
     }
 
     /// 發送傷患惡化預警（上行到 Mac HQ → Windows）
     func sendPatientWarning(patientId: String, warningType: String, message: String) {
         guard commandClient.isConnected else { return }
         commandClient.sendPatientWarning(patientId: patientId, warningType: warningType, message: message)
+        appendActivity(kind: .patientWarning, title: "\(L("已送出傷患預警")): \(patientId)", detail: message)
     }
 
     // MARK: - 指揮中心命令引擎（NTP 時間同步）
@@ -2131,6 +2175,7 @@ class LinkGuardViewModel: ObservableObject {
         let wifiCmd = commandEngine.generateCommand(forSlot: slot)
         let order = wifiCmd.toCommandOrder()
         commandOrders.insert(order, at: 0)
+        appendActivity(kind: .command, title: "\(L("本機命令")): \(order.title)", detail: order.detail, timestamp: order.time)
 
         // 發送本地通知
         NotificationManager.shared.sendCommandNotification(order: order)

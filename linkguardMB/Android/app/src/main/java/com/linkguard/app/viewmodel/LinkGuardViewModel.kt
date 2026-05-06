@@ -433,8 +433,17 @@ class LinkGuardViewModel(application: Application) : AndroidViewModel(applicatio
         }
         commandClient.onPersonalNotification = { notification ->
             viewModelScope.launch(Dispatchers.Main.immediate) {
-                _personalNotifications.update { listOf(notification) + it }
-                _unreadNotificationCount.update { it + 1 }
+                var isNew = false
+                _personalNotifications.update { current ->
+                    val index = current.indexOfFirst { it.id == notification.id }
+                    if (index >= 0) {
+                        current.toMutableList().also { it[index] = notification }
+                    } else {
+                        isNew = true
+                        listOf(notification) + current
+                    }
+                }
+                if (isNew) _unreadNotificationCount.update { it + 1 }
             }
         }
         commandClient.onQuickStatus = { status ->
