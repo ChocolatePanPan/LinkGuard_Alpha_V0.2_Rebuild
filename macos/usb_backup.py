@@ -313,7 +313,7 @@ def full_backup():
 # ============================================================
 
 def deploy_replay(usb_path: str):
-    """部署回放程式到 USB"""
+    """部署回放程式到 USB（含 server.py、啟動腳本、requirements.txt）"""
     try:
         usb_replay = os.path.join(_usb_linkguard_dir(usb_path), "replay")
         os.makedirs(usb_replay, exist_ok=True)
@@ -326,15 +326,57 @@ def deploy_replay(usb_path: str):
         else:
             print(f"[USB] 警告: {src_server} 不存在，跳過 server.py 部署")
 
-        # 生成 start.bat
+        # 複製 macOS 啟動器（.command 雙擊即可跑）
+        src_cmd = os.path.join(REPLAY_DIR, "start_replay.command")
+        if os.path.exists(src_cmd):
+            dst_cmd = os.path.join(usb_replay, "start_replay.command")
+            shutil.copy2(src_cmd, dst_cmd)
+            try:
+                import stat
+                os.chmod(dst_cmd, os.stat(dst_cmd).st_mode | stat.S_IXUSR | stat.S_IXGRP)
+            except OSError:
+                pass
+            print(f"[USB] 已部署 start_replay.command 到 {usb_replay}")
+
+        # 寫入 requirements.txt（讓使用者在任意機器上可 pip install）
+        req_path = os.path.join(usb_replay, "requirements.txt")
+        with open(req_path, "w", encoding="utf-8", newline="\n") as f:
+            f.write("flask>=3.0\n")
+
+        # 生成 start.bat（Windows：先 pip install，再啟動，最後 pause）
         bat_path = os.path.join(usb_replay, "start.bat")
         with open(bat_path, "w", encoding="utf-8") as f:
-            f.write("@echo off\npython server.py\npause\n")
+            f.write(
+                "@echo off\n"
+                "echo [Replay] 安裝依賴...\n"
+                "pip install -r requirements.txt --quiet\n"
+                "if errorlevel 1 (\n"
+                "    echo [錯誤] pip install 失敗，請確認已安裝 Python 3\n"
+                "    pause\n"
+                "    exit /b 1\n"
+                ")\n"
+                "echo [Replay] 啟動回放伺服器，請在瀏覽器開啟 http://localhost:5000\n"
+                "python server.py\n"
+                "pause\n"
+            )
 
-        # 生成 start.sh
+        # 生成 start.sh（macOS / Linux：先 pip3 install，再啟動）
         sh_path = os.path.join(usb_replay, "start.sh")
         with open(sh_path, "w", encoding="utf-8", newline="\n") as f:
-            f.write("#!/bin/bash\npython3 server.py\n")
+            f.write(
+                "#!/bin/bash\n"
+                "set -e\n"
+                "echo '[Replay] 安裝依賴...'\n"
+                "pip3 install -r requirements.txt --quiet\n"
+                "echo '[Replay] 啟動回放伺服器，請在瀏覽器開啟 http://localhost:5000'\n"
+                "python3 server.py\n"
+            )
+        # 設定可執行權限
+        try:
+            import stat
+            os.chmod(sh_path, os.stat(sh_path).st_mode | stat.S_IXUSR | stat.S_IXGRP)
+        except OSError:
+            pass
 
         print(f"[USB] 已部署啟動腳本到 {usb_replay}")
         log_event("backup", "usb", f"回放程式已部署至 {usb_replay}", "info")

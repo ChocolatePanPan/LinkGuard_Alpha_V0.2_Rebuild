@@ -33,6 +33,7 @@ enum HQSection: String, CaseIterable, Identifiable {
     case decisionHistory = "AI 決策歷史"
     case fireDepartments = "消防局聯絡簿"
     case hospitals = "後送醫院"
+    case replay = "事件回放"
     case settings = "設定"
 
     static let navigationOrder: [HQSection] = [
@@ -62,6 +63,7 @@ enum HQSection: String, CaseIterable, Identifiable {
         .backendServices,
         .fireDepartments,
         .hospitals,
+        .replay,
         .settings
     ]
 
@@ -97,6 +99,7 @@ enum HQSection: String, CaseIterable, Identifiable {
         case .decisionHistory: return "clock.arrow.circlepath"
         case .fireDepartments: return "flame.fill"
         case .hospitals: return "cross.fill"
+        case .replay: return "clock.arrow.circlepath"
         case .settings: return "gearshape.fill"
         }
     }
@@ -291,6 +294,12 @@ struct HQDashboardView: View {
         case .decisionHistory: HQDecisionHistoryView(vm: vm)
         case .fireDepartments: HQFireDepartmentDirectoryView(vm: vm)
         case .hospitals: HQHospitalDirectoryView(vm: vm)
+        case .replay:
+            #if os(macOS)
+            HQReplayView()
+            #else
+            Text(L("僅 macOS 支援")).foregroundColor(.secondary)
+            #endif
         case .settings:
             #if os(macOS)
             HQSettingsView(vm: vm, supervisor: vm.backendSupervisor) {
@@ -487,6 +496,11 @@ struct HQDashboardView: View {
             case .decisionHistory: HQDecisionHistoryView(vm: vm)
             case .fireDepartments: HQFireDepartmentDirectoryView(vm: vm)
             case .hospitals: HQHospitalDirectoryView(vm: vm)
+            #if os(macOS)
+            case .replay: HQReplayView()
+            #else
+            case .replay: Text(L("僅 macOS 支援")).foregroundColor(.secondary)
+            #endif
             #if os(macOS)
             case .settings: HQSettingsView(vm: vm, supervisor: vm.backendSupervisor) {
                 selectedSection = .backendServices
@@ -1033,6 +1047,7 @@ struct HQDashboardView: View {
         case .decisionHistory: return NV.command
         case .fireDepartments: return NV.danger
         case .hospitals: return NV.info
+        case .replay: return NV.info
         case .settings: return NV.info
         }
     }
