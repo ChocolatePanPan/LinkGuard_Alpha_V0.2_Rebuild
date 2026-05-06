@@ -587,7 +587,7 @@ class HQViewModel: ObservableObject {
     private func setupIncomingEventCueBindings() {
         bindIncomingEventCue($photoAlerts.map(\.count).eraseToAnyPublisher())
         bindIncomingEventCue($radioReports.map(\.count).eraseToAnyPublisher())
-        bindIncomingEventCue($chatMessages.map(\.count).eraseToAnyPublisher())
+        bindIncomingChatCue()
         bindIncomingEventCue($personalNotifications.map(\.count).eraseToAnyPublisher())
         bindIncomingEventCue($pwsAlerts.map(\.count).eraseToAnyPublisher())
         bindIncomingEventCue($hazardReports.map(\.count).eraseToAnyPublisher())
@@ -611,6 +611,26 @@ class HQViewModel: ObservableObject {
                 self?.notificationCueManager.triggerFieldEventCue()
             }
             .store(in: &cancellables)
+    }
+
+    private func bindIncomingChatCue() {
+        $chatMessages
+            .receive(on: DispatchQueue.main)
+            .scan((previousIDs: Set<String>(), current: [ChatMessage]())) { state, messages in
+                (previousIDs: Set(state.current.map(\.id)), current: messages)
+            }
+            .dropFirst()
+            .sink { [weak self] state in
+                guard let self else { return }
+                guard let newMessage = state.current.last(where: { !state.previousIDs.contains($0.id) }),
+                      !self.isLocalChatMessage(newMessage) else { return }
+                self.notificationCueManager.triggerFieldEventCue()
+            }
+            .store(in: &cancellables)
+    }
+
+    private func isLocalChatMessage(_ message: ChatMessage) -> Bool {
+        message.senderID == "HQ" || message.senderName == senderName
     }
 
     // MARK: - 電台音訊本地播放
@@ -1239,6 +1259,115 @@ class HQViewModel: ObservableObject {
         server.briefings = briefings
         server.broadcastBriefing(report, targetDeviceIDs: effectiveTargetIDs)
         logEvent(type: .briefing, title: L("新增會報：%@", report.title), detail: report.type.label)
+    }
+
+    func resetAllLocalData() {
+        server.stop()
+        peerClient.stopBrowsing()
+        backendBridge.disconnect()
+        speechServer.stop()
+        photoServer.stop()
+        udpAudioServer.stop()
+        audioStreamServer.stop()
+        callAudioManager.stopSession()
+
+        selectedType = .searchArea
+        selectedPriority = .routine
+        commandTitle = ""
+        commandDetail = ""
+        senderName = "HQ-Alpha"
+        commandHistory.removeAll()
+        photoAlerts.removeAll()
+        latestResourceUpdate = nil
+        latestStatsUpdate = nil
+        textBroadcasts.removeAll()
+        patientWarnings.removeAll()
+        readStatuses.removeAll()
+        latestTranslation = nil
+        activeSOSAlerts.removeAll()
+        showSOSOverlay = false
+        peerBackendConnected = false
+        disasterSite = DisasterSite()
+        chatMessages.removeAll()
+        chatDraft = ""
+        chatReadCounts.removeAll()
+        personnelAssignments.removeAll()
+        pwsAlerts.removeAll()
+        briefings.removeAll()
+        personalNotifications.removeAll()
+        timelineEvents.removeAll()
+        quickStatuses.removeAll()
+        tasks.removeAll()
+        countdownTimers.removeAll()
+        hazardReports.removeAll()
+        reinforcementRequests.removeAll()
+        patientReports.removeAll()
+        executedProposalIDs.removeAll()
+        ignoredProposalIDs.removeAll()
+        radioReports.removeAll()
+        currentBroadcaster = nil
+        callInvites.removeAll()
+        activeCallSession = nil
+        isHQPushToTalkActive = false
+        targetMode = .broadcast
+        selectedTargetDeviceIDs.removeAll()
+        victimPriorities.removeAll()
+        victimNotes.removeAll()
+        victimStatuses.removeAll()
+        victimDescriptions.removeAll()
+        victimTriageReasons.removeAll()
+        autoTriageManagedVictimIDs.removeAll()
+
+        server.sentCommands.removeAll()
+        server.fieldUnits.removeAll()
+        server.chatMessages.removeAll()
+        server.chatReadCounts.removeAll()
+        server.disasterSite = disasterSite
+        server.personnelAssignments.removeAll()
+        server.pwsAlerts.removeAll()
+        server.briefings.removeAll()
+        server.personalNotifications.removeAll()
+        server.timelineEvents.removeAll()
+        server.quickStatuses.removeAll()
+        server.statusUpdateSequence = 0
+        server.tasks.removeAll()
+        server.countdownTimers.removeAll()
+        server.hazardReports.removeAll()
+        server.reinforcementRequests.removeAll()
+        server.patientReports.removeAll()
+        server.radioReports.removeAll()
+        server.currentBroadcaster = nil
+        server.callInvites.removeAll()
+        server.activeCallSession = nil
+        server.photoAlerts.removeAll()
+        server.latestResourceUpdate = nil
+        server.latestStatsUpdate = nil
+        server.textBroadcasts.removeAll()
+        server.patientWarnings.removeAll()
+        server.readStatuses.removeAll()
+        server.latestTranslation = nil
+        server.activeSOSAlerts.removeAll()
+        server.deviceLocations.removeAll()
+        server.hqPeers.removeAll()
+
+        peerClient.disconnect()
+        peerClient.discoveredServers.removeAll()
+        peerClient.sentCommands.removeAll()
+        peerClient.chatMessages.removeAll()
+        peerClient.disasterSite = nil
+        peerClient.pwsAlerts.removeAll()
+        peerClient.personnelAssignments.removeAll()
+        peerClient.briefings.removeAll()
+        peerClient.personalNotifications.removeAll()
+        peerClient.timelineEvents.removeAll()
+        peerClient.tasks.removeAll()
+        peerClient.countdownTimers.removeAll()
+        peerClient.hazardReports.removeAll()
+        peerClient.reinforcementRequests.removeAll()
+        peerClient.activeSOSAlerts.removeAll()
+        peerClient.radioReports.removeAll()
+        peerClient.currentBroadcaster = nil
+        peerClient.serverStatus = nil
     }
 
     // MARK: - 個人通知

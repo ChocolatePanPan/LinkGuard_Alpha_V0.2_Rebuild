@@ -1395,7 +1395,9 @@ final class FieldAIChatManager: ObservableObject {
                 let aiMsg = AIChatMessage(role: "assistant", content: result.reply, timestamp: Date())
                 messages.append(aiMsg)
             } else {
-                let errMsg = AIChatMessage(role: "system", content: L("AI 回覆失敗，請重試"), timestamp: Date())
+                let detail = result.errorMessage?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                let message = detail.isEmpty ? L("AI 回覆失敗，請重試") : L("AI 回覆失敗：%@", detail)
+                let errMsg = AIChatMessage(role: "system", content: message, timestamp: Date())
                 messages.append(errMsg)
             }
 
@@ -1431,17 +1433,18 @@ final class FieldAIChatManager: ObservableObject {
         let reply: String
         let escalateDetected: Bool
         let consensusFired: Bool
+        let errorMessage: String?
     }
 
     private func callChat(message: String) async -> ChatResult {
         let host = cleanHost(serverHost)
         guard !host.isEmpty, host != "localhost" else {
-            return ChatResult(reply: "", escalateDetected: false, consensusFired: false)
+            return ChatResult(reply: "", escalateDetected: false, consensusFired: false, errorMessage: L("AI 主機尚未連線"))
         }
 
         let hostStr = host.contains(":") ? "[\(host)]" : host
         guard let url = URL(string: "http://\(hostStr):8001/chat") else {
-            return ChatResult(reply: "", escalateDetected: false, consensusFired: false)
+            return ChatResult(reply: "", escalateDetected: false, consensusFired: false, errorMessage: L("URL 錯誤"))
         }
 
         let systemPrompt = """
@@ -1464,16 +1467,22 @@ final class FieldAIChatManager: ObservableObject {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.timeoutInterval = 30
+        request.timeoutInterval = 120
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
-            guard let httpResp = response as? HTTPURLResponse, httpResp.statusCode == 200 else {
-                return ChatResult(reply: "", escalateDetected: false, consensusFired: false)
+            guard let httpResp = response as? HTTPURLResponse else {
+                return ChatResult(reply: "", escalateDetected: false, consensusFired: false, errorMessage: L("AI 主機沒有回應"))
+            }
+
+            guard (200...299).contains(httpResp.statusCode) else {
+                let raw = String(data: data, encoding: .utf8) ?? ""
+                let detail = parseBackendError(from: data) ?? raw.prefix(160).description
+                return ChatResult(reply: "", escalateDetected: false, consensusFired: false, errorMessage: "HTTP \(httpResp.statusCode): \(detail)")
             }
             guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-                return ChatResult(reply: "", escalateDetected: false, consensusFired: false)
+                return ChatResult(reply: "", escalateDetected: false, consensusFired: false, errorMessage: L("AI 回覆格式錯誤"))
             }
             let payload = responsePayload(from: json)
             let reply = payload["reply"] as? String ?? ""
@@ -1485,11 +1494,30 @@ final class FieldAIChatManager: ObservableObject {
                 consensusFired = (esc["consensus_fired"] as? Bool) ?? false
             }
 
-            return ChatResult(reply: reply, escalateDetected: escalateDetected, consensusFired: consensusFired)
+            let error = reply.isEmpty ? parseBackendError(from: json) : nil
+            return ChatResult(reply: reply, escalateDetected: escalateDetected, consensusFired: consensusFired, errorMessage: error)
         } catch {
             print("[FieldAIChat] error: \(error)")
-            return ChatResult(reply: "", escalateDetected: false, consensusFired: false)
+            let nsError = error as NSError
+            let message = nsError.code == NSURLErrorTimedOut ? L("AI 回覆逾時，模型可能仍在啟動") : error.localizedDescription
+            return ChatResult(reply: "", escalateDetected: false, consensusFired: false, errorMessage: message)
         }
+    }
+
+    private func parseBackendError(from data: Data) -> String? {
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+        return parseBackendError(from: json)
+    }
+
+    private func parseBackendError(from json: [String: Any]) -> String? {
+        let payload = responsePayload(from: json)
+        if let message = payload["message"] as? String, !message.isEmpty { return message }
+        if let error = payload["error"] as? String, !error.isEmpty { return error }
+        if let detail = payload["detail"] as? String, !detail.isEmpty { return detail }
+        if let detail = payload["detail"] as? [String: Any] {
+            return detail["message"] as? String ?? detail["error"] as? String
+        }
+        return nil
     }
 
     // MARK: - 接收外部共識觸發（由 LinkGuardViewModel 透過 TCP 推送）

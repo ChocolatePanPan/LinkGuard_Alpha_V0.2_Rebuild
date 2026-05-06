@@ -4,21 +4,66 @@ struct HQBriefingView: View {
     @ObservedObject var vm: HQViewModel
     @State private var showAddSheet = false
 
+    private let columns = [
+        GridItem(.flexible(minimum: 360), spacing: NV.panelSpacing, alignment: .top),
+        GridItem(.flexible(minimum: 360), spacing: NV.panelSpacing, alignment: .top)
+    ]
+
     var body: some View {
         HQPage {
             HQPageTitleBar(L("會報系統"), icon: "doc.text.fill", accent: NV.team) {
-                Text(L("%lld 份會報", vm.briefings.count))
-                    .font(.caption.monospacedDigit())
-                    .foregroundColor(.secondary)
+                HStack(spacing: 8) {
+                    if let broadcaster = vm.currentBroadcaster {
+                        Label(L("廣播中：%@", broadcaster), systemImage: "dot.radiowaves.left.and.right")
+                            .font(.caption.bold())
+                            .foregroundColor(NV.danger)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
+                            .background(NV.danger.opacity(0.1))
+                            .cornerRadius(8)
+                    }
+                    briefingCountChip(L("%lld 份會報", vm.briefings.count), color: NV.team)
+                    briefingCountChip(L("%lld 筆報告", vm.radioReports.count), color: NV.command)
+                }
             }
 
-            if vm.briefings.isEmpty {
-                HQEmptyStateView(icon: "doc.text", title: L("尚未建立會報"))
-                    .hqPanelChrome(accent: NV.team)
+            if vm.briefings.isEmpty && vm.radioReports.isEmpty {
+                HQEmptyStateView(
+                    icon: "doc.text",
+                    title: L("尚未建立會報"),
+                    subtitle: L("前線裝置錄製的會報將顯示在此")
+                )
+                .hqPanelChrome(accent: NV.team)
             } else {
-                LazyVStack(spacing: NV.panelSpacing) {
-                    ForEach(vm.briefings) { report in
-                        BriefingCard(report: report)
+                LazyVGrid(columns: columns, spacing: NV.panelSpacing) {
+                    HQPanel(title: L("已發布會報"), icon: "doc.text.fill", accent: NV.team) {
+                        if vm.briefings.isEmpty {
+                            HQEmptyStateView(icon: "doc.text", title: L("尚未建立會報"))
+                                .frame(maxWidth: .infinity, minHeight: 220)
+                        } else {
+                            LazyVStack(spacing: NV.panelSpacing) {
+                                ForEach(vm.briefings) { report in
+                                    BriefingCard(report: report)
+                                }
+                            }
+                        }
+                    }
+
+                    HQPanel(title: L("前線會報紀錄"), icon: "doc.richtext", accent: NV.command) {
+                        if vm.radioReports.isEmpty {
+                            HQEmptyStateView(
+                                icon: "doc.text",
+                                title: L("尚無會報紀錄"),
+                                subtitle: L("前線裝置錄製的會報將顯示在此")
+                            )
+                            .frame(maxWidth: .infinity, minHeight: 220)
+                        } else {
+                            LazyVStack(spacing: NV.panelSpacing) {
+                                ForEach(vm.radioReports) { report in
+                                    HQReportCard(report: report)
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -43,6 +88,16 @@ struct HQBriefingView: View {
         .sheet(isPresented: $showAddSheet) {
             AddBriefingSheet(vm: vm)
         }
+    }
+
+    private func briefingCountChip(_ text: String, color: Color) -> some View {
+        Text(text)
+            .font(.caption.monospacedDigit())
+            .foregroundColor(.secondary)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
+            .background(color.opacity(0.1))
+            .cornerRadius(8)
     }
 }
 

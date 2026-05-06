@@ -46,6 +46,9 @@ struct HQChatView: View {
                 TextField(L("輸入訊息…"), text: $draft, axis: .vertical)
                     .textFieldStyle(.roundedBorder)
                     .lineLimit(1...3)
+                    .onSubmit {
+                        sendDraft()
+                    }
 
                 // @ 提及選單
                 Menu {
@@ -71,17 +74,27 @@ struct HQChatView: View {
                 .disabled(vm.personnelAssignments.isEmpty)
 
                 Button {
-                    vm.sendChat(draft)
-                    draft = ""
+                    sendDraft()
                 } label: {
                     Image(systemName: "paperplane.fill")
                         .font(.title3)
                 }
-                .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !vm.server.isRunning)
+                .disabled(!canSendDraft)
                 .tint(NV.command)
             }
             .padding()
         }
+    }
+
+    private var canSendDraft: Bool {
+        !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && vm.server.isRunning
+    }
+
+    private func sendDraft() {
+        let message = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !message.isEmpty, vm.server.isRunning else { return }
+        vm.sendChat(message)
+        draft = ""
     }
 }
 

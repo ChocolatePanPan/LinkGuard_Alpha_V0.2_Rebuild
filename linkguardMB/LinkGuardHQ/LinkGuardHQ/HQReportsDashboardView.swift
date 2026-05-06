@@ -6,56 +6,13 @@ struct HQReportsDashboardView: View {
     @ObservedObject var vm: HQViewModel
 
     var body: some View {
-        HQPage {
-            HQPageTitleBar(L("會報儀表板"), icon: "doc.richtext", accent: NV.command) {
-                // 廣播者狀態
-                HStack(spacing: 8) {
-                    if let broadcaster = vm.currentBroadcaster {
-                        HStack(spacing: 6) {
-                            Circle()
-                                .fill(NV.danger)
-                                .frame(width: 8, height: 8)
-                            Text(L("%lld 廣播中", broadcaster))
-                                .font(.caption)
-                                .foregroundColor(NV.danger)
-                        }
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 4)
-                        .background(NV.danger.opacity(0.1))
-                        .cornerRadius(8)
-                    }
-
-                    Text(L("%lld 筆報告", vm.radioReports.count))
-                        .font(.caption.monospacedDigit())
-                        .foregroundColor(.secondary)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 4)
-                        .background(Color.secondary.opacity(0.1))
-                        .cornerRadius(8)
-                }
-            }
-
-            if vm.radioReports.isEmpty {
-                HQEmptyStateView(
-                    icon: "doc.text",
-                    title: L("尚無會報紀錄"),
-                    subtitle: L("前線裝置錄製的會報將顯示在此")
-                )
-                .hqPanelChrome(accent: NV.command)
-            } else {
-                LazyVStack(spacing: NV.panelSpacing) {
-                    ForEach(vm.radioReports) { report in
-                        HQReportCard(report: report)
-                    }
-                }
-            }
-        }
+        HQBriefingView(vm: vm)
     }
 }
 
 // MARK: - 報告卡片
 
-private struct HQReportCard: View {
+struct HQReportCard: View {
     let report: HQRadioReport
     @State private var expanded = false
 
