@@ -824,6 +824,7 @@ final class L10n: ObservableObject {
         "資源資料已更新。": "Resource data updated.",
         "跳過 (使用遠端後端)": "Skip (use remote backend)",
         "載入 AI 決策歷史": "Load AI Decision History",
+        "載入更多": "Load More",
         "辨識引擎": "Recognition Engine",
         "追蹤圖層": "Tracking Layers",
         "追蹤點位": "Tracking Points",

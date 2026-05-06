@@ -141,6 +141,9 @@ struct HQHospitalDirectoryView: View {
     @State private var selectedRegion: HQHospital.Region? = nil
     @State private var selectedLevel: HQHospital.Level? = nil
     @State private var selectedCity: String? = nil
+    @State private var visibleCount = 60
+
+    private let pageSize = 60
 
     // 依目前選定區域動態產生縣市列表
     private var availableCities: [String] {
@@ -170,6 +173,19 @@ struct HQHospitalDirectoryView: View {
     }
 
     private var totalCount: Int { filtered.reduce(0) { $0 + $1.items.count } }
+
+    private var visibleFiltered: [(region: HQHospital.Region, items: [HQHospital])] {
+        var remaining = visibleCount
+        var result: [(region: HQHospital.Region, items: [HQHospital])] = []
+        for group in filtered where remaining > 0 {
+            let visibleItems = Array(group.items.prefix(remaining))
+            if !visibleItems.isEmpty {
+                result.append((group.region, visibleItems))
+                remaining -= visibleItems.count
+            }
+        }
+        return result
+    }
 
     // 當 GPS 偵測到縣市時自動套用
     private func applyDetectedCity(_ city: String?) {
@@ -239,12 +255,14 @@ struct HQHospitalDirectoryView: View {
                                    isSelected: selectedRegion == nil) {
                             selectedRegion = nil
                             selectedCity = nil
+                            resetVisibleCount()
                         }
                         ForEach(HQHospital.Region.allCases, id: \.self) { r in
                             filterChip(r, label: L(r.rawValue), accent: NV.info,
                                        isSelected: selectedRegion == r) {
                                 selectedRegion = r
                                 selectedCity = nil
+                                resetVisibleCount()
                             }
                         }
                     }
@@ -254,10 +272,16 @@ struct HQHospitalDirectoryView: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
                         filterChip(nil as String?, label: "全部縣市", accent: NV.info.opacity(0.8),
-                                   isSelected: selectedCity == nil) { selectedCity = nil }
+                                   isSelected: selectedCity == nil) {
+                            selectedCity = nil
+                            resetVisibleCount()
+                        }
                         ForEach(availableCities, id: \.self) { city in
                             filterChip(city, label: city, accent: NV.info.opacity(0.8),
-                                       isSelected: selectedCity == city) { selectedCity = city }
+                                       isSelected: selectedCity == city) {
+                                selectedCity = city
+                                resetVisibleCount()
+                            }
                         }
                     }
                 }
@@ -266,10 +290,16 @@ struct HQHospitalDirectoryView: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
                         filterChip(nil as HQHospital.Level?, label: L("全部層級"), accent: NV.green,
-                                   isSelected: selectedLevel == nil) { selectedLevel = nil }
+                                   isSelected: selectedLevel == nil) {
+                            selectedLevel = nil
+                            resetVisibleCount()
+                        }
                         ForEach(HQHospital.Level.allCases, id: \.self) { lv in
                             filterChip(lv, label: L(lv.rawValue), accent: levelColor(lv),
-                                       isSelected: selectedLevel == lv) { selectedLevel = lv }
+                                       isSelected: selectedLevel == lv) {
+                                selectedLevel = lv
+                                resetVisibleCount()
+                            }
                         }
                     }
                 }
@@ -292,13 +322,16 @@ struct HQHospitalDirectoryView: View {
             .onChange(of: locator.detectedCity) { _, city in
                 applyDetectedCity(city)
             }
+            .onChange(of: query) { _, _ in
+                resetVisibleCount()
+            }
 
             if filtered.isEmpty {
                 HQEmptyStateView(icon: "magnifyingglass", title: L("沒有符合的醫院"))
                     .hqPanelChrome(accent: NV.info)
             } else {
                 LazyVStack(alignment: .leading, spacing: NV.panelSpacing) {
-                    ForEach(filtered, id: \.region) { group in
+                    ForEach(visibleFiltered, id: \.region) { group in
                         VStack(alignment: .leading, spacing: 8) {
                             HStack(spacing: 6) {
                                 Image(systemName: "mappin.and.ellipse").foregroundColor(NV.info)
@@ -308,11 +341,20 @@ struct HQHospitalDirectoryView: View {
                                     .foregroundColor(.secondary)
                                 Spacer()
                             }
-                            VStack(spacing: 6) {
+                            LazyVStack(spacing: 6) {
                                 ForEach(group.items) { h in hospitalRow(h) }
                             }
                         }
                         .hqPanelChrome(accent: NV.info)
+                    }
+                    if visibleCount < totalCount {
+                        Button {
+                            visibleCount += pageSize
+                        } label: {
+                            Label(L("載入更多"), systemImage: "chevron.down.circle")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.borderedProminent)
                     }
                 }
             }
@@ -437,5 +479,9 @@ struct HQHospitalDirectoryView: View {
         #else
         if let url = URL(string: "tel://\(phone)") { UIApplication.shared.open(url) }
         #endif
+    }
+
+    private func resetVisibleCount() {
+        visibleCount = pageSize
     }
 }
