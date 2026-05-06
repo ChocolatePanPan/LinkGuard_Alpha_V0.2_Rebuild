@@ -192,12 +192,15 @@ private enum PatientNFCFormat: String, CaseIterable, Identifiable {
     case lg2 = "LG2"
     case lg3 = "LG3"
 
+    static let allCases: [PatientNFCFormat] = [.lg1, .lg2]
+    static let ntag215MaxNDEFCapacity = 600
+
     var id: String { rawValue }
 
     var capacityHint: String {
         switch self {
-        case .lg1: return L("NTAG215 精簡檢傷資料")
-        case .lg2: return L("NTAG216 較完整傷患摘要")
+        case .lg1: return L("NTAG215 / LG1 精簡離線格式")
+        case .lg2: return L("NTAG216 / LG2 完整離線格式")
         case .lg3: return L("DESFire／高容量完整離線紀錄")
         }
     }
@@ -480,25 +483,25 @@ struct PatientFormView: View {
                             .autocorrectionDisabled()
                     }
 
-                    if selectedNFCFormat != .lg1 {
+                    if selectedNFCFormat == .lg3 {
                         HStack {
                             TextField(L("處置部位 BODY"), text: $nfcTreatmentBodyCode)
                                 .textInputAutocapitalization(.characters)
                                 .autocorrectionDisabled()
 
-                            if selectedNFCFormat == .lg3 {
-                                TextField(L("處置狀態 STATUS"), text: $nfcTreatmentStatusCode)
-                                    .textInputAutocapitalization(.characters)
-                                    .autocorrectionDisabled()
-                            }
+                            TextField(L("處置狀態 STATUS"), text: $nfcTreatmentStatusCode)
+                                .textInputAutocapitalization(.characters)
+                                .autocorrectionDisabled()
                         }
                     }
 
-                    TextField(L("警示 FLAG"), text: $nfcFlagCode)
-                        .textInputAutocapitalization(.characters)
-                        .autocorrectionDisabled()
-
                     if selectedNFCFormat == .lg3 {
+                        TextField(L("警示 FLAG"), text: $nfcFlagCode)
+                            .textInputAutocapitalization(.characters)
+                            .autocorrectionDisabled()
+                    }
+
+                    if selectedNFCFormat != .lg1 {
                         TextField(L("過敏代碼 ALG"), text: $nfcAllergyCode)
                             .textInputAutocapitalization(.characters)
                             .autocorrectionDisabled()
@@ -574,7 +577,7 @@ struct PatientFormView: View {
                 } header: {
                     Text(L("NFC 讀取／寫入"))
                 } footer: {
-                    Text(L("LG1=NTAG215，LG2=NTAG216，LG3=DESFire／高容量 App 專用；寫入會依標籤容量自動降級，姓名與身分證不寫入 NFC。"))
+                    Text(L("NTAG215 固定寫 LG1 精簡格式；NTAG216 固定寫 LG2 完整格式。NFC 不寫姓名、身分證或電話。"))
                 }
 
                 // 語音輸入
@@ -700,7 +703,35 @@ struct PatientFormView: View {
     private func nfcPayloadCandidatesForWrite() -> [NFCPayloadCandidate] {
         let id = patientIdOverride ?? vm.reserveNextPatientID()
         patientIdOverride = id
-        return vm.patientNFCURL(for: id)
+        return writeFormats().map { format in
+            let payload = buildNFCPayload(for: id, format: format)
+            return (format, payload, ndefLength(for: payload))
+        }
+    }
+
+    private func writeFormats() -> [PatientNFCFormat] {
+        selectedNFCFormat == .lg3 ? [.lg3, .lg2, .lg1] : [.lg2, .lg1]
+    }
+
+    private func nfcPayload(for capacity: Int, candidates: [NFCPayloadCandidate]) -> String {
+        let preferred = preferredNFCFormat(forTagCapacity: capacity)
+        if let exact = candidates.first(where: { $0.format == preferred && $0.length <= capacity }) {
+            return exact.payload
+        }
+        return candidates.first { $0.length <= capacity }?.payload ?? candidates.last?.payload ?? ""
+    }
+
+    private func preferredNFCFormat(forTagCapacity capacity: Int) -> PatientNFCFormat {
+        if selectedNFCFormat == .lg3, capacity > 1024 { return .lg3 }
+        return capacity <= PatientNFCFormat.ntag215MaxNDEFCapacity ? .lg1 : .lg2
+    }
+
+    private func ndefLength(for payload: String) -> Int {
+        #if os(iOS)
+        PatientNFCManager.ndefLength(for: payload)
+        #else
+        payload.utf8.count
+        #endif
     }
 
     private func syncNFCTagWrite(payload: String, capacity: Int, payloadLength: Int) {
@@ -780,18 +811,16 @@ struct PatientFormView: View {
         let compactID = compactPatientID(patientID)
         switch format {
         case .lg1:
-            var parts = [
+            return [
                 "LG1", compactID, triageCodeForNFC(), sexAgeCodeForNFC(), injuryCodeForNFC(),
                 vitalsForNFC(), treatmentPayloadForNFC(format: .lg1), timeHM()
-            ]
-            let flags = flagCodeForNFC()
-            if !flags.isEmpty { parts.append("F:\(flags)") }
-            return parts.joined(separator: "|")
+            ].joined(separator: "|")
         case .lg2:
             return [
                 "LG2", "ID:\(compactID)", "T:\(triageCodeForNFC())", "S:\(sexAgeCodeForNFC())",
                 "LOC:\(locationCodeForNFC())", "I:\(injuryCodeForNFC())", "V:\(vitalsForNFC())",
-                "TX:\(treatmentPayloadForNFC(format: .lg2))", "FLAG:\(flagCodeForNFC())",
+                "TX:\(treatmentPayloadForNFC(format: .lg2))", "ALG:\(codeValue(nfcAllergyCode))",
+                "NOTE:\(noteForNFC())",
                 "TM:\(timeFull())", "UPD:\(timeHM())"
             ].joined(separator: "|")
         case .lg3:
@@ -942,13 +971,13 @@ struct PatientFormView: View {
 
     private func treatmentPayloadForNFC(format: PatientNFCFormat) -> String {
         let codes = treatmentCodesForNFC()
-        guard !codes.isEmpty else { return "" }
+        guard !codes.isEmpty else { return "NONE" }
 
         switch format {
         case .lg1:
             return codes.joined(separator: "+")
         case .lg2:
-            return codes.map { "\(timeHM())/\($0)/\(treatmentBodyCodeForNFC())" }.joined(separator: ";")
+            return codes.joined(separator: "+")
         case .lg3:
             let team = treatmentTeamCodeForNFC()
             let status = treatmentStatusCodeForNFC()

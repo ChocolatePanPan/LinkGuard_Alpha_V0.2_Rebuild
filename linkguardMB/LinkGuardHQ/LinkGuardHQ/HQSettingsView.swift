@@ -87,31 +87,21 @@ struct HQSettingsView: View {
                 .foregroundColor(.secondary)
 
             VStack(alignment: .leading, spacing: 10) {
-                manualFormatRow(title: "LG1", subtitle: "NTAG215", example: "LG1|ID|T|S|I|V|TX|TM|F:FLAG")
-                manualFormatRow(title: "LG2", subtitle: "NTAG216", example: "TX:1428/TQL/LTH;1432/BAND/LTH|FLAG:BLEED_RISK+CRUSH")
-                manualFormatRow(title: "LG3", subtitle: "DESFire EV3", example: "TX:1428/TQL/LTH/R2/DONE;1432/BAND/LTH/R2/DONE|FLAG:BLEED_RISK+CRUSH+SHOCK")
+                manualFormatRow(title: "LG1", subtitle: "NTAG215", example: "LG1|ID|T|S|I|V|TX|TM")
+                manualFormatRow(title: "LG2", subtitle: "NTAG216", example: "LG2|ID:...|T:...|S:...|LOC:...|I:...|V:...|TX:...|ALG:...|NOTE:...|TM:...|UPD:...")
             }
 
-            Text(L("簡化原則：LG1 只記錄處置結果；LG2 記錄時間 + 處置 + 部位；LG3 記錄時間 + 處置 + 部位 + 小隊 + 狀態 + 警示。"))
+            Text(L("規則：NTAG215 固定使用 LG1；NTAG216 固定使用 LG2；傷患 ID 不可變動；姓名、身分證、電話與完整病歷不寫入 NFC。"))
                 .font(.caption)
                 .foregroundColor(.secondary)
 
-            DisclosureGroup(L("TX / BODY / STATUS / FLAG 代碼表")) {
+            DisclosureGroup(L("LG1 / LG2 代碼表")) {
                 VStack(alignment: .leading, spacing: 8) {
                     manualCodeRow("檢傷 T", "R=紅/立即; Y=黃/延遲; G=綠/輕傷; B=黑/死亡或無生命跡象; U=未分類")
-                    manualCodeRow("TX 呼吸", "AWY=呼吸道; OPA=口咽呼吸道; NPA=鼻咽呼吸道; SUCTION=抽吸; O2=給氧; BVM=袋瓣罩; VENT=通氣; CPR=CPR; AED=AED; ROSC=自發循環")
-                    manualCodeRow("TX 出血", "DP=直接加壓; BAND=包紮; PRESS=加壓包紮; HEMO=止血敷料; TQL=左止血帶; TQR=右止血帶; TQB=雙側止血帶; IV=靜脈; IO=骨內; FLUID=輸液; WARM=保暖")
-                    manualCodeRow("TX 創傷", "SPL=夾板; CSPL=頸椎固定; SPINE=脊椎保護; PELVIC=骨盆固定; DRESS=傷口覆蓋; BURNDR=燒燙傷覆蓋; EYE=眼部保護; IMMOB=整體固定; EXTRIC=脫困")
-                    manualCodeRow("TX 評估", "VCHK=生命徵象複查; GCS=意識評估; PAIN=疼痛; TEMP=體溫; BS=血糖; SPO2=血氧; ECG=心電; PHOTO=已拍照; TAG=已掛標籤; SCAN=已掃 NFC")
-                    manualCodeRow("TX 後送", "MOVE=移動; LIFT=搬運; CARRY=擔架; EVAC=後送; LOAD=已上車/載具; ARRV=抵達; HOLD=暫留; TRANSFER=轉交; DECON=除污")
-                    manualCodeRow("BODY", "HEAD=頭; FACE=臉; NECK=頸; CHEST=胸; ABD=腹; BACK=背; PELV=骨盆; LARM/RARM=左右上臂; LFA/RFA=左右前臂; LHAND/RHAND=左右手; LTH/RTH=左右大腿; LLEG/RLEG=左右小腿; LFOOT/RFOOT=左右腳; NAS=鼻部; GEN=全身; UNK=不明")
-                    manualCodeRow("STATUS", "DONE=完成; TRY=嘗試; FAIL=未成功; HOLD=暫緩; RECHK=需複查; NEED=需要處置; NA=不適用; UNK=不明")
-                    manualCodeRow("FLAG 立即", "AIRWAY=呼吸道風險; RESP=呼吸異常; SHOCK=休克風險; BLEED_RISK=持續出血; UNCON=意識不清; CPA=無呼吸心跳; SEIZURE=抽搐; LOW_GCS=GCS偏低; DNR_UNK=特殊醫囑不明")
-                    manualCodeRow("FLAG 創傷", "HEAD_INJ=頭傷; SPINE=脊椎風險; CHEST_INJ=胸傷; ABD_INJ=腹傷; PELVIC=骨盆傷; FX=骨折; OPEN_FX=開放性骨折; BURN=燒燙傷; CRUSH=壓砸; AMPUT=截肢; ENTRAP=受困; FALL=墜落; BLAST=爆炸傷")
-                    manualCodeRow("FLAG 特殊", "CHILD=兒童; INFANT=嬰幼兒; ELDER=高齡; PREG=孕婦; DISAB=行動/身心障礙; LANG=語言困難; ID_UNK=身分不明; ALONE=無陪同")
-                    manualCodeRow("FLAG 醫療", "ALG=過敏史; PCN_ALG=青黴素過敏; FOOD_ALG=食物過敏; DM=糖尿病; HTN=高血壓; CARDIAC=心臟病; ASTHMA=氣喘; EPI=癲癇; MED_UNK=用藥不明; HX_UNK=病史不明")
-                    manualCodeRow("FLAG 現場", "HAZMAT=危害物; GAS=氣體風險; FIRE=火災; SMOKE=濃煙; ELEC=電力; WATER=水域/淹水; STRUCT=結構不穩; AFTERSHOCK=餘震; DARK=低光源; NOISE=噪音; ACCESS=進出困難; CONTAM=污染")
-                    manualCodeRow("FLAG 後送", "EVAC_NOW=優先後送; EVAC_WAIT=等待後送; EVAC_HOLD=暫不後送; ISO=隔離; DECON_REQ=需除污; MONITOR=後送監測; NO_ID=無身分; NO_FAMILY=無家屬")
+                    manualCodeRow("性別年齡 S", "M45=男性約45歲; F30=女性約30歲; C08=兒童約8歲; U=不明")
+                    manualCodeRow("傷勢 I", "HEAD=頭部外傷; CHEST=胸部外傷; ABD=腹部外傷; ARM_BLEED=手臂出血; LEG_BLEED=腿部出血; LEFT_LEG_BLEED=左腿出血; RIGHT_LEG_BLEED=右腿出血; FX=骨折; BURN=燒燙傷; CRUSH=壓砸傷; UNCON=意識不清; CPA=無呼吸心跳")
+                    manualCodeRow("處置 TX", "TQL=左側止血帶; TQR=右側止血帶; BAND=包紮; SPL=固定; O2=給氧; CPR=CPR; AED=AED 使用; IV=靜脈路徑; NONE=尚未處置")
+                    manualCodeRow("過敏 ALG", "PCN=青黴素; U=不明; 空白=未記錄")
                 }
                 .padding(.top, 8)
             }

@@ -50,13 +50,12 @@ struct QuickGuideView: View {
             color: .teal,
             steps: [
                 L("此區塊是紀錄格式操作手冊，不是醫療處置教學；實際處置依消防、救護、醫療單位 SOP。"),
-                L("LG1 / NTAG215：只記錄主要處置結果，例 TX:TQL+BAND，尾端可加 F:BLEED_RISK。"),
-                L("LG2 / NTAG216：記錄時間 + 處置 + 部位，例 TX:1428/TQL/LTH;1432/BAND/LTH。"),
-                L("LG3 / DESFire：記錄時間 + 處置 + 部位 + 小隊 + 狀態，例 TX:1428/TQL/LTH/R2/DONE。"),
-                L("常用 TX：O2、BVM、CPR、AED、DP、BAND、TQL、TQR、SPL、CSPL、VCHK、TAG、SCAN、EVAC、LOAD。"),
-                L("常用 BODY：HEAD、CHEST、ABD、LTH、RTH、LLEG、RLEG、NAS、GEN、UNK。"),
-                L("常用 STATUS：DONE、TRY、FAIL、HOLD、RECHK、NEED、NA、UNK。"),
-                L("常用 FLAG：AIRWAY、RESP、SHOCK、BLEED_RISK、UNCON、LOW_GCS、CRUSH、EVAC_NOW、DECON_REQ。"),
+                L("NTAG215 固定使用 LG1：LG1|ID|T|S|I|V|TX|TM。"),
+                L("NTAG216 固定使用 LG2：LG2|ID:...|T:...|S:...|LOC:...|I:...|V:...|TX:...|ALG:...|NOTE:...|TM:...|UPD:...。"),
+                L("LG1 範例：LG1|LG260506TAOZLE01S03B02F02AP023K|R|M45|LEG_BLEED|RR28/P120/G14|TQL|1430。"),
+                L("LG2 範例：LG2|ID:LG260506TAOZLE01S03B02F02AP023K|T:R|S:M45|LOC:S03-B02-F02-A|I:LEFT_LEG_BLEED|V:RR28/P120/G14|TX:TQL+BAND|ALG:PCN|NOTE:CONSCIOUS|TM:20260506T1430|UPD:1455。"),
+                L("常用 TX：TQL、TQR、BAND、SPL、O2、CPR、AED、IV、NONE；多項處置用 + 連接。"),
+                L("姓名、身分證、電話與完整病歷不寫入 NFC；傷患 ID 不可變動，檢傷、生命徵象與處置可更新。"),
             ]
         ),
         GuidePage(
