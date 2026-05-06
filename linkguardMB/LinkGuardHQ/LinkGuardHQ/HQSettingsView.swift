@@ -36,6 +36,7 @@ struct HQSettingsView: View {
     @State private var setupAssistantPresented = false
     @State private var storageLocationMessage: String? = nil
     @State private var storageLocationMessageIsError = false
+    @State private var resetConfirmationPresented = false
 
     private var backendMode: BackendMode {
         BackendMode(rawValue: backendModeRaw) ?? .embedded
@@ -64,6 +65,14 @@ struct HQSettingsView: View {
             #else
             EmptyView()
             #endif
+        }
+        .alert(L("完全重置 LinkGuardHQ？"), isPresented: $resetConfirmationPresented) {
+            Button(L("取消"), role: .cancel) {}
+            Button(L("完全重置"), role: .destructive) {
+                performCompleteReset()
+            }
+        } message: {
+            Text(L("這會停止本機服務，清除所有本機設定、任務狀態、資料庫、照片、音訊與報告檔案。此操作無法復原。"))
         }
     }
 
@@ -642,6 +651,30 @@ struct HQSettingsView: View {
                         .foregroundColor(storageLocationMessageIsError ? NV.danger : .secondary)
                         .lineLimit(2)
                 }
+
+                Divider()
+
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 10) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundColor(NV.danger)
+                            .frame(width: 20)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(L("完全重置"))
+                                .font(.subheadline.bold())
+                            Text(L("清除本機持久化資料與設定，回到首次啟動狀態。"))
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        Spacer()
+                        Button(role: .destructive) {
+                            resetConfirmationPresented = true
+                        } label: {
+                            Label(L("完全重置"), systemImage: "trash.slash.fill")
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
+                }
             }
             #else
             Text(L("此區塊僅於 macOS 主機可用。"))
@@ -729,6 +762,54 @@ struct HQSettingsView: View {
     private func setStorageLocationMessage(_ message: String, isError: Bool = false) {
         storageLocationMessage = message
         storageLocationMessageIsError = isError
+    }
+
+    private func performCompleteReset() {
+        #if os(macOS)
+        supervisor.stopAll()
+        vm.resetAllLocalData()
+
+        let fm = FileManager.default
+        let backendDataNames = ["data", "logs", "photos", "reports", "replay"]
+        for name in backendDataNames {
+            let url = supervisor.backendDir.appendingPathComponent(name, isDirectory: true)
+            if fm.fileExists(atPath: url.path) {
+                try? fm.removeItem(at: url)
+            }
+        }
+
+        if let docs = fm.urls(for: .documentDirectory, in: .userDomainMask).first {
+            let linkGuardData = docs.appendingPathComponent("LinkGuardData", isDirectory: true)
+            if fm.fileExists(atPath: linkGuardData.path) {
+                try? fm.removeItem(at: linkGuardData)
+            }
+        }
+
+        if let bundleID = Bundle.main.bundleIdentifier {
+            UserDefaults.standard.removePersistentDomain(forName: bundleID)
+        }
+        UserDefaults.standard.synchronize()
+
+        appColorScheme = "dark"
+        uiScale = 1.0
+        navigationPlacementRaw = HQNavigationPlacement.left.rawValue
+        backendModeRaw = BackendMode.embedded.rawValue
+        remoteHost = ""
+        legacyBackendHost = "127.0.0.1"
+        aiModeGlobal = "auto"
+        aiModelProfileRaw = LocalAIModelProfile.singleE4B.rawValue
+        voiceEngine = "whisperkit"
+        voiceModelSize = "large-v3"
+        statusUpdateNotificationsEnabled = true
+        statusSoundEnabled = true
+        statusFlashEnabled = true
+        splitEnabled = false
+        splitSecondSectionRaw = HQSection.chat.rawValue
+        externalDisplayEnabled = true
+        l10n.language = "zh-Hant"
+        supervisor.resetBackendDirOverride()
+        setStorageLocationMessage(L("已完成完全重置。"))
+        #endif
     }
 
     /// React to backend-mode change: tell HQBackendBridge where to connect.
