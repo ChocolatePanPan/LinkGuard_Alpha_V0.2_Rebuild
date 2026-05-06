@@ -18,6 +18,7 @@ private final class PatientNFCManager: NSObject, ObservableObject, NFCNDEFReader
     private var session: NFCNDEFReaderSession?
     private var mode: Mode = .read
     private var onRead: ((String) -> Void)?
+    private var onWrite: ((String, Int, Int) -> Void)?
 
     var isAvailable: Bool { NFCNDEFReaderSession.readingAvailable }
 
@@ -29,19 +30,23 @@ private final class PatientNFCManager: NSObject, ObservableObject, NFCNDEFReader
 
         mode = .read
         self.onRead = onRead
+        onWrite = nil
         statusText = L("請靠近傷患 NFC 標籤")
         session = NFCNDEFReaderSession(delegate: self, queue: nil, invalidateAfterFirstRead: true)
         session?.alertMessage = L("靠近傷患 NFC 標籤以讀取回報資料")
         session?.begin()
     }
 
-    func beginWrite(payloadForCapacity: @escaping (Int) -> String) {
+    func beginWrite(payloadForCapacity: @escaping (Int) -> String,
+                    onWrite: @escaping (String, Int, Int) -> Void) {
         guard isAvailable else {
             statusText = L("此裝置不支援 NFC")
             return
         }
 
         mode = .write(payloadForCapacity)
+        onRead = nil
+        self.onWrite = onWrite
         statusText = L("請靠近可寫入的 NFC 標籤")
         session = NFCNDEFReaderSession(delegate: self, queue: nil, invalidateAfterFirstRead: false)
         session?.alertMessage = L("靠近空白或可覆寫的 NFC 標籤")
@@ -121,6 +126,7 @@ private final class PatientNFCManager: NSObject, ObservableObject, NFCNDEFReader
                         DispatchQueue.main.async {
                             self.lastPayload = payload
                             self.statusText = L("NFC 寫入完成")
+                            self.onWrite?(payload, capacity, message.length)
                         }
                     }
                 }
@@ -149,7 +155,8 @@ private final class PatientNFCManager: ObservableObject {
     @Published var lastPayload: String = ""
     var isAvailable: Bool { false }
     func beginRead(onRead: @escaping (String) -> Void) { statusText = L("NFC 僅支援 iPhone 實機") }
-    func beginWrite(payloadForCapacity: @escaping (Int) -> String) { statusText = L("NFC 僅支援 iPhone 實機") }
+    func beginWrite(payloadForCapacity: @escaping (Int) -> String,
+                    onWrite: @escaping (String, Int, Int) -> Void) { statusText = L("NFC 僅支援 iPhone 實機") }
 }
 #endif
 
@@ -556,6 +563,8 @@ struct PatientFormView: View {
                             let candidates = nfcPayloadCandidatesForWrite()
                             nfcManager.beginWrite { capacity in
                                 nfcPayload(for: capacity, candidates: candidates)
+                            } onWrite: { payload, capacity, payloadLength in
+                                syncNFCTagWrite(payload: payload, capacity: capacity, payloadLength: payloadLength)
                             }
                         } label: {
                             Label(L("寫入"), systemImage: "square.and.pencil")
@@ -692,6 +701,18 @@ struct PatientFormView: View {
         let id = patientIdOverride ?? vm.reserveNextPatientID()
         patientIdOverride = id
         return vm.patientNFCURL(for: id)
+    }
+
+    private func syncNFCTagWrite(payload: String, capacity: Int, payloadLength: Int) {
+        vm.syncNFCTagWrite(
+            patientId: activePatientID,
+            payload: payload,
+            tagCapacity: capacity,
+            payloadLength: payloadLength
+        )
+        if vm.commandClient.isConnected {
+            nfcManager.statusText = L("NFC 寫入完成，已同步 HQ")
+        }
     }
 
     private func applyNFCPayload(_ payload: String) {

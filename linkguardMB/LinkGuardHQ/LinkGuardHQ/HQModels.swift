@@ -776,6 +776,20 @@ struct WiFiMessage: Codable {
     }
 }
 
+/// 前線 App → HQ：NFC 傷患標籤寫入完成紀錄
+struct NFCTagWriteRecord: Codable, Identifiable {
+    let id: String
+    let patientId: String
+    let compactPatientId: String
+    let format: String
+    let payload: String
+    let tagCapacity: Int
+    let payloadLength: Int
+    let deviceID: String
+    let senderName: String
+    let timestamp: Double
+}
+
 /// 前線 App → 指揮中心：裝置狀態報告
 struct FieldStatusReport: Codable {
     let deviceID: String

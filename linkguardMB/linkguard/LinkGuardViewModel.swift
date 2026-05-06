@@ -978,6 +978,29 @@ class LinkGuardViewModel: ObservableObject {
         )
     }
 
+    func syncNFCTagWrite(patientId: String, payload: String, tagCapacity: Int, payloadLength: Int) {
+        guard commandClient.isConnected else { return }
+        let compactID = PatientIDConfig.extractCompactID(from: patientId) ?? patientId.uppercased().filter { $0.isLetter || $0.isNumber }
+        let format = payload.components(separatedBy: "|").first ?? "NFC"
+        let sender = userNickname.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? nodeStatus.nodeID
+            : userNickname.trimmingCharacters(in: .whitespacesAndNewlines)
+        let record = NFCTagWriteRecord(
+            id: UUID().uuidString,
+            patientId: patientId,
+            compactPatientId: compactID,
+            format: format,
+            payload: payload,
+            tagCapacity: tagCapacity,
+            payloadLength: payloadLength,
+            deviceID: nodeStatus.nodeID,
+            senderName: sender,
+            timestamp: Date().timeIntervalSince1970
+        )
+        commandClient.sendNFCTagWritten(record)
+        appendActivity(kind: .patientReport, title: L("NFC 標籤已同步 HQ"), detail: "\(format) · \(compactID)")
+    }
+
     // MARK: - 電台音訊播放
 
     /// 下載並播放收到的電台音訊（供 UI 手動呼叫或自動播放）

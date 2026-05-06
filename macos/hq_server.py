@@ -136,6 +136,7 @@ class HQState:
         self.commands: list[dict] = []
         self.chats: list[dict] = []
         self.patients: list[dict] = []
+        self.nfc_tag_writes: list[dict] = []
         self.decisions: list[dict] = []
         self.briefings: list[dict] = []
         self.radio_reports: list[dict] = []
@@ -192,6 +193,7 @@ class HQState:
             "commands": self.commands[-100:],
             "chats": self.chats[-200:],
             "patients": self.patients[-50:],
+            "nfc_tag_writes": self.nfc_tag_writes[-100:],
             "decisions": self.decisions[-50:],
             "briefings": self.briefings[-20:],
             "radio_reports": self.radio_reports[-50:],
@@ -462,6 +464,20 @@ async def handle_field_message(msg: dict, writer: asyncio.StreamWriter):
         await forward_to_backend(msg)
         # 自動進行 START 檢傷分類
         asyncio.create_task(_auto_triage_patient(patient))
+
+    elif msg_type == "nfc_tag_written":
+        tag_write = {**data, "device_id": data.get("deviceID") or device_id, "received_at": now_iso()}
+        state.nfc_tag_writes.append(tag_write)
+        if len(state.nfc_tag_writes) > 300:
+            state.nfc_tag_writes = state.nfc_tag_writes[-300:]
+        compact_id = tag_write.get("compactPatientId") or tag_write.get("patientId") or ""
+        fmt = tag_write.get("format", "NFC")
+        payload_len = tag_write.get("payloadLength", 0)
+        capacity = tag_write.get("tagCapacity", 0)
+        state.add_timeline("nfc", f"NFC 標籤寫入 {compact_id}",
+                           f"{fmt} · {payload_len}/{capacity} bytes", device_id)
+        await ws_broadcast("nfc_tag_written", tag_write)
+        await forward_to_backend(msg)
 
     elif msg_type == "sos":
         sos_id = data.get("sos_id", str(uuid.uuid4())[:8])
