@@ -211,7 +211,9 @@ struct PatientFormView: View {
     @State private var nfcInjuryCode: String = ""
     @State private var nfcPulseText: String = ""
     @State private var nfcGCSText: String = ""
-    @State private var nfcTreatmentCode: String = "NONE"
+    @State private var nfcTreatmentCode: String = ""
+    @State private var nfcTreatmentBodyCode: String = "GEN"
+    @State private var nfcTreatmentStatusCode: String = "DONE"
     @State private var nfcAllergyCode: String = ""
     @State private var nfcFlagCode: String = ""
     @State private var nfcEvacStatus: String = "WAIT"
@@ -472,6 +474,24 @@ struct PatientFormView: View {
                     }
 
                     if selectedNFCFormat != .lg1 {
+                        HStack {
+                            TextField(L("處置部位 BODY"), text: $nfcTreatmentBodyCode)
+                                .textInputAutocapitalization(.characters)
+                                .autocorrectionDisabled()
+
+                            if selectedNFCFormat == .lg3 {
+                                TextField(L("處置狀態 STATUS"), text: $nfcTreatmentStatusCode)
+                                    .textInputAutocapitalization(.characters)
+                                    .autocorrectionDisabled()
+                            }
+                        }
+                    }
+
+                    TextField(L("警示 FLAG"), text: $nfcFlagCode)
+                        .textInputAutocapitalization(.characters)
+                        .autocorrectionDisabled()
+
+                    if selectedNFCFormat == .lg3 {
                         TextField(L("過敏代碼 ALG"), text: $nfcAllergyCode)
                             .textInputAutocapitalization(.characters)
                             .autocorrectionDisabled()
@@ -479,9 +499,6 @@ struct PatientFormView: View {
 
                     if selectedNFCFormat == .lg3 {
                         HStack {
-                            TextField(L("警示 FLAG"), text: $nfcFlagCode)
-                                .textInputAutocapitalization(.characters)
-                                .autocorrectionDisabled()
                             Picker(L("後送"), selection: $nfcEvacStatus) {
                                 ForEach(evacuationCodes, id: \.self) { code in
                                     Text(evacuationLabel(code)).tag(code)
@@ -548,7 +565,7 @@ struct PatientFormView: View {
                 } header: {
                     Text(L("NFC 讀取／寫入"))
                 } footer: {
-                    Text(L("寫入 LinkGuard 傷患網址；讀取時相容正式網址、正式 ID 與 LG1 離線文字格式。"))
+                    Text(L("LG1=NTAG215，LG2=NTAG216，LG3=DESFire／高容量 App 專用；寫入會依標籤容量自動降級，姓名與身分證不寫入 NFC。"))
                 }
 
                 // 語音輸入
@@ -742,25 +759,28 @@ struct PatientFormView: View {
         let compactID = compactPatientID(patientID)
         switch format {
         case .lg1:
-            return [
+            var parts = [
                 "LG1", compactID, triageCodeForNFC(), sexAgeCodeForNFC(), injuryCodeForNFC(),
-                vitalsForNFC(), treatmentCodeForNFC(), timeHM()
-            ].joined(separator: "|")
+                vitalsForNFC(), treatmentPayloadForNFC(format: .lg1), timeHM()
+            ]
+            let flags = flagCodeForNFC()
+            if !flags.isEmpty { parts.append("F:\(flags)") }
+            return parts.joined(separator: "|")
         case .lg2:
             return [
                 "LG2", "ID:\(compactID)", "T:\(triageCodeForNFC())", "S:\(sexAgeCodeForNFC())",
                 "LOC:\(locationCodeForNFC())", "I:\(injuryCodeForNFC())", "V:\(vitalsForNFC())",
-                "TX:\(treatmentCodeForNFC())", "ALG:\(codeValue(nfcAllergyCode))",
-                "NOTE:\(noteForNFC())", "TM:\(timeFull())", "UPD:\(timeHM())"
+                "TX:\(treatmentPayloadForNFC(format: .lg2))", "FLAG:\(flagCodeForNFC())",
+                "TM:\(timeFull())", "UPD:\(timeHM())"
             ].joined(separator: "|")
         case .lg3:
             let body = [
                 "LG3", "ID:\(compactID)", "T:\(triageCodeForNFC())", "S:\(sexAgeCodeForNFC())",
                 "LOC:\(locationCodeForNFC())", "GPS:\(gpsForNFC())", "I:\(injuryCodeForNFC())",
-                "V:\(timeHM())/\(vitalsForNFC())", "TX:\(timeHM())/\(treatmentCodeForNFC())",
-                "ALG:\(codeValue(nfcAllergyCode))", "FLAG:\(codeValue(nfcFlagCode))",
+                "V:\(timeHM())/\(vitalsForNFC())", "TX:\(treatmentPayloadForNFC(format: .lg3))",
+                "ALG:\(codeValue(nfcAllergyCode))", "FLAG:\(flagCodeForNFC())",
                 "EVAC:\(codeValue(nfcEvacStatus, fallback: "WAIT"))", "DST:\(codeValue(nfcDestinationCode))",
-                "TEAM:\(codeValue(nfcTeamCode))", "TM:\(timeFull())", "UPD:\(timeHM())"
+                "TEAM:\(treatmentTeamCodeForNFC())", "TM:\(timeFull())", "UPD:\(timeHM())"
             ].joined(separator: "|")
             return "\(body)|CHK:\(nfcChecksum(for: body))"
         }
@@ -777,8 +797,13 @@ struct PatientFormView: View {
         nfcSexAgeCode = codeValue(parts[3], fallback: "U")
         nfcInjuryCode = codeValue(parts[4])
         applyVitals(parts[5])
-        nfcTreatmentCode = treatmentCodes(from: parts[6])
+        applyTreatment(parts[6], version: .lg1)
         notes = appendNote(notes, L("NFC LG1 時間：%@", formatHM(parts[7])))
+        for part in parts.dropFirst(8) {
+            if let flags = payloadValue(after: "F:", in: part) ?? payloadValue(after: "FLAG:", in: part) {
+                nfcFlagCode = codeValue(flags)
+            }
+        }
         selectedNFCFormat = .lg1
         updateNFCSummary(version: "LG1")
         nfcManager.statusText = L("NFC LG1 已讀取")
@@ -800,7 +825,7 @@ struct PatientFormView: View {
         if let loc = fields["LOC"], !loc.isEmpty { location = loc }
         if let injury = fields["I"] { nfcInjuryCode = codeValue(injury) }
         if let vitals = fields["V"] { applyVitals(vitals) }
-        if let tx = fields["TX"] { nfcTreatmentCode = treatmentCodes(from: tx) }
+        if let tx = fields["TX"] { applyTreatment(tx, version: version) }
         if let alg = fields["ALG"] { nfcAllergyCode = codeValue(alg) }
         if let note = fields["NOTE"], !note.isEmpty { notes = appendNote(notes, L("NFC 備註：%@", note)) }
         if let flag = fields["FLAG"] { nfcFlagCode = codeValue(flag) }
@@ -861,6 +886,7 @@ struct PatientFormView: View {
             lines.append("\(L("生命徵象")): \(vitalsForNFC())")
         }
         if !nfcTreatmentCode.isEmpty { lines.append("\(L("處置")): \(nfcTreatmentCode)") }
+        if !nfcFlagCode.isEmpty { lines.append("\(L("警示")): \(nfcFlagCode)") }
         if selectedNFCFormat == .lg3, !nfcEvacStatus.isEmpty { lines.append("\(L("後送")): \(evacuationLabel(nfcEvacStatus))") }
         nfcDecodedSummary = lines.joined(separator: "\n")
     }
@@ -878,7 +904,36 @@ struct PatientFormView: View {
         return codeValue(nfcInjuryCode, fallback: fallback)
     }
 
-    private func treatmentCodeForNFC() -> String { codeValue(nfcTreatmentCode, fallback: "NONE") }
+    private func treatmentCodesForNFC() -> [String] {
+        codeValue(nfcTreatmentCode)
+            .components(separatedBy: "+")
+            .map { codeValue($0) }
+            .filter { !$0.isEmpty }
+    }
+
+    private func treatmentBodyCodeForNFC() -> String { codeValue(nfcTreatmentBodyCode, fallback: "GEN") }
+
+    private func treatmentStatusCodeForNFC() -> String { codeValue(nfcTreatmentStatusCode, fallback: "DONE") }
+
+    private func treatmentTeamCodeForNFC() -> String { codeValue(nfcTeamCode, fallback: "UNK") }
+
+    private func flagCodeForNFC() -> String { codeValue(nfcFlagCode) }
+
+    private func treatmentPayloadForNFC(format: PatientNFCFormat) -> String {
+        let codes = treatmentCodesForNFC()
+        guard !codes.isEmpty else { return "" }
+
+        switch format {
+        case .lg1:
+            return codes.joined(separator: "+")
+        case .lg2:
+            return codes.map { "\(timeHM())/\($0)/\(treatmentBodyCodeForNFC())" }.joined(separator: ";")
+        case .lg3:
+            let team = treatmentTeamCodeForNFC()
+            let status = treatmentStatusCodeForNFC()
+            return codes.map { "\(timeHM())/\($0)/\(treatmentBodyCodeForNFC())/\(team)/\(status)" }.joined(separator: ";")
+        }
+    }
 
     private func vitalsForNFC() -> String {
         let rr = numericCode(breathingRateText, prefix: "RR", fallback: "RRU")
@@ -922,12 +977,30 @@ struct PatientFormView: View {
         return digits.isEmpty ? fallback : "\(prefix)\(digits)"
     }
 
-    private func treatmentCodes(from value: String) -> String {
-        let codes = value.components(separatedBy: ";").map { entry -> String in
-            let parts = entry.components(separatedBy: "/")
-            return codeValue(parts.last ?? entry)
-        }.filter { !$0.isEmpty }
-        return codes.isEmpty ? codeValue(value, fallback: "NONE") : codes.joined(separator: "+")
+    private func applyTreatment(_ value: String, version: PatientNFCFormat) {
+        let normalizedValue = payloadValue(after: "TX:", in: value) ?? value
+        let entries = normalizedValue.components(separatedBy: ";")
+        var codes: [String] = []
+        var firstBody = ""
+        var firstTeam = ""
+        var firstStatus = ""
+
+        for entry in entries {
+            let parts = entry.components(separatedBy: "/").map { codeValue($0) }
+            if parts.count >= 2 {
+                if !parts[1].isEmpty { codes.append(parts[1]) }
+                if firstBody.isEmpty, parts.count >= 3 { firstBody = parts[2] }
+                if firstTeam.isEmpty, parts.count >= 4 { firstTeam = parts[3] }
+                if firstStatus.isEmpty, parts.count >= 5 { firstStatus = parts[4] }
+            } else {
+                codes.append(contentsOf: entry.components(separatedBy: "+").map { codeValue($0) }.filter { !$0.isEmpty })
+            }
+        }
+
+        nfcTreatmentCode = codes.joined(separator: "+")
+        if !firstBody.isEmpty { nfcTreatmentBodyCode = firstBody }
+        if version == .lg3, !firstTeam.isEmpty { nfcTeamCode = firstTeam }
+        if version == .lg3, !firstStatus.isEmpty { nfcTreatmentStatusCode = firstStatus }
     }
 
     private func nfcChecksum(for text: String) -> String {
