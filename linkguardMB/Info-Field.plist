@@ -18,6 +18,8 @@
 	<string>LinkGuard 需要區域網路來連線 Mac HQ 指揮中心、上傳照片回報、以及接收即時語音廣播</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>LinkGuard 需要麥克風來進行語音輸入，以快速填寫傷員回報資訊</string>
+	<key>NFCReaderUsageDescription</key>
+	<string>LinkGuard 需要 NFC 來讀取與寫入傷患識別標籤，協助現場快速回報傷患資訊</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>LinkGuard 需要語音辨識權限以進行即時語音轉文字</string>
 	<key>NSLocationWhenInUseUsageDescription</key>

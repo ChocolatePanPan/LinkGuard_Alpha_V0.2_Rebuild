@@ -1,6 +1,152 @@
 import SwiftUI
 import CoreLocation
 import Combine
+#if os(iOS)
+import CoreNFC
+#endif
+
+#if os(iOS)
+private final class PatientNFCManager: NSObject, ObservableObject, NFCNDEFReaderSessionDelegate {
+    enum Mode {
+        case read
+        case write(String)
+    }
+
+    @Published var statusText: String = L("NFC 待命")
+    @Published var lastPayload: String = ""
+
+    private var session: NFCNDEFReaderSession?
+    private var mode: Mode = .read
+    private var onRead: ((String) -> Void)?
+
+    var isAvailable: Bool { NFCNDEFReaderSession.readingAvailable }
+
+    func beginRead(onRead: @escaping (String) -> Void) {
+        guard isAvailable else {
+            statusText = L("此裝置不支援 NFC")
+            return
+        }
+
+        mode = .read
+        self.onRead = onRead
+        statusText = L("請靠近傷患 NFC 標籤")
+        session = NFCNDEFReaderSession(delegate: self, queue: nil, invalidateAfterFirstRead: true)
+        session?.alertMessage = L("靠近傷患 NFC 標籤以讀取回報資料")
+        session?.begin()
+    }
+
+    func beginWrite(payload: String) {
+        guard isAvailable else {
+            statusText = L("此裝置不支援 NFC")
+            return
+        }
+
+        mode = .write(payload)
+        statusText = L("請靠近可寫入的 NFC 標籤")
+        session = NFCNDEFReaderSession(delegate: self, queue: nil, invalidateAfterFirstRead: false)
+        session?.alertMessage = L("靠近空白或可覆寫的 NFC 標籤")
+        session?.begin()
+    }
+
+    func readerSession(_ session: NFCNDEFReaderSession, didInvalidateWithError error: Error) {
+        DispatchQueue.main.async {
+            let nsError = error as NSError
+            if nsError.code != NFCReaderError.readerSessionInvalidationErrorUserCanceled.rawValue {
+                self.statusText = L("NFC 已停止：%@", error.localizedDescription)
+            }
+        }
+    }
+
+    func readerSession(_ session: NFCNDEFReaderSession, didDetectNDEFs messages: [NFCNDEFMessage]) {
+        guard case .read = mode else { return }
+        let payload = messages
+            .flatMap(\.records)
+            .compactMap { PatientNFCManager.text(from: $0) }
+            .first ?? ""
+
+        DispatchQueue.main.async {
+            guard !payload.isEmpty else {
+                self.statusText = L("NFC 標籤沒有可讀取的文字資料")
+                return
+            }
+            self.lastPayload = payload
+            self.statusText = L("NFC 讀取完成")
+            self.onRead?(payload)
+        }
+    }
+
+    func readerSession(_ session: NFCNDEFReaderSession, didDetect tags: [NFCNDEFTag]) {
+        guard case .write(let payload) = mode else { return }
+        guard let tag = tags.first else {
+            session.invalidate(errorMessage: L("找不到 NFC 標籤"))
+            return
+        }
+
+        if tags.count > 1 {
+            session.alertMessage = L("一次只靠近一張 NFC 標籤")
+            DispatchQueue.global().asyncAfter(deadline: .now() + 0.6) { session.restartPolling() }
+            return
+        }
+
+        session.connect(to: tag) { error in
+            if let error {
+                session.invalidate(errorMessage: error.localizedDescription)
+                return
+            }
+
+            tag.queryNDEFStatus { status, capacity, error in
+                if let error {
+                    session.invalidate(errorMessage: error.localizedDescription)
+                    return
+                }
+
+                guard status == .readWrite else {
+                    session.invalidate(errorMessage: L("此 NFC 標籤不可寫入"))
+                    return
+                }
+
+                let message = NFCNDEFMessage(records: [PatientNFCManager.record(from: payload)])
+                guard message.length <= capacity else {
+                    session.invalidate(errorMessage: L("NFC 標籤容量不足"))
+                    return
+                }
+
+                tag.writeNDEF(message) { error in
+                    if let error {
+                        session.invalidate(errorMessage: error.localizedDescription)
+                    } else {
+                        session.alertMessage = L("傷患 NFC 標籤寫入完成")
+                        session.invalidate()
+                        DispatchQueue.main.async {
+                            self.lastPayload = payload
+                            self.statusText = L("NFC 寫入完成")
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private static func record(from text: String) -> NFCNDEFPayload {
+        NFCNDEFPayload.wellKnownTypeTextPayload(string: text, locale: Locale(identifier: "zh-Hant"))!
+    }
+
+    private static func text(from record: NFCNDEFPayload) -> String? {
+        if let decoded = record.wellKnownTypeTextPayload().0 {
+            return decoded
+        }
+        return String(data: record.payload, encoding: .utf8)
+    }
+}
+#else
+private final class PatientNFCManager: ObservableObject {
+    @Published var statusText: String = L("NFC 僅支援 iPhone 實機")
+    @Published var lastPayload: String = ""
+    var isAvailable: Bool { false }
+    func beginRead(onRead: @escaping (String) -> Void) { statusText = L("NFC 僅支援 iPhone 實機") }
+    func beginWrite(payload: String) { statusText = L("NFC 僅支援 iPhone 實機") }
+}
+#endif
 
 // MARK: - GPS 位置管理
 
@@ -33,6 +179,7 @@ struct PatientFormView: View {
     @ObservedObject var vm: LinkGuardViewModel
     @StateObject private var voiceManager = VoiceInputManager()
     @StateObject private var locationMgr = PatientLocationManager()
+    @StateObject private var nfcManager = PatientNFCManager()
 
     // 身分資料
     @State private var nationalId: String = ""
@@ -239,6 +386,50 @@ struct PatientFormView: View {
                     Text(L("意識狀態"))
                 }
 
+                Section {
+                    HStack(spacing: 10) {
+                        Image(systemName: "wave.3.right.circle.fill")
+                            .foregroundColor(nfcManager.isAvailable ? NV.command : .gray)
+                            .frame(width: 22)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(L("NFC 傷患標籤"))
+                                .font(.body)
+                            Text(nfcManager.statusText)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+
+                    if !nfcManager.lastPayload.isEmpty {
+                        Text(nfcManager.lastPayload)
+                            .font(.system(.caption, design: .monospaced))
+                            .lineLimit(2...4)
+                            .textSelection(.enabled)
+                    }
+
+                    HStack(spacing: 12) {
+                        Button {
+                            nfcManager.beginRead { payload in
+                                applyNFCPayload(payload)
+                            }
+                        } label: {
+                            Label(L("讀取"), systemImage: "wave.3.right")
+                        }
+                        .disabled(!nfcManager.isAvailable)
+
+                        Button {
+                            nfcManager.beginWrite(payload: currentNFCPayload())
+                        } label: {
+                            Label(L("寫入"), systemImage: "square.and.pencil")
+                        }
+                        .disabled(!nfcManager.isAvailable)
+                    }
+                } header: {
+                    Text(L("NFC 讀取／寫入"))
+                } footer: {
+                    Text(L("支援 LinkGuard LG1 文字格式，可將傷患 ID、分級、年齡、傷勢與生命徵象同步到 NFC 標籤。"))
+                }
+
                 // 語音輸入
                 Section {
                     VoiceInputButton(
@@ -347,6 +538,61 @@ struct PatientFormView: View {
         } else {
             location += " \(text)"
         }
+    }
+
+    // MARK: - NFC
+
+    private func currentNFCPayload() -> String {
+        var fields = ["LG1"]
+        fields.append("ID:\(nationalId.isEmpty ? "P\(Int(Date().timeIntervalSince1970))" : nationalId.trimmingCharacters(in: .whitespaces))")
+        if let age = calculatedAge { fields.append("AGE:\(age)") }
+        if !location.trimmingCharacters(in: .whitespaces).isEmpty { fields.append("LOC:\(location.trimmingCharacters(in: .whitespaces))") }
+        if !breathingRateText.isEmpty { fields.append("RR\(breathingRateText)") }
+        fields.append("CMD:\(canFollowCommands ? "Y" : "N")")
+        if !notes.trimmingCharacters(in: .whitespaces).isEmpty { fields.append("NOTE:\(notes.trimmingCharacters(in: .whitespaces))") }
+        fields.append("TIME:\(LGDateFormat.hm.string(from: Date()).replacingOccurrences(of: ":", with: ""))")
+        return fields.joined(separator: "|")
+    }
+
+    private func applyNFCPayload(_ payload: String) {
+        let parts = payload.split(separator: "|").map(String.init)
+        guard parts.first == "LG1" else {
+            nfcManager.statusText = L("NFC 格式不是 LinkGuard LG1")
+            return
+        }
+
+        for part in parts.dropFirst() {
+            if let value = value(after: "ID:", in: part) {
+                nationalId = value
+            } else if let value = value(after: "AGE:", in: part) {
+                notes = appendNote(notes, L("NFC 年齡：%@", value))
+            } else if let value = value(after: "INJ:", in: part) {
+                notes = appendNote(notes, L("傷勢：%@", value))
+            } else if let value = value(after: "TX:", in: part) {
+                notes = appendNote(notes, L("處置：%@", value))
+            } else if let value = value(after: "LOC:", in: part) {
+                location = value
+            } else if let value = value(after: "RR", in: part) ?? value(after: "RR:", in: part) {
+                breathingRateText = value
+            } else if let value = value(after: "GCS", in: part) ?? value(after: "GCS:", in: part) {
+                if let gcs = Int(value) { canFollowCommands = gcs >= 13 }
+                notes = appendNote(notes, "GCS\(value)")
+            } else if let value = value(after: "T:", in: part) {
+                notes = appendNote(notes, L("分級：%@", value))
+            } else if let value = value(after: "TIME:", in: part) {
+                notes = appendNote(notes, L("標籤時間：%@", value))
+            }
+        }
+    }
+
+    private func value(after prefix: String, in text: String) -> String? {
+        guard text.hasPrefix(prefix) else { return nil }
+        return String(text.dropFirst(prefix.count)).trimmingCharacters(in: .whitespaces)
+    }
+
+    private func appendNote(_ current: String, _ line: String) -> String {
+        let trimmed = current.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? line : "\(trimmed)\n\(line)"
     }
 
     // MARK: - 驗證
