@@ -19,6 +19,11 @@ struct HQResourceView: View {
 
     private let resourceTypes = ["medical_kit", "stretcher", "ambulance", "radio", "tool", "personnel"]
 
+    private let actionPanelColumns = [
+        GridItem(.flexible(minimum: 360), spacing: NV.panelSpacing, alignment: .top),
+        GridItem(.flexible(minimum: 360), spacing: NV.panelSpacing, alignment: .top)
+    ]
+
     private var resourceData: [String: Any] {
         let raw = vm.latestResourceUpdate ?? [:]
         return raw["data"] as? [String: Any] ?? raw
@@ -86,7 +91,7 @@ struct HQResourceView: View {
 
             resourceSummarySection
 
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 340), spacing: NV.panelSpacing)], spacing: NV.panelSpacing) {
+            LazyVGrid(columns: actionPanelColumns, spacing: NV.panelSpacing) {
                 deploymentPanel
                 createResourcePanel
             }
@@ -131,31 +136,40 @@ struct HQResourceView: View {
     private var deploymentPanel: some View {
         HQPanel(title: L("部署到分區"), icon: "arrow.up.right.square.fill", accent: NV.green) {
             VStack(alignment: .leading, spacing: 12) {
-                Picker(L("分區"), selection: $selectedZoneName) {
-                    if zoneNames.isEmpty {
-                        Text(L("尚無分區")).tag("")
-                    } else {
-                        ForEach(zoneNames, id: \.self) { zoneName in
-                            Text(zoneName).tag(zoneName)
+                resourceFormRow(label: L("分區")) {
+                    Picker(L("分區"), selection: $selectedZoneName) {
+                        if zoneNames.isEmpty {
+                            Text(L("尚無分區")).tag("")
+                        } else {
+                            ForEach(zoneNames, id: \.self) { zoneName in
+                                Text(zoneName).tag(zoneName)
+                            }
                         }
                     }
+                    .labelsHidden()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .disabled(zoneNames.isEmpty)
                 }
-                .disabled(zoneNames.isEmpty)
 
-                Picker(L("資源"), selection: $selectedResourceID) {
-                    if deployableResources.isEmpty {
-                        Text(L("沒有可部署資源")).tag("")
-                    } else {
-                        ForEach(deployableResources) { resource in
-                            Text("\(resource.name) · \(resource.available)/\(resource.total)")
-                                .tag(resource.resourceID)
+                resourceFormRow(label: L("資源")) {
+                    Picker(L("資源"), selection: $selectedResourceID) {
+                        if deployableResources.isEmpty {
+                            Text(L("沒有可部署資源")).tag("")
+                        } else {
+                            ForEach(deployableResources) { resource in
+                                Text("\(resource.name) · \(resource.available)/\(resource.total)")
+                                    .tag(resource.resourceID)
+                            }
                         }
                     }
+                    .labelsHidden()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .disabled(deployableResources.isEmpty)
                 }
-                .disabled(deployableResources.isEmpty)
 
                 TextField(L("位置 / 備註（選填）"), text: $deploymentNote, axis: .vertical)
                     .textFieldStyle(.roundedBorder)
+                    .frame(maxWidth: .infinity)
                     .lineLimit(1...3)
 
                 Button {
@@ -164,8 +178,10 @@ struct HQResourceView: View {
                     Label(L("部署資源"), systemImage: "paperplane.fill")
                 }
                 .buttonStyle(.borderedProminent)
+                .controlSize(.large)
                 .disabled(isMutating || selectedZoneName.isEmpty || selectedResourceID.isEmpty)
             }
+            .frame(maxWidth: .infinity, minHeight: 188, alignment: .topLeading)
         }
     }
 
@@ -174,25 +190,47 @@ struct HQResourceView: View {
             VStack(alignment: .leading, spacing: 12) {
                 TextField(L("資源名稱"), text: $newResourceName)
                     .textFieldStyle(.roundedBorder)
-                Picker(L("類型"), selection: $newResourceType) {
-                    ForEach(resourceTypes, id: \.self) { type in
-                        Label(resourceTypeLabel(type), systemImage: resourceTypeIcon(type)).tag(type)
+                    .frame(maxWidth: .infinity)
+                resourceFormRow(label: L("類型")) {
+                    Picker(L("類型"), selection: $newResourceType) {
+                        ForEach(resourceTypes, id: \.self) { type in
+                            Label(resourceTypeLabel(type), systemImage: resourceTypeIcon(type)).tag(type)
+                        }
                     }
+                    .labelsHidden()
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                Stepper(value: $newResourceTotal, in: 1...99) {
-                    Text(L("數量：%lld", newResourceTotal))
+                resourceFormRow(label: L("數量")) {
+                    Stepper(value: $newResourceTotal, in: 1...99) {
+                        Text("\(newResourceTotal)")
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 TextField(L("存放位置（選填）"), text: $newResourceLocation)
                     .textFieldStyle(.roundedBorder)
+                    .frame(maxWidth: .infinity)
                 Button {
                     createResource()
                 } label: {
                     Label(L("新增到庫存"), systemImage: "tray.and.arrow.down.fill")
                 }
                 .buttonStyle(.borderedProminent)
+                .controlSize(.large)
                 .disabled(isMutating || newResourceName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
+            .frame(maxWidth: .infinity, minHeight: 188, alignment: .topLeading)
         }
+    }
+
+    private func resourceFormRow<Content: View>(label: String, @ViewBuilder content: () -> Content) -> some View {
+        HStack(alignment: .center, spacing: 10) {
+            Text(label)
+                .font(.subheadline.bold())
+                .foregroundColor(.secondary)
+                .frame(width: 52, alignment: .leading)
+            content()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var zoneResourceSection: some View {
