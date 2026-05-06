@@ -9,7 +9,7 @@ import CoreNFC
 private final class PatientNFCManager: NSObject, ObservableObject, NFCNDEFReaderSessionDelegate {
     enum Mode {
         case read
-        case write(String)
+        case write((Int) -> String)
     }
 
     @Published var statusText: String = L("NFC 待命")
@@ -35,13 +35,13 @@ private final class PatientNFCManager: NSObject, ObservableObject, NFCNDEFReader
         session?.begin()
     }
 
-    func beginWrite(payload: String) {
+    func beginWrite(payloadForCapacity: @escaping (Int) -> String) {
         guard isAvailable else {
             statusText = L("此裝置不支援 NFC")
             return
         }
 
-        mode = .write(payload)
+        mode = .write(payloadForCapacity)
         statusText = L("請靠近可寫入的 NFC 標籤")
         session = NFCNDEFReaderSession(delegate: self, queue: nil, invalidateAfterFirstRead: false)
         session?.alertMessage = L("靠近空白或可覆寫的 NFC 標籤")
@@ -76,7 +76,7 @@ private final class PatientNFCManager: NSObject, ObservableObject, NFCNDEFReader
     }
 
     func readerSession(_ session: NFCNDEFReaderSession, didDetect tags: [NFCNDEFTag]) {
-        guard case .write(let payload) = mode else { return }
+        guard case .write(let payloadForCapacity) = mode else { return }
         guard let tag = tags.first else {
             session.invalidate(errorMessage: L("找不到 NFC 標籤"))
             return
@@ -105,6 +105,7 @@ private final class PatientNFCManager: NSObject, ObservableObject, NFCNDEFReader
                     return
                 }
 
+                let payload = payloadForCapacity(capacity)
                 let message = NFCNDEFMessage(records: [PatientNFCManager.record(from: payload)])
                 guard message.length <= capacity else {
                     session.invalidate(errorMessage: L("NFC 標籤容量不足"))
@@ -137,6 +138,10 @@ private final class PatientNFCManager: NSObject, ObservableObject, NFCNDEFReader
         }
         return String(data: record.payload, encoding: .utf8)
     }
+
+    static func ndefLength(for text: String) -> Int {
+        NFCNDEFMessage(records: [record(from: text)]).length
+    }
 }
 #else
 private final class PatientNFCManager: ObservableObject {
@@ -144,7 +149,7 @@ private final class PatientNFCManager: ObservableObject {
     @Published var lastPayload: String = ""
     var isAvailable: Bool { false }
     func beginRead(onRead: @escaping (String) -> Void) { statusText = L("NFC 僅支援 iPhone 實機") }
-    func beginWrite(payload: String) { statusText = L("NFC 僅支援 iPhone 實機") }
+    func beginWrite(payloadForCapacity: @escaping (Int) -> String) { statusText = L("NFC 僅支援 iPhone 實機") }
 }
 #endif
 
@@ -192,6 +197,8 @@ private enum PatientNFCFormat: String, CaseIterable, Identifiable {
 }
 
 struct PatientFormView: View {
+    private typealias NFCPayloadCandidate = (format: PatientNFCFormat, payload: String, length: Int)
+
     @ObservedObject var vm: LinkGuardViewModel
     @StateObject private var voiceManager = VoiceInputManager()
     @StateObject private var locationMgr = PatientLocationManager()
@@ -529,7 +536,10 @@ struct PatientFormView: View {
                         .disabled(!nfcManager.isAvailable)
 
                         Button {
-                            nfcManager.beginWrite(payload: nfcPayloadForWrite())
+                            let candidates = nfcPayloadCandidatesForWrite()
+                            nfcManager.beginWrite { capacity in
+                                nfcPayload(for: capacity, candidates: candidates)
+                            }
                         } label: {
                             Label(L("寫入"), systemImage: "square.and.pencil")
                         }
@@ -538,7 +548,7 @@ struct PatientFormView: View {
                 } header: {
                     Text(L("NFC 讀取／寫入"))
                 } footer: {
-                    Text(L("LG1=NTAG215，LG2=NTAG216，LG3=DESFire／高容量 App 專用；姓名與身分證不寫入 NFC。"))
+                    Text(L("寫入 LinkGuard 傷患網址；讀取時相容正式網址、正式 ID 與 LG1 離線文字格式。"))
                 }
 
                 // 語音輸入
@@ -661,10 +671,10 @@ struct PatientFormView: View {
         buildNFCPayload(for: activePatientID, format: selectedNFCFormat)
     }
 
-    private func nfcPayloadForWrite() -> String {
+    private func nfcPayloadCandidatesForWrite() -> [NFCPayloadCandidate] {
         let id = patientIdOverride ?? vm.reserveNextPatientID()
         patientIdOverride = id
-        return buildNFCPayload(for: id, format: selectedNFCFormat)
+        return vm.patientNFCURL(for: id)
     }
 
     private func applyNFCPayload(_ payload: String) {
