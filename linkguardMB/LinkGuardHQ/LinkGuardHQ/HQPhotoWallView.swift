@@ -7,7 +7,7 @@ struct HQPhotoWallView: View {
     @ObservedObject var vm: HQViewModel
 
     private let photoGridColumns = [
-        GridItem(.adaptive(minimum: 280, maximum: 360), spacing: NV.panelSpacing, alignment: .topLeading)
+        GridItem(.adaptive(minimum: 320), spacing: NV.panelSpacing, alignment: .top)
     ]
 
     private var serverHost: String {
@@ -46,6 +46,7 @@ struct HQPhotoWallView: View {
                 LazyVGrid(columns: photoGridColumns, alignment: .leading, spacing: NV.panelSpacing) {
                     ForEach(entries) { entry in
                         PhotoCard(data: entry.data)
+                            .frame(maxWidth: .infinity, alignment: .topLeading)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -159,7 +160,6 @@ struct PhotoCard: View {
             }
         }
         .padding(10)
-        .frame(maxWidth: 360, alignment: .topLeading)
         .frame(maxWidth: .infinity, alignment: .topLeading)
         .hqThemedSurfaceBackground()
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
