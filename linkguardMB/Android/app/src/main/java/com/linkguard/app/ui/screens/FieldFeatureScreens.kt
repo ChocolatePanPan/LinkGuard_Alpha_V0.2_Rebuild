@@ -447,11 +447,11 @@ fun FieldNotificationScreen(viewModel: LinkGuardViewModel) {
             items(pwsAlerts, key = { it.id }) { alert ->
                 InfoCard(alert.title) {
                     Row {
-                        Text(alert.alertType.label, fontSize = 11.sp, color = alert.severity.color,
-                            modifier = Modifier.background(alert.severity.color.copy(alpha = 0.15f), RoundedCornerShape(4.dp))
+                        Text(alert.alertType.label, fontSize = 11.sp, color = NV.danger,
+                            modifier = Modifier.background(NV.danger.copy(alpha = 0.15f), RoundedCornerShape(4.dp))
                                 .padding(horizontal = 6.dp, vertical = 2.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(alert.severity.label, fontSize = 11.sp, color = alert.severity.color)
+                        Text(alert.severity.label, fontSize = 11.sp, color = NV.danger)
                         Spacer(modifier = Modifier.weight(1f))
                         if (alert.isActive) {
                             Text("活躍", fontSize = 9.sp, color = NV.white, fontWeight = FontWeight.Bold,

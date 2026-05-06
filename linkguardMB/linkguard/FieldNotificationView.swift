@@ -117,7 +117,7 @@ struct FieldNotificationView: View {
                         ForEach(vm.pwsAlerts) { alert in
                             HStack(spacing: 10) {
                                 Image(systemName: alert.alertType.icon)
-                                    .foregroundColor(alert.severity.color)
+                                    .foregroundColor(NV.danger)
                                     .font(.title3)
                                 VStack(alignment: .leading, spacing: 2) {
                                     HStack {
@@ -138,7 +138,7 @@ struct FieldNotificationView: View {
                                     HStack {
                                         Text(alert.severity.label)
                                             .font(.caption2).bold()
-                                            .foregroundColor(alert.severity.color)
+                                            .foregroundColor(NV.danger)
                                         Text("· \(alert.publisher)")
                                             .font(.caption2).foregroundColor(.secondary)
                                     }
@@ -249,13 +249,13 @@ struct FieldNotificationView: View {
         case .briefing:             return NV.info
         case .broadcast:            return NV.command
         case .sos:                  return NV.danger
-        case .reinforcement:        return NV.warning
+        case .reinforcement:        return NV.danger
         case .hazard:               return NV.danger
         case .patientWarning:       return NV.danger
-        case .deviceAlert:          return NV.warning
+        case .deviceAlert:          return NV.danger
         case .call:                 return NV.info
         case .task:                 return NV.command
-        case .timer:                return NV.warning
+        case .timer:                return NV.danger
         case .patientReport:        return NV.info
         case .quickStatus:          return NV.command
         }
