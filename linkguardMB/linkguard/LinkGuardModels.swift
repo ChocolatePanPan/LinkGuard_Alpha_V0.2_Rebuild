@@ -311,6 +311,51 @@ struct PersonnelAssignment: Codable, Identifiable {
     var assignedZone: String; var assignedFloor: String
     var role: PersonnelRole; var timestamp: Double
 
+    init(id: String = UUID().uuidString, name: String, nickname: String? = nil,
+         assignedZone: String = "",
+         assignedFloor: String = "", role: PersonnelRole = .search) {
+        self.id = id; self.name = name; self.nickname = nickname
+        self.assignedZone = assignedZone
+        self.assignedFloor = assignedFloor; self.role = role
+        self.timestamp = Date().timeIntervalSince1970
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decodeIfPresent(String.self, forKey: .id) ?? UUID().uuidString
+        self.name = try container.decodeIfPresent(String.self, forKey: .name) ?? ""
+        self.nickname = try container.decodeIfPresent(String.self, forKey: .nickname)
+        self.assignedZone = try container.decodeIfPresent(String.self, forKey: .assignedZone) ?? ""
+        self.assignedFloor = try container.decodeIfPresent(String.self, forKey: .assignedFloor) ?? ""
+        let roleRaw = try container.decodeIfPresent(String.self, forKey: .role) ?? ""
+        self.role = PersonnelRole(rawValue: roleRaw) ?? .search
+        self.timestamp = Self.decodeTimestamp(from: container, key: .timestamp) ?? Date().timeIntervalSince1970
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, name, nickname, assignedZone, assignedFloor, role, timestamp
+    }
+
+    private static func decodeTimestamp(from container: KeyedDecodingContainer<CodingKeys>, key: CodingKeys) -> Double? {
+        if let value = try? container.decode(Double.self, forKey: key) { return value }
+        if let value = try? container.decode(Int.self, forKey: key) { return Double(value) }
+        if let value = try? container.decode(String.self, forKey: key) {
+            if let numeric = Double(value) { return numeric }
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            if let date = formatter.date(from: value) { return date.timeIntervalSince1970 }
+            formatter.formatOptions = [.withInternetDateTime]
+            return formatter.date(from: value)?.timeIntervalSince1970
+        }
+        return nil
+    }
+
+    var displayLabel: String {
+        let head = (nickname?.isEmpty == false) ? nickname! : name
+        return "\(head) (\(String(id.suffix(8))))"
+    }
+}
+
 
 // MARK: - LinkGuard 傷患編號配置
 
@@ -449,50 +494,6 @@ struct PatientIDConfig: Codable, Equatable {
             index = nextIndex
         }
         return index == compact.endIndex ? result : nil
-    }
-}
-    init(id: String = UUID().uuidString, name: String, nickname: String? = nil,
-         assignedZone: String = "",
-         assignedFloor: String = "", role: PersonnelRole = .search) {
-        self.id = id; self.name = name; self.nickname = nickname
-        self.assignedZone = assignedZone
-        self.assignedFloor = assignedFloor; self.role = role
-        self.timestamp = Date().timeIntervalSince1970
-    }
-
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.id = try container.decodeIfPresent(String.self, forKey: .id) ?? UUID().uuidString
-        self.name = try container.decodeIfPresent(String.self, forKey: .name) ?? ""
-        self.nickname = try container.decodeIfPresent(String.self, forKey: .nickname)
-        self.assignedZone = try container.decodeIfPresent(String.self, forKey: .assignedZone) ?? ""
-        self.assignedFloor = try container.decodeIfPresent(String.self, forKey: .assignedFloor) ?? ""
-        let roleRaw = try container.decodeIfPresent(String.self, forKey: .role) ?? ""
-        self.role = PersonnelRole(rawValue: roleRaw) ?? .search
-        self.timestamp = Self.decodeTimestamp(from: container, key: .timestamp) ?? Date().timeIntervalSince1970
-    }
-
-    private enum CodingKeys: String, CodingKey {
-        case id, name, nickname, assignedZone, assignedFloor, role, timestamp
-    }
-
-    private static func decodeTimestamp(from container: KeyedDecodingContainer<CodingKeys>, key: CodingKeys) -> Double? {
-        if let value = try? container.decode(Double.self, forKey: key) { return value }
-        if let value = try? container.decode(Int.self, forKey: key) { return Double(value) }
-        if let value = try? container.decode(String.self, forKey: key) {
-            if let numeric = Double(value) { return numeric }
-            let formatter = ISO8601DateFormatter()
-            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-            if let date = formatter.date(from: value) { return date.timeIntervalSince1970 }
-            formatter.formatOptions = [.withInternetDateTime]
-            return formatter.date(from: value)?.timeIntervalSince1970
-        }
-        return nil
-    }
-
-    var displayLabel: String {
-        let head = (nickname?.isEmpty == false) ? nickname! : name
-        return "\(head) (\(String(id.suffix(8))))"
     }
 }
 
