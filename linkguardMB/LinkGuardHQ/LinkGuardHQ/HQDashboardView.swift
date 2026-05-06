@@ -1224,8 +1224,7 @@ struct HQDashboardView: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .hqThemedSurfaceBackground()
-        .cornerRadius(NV.cardRadius)
+        .commandDashboardPanelChrome(accent: NV.warning)
     }
 
     // MARK: - 快速命令
@@ -1259,8 +1258,7 @@ struct HQDashboardView: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .hqThemedSurfaceBackground()
-        .cornerRadius(NV.cardRadius)
+        .commandDashboardPanelChrome(accent: NV.warning)
     }
 
     // MARK: - 任務指派
@@ -1327,8 +1325,7 @@ struct HQDashboardView: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .hqThemedSurfaceBackground()
-        .cornerRadius(NV.cardRadius)
+        .commandDashboardPanelChrome(accent: NV.warning)
     }
 
     // MARK: - 計時器管理
@@ -1400,8 +1397,7 @@ struct HQDashboardView: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .hqThemedSurfaceBackground()
-        .cornerRadius(NV.cardRadius)
+        .commandDashboardPanelChrome(accent: NV.info)
     }
 
     // MARK: - 快速狀態回報動態
@@ -1441,8 +1437,7 @@ struct HQDashboardView: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .hqThemedSurfaceBackground()
-        .cornerRadius(NV.cardRadius)
+        .commandDashboardPanelChrome(accent: NV.info)
     }
 
     // MARK: - 危險標記回報
@@ -1483,8 +1478,7 @@ struct HQDashboardView: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .hqThemedSurfaceBackground()
-        .cornerRadius(NV.cardRadius)
+        .commandDashboardPanelChrome(accent: NV.danger)
     }
 
     // MARK: - 受困者總覽
@@ -1515,8 +1509,7 @@ struct HQDashboardView: View {
             }
         }
         .padding()
-        .hqThemedSurfaceBackground()
-        .cornerRadius(NV.cardRadius)
+        .commandDashboardPanelChrome(accent: NV.team)
     }
 
     // MARK: - 增援請求管理
@@ -1604,8 +1597,7 @@ struct HQDashboardView: View {
             }
         }
         .padding()
-        .hqThemedSurfaceBackground()
-        .cornerRadius(NV.cardRadius)
+        .commandDashboardPanelChrome(accent: NV.reinforce)
     }
 
     // MARK: - HQ LoRa 連線
@@ -1730,8 +1722,7 @@ struct HQDashboardView: View {
             }
         }
         .padding()
-        .hqThemedSurfaceBackground()
-        .cornerRadius(NV.cardRadius)
+        .commandDashboardPanelChrome(accent: NV.command)
     }
 
     private func formatUptime(_ seconds: Int) -> String {
@@ -1765,6 +1756,18 @@ struct HQDashboardView: View {
             }
         }
         return addresses.isEmpty ? "IP: 未偵測到 WiFi" : "IP: \(addresses.joined(separator: ", "))"
+    }
+}
+
+private extension View {
+    func commandDashboardPanelChrome(accent: Color) -> some View {
+        self
+            .hqThemedSurfaceBackground()
+            .clipShape(RoundedRectangle(cornerRadius: NV.cardRadius, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: NV.cardRadius, style: .continuous)
+                    .stroke(accent.opacity(0.32), lineWidth: NV.strokeWidth)
+            )
     }
 }
 
