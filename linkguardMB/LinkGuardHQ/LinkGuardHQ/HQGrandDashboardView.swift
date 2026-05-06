@@ -26,6 +26,12 @@ struct HQGrandDashboardView: View {
     private var port: Int { 8001 }
     private var host: String { vm.effectiveBackendHost }
 
+    private let summaryColumns = Array(repeating: GridItem(.flexible(minimum: 140), spacing: NV.panelSpacing), count: 5)
+    private let overviewColumns = [
+        GridItem(.flexible(minimum: 360), spacing: NV.panelSpacing, alignment: .top),
+        GridItem(.flexible(minimum: 360), spacing: NV.panelSpacing, alignment: .top)
+    ]
+
     var body: some View {
         HQPage(spacing: NV.pageSpacing) {
             headerBar
@@ -35,14 +41,18 @@ struct HQGrandDashboardView: View {
                     .foregroundColor(NV.danger)
             }
             operationalSummaryGrid
-            LazyVGrid(columns: [
-                GridItem(.flexible(), spacing: NV.panelSpacing),
-                GridItem(.flexible(), spacing: NV.panelSpacing)
-            ], spacing: NV.panelSpacing) {
-                readinessPanel
-                fieldOverviewPanel
-                urgentWorkPanel
-                backendServicesPanel
+            LazyVGrid(columns: overviewColumns, alignment: .leading, spacing: NV.panelSpacing) {
+                VStack(spacing: NV.panelSpacing) {
+                    readinessPanel
+                    urgentWorkPanel
+                }
+                .frame(maxWidth: .infinity, alignment: .topLeading)
+
+                VStack(spacing: NV.panelSpacing) {
+                    fieldOverviewPanel
+                    backendServicesPanel
+                }
+                .frame(maxWidth: .infinity, alignment: .topLeading)
             }
             recentActivityPanel
 
@@ -103,7 +113,7 @@ struct HQGrandDashboardView: View {
     }
 
     private var operationalSummaryGrid: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: NV.panelSpacing)], spacing: NV.panelSpacing) {
+        LazyVGrid(columns: summaryColumns, spacing: NV.panelSpacing) {
             summaryTile(title: L("前線裝置"), value: "\(vm.connectedCount)/\(fieldUnitCount)", icon: "iphone.radiowaves.left.and.right", color: NV.green)
             summaryTile(title: L("受困者"), value: "\(vm.onlineVictimCount)/\(vm.totalVictimCount)", icon: "person.fill.questionmark", color: NV.info)
             summaryTile(title: "SOS", value: "\(vm.sosCount)", icon: "sos", color: vm.sosCount > 0 ? NV.danger : .gray)
@@ -130,7 +140,7 @@ struct HQGrandDashboardView: View {
             Spacer(minLength: 0)
         }
         .padding(12)
-        .frame(minHeight: 68)
+        .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
         .background(NV.surface)
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay(
@@ -140,7 +150,7 @@ struct HQGrandDashboardView: View {
     }
 
     private var readinessPanel: some View {
-        panelCard(title: L("系統就緒度"), icon: "checkmark.seal.fill") {
+        panelCard(title: L("系統就緒度"), icon: "checkmark.seal.fill", minHeight: 150) {
             VStack(alignment: .leading, spacing: 8) {
                 readinessRow(L("指揮伺服器"), detail: vm.server.isRunning ? L("運行中") : L("已停止"), ok: vm.server.isRunning)
                 readinessRow(L("後端橋接"), detail: vm.isBackendConnected ? host : L("未連線"), ok: vm.isBackendConnected)
@@ -168,7 +178,7 @@ struct HQGrandDashboardView: View {
     }
 
     private var fieldOverviewPanel: some View {
-        panelCard(title: L("前線與傷患"), icon: "person.3.sequence.fill") {
+        panelCard(title: L("前線與傷患"), icon: "person.3.sequence.fill", minHeight: 150) {
             if fieldUnitCount == 0 {
                 emptyState(L("尚無前線裝置連線"), icon: "iphone.slash")
             } else {
@@ -196,7 +206,7 @@ struct HQGrandDashboardView: View {
     }
 
     private var urgentWorkPanel: some View {
-        panelCard(title: L("待處理重點"), icon: "exclamationmark.triangle.fill") {
+        panelCard(title: L("待處理重點"), icon: "exclamationmark.triangle.fill", minHeight: 116) {
             let items = urgentItems
             if items.isEmpty {
                 emptyState(L("目前無緊急項目"), icon: "checkmark.shield")
@@ -211,7 +221,7 @@ struct HQGrandDashboardView: View {
     }
 
     private var backendServicesPanel: some View {
-        panelCard(title: L("後端健康度"), icon: "server.rack") {
+        panelCard(title: L("後端健康度"), icon: "server.rack", minHeight: 238) {
             VStack(alignment: .leading, spacing: 8) {
                 ForEach(vm.backendSupervisor.services) { service in
                     let metrics = vm.backendSupervisor.metrics(for: service.id)
@@ -238,7 +248,7 @@ struct HQGrandDashboardView: View {
     }
 
     private var recentActivityPanel: some View {
-        panelCard(title: L("最近動態"), icon: "clock.arrow.circlepath") {
+        panelCard(title: L("最近動態"), icon: "clock.arrow.circlepath", minHeight: 120) {
             let rows = activityRows
             if rows.isEmpty {
                 emptyState(L("尚無事件、通訊或廣播"), icon: "tray")
@@ -763,10 +773,13 @@ struct HQGrandDashboardView: View {
     // MARK: - Card wrapper
 
     private func panelCard<Content: View>(title: String, icon: String,
+                                          minHeight: CGFloat? = nil,
                                           @ViewBuilder content: () -> Content) -> some View {
         HQPanel(title: title, icon: icon, accent: NV.green) {
             content()
+                .frame(maxWidth: .infinity, minHeight: minHeight, alignment: .topLeading)
         }
+        .frame(maxWidth: .infinity, alignment: .topLeading)
     }
 
     // MARK: - Polling & API
