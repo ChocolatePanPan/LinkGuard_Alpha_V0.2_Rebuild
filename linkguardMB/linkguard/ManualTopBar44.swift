@@ -8,16 +8,19 @@ private struct OuterNavigationTitleWriter: UIViewControllerRepresentable {
     let title: String
 
     func makeUIViewController(context: Context) -> Controller {
-        Controller(title: title)
+        let controller = Controller(title: title)
+        controller.applyTitle()
+        return controller
     }
 
     func updateUIViewController(_ uiViewController: Controller, context: Context) {
         uiViewController.titleText = title
-        uiViewController.applySoon()
+        uiViewController.applyTitle()
     }
 
     final class Controller: UIViewController {
         var titleText: String
+        private var hasScheduledRetry = false
 
         init(title: String) {
             self.titleText = title
@@ -37,21 +40,39 @@ private struct OuterNavigationTitleWriter: UIViewControllerRepresentable {
 
         override func didMove(toParent parent: UIViewController?) {
             super.didMove(toParent: parent)
-            applySoon()
+            applyTitle()
+        }
+
+        override func viewWillAppear(_ animated: Bool) {
+            super.viewWillAppear(animated)
+            applyTitle()
         }
 
         override func viewDidAppear(_ animated: Bool) {
             super.viewDidAppear(animated)
-            applySoon()
+            applyTitle()
+        }
+
+        override func viewWillLayoutSubviews() {
+            super.viewWillLayoutSubviews()
+            applyTitle()
         }
 
         override func viewDidLayoutSubviews() {
             super.viewDidLayoutSubviews()
-            applySoon()
+            applyTitle()
         }
 
-        func applySoon() {
+        func applyTitle() {
+            applyTitleToOuterNavigationItem()
+            scheduleRetry()
+        }
+
+        private func scheduleRetry() {
+            guard !hasScheduledRetry else { return }
+            hasScheduledRetry = true
             DispatchQueue.main.async { [weak self] in
+                self?.hasScheduledRetry = false
                 self?.applyTitleToOuterNavigationItem()
             }
         }
@@ -62,9 +83,11 @@ private struct OuterNavigationTitleWriter: UIViewControllerRepresentable {
             var current: UIViewController? = self
             while let controller = current {
                 if let navigationController = controller.navigationController {
-                    let target = navigationController.topViewController ?? controller
-                    target.navigationItem.title = titleText
-                    target.navigationItem.largeTitleDisplayMode = .never
+                    let targets = navigationTitleTargets(for: navigationController)
+                    targets.forEach { targetController in
+                        targetController.navigationItem.title = titleText
+                        targetController.navigationItem.largeTitleDisplayMode = .never
+                    }
                     navigationController.navigationBar.prefersLargeTitles = false
 
                     let appearance = navigationController.navigationBar.standardAppearance.copy()
@@ -77,6 +100,30 @@ private struct OuterNavigationTitleWriter: UIViewControllerRepresentable {
                 }
                 current = controller.parent
             }
+        }
+
+        private func navigationTitleTargets(for navigationController: UINavigationController) -> [UIViewController] {
+            var targets: [UIViewController] = []
+            var seenIdentifiers = Set<ObjectIdentifier>()
+
+            func append(_ controller: UIViewController?) {
+                guard let controller else { return }
+                let identifier = ObjectIdentifier(controller)
+                guard !seenIdentifiers.contains(identifier) else { return }
+                seenIdentifiers.insert(identifier)
+                targets.append(controller)
+            }
+
+            append(navigationController.topViewController)
+
+            var current = parent
+            while let controller = current, controller !== navigationController {
+                append(controller)
+                current = controller.parent
+            }
+
+            append(self)
+            return targets
         }
     }
 }
