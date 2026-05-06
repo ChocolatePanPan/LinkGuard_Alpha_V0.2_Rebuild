@@ -71,13 +71,17 @@ struct HQBackendServicesView: View {
     }
 
     private var aggregateBadge: some View {
-        Group {
+        let activeCount = supervisor.services.filter { $0.status != .stopped }.count
+        return Group {
             if supervisor.allHealthy {
                 Label(L("全部正常"), systemImage: "checkmark.circle.fill")
                     .foregroundColor(NV.green)
             } else if supervisor.anyCrashed {
                 Label(L("有服務異常"), systemImage: "exclamationmark.triangle.fill")
                     .foregroundColor(NV.danger)
+            } else if activeCount > 0 {
+                Label(L("部分服務運行中 %@/%@", "\(activeCount)", "\(supervisor.services.count)"), systemImage: "circle.lefthalf.filled")
+                    .foregroundColor(NV.warning)
             } else {
                 Label(L("待啟動 / 檢查中"), systemImage: "circle.dashed")
                     .foregroundColor(.secondary)

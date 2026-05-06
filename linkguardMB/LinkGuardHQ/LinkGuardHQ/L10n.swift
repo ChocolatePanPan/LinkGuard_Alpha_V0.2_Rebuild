@@ -719,6 +719,7 @@ final class L10n: ObservableObject {
         "廣播關閉": "Broadcast Off",
         "建立 .venv 並安裝套件 (數分鐘) ...": "Create .venv and install packages (takes a few minutes) ...",
         "建立 Python 虛擬環境 + pip install": "Create Python virtual environment + pip install",
+        "部分服務運行中 %@/%@": "Some Services Running %@/%@",
         "待啟動 / 檢查中": "Pending Start / Checking",
         "待處理重點": "Pending Priorities",
         "後端": "Backend",
