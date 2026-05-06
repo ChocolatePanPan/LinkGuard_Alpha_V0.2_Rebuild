@@ -315,6 +315,8 @@ class CommandClient: ObservableObject {
     var onCallResponse: ((CallResponse) -> Void)?
     /// 收到通話結束
     var onCallEnd: ((CallEnd) -> Void)?
+    /// 收到 HQ 下發的傷患編號配置
+    var onPatientIDConfig: ((PatientIDConfig) -> Void)?
 
     private var browsers: [NWBrowser] = []
     private var connection: NWConnection?

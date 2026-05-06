@@ -25,6 +25,7 @@ class HQCommandServer: ObservableObject {
     @Published var hazardReports: [HazardReport] = []
     @Published var reinforcementRequests: [ReinforcementRequest] = []
     @Published var patientReports: [PatientReport] = []
+    @Published var patientIDConfig = PatientIDConfig()
     @Published var radioReports: [HQRadioReport] = []
     @Published var currentBroadcaster: String?
     @Published var callInvites: [CallInvite] = []
@@ -598,6 +599,12 @@ class HQCommandServer: ObservableObject {
                         ))
                     }
                 }
+            }
+            queue.async { [weak self] in
+                guard let self,
+                      let connection = self.connections.first(where: { self.connectionIDMap[ObjectIdentifier($0)] == connID })
+                else { return }
+                self.sendPatientIDConfig(to: connection)
             }
 
         case "chat_message":
@@ -1567,6 +1574,7 @@ class HQCommandServer: ObservableObject {
 
     /// 推送災害狀態、PWS 警報、人員配置、最近會報給新連線
     private func sendCurrentState(to connection: NWConnection) {
+        sendPatientIDConfig(to: connection)
         // 災害狀態
         if let site = disasterSite,
            let data = encodeWiFiMessage(msgType: "disaster_update", payload: site) {
@@ -1593,6 +1601,19 @@ class HQCommandServer: ObservableObject {
             guard let self, let snapshot = self.statusSnapshotProvider?() else { return }
             self.queue.async {
                 if let data = self.encodeWiFiMessage(msgType: "server_status", payload: snapshot) {
+                    connection.send(content: data, completion: .contentProcessed { _ in })
+                }
+            }
+        }
+    }
+
+    private func sendPatientIDConfig(to connection: NWConnection) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            var config = self.patientIDConfig
+            config.nextPatientSerial = max(config.nextPatientSerial, self.patientReports.count + 1)
+            self.queue.async {
+                if let data = self.encodeWiFiMessage(msgType: "patient_id_config", payload: config) {
                     connection.send(content: data, completion: .contentProcessed { _ in })
                 }
             }

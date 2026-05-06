@@ -115,6 +115,7 @@ class HQViewModel: ObservableObject {
 
     // 傷員回報
     @Published var patientReports: [PatientReport] = []
+    @Published var patientIDConfig = PatientIDConfig()
 
     // AI 副駕駛指令提案執行/忽略狀態（HITL）
     @Published var executedProposalIDs: Set<String> = []
@@ -302,6 +303,7 @@ class HQViewModel: ObservableObject {
         // Mac-only 主路徑：所有後端/AI 功能預設指向此 Mac 的 sidecar。
         server.backendBridge = backendBridge
         backendBridge.server = server
+        server.patientIDConfig = patientIDConfig
 
         // LGAP TCP 串流音訊 → 轉發到 UDPAudioServer 語音辨識管線
         audioStreamServer.onPCMDataReceived = { [weak self] pcmData, senderID in
@@ -472,6 +474,10 @@ class HQViewModel: ObservableObject {
                 self.applyLocalSTARTTriage(from: reports)
             }
             .store(in: &cancellables)
+
+        server.$patientIDConfig
+            .receive(on: DispatchQueue.main)
+            .assign(to: &$patientIDConfig)
 
         // 監聽電台會報
         server.$radioReports
@@ -941,6 +947,7 @@ class HQViewModel: ObservableObject {
                 sosCount: 0, teamCount: 0, fieldUnits: []
             )
         }
+        server.patientIDConfig = patientIDConfig
         server.start()
         udpAudioServer.startListening()
         audioStreamServer.start()
@@ -1335,6 +1342,7 @@ class HQViewModel: ObservableObject {
         server.hazardReports.removeAll()
         server.reinforcementRequests.removeAll()
         server.patientReports.removeAll()
+        server.patientIDConfig = patientIDConfig
         server.radioReports.removeAll()
         server.currentBroadcaster = nil
         server.callInvites.removeAll()

@@ -35,6 +35,146 @@ private enum HQDateFormatters {
     }()
 }
 
+// MARK: - LinkGuard 傷患編號配置
+
+struct PatientIDConfig: Codable, Equatable {
+    var systemCode: String = "LG"
+    var eventDateCode: String = Self.todayEventDateCode()
+    var cityCode: String = "TAO"
+    var cityName: String = "桃園"
+    var districtCode: String = "ZL"
+    var districtName: String = "中壢"
+    var eventCode: String = "E01"
+    var siteCode: String = "S03"
+    var buildingCode: String = "B02"
+    var floorCode: String = "F02"
+    var zoneCode: String = "A"
+    var nextPatientSerial: Int = 1
+    var nfcURLBase: String = "https://linkguard.tw/p/"
+
+    static let recommendedCityCodes: [String: String] = [
+        "TPE": "台北", "NTP": "新北", "TAO": "桃園", "HSZ": "新竹",
+        "TXG": "台中", "TNN": "台南", "KHH": "高雄", "HUA": "花蓮", "TTT": "台東"
+    ]
+
+    static let recommendedTaoyuanDistrictCodes: [String: String] = ["ZL": "中壢"]
+
+    private static let checksumAlphabet = Array("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+    private static let displayComponentLengths = [2, 6, 3, 2, 3, 3, 3, 3, 1, 4, 1]
+
+    var displayPrefix: String {
+        baseDisplayComponents.joined(separator: "-")
+    }
+
+    func displayID(serial: Int? = nil) -> String {
+        let serialText = patientSerialText(serial ?? nextPatientSerial)
+        let core = compactCore(serialText: serialText)
+        return (baseDisplayComponents + [serialText, Self.checksum(for: core)]).joined(separator: "-")
+    }
+
+    func compactID(serial: Int? = nil) -> String {
+        let serialText = patientSerialText(serial ?? nextPatientSerial)
+        let core = compactCore(serialText: serialText)
+        return core + Self.checksum(for: core)
+    }
+
+    func nfcURL(serial: Int? = nil) -> String {
+        nfcURLBase + compactID(serial: serial)
+    }
+
+    func nfcURL(for idText: String) -> String {
+        guard let compact = Self.extractCompactID(from: idText) else { return nfcURL() }
+        return nfcURLBase + compact
+    }
+
+    func displayID(from idText: String) -> String? {
+        guard let compact = Self.extractCompactID(from: idText) else { return nil }
+        return Self.displayID(fromCompact: compact)
+    }
+
+    func isValidChecksum(_ idText: String) -> Bool {
+        guard let compact = Self.extractCompactID(from: idText), compact.count > 1 else { return false }
+        let core = String(compact.dropLast())
+        return compact.last.map { String($0) } == Self.checksum(for: core)
+    }
+
+    static func displayID(fromCompact compactID: String) -> String {
+        let compact = compactID.uppercased().filter { $0.isLetter || $0.isNumber }
+        if let components = split(compact, lengths: displayComponentLengths) {
+            return components.joined(separator: "-")
+        }
+        return compact
+    }
+
+    static func extractCompactID(from text: String) -> String? {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+
+        let candidate: String
+        if let url = URL(string: trimmed), let host = url.host?.lowercased(), host.contains("linkguard.tw") {
+            candidate = url.lastPathComponent
+        } else if let markerRange = trimmed.range(of: "/p/", options: [.caseInsensitive]) {
+            candidate = String(trimmed[markerRange.upperBound...])
+        } else {
+            candidate = trimmed
+        }
+
+        let normalized = candidate.uppercased().filter { $0.isLetter || $0.isNumber }
+        guard normalized.hasPrefix("LG"), normalized.contains("P") else { return nil }
+        return normalized
+    }
+
+    static func checksum(for compactCore: String) -> String {
+        let total = compactCore.uppercased().reduce(17) { partial, character in
+            partial + checksumValue(for: character)
+        }
+        return String(checksumAlphabet[total % checksumAlphabet.count])
+    }
+
+    static func todayEventDateCode(date: Date = Date()) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(identifier: "Asia/Taipei")
+        formatter.dateFormat = "yyMMdd"
+        return formatter.string(from: date)
+    }
+
+    private var baseDisplayComponents: [String] {
+        [systemCode, eventDateCode, cityCode, districtCode, eventCode, siteCode, buildingCode, floorCode, zoneCode]
+            .map { $0.uppercased().trimmingCharacters(in: .whitespacesAndNewlines) }
+    }
+
+    private var compactBase: String { baseDisplayComponents.joined() }
+
+    private func compactCore(serialText: String) -> String {
+        compactBase + serialText.uppercased()
+    }
+
+    private func patientSerialText(_ serial: Int) -> String {
+        String(format: "P%03d", max(1, serial))
+    }
+
+    private static func checksumValue(for character: Character) -> Int {
+        guard let scalar = character.unicodeScalars.first else { return 0 }
+        switch scalar.value {
+        case 48...57: return Int(scalar.value - 48)
+        case 65...90: return Int(scalar.value - 55)
+        default: return 0
+        }
+    }
+
+    private static func split(_ compact: String, lengths: [Int]) -> [String]? {
+        var result: [String] = []
+        var index = compact.startIndex
+        for length in lengths {
+            guard let nextIndex = compact.index(index, offsetBy: length, limitedBy: compact.endIndex) else { return nil }
+            result.append(String(compact[index..<nextIndex]))
+            index = nextIndex
+        }
+        return index == compact.endIndex ? result : nil
+    }
+}
+
 // MARK: - 事件日誌模型
 
 /// 事件類型
