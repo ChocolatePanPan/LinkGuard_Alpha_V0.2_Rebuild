@@ -45,6 +45,21 @@ struct QuickGuideView: View {
             ]
         ),
         GuidePage(
+            icon: "wave.3.right.circle.fill",
+            title: L("NFC 檢傷標籤"),
+            color: .teal,
+            steps: [
+                L("此區塊是紀錄格式操作手冊，不是醫療處置教學；實際處置依消防、救護、醫療單位 SOP。"),
+                L("LG1 / NTAG215：只記錄主要處置結果，例 TX:TQL+BAND，尾端可加 F:BLEED_RISK。"),
+                L("LG2 / NTAG216：記錄時間 + 處置 + 部位，例 TX:1428/TQL/LTH;1432/BAND/LTH。"),
+                L("LG3 / DESFire：記錄時間 + 處置 + 部位 + 小隊 + 狀態，例 TX:1428/TQL/LTH/R2/DONE。"),
+                L("常用 TX：O2、BVM、CPR、AED、DP、BAND、TQL、TQR、SPL、CSPL、VCHK、TAG、SCAN、EVAC、LOAD。"),
+                L("常用 BODY：HEAD、CHEST、ABD、LTH、RTH、LLEG、RLEG、NAS、GEN、UNK。"),
+                L("常用 STATUS：DONE、TRY、FAIL、HOLD、RECHK、NEED、NA、UNK。"),
+                L("常用 FLAG：AIRWAY、RESP、SHOCK、BLEED_RISK、UNCON、LOW_GCS、CRUSH、EVAC_NOW、DECON_REQ。"),
+            ]
+        ),
+        GuidePage(
             icon: "mic.fill",
             title: L("語音輸入"),
             color: .orange,
