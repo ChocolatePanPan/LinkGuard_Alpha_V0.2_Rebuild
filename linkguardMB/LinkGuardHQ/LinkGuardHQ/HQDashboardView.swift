@@ -55,7 +55,6 @@ enum HQSection: String, CaseIterable, Identifiable {
         .briefing,
         .notification,
         .timeline,
-        .reports,
         .stats,
         .decision,
         .aiChat,
@@ -276,7 +275,7 @@ struct HQDashboardView: View {
         case .notification: HQNotificationView(vm: vm)
         case .timeline: HQTimelineView(vm: vm)
         case .zonemap: HQZoneMapView(vm: vm)
-        case .reports: HQReportsDashboardView(vm: vm)
+        case .reports: HQBriefingView(vm: vm)
         case .decision: HQDecisionView(vm: vm)
         case .photoWall: HQPhotoWallView(vm: vm)
         case .stats: HQStatsDashboardView(vm: vm)
@@ -479,7 +478,7 @@ struct HQDashboardView: View {
             case .notification: HQNotificationView(vm: vm)
             case .timeline: HQTimelineView(vm: vm)
             case .zonemap: HQZoneMapView(vm: vm)
-            case .reports: HQReportsDashboardView(vm: vm)
+            case .reports: HQBriefingView(vm: vm)
             case .decision: HQDecisionView(vm: vm)
             case .photoWall: HQPhotoWallView(vm: vm)
             case .stats: HQStatsDashboardView(vm: vm)
