@@ -27,8 +27,7 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
             UNNotificationCategory(identifier: "DEVICE_OFFLINE", actions: [openAction], intentIdentifiers: [], options: [.customDismissAction]),
             UNNotificationCategory(identifier: "LOW_BATTERY", actions: [openAction], intentIdentifiers: [], options: [.customDismissAction]),
             UNNotificationCategory(identifier: "COMMAND_ORDER", actions: [openAction], intentIdentifiers: [], options: [.customDismissAction]),
-            UNNotificationCategory(identifier: "DECISION", actions: [openAction], intentIdentifiers: [], options: [.customDismissAction]),
-            UNNotificationCategory(identifier: "CALL_INVITE", actions: [openAction], intentIdentifiers: [], options: [.customDismissAction])
+            UNNotificationCategory(identifier: "DECISION", actions: [openAction], intentIdentifiers: [], options: [.customDismissAction])
         ]
         UNUserNotificationCenter.current().setNotificationCategories(categories)
     }
@@ -116,19 +115,6 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
             content.interruptionLevel = .active
         }
         schedule(content: content, id: "personal-\(notification.id)")
-    }
-
-    /// 通話邀請
-    func sendCallInviteNotification(_ invite: CallInvite) {
-        let content = UNMutableNotificationContent()
-        content.title = L("來電：%@", invite.initiatorName)
-        content.subtitle = "LinkGuard"
-        content.body = L("邀請你進入通話")
-        content.sound = .default
-        content.categoryIdentifier = "CALL_INVITE"
-        content.userInfo = ["call_id": invite.callID, "route": "call"]
-        setTimeSensitive(content)
-        schedule(content: content, id: "call-\(invite.callID)")
     }
 
     /// 裝置離線通知

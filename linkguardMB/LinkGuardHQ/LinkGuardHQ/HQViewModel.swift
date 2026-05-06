@@ -40,7 +40,6 @@ class HQViewModel: ObservableObject {
     @Published var photoServer = HQPhotoServer()
     @Published var udpAudioServer = UDPAudioServer()
     @Published var audioStreamServer = AudioStreamServer()
-    let callAudioManager = HQCallAudioManager()
     private let notificationCueManager = HQNotificationCueManager.shared
 
     // 命令表單
@@ -124,8 +123,6 @@ class HQViewModel: ObservableObject {
     // 電台會報
     @Published var radioReports: [HQRadioReport] = []
     @Published var currentBroadcaster: String?
-    @Published var callInvites: [CallInvite] = []
-    @Published var activeCallSession: CallSession?
 
     // HQ 本地 PTT（按住空白鍵 / 點擊廣播圓圈）
     @Published var isHQPushToTalkActive: Bool = false
@@ -488,23 +485,6 @@ class HQViewModel: ObservableObject {
             .merge(with: udpAudioServer.$activeBroadcaster)
             .receive(on: DispatchQueue.main)
             .assign(to: &$currentBroadcaster)
-
-        server.$callInvites
-            .receive(on: DispatchQueue.main)
-            .assign(to: &$callInvites)
-
-        server.$activeCallSession
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] session in
-                guard let self else { return }
-                self.activeCallSession = session
-                if let session, session.status == .active {
-                    self.callAudioManager.startSession(callID: session.callID)
-                } else if session == nil || session?.status != .active {
-                    self.callAudioManager.stopSession()
-                }
-            }
-            .store(in: &cancellables)
 
         // Beta-only bindings
         server.$photoAlerts
@@ -1276,7 +1256,6 @@ class HQViewModel: ObservableObject {
         photoServer.stop()
         udpAudioServer.stop()
         audioStreamServer.stop()
-        callAudioManager.stopSession()
 
         selectedType = .searchArea
         selectedPriority = .routine
@@ -1313,8 +1292,6 @@ class HQViewModel: ObservableObject {
         ignoredProposalIDs.removeAll()
         radioReports.removeAll()
         currentBroadcaster = nil
-        callInvites.removeAll()
-        activeCallSession = nil
         isHQPushToTalkActive = false
         targetMode = .broadcast
         selectedTargetDeviceIDs.removeAll()
@@ -1345,8 +1322,6 @@ class HQViewModel: ObservableObject {
         server.patientIDConfig = patientIDConfig
         server.radioReports.removeAll()
         server.currentBroadcaster = nil
-        server.callInvites.removeAll()
-        server.activeCallSession = nil
         server.photoAlerts.removeAll()
         server.latestResourceUpdate = nil
         server.latestStatsUpdate = nil
@@ -1385,39 +1360,6 @@ class HQViewModel: ObservableObject {
         server.personalNotifications = personalNotifications
         server.sendPersonalNotification(notification)
         logEvent(type: .notification, title: L("發送通知：%@", notification.title), detail: "→ \(notification.targetDeviceID)")
-    }
-
-    // MARK: - 通話
-
-    func startCall(to unit: ConnectedFieldUnit) {
-        guard hqRole == .server, server.isRunning, unit.isOnline else { return }
-        let invite = CallInvite(
-            initiatorID: "HQ",
-            initiatorName: senderName,
-            targetDeviceIDs: [unit.deviceID],
-            participants: ["HQ"]
-        )
-        activeCallSession = CallSession(
-            callID: invite.callID,
-            initiatorID: invite.initiatorID,
-            initiatorName: invite.initiatorName,
-            participants: ["HQ", unit.deviceID],
-            status: .ringing
-        )
-        server.sendCallInviteFromHQ(invite)
-        logEvent(type: .chat, title: L("HQ 發起通話"), detail: unit.deviceID)
-    }
-
-    func endCall(reason: String = "ended") {
-        guard let callID = activeCallSession?.callID else { return }
-        callAudioManager.stopSession()
-        server.sendCallEndFromHQ(CallEnd(callID: callID, senderID: "HQ", reason: reason))
-        activeCallSession = nil
-        logEvent(type: .chat, title: L("HQ 結束通話"), detail: reason)
-    }
-
-    func toggleCallMute() {
-        callAudioManager.toggleMute()
     }
 
     // MARK: - 任務指派

@@ -309,12 +309,6 @@ class CommandClient: ObservableObject {
     var onTranslateResult: (([String: Any]) -> Void)?
     /// 收到雙 AI 共識升級觸發（由後端廣播）
     var onEscalationTrigger: (([String: Any]) -> Void)?
-    /// 收到通話邀請
-    var onCallInvite: ((CallInvite) -> Void)?
-    /// 收到通話回覆
-    var onCallResponse: ((CallResponse) -> Void)?
-    /// 收到通話結束
-    var onCallEnd: ((CallEnd) -> Void)?
     /// 收到 HQ 下發的傷患編號配置
     var onPatientIDConfig: ((PatientIDConfig) -> Void)?
 
@@ -782,18 +776,6 @@ class CommandClient: ObservableObject {
             if let ctrl = try? JSONDecoder().decode(RadioControlPayload.self, from: payloadData) {
                 DispatchQueue.main.async { [weak self] in self?.onRadioControl?(ctrl) }
             }
-        case "call_invite":
-            if let invite = try? JSONDecoder().decode(CallInvite.self, from: payloadData) {
-                DispatchQueue.main.async { [weak self] in self?.onCallInvite?(invite) }
-            }
-        case "call_response":
-            if let response = try? JSONDecoder().decode(CallResponse.self, from: payloadData) {
-                DispatchQueue.main.async { [weak self] in self?.onCallResponse?(response) }
-            }
-        case "call_end":
-            if let end = try? JSONDecoder().decode(CallEnd.self, from: payloadData) {
-                DispatchQueue.main.async { [weak self] in self?.onCallEnd?(end) }
-            }
         case "photo_alert":
             if let json = try? JSONSerialization.jsonObject(with: payloadData) as? [String: Any] {
                 let data = json["data"] as? [String: Any] ?? json
@@ -927,18 +909,6 @@ class CommandClient: ObservableObject {
 
     func sendRadioStop(senderName: String) {
         sendWiFiMessage(msgType: "radio_control", payload: RadioControlPayload(action: "stop", senderName: senderName))
-    }
-
-    func sendCallInvite(_ invite: CallInvite) {
-        sendWiFiMessage(msgType: "call_invite", payload: invite)
-    }
-
-    func sendCallResponse(_ response: CallResponse) {
-        sendWiFiMessage(msgType: "call_response", payload: response)
-    }
-
-    func sendCallEnd(_ end: CallEnd) {
-        sendWiFiMessage(msgType: "call_end", payload: end)
     }
 
     func sendPatientReport(_ report: PatientReport, deviceID: String) {

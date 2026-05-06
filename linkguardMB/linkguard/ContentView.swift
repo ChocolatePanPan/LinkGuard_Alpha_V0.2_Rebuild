@@ -3,7 +3,7 @@ import SwiftUI
 // MARK: - Main View
 
 enum AppTab: Hashable {
-    case dashboard, victims, sos, disaster, chat, call, reinforcement, team, commands, notifications, radio, connection, patientForm, decision, translator, photo, personnelAssignment, ai, communication, hospitals
+    case dashboard, victims, sos, disaster, chat, reinforcement, team, commands, notifications, radio, connection, patientForm, decision, translator, photo, personnelAssignment, ai, communication, hospitals
 }
 
 struct ContentView: View {
@@ -178,19 +178,6 @@ struct ContentView: View {
                 .zIndex(98)
             }
 
-            if let invite = viewModel.incomingCallInvite {
-                IncomingCallOverlay(
-                    invite: invite,
-                    onAccept: {
-                        viewModel.acceptCall(invite)
-                        selectedTab = .communication
-                    },
-                    onDecline: { viewModel.declineCall(invite) }
-                )
-                .transition(.opacity)
-                .zIndex(99)
-            }
-
             // 全螢幕 SOS 警報覆蓋層
             if let victim = viewModel.latestSOSVictim {
                 SOSAlertOverlay(victim: victim) {
@@ -234,7 +221,6 @@ struct ContentView: View {
         .animation(.easeInOut(duration: 0.3), value: viewModel.latestSOSVictim != nil)
         .animation(.easeInOut(duration: 0.3), value: viewModel.latestCriticalCommand != nil)
         .animation(.easeInOut(duration: 0.3), value: viewModel.latestReinforcementRequest != nil)
-        .animation(.easeInOut(duration: 0.3), value: viewModel.incomingCallInvite != nil)
         .animation(.easeInOut(duration: 0.3), value: viewModel.urgentBroadcast != nil)
         .animation(.easeInOut(duration: 0.3), value: viewModel.activePatientWarning != nil)
         .animation(.easeInOut(duration: 0.3), value: externalAlarm != nil)
@@ -268,7 +254,6 @@ struct ExternalAlarmPresentation: Identifiable, Equatable {
         case "sos": return .sos
         case "decision": return .decision
         case "victims": return .victims
-        case "call": return .communication
         default: return .notifications
         }
     }
@@ -279,7 +264,6 @@ struct ExternalAlarmPresentation: Identifiable, Equatable {
         case "COMMAND_ORDER", "DECISION": return "exclamationmark.triangle.fill"
         case "PATIENT_WARNING": return "waveform.path.ecg"
         case "PWS_ALERT": return "antenna.radiowaves.left.and.right"
-        case "CALL_INVITE": return "phone.fill"
         default: return "bell.badge.fill"
         }
     }
@@ -384,7 +368,7 @@ struct CommunicationHubView: View {
     private var isSplitMode: Bool { commSplitEnabled && sizeClass == .regular }
 
     private enum CommunicationHubMode: Hashable, CaseIterable {
-        case message, call, live, report
+        case message, live, report
     }
 
     private func navLabel(_ zh: String, en: String) -> String {
@@ -394,7 +378,6 @@ struct CommunicationHubView: View {
     private func modeTitle(_ mode: CommunicationHubMode) -> String {
         switch mode {
         case .message: return navLabel("訊息", en: "Message")
-        case .call: return navLabel("通話", en: "Voice Call")
         case .live: return navLabel("即時廣播", en: "Live Broadcast")
         case .report: return navLabel("語音會報", en: "Voice Briefing")
         }
@@ -422,8 +405,6 @@ struct CommunicationHubView: View {
                         switch mode {
                         case .message:
                             FieldChatView(vm: vm, embedsNavigationStack: false, showsNavigationTitle: false, showsKeyboardDone: true)
-                        case .call:
-                            FieldCallView(vm: vm, embedsNavigationStack: false, showsNavigationTitle: false)
                         case .live:
                             RadioView(vm: vm, initialMode: .live, showsModePicker: false, embedsNavigationStack: false)
                         case .report:
