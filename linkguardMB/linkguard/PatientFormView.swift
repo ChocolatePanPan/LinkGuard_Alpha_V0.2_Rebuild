@@ -180,6 +180,7 @@ struct PatientFormView: View {
     @StateObject private var voiceManager = VoiceInputManager()
     @StateObject private var locationMgr = PatientLocationManager()
     @StateObject private var nfcManager = PatientNFCManager()
+    @State private var patientIdOverride: String?
 
     // 身分資料
     @State private var nationalId: String = ""
@@ -231,22 +232,26 @@ struct PatientFormView: View {
 
     var body: some View {
         Form {
-            // 傷員 ID（自動生成，僅顯示預覽）
+            // 傷員 ID（由 HQ 配置產生，僅顯示預覽）
             Section {
                 HStack {
                     Text(L("傷員 ID"))
                         .foregroundColor(.secondary)
                     Spacer()
-                    Text("P\(Int(Date().timeIntervalSince1970))")
+                    Text(activePatientID)
                         .font(.system(.caption, design: .monospaced))
                         .foregroundColor(.secondary)
-                    }
-                } header: {
-                    Text(L("自動生成"))
+                        .multilineTextAlignment(.trailing)
                 }
+            } header: {
+                Text(L("HQ 自動編號"))
+            } footer: {
+                Text(activePatientNFCURL)
+                    .font(.system(.caption2, design: .monospaced))
+            }
 
-                // 身分資料
-                Section {
+            // 身分資料
+            Section {
                     HStack {
                         Image(systemName: "person.text.rectangle")
                             .foregroundColor(NV.command)
@@ -418,7 +423,7 @@ struct PatientFormView: View {
                         .disabled(!nfcManager.isAvailable)
 
                         Button {
-                            nfcManager.beginWrite(payload: currentNFCPayload())
+                            nfcManager.beginWrite(payload: nfcPayloadForWrite())
                         } label: {
                             Label(L("寫入"), systemImage: "square.and.pencil")
                         }
@@ -427,7 +432,7 @@ struct PatientFormView: View {
                 } header: {
                     Text(L("NFC 讀取／寫入"))
                 } footer: {
-                    Text(L("支援 LinkGuard LG1 文字格式，可將傷患 ID、分級、年齡、傷勢與生命徵象同步到 NFC 標籤。"))
+                    Text(L("寫入 LinkGuard 傷患網址；讀取時相容正式網址、正式 ID 與 LG1 離線文字格式。"))
                 }
 
                 // 語音輸入
@@ -542,28 +547,43 @@ struct PatientFormView: View {
 
     // MARK: - NFC
 
-    private func currentNFCPayload() -> String {
-        var fields = ["LG1"]
-        fields.append("ID:\(nationalId.isEmpty ? "P\(Int(Date().timeIntervalSince1970))" : nationalId.trimmingCharacters(in: .whitespaces))")
-        if let age = calculatedAge { fields.append("AGE:\(age)") }
-        if !location.trimmingCharacters(in: .whitespaces).isEmpty { fields.append("LOC:\(location.trimmingCharacters(in: .whitespaces))") }
-        if !breathingRateText.isEmpty { fields.append("RR\(breathingRateText)") }
-        fields.append("CMD:\(canFollowCommands ? "Y" : "N")")
-        if !notes.trimmingCharacters(in: .whitespaces).isEmpty { fields.append("NOTE:\(notes.trimmingCharacters(in: .whitespaces))") }
-        fields.append("TIME:\(LGDateFormat.hm.string(from: Date()).replacingOccurrences(of: ":", with: ""))")
-        return fields.joined(separator: "|")
+    private var activePatientID: String {
+        patientIdOverride ?? vm.previewPatientID
+    }
+
+    private var activePatientNFCURL: String {
+        if let patientIdOverride { return vm.patientNFCURL(for: patientIdOverride) }
+        return vm.previewPatientNFCURL
+    }
+
+    private func nfcPayloadForWrite() -> String {
+        let id = patientIdOverride ?? vm.reserveNextPatientID()
+        patientIdOverride = id
+        return vm.patientNFCURL(for: id)
     }
 
     private func applyNFCPayload(_ payload: String) {
+        if let displayID = vm.displayPatientID(from: payload) {
+            patientIdOverride = displayID
+            nfcManager.statusText = vm.patientIDConfig.isValidChecksum(payload)
+                ? L("NFC 傷患 ID 已讀取")
+                : L("NFC 傷患 ID 已讀取（校驗待確認）")
+            return
+        }
+
         let parts = payload.split(separator: "|").map(String.init)
         guard parts.first == "LG1" else {
-            nfcManager.statusText = L("NFC 格式不是 LinkGuard LG1")
+            nfcManager.statusText = L("NFC 格式不是 LinkGuard 傷患 ID 或 LG1")
             return
         }
 
         for part in parts.dropFirst() {
             if let value = value(after: "ID:", in: part) {
-                nationalId = value
+                if let displayID = vm.displayPatientID(from: value) {
+                    patientIdOverride = displayID
+                } else {
+                    nationalId = value
+                }
             } else if let value = value(after: "AGE:", in: part) {
                 notes = appendNote(notes, L("NFC 年齡：%@", value))
             } else if let value = value(after: "INJ:", in: part) {
@@ -609,7 +629,10 @@ struct PatientFormView: View {
         guard let breathingRate = Int(breathingRateText),
               let capillaryRefill = Double(capillaryRefillText) else { return }
 
+        let patientID = patientIdOverride ?? vm.reserveNextPatientID()
+
         let report = PatientReport(
+            patientId: patientID,
             nationalId: nationalId.trimmingCharacters(in: .whitespaces),
             name: patientName.trimmingCharacters(in: .whitespaces),
             birthDate: birthDateString ?? "",
@@ -626,6 +649,7 @@ struct PatientFormView: View {
         vm.sendPatientReport(report)
 
         // 清空表單
+        patientIdOverride = nil
         nationalId = ""
         patientName = ""
         birthYearText = ""

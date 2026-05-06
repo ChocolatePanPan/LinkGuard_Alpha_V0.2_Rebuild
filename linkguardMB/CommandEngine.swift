@@ -545,6 +545,7 @@ class CommandClient: ObservableObject {
         case "hq_decision": return "decision"
         case "countdown": return "timer_sync"
         case "text_broadcast": return "text_broadcast_rx"
+        case "patient_tag_config": return "patient_id_config"
         default: return rawType
         }
     }
@@ -673,6 +674,10 @@ class CommandClient: ObservableObject {
         case "disaster_update":
             if let site = try? JSONDecoder().decode(DisasterSite.self, from: payloadData) {
                 DispatchQueue.main.async { [weak self] in self?.onDisasterUpdate?(site) }
+            }
+        case "patient_id_config":
+            if let config = try? JSONDecoder().decode(PatientIDConfig.self, from: payloadData) {
+                DispatchQueue.main.async { [weak self] in self?.onPatientIDConfig?(config) }
             }
         case "personnel_assignment":
             if let assignments = try? JSONDecoder().decode([PersonnelAssignment].self, from: payloadData) {

@@ -297,6 +297,25 @@ def make_hq_msg(msg_type: str, data: dict) -> dict:
     }
 
 
+def current_patient_id_config() -> dict:
+    taipei_time = datetime.now(timezone(timedelta(hours=8)))
+    return {
+        "systemCode": "LG",
+        "eventDateCode": taipei_time.strftime("%y%m%d"),
+        "cityCode": "TAO",
+        "cityName": "桃園",
+        "districtCode": "ZL",
+        "districtName": "中壢",
+        "eventCode": "E01",
+        "siteCode": "S03",
+        "buildingCode": "B02",
+        "floorCode": "F02",
+        "zoneCode": "A",
+        "nextPatientSerial": max(1, len(state.patients) + 1),
+        "nfcURLBase": "https://linkguard.tw/p/",
+    }
+
+
 async def forward_to_backend(message: dict):
     """轉發資料到後端 TCP:9000"""
     async with state._backend_lock:
@@ -321,7 +340,13 @@ async def handle_field_message(msg: dict, writer: asyncio.StreamWriter):
     device_id = msg.get("device_id", "unknown")
 
     # 註冊裝置
+    is_new_connection = state.field_clients.get(device_id) is not writer
     state.field_clients[device_id] = writer
+    if is_new_connection:
+        try:
+            await field_send(writer, make_hq_msg("patient_id_config", current_patient_id_config()))
+        except Exception as e:
+            print(f"[CMD] 傷患編號配置下發失敗 {device_id}: {e}")
 
     if msg_type == "status_report":
         # 裝置狀態（含受困者/團隊資料）
