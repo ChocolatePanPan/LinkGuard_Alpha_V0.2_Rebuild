@@ -587,7 +587,7 @@ class HQViewModel: ObservableObject {
     private func setupIncomingEventCueBindings() {
         bindIncomingEventCue($photoAlerts.map(\.count).eraseToAnyPublisher())
         bindIncomingEventCue($radioReports.map(\.count).eraseToAnyPublisher())
-        bindIncomingEventCue($chatMessages.map(\.count).eraseToAnyPublisher())
+        bindIncomingChatCue()
         bindIncomingEventCue($personalNotifications.map(\.count).eraseToAnyPublisher())
         bindIncomingEventCue($pwsAlerts.map(\.count).eraseToAnyPublisher())
         bindIncomingEventCue($hazardReports.map(\.count).eraseToAnyPublisher())
@@ -611,6 +611,26 @@ class HQViewModel: ObservableObject {
                 self?.notificationCueManager.triggerFieldEventCue()
             }
             .store(in: &cancellables)
+    }
+
+    private func bindIncomingChatCue() {
+        $chatMessages
+            .receive(on: DispatchQueue.main)
+            .scan((previousIDs: Set<String>(), current: [ChatMessage]())) { state, messages in
+                (previousIDs: Set(state.current.map(\.id)), current: messages)
+            }
+            .dropFirst()
+            .sink { [weak self] state in
+                guard let self else { return }
+                guard let newMessage = state.current.last(where: { !state.previousIDs.contains($0.id) }),
+                      !self.isLocalChatMessage(newMessage) else { return }
+                self.notificationCueManager.triggerFieldEventCue()
+            }
+            .store(in: &cancellables)
+    }
+
+    private func isLocalChatMessage(_ message: ChatMessage) -> Bool {
+        message.senderID == "HQ" || message.senderName == senderName
     }
 
     // MARK: - 電台音訊本地播放
