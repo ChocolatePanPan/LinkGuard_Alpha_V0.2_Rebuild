@@ -4,6 +4,7 @@ struct HQExternalDisplayDashboardView: View {
     @ObservedObject var vm: HQViewModel
     @ObservedObject private var backendBridge: HQBackendBridge
     @ObservedObject private var audioServer: UDPAudioServer
+    @AppStorage("hq.externalDisplayScale") private var externalDisplayScale: Double = 1.0
 
     init(vm: HQViewModel) {
         self.vm = vm
@@ -12,27 +13,29 @@ struct HQExternalDisplayDashboardView: View {
     }
 
     var body: some View {
-        GeometryReader { proxy in
-            let spacing = max(14, min(24, proxy.size.width * 0.014))
-            VStack(spacing: spacing) {
-                HStack(spacing: spacing) {
-                    timeWeatherPanel
-                    latestLogPanel
-                }
-                .frame(height: max(170, proxy.size.height * 0.24))
+        HQExternalDisplayScaleContainer(scale: externalDisplayScale) {
+            GeometryReader { proxy in
+                let spacing = max(14, min(24, proxy.size.width * 0.014))
+                VStack(spacing: spacing) {
+                    HStack(spacing: spacing) {
+                        timeWeatherPanel
+                        latestLogPanel
+                    }
+                    .frame(height: max(170, proxy.size.height * 0.24))
 
-                HStack(spacing: spacing) {
-                    latestPhotoPanel
-                    voiceTranslationPanel
-                }
-                .frame(maxHeight: .infinity)
+                    HStack(spacing: spacing) {
+                        latestPhotoPanel
+                        voiceTranslationPanel
+                    }
+                    .frame(maxHeight: .infinity)
 
-                bottomMetricsPanel
-                    .frame(height: max(150, proxy.size.height * 0.22))
+                    bottomMetricsPanel
+                        .frame(height: max(150, proxy.size.height * 0.22))
+                }
+                .padding(spacing)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(NV.bg.ignoresSafeArea())
             }
-            .padding(spacing)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(NV.bg.ignoresSafeArea())
         }
     }
 

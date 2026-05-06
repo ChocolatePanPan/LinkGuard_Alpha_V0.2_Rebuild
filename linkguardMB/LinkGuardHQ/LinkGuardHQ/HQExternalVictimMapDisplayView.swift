@@ -6,6 +6,7 @@ struct HQExternalVictimMapDisplayView: View {
     @ObservedObject var vm: HQViewModel
     @ObservedObject private var backendBridge: HQBackendBridge
     @ObservedObject private var commandServer: HQCommandServer
+    @AppStorage("hq.externalDisplayScale") private var externalDisplayScale: Double = 1.0
     @StateObject private var locationProvider = HQExternalLocationProvider()
     @State private var cameraPosition: MapCameraPosition = .automatic
 
@@ -16,28 +17,30 @@ struct HQExternalVictimMapDisplayView: View {
     }
 
     var body: some View {
-        GeometryReader { proxy in
-            let spacing = max(14, min(24, proxy.size.width * 0.014))
-            let listWidth = max(420, min(640, proxy.size.width * 0.34))
+        HQExternalDisplayScaleContainer(scale: externalDisplayScale) {
+            GeometryReader { proxy in
+                let spacing = max(14, min(24, proxy.size.width * 0.014))
+                let listWidth = max(420, min(640, proxy.size.width * 0.34))
 
-            HStack(spacing: spacing) {
-                victimListPanel
-                    .frame(width: listWidth)
-                mapPanel
-            }
-            .padding(spacing)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background {
-                ZStack {
-                    NV.bg.ignoresSafeArea()
-                    Image("Logo")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .padding(60)
-                        .opacity(0.055)
-                        .blendMode(.plusLighter)
-                        .ignoresSafeArea()
+                HStack(spacing: spacing) {
+                    victimListPanel
+                        .frame(width: listWidth)
+                    mapPanel
+                }
+                .padding(spacing)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background {
+                    ZStack {
+                        NV.bg.ignoresSafeArea()
+                        Image("Logo")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .padding(60)
+                            .opacity(0.055)
+                            .blendMode(.plusLighter)
+                            .ignoresSafeArea()
+                    }
                 }
             }
         }

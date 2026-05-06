@@ -32,6 +32,7 @@ struct HQSettingsView: View {
     @AppStorage("hq.splitEnabled") private var splitEnabled = false
     @AppStorage("hq.splitSecondSection") private var splitSecondSectionRaw: String = HQSection.chat.rawValue
     @AppStorage("hq.externalDisplayEnabled") private var externalDisplayEnabled: Bool = true
+    @AppStorage("hq.externalDisplayScale") private var externalDisplayScale: Double = 1.0
 
     @State private var setupAssistantPresented = false
     @State private var storageLocationMessage: String? = nil
@@ -85,6 +86,42 @@ struct HQSettingsView: View {
             Toggle(isOn: $externalDisplayEnabled) {
                 Label(L("在外接螢幕顯示分儀表板"), systemImage: "rectangle.on.rectangle")
             }
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Label(L("分螢幕頁面大小"), systemImage: "textformat.size")
+                    Spacer()
+                    Text("\(Int((externalDisplayScale * 100).rounded()))%")
+                        .font(.caption.monospacedDigit())
+                        .foregroundColor(.secondary)
+                }
+                HStack(spacing: 8) {
+                    Button {
+                        externalDisplayScale = max(0.8, ((externalDisplayScale - 0.1) * 10).rounded() / 10)
+                    } label: {
+                        Image(systemName: "minus.magnifyingglass")
+                    }
+                    .help(L("縮小"))
+
+                    Slider(value: $externalDisplayScale, in: 0.8...1.6, step: 0.1)
+
+                    Button {
+                        externalDisplayScale = min(1.6, ((externalDisplayScale + 0.1) * 10).rounded() / 10)
+                    } label: {
+                        Image(systemName: "plus.magnifyingglass")
+                    }
+                    .help(L("放大"))
+
+                    Button(L("重設")) {
+                        externalDisplayScale = 1.0
+                    }
+                    .buttonStyle(.bordered)
+                }
+                Text(L("調整外接分螢幕的大儀表板與受困者地圖顯示大小。"))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            .disabled(!externalDisplayEnabled)
 
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 6) {
@@ -806,6 +843,7 @@ struct HQSettingsView: View {
         splitEnabled = false
         splitSecondSectionRaw = HQSection.chat.rawValue
         externalDisplayEnabled = true
+        externalDisplayScale = 1.0
         l10n.language = "zh-Hant"
         supervisor.resetBackendDirOverride()
         setStorageLocationMessage(L("已完成完全重置。"))
