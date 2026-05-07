@@ -1,5 +1,26 @@
 import SwiftUI
 
+// MARK: - 通知來源
+
+private enum NotificationSource {
+    case field  // 現場手機發出
+    case hq     // 指揮中心（HQ）發出
+
+    var color: Color {
+        switch self {
+        case .field: return NV.info      // 青綠
+        case .hq:    return NV.command   // 藍
+        }
+    }
+
+    var label: String {
+        switch self {
+        case .field: return L("現場")
+        case .hq:    return L("HQ")
+        }
+    }
+}
+
 // MARK: - 前線通知 & PWS & 會報整合檢視
 
 struct FieldNotificationView: View {
@@ -122,28 +143,55 @@ struct FieldNotificationView: View {
         }
     }
 
+    // 判斷是現場手機發出 or HQ 發出
+    private func notificationSource(_ kind: ActivityKind) -> NotificationSource {
+        switch kind {
+        case .sentMessage, .sos, .hazard, .patientReport, .quickStatus, .reinforcement:
+            return .field
+        default:
+            return .hq
+        }
+    }
+
     @ViewBuilder
     private func activityRow(_ entry: ActivityLogEntry) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: entry.kind.icon)
-                .foregroundColor(kindColor(entry.kind))
-                .font(.title3)
-                .frame(width: 28)
-            VStack(alignment: .leading, spacing: 2) {
-                HStack {
-                    Text(entry.title)
-                        .font(.subheadline).bold()
-                        .lineLimit(1)
-                    Spacer()
-                    Text(entry.timeText)
-                        .font(.caption2).foregroundColor(.secondary)
-                }
-                if !entry.detail.isEmpty {
-                    Text(entry.detail)
-                        .font(.caption).foregroundColor(.secondary)
-                        .lineLimit(2)
+        let source = notificationSource(entry.kind)
+        HStack(spacing: 0) {
+            // 左邊色條
+            RoundedRectangle(cornerRadius: 2)
+                .fill(source.color)
+                .frame(width: 3)
+                .padding(.vertical, 4)
+            HStack(spacing: 10) {
+                Image(systemName: entry.kind.icon)
+                    .foregroundColor(kindColor(entry.kind))
+                    .font(.title3)
+                    .frame(width: 28)
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack {
+                        Text(entry.title)
+                            .font(.subheadline).bold()
+                            .lineLimit(1)
+                        Spacer()
+                        Text(entry.timeText)
+                            .font(.caption2).foregroundColor(.secondary)
+                    }
+                    HStack(spacing: 4) {
+                        Text(source.label)
+                            .font(.caption2).bold()
+                            .padding(.horizontal, 5).padding(.vertical, 1)
+                            .background(source.color.opacity(0.18))
+                            .foregroundColor(source.color)
+                            .cornerRadius(3)
+                        if !entry.detail.isEmpty {
+                            Text(entry.detail)
+                                .font(.caption).foregroundColor(.secondary)
+                                .lineLimit(1)
+                        }
+                    }
                 }
             }
+            .padding(.leading, 8)
         }
     }
 
