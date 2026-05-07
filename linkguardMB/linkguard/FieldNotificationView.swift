@@ -1,5 +1,26 @@
 import SwiftUI
 
+// MARK: - 通知來源
+
+private enum NotificationSource {
+    case field  // 現場手機發出
+    case hq     // 指揮中心（HQ）發出
+
+    var color: Color {
+        switch self {
+        case .field: return NV.command   // 藍
+        case .hq:    return NV.danger    // 紅
+        }
+    }
+
+    var label: String {
+        switch self {
+        case .field: return L("現場")
+        case .hq:    return L("HQ")
+        }
+    }
+}
+
 // MARK: - 前線通知 & PWS & 會報整合檢視
 
 struct FieldNotificationView: View {
@@ -9,16 +30,7 @@ struct FieldNotificationView: View {
         NavigationStack {
             List {
                 // ── 統一活動記錄（主要）──
-                Section(header: HStack {
-                    Label(L("所有通知"), systemImage: "list.bullet.rectangle.fill")
-                    Spacer()
-                    NavigationLink {
-                        allNotificationsView()
-                    } label: {
-                        Text(L("查看全部"))
-                            .font(.caption).foregroundColor(.accentColor)
-                    }
-                }) {
+                Section(header: Label(L("所有通知"), systemImage: "list.bullet.rectangle.fill")) {
                     if vm.activityLog.isEmpty {
                         Text(L("暫無記錄"))
                             .font(.caption).foregroundColor(.secondary)
@@ -131,28 +143,55 @@ struct FieldNotificationView: View {
         }
     }
 
+    // 判斷是現場手機發出 or HQ 發出
+    private func notificationSource(_ kind: ActivityKind) -> NotificationSource {
+        switch kind {
+        case .sentMessage, .sos, .hazard, .patientReport, .quickStatus, .reinforcement:
+            return .field
+        default:
+            return .hq
+        }
+    }
+
     @ViewBuilder
     private func activityRow(_ entry: ActivityLogEntry) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: entry.kind.icon)
-                .foregroundColor(kindColor(entry.kind))
-                .font(.title3)
-                .frame(width: 28)
-            VStack(alignment: .leading, spacing: 2) {
-                HStack {
-                    Text(entry.title)
-                        .font(.subheadline).bold()
-                        .lineLimit(1)
-                    Spacer()
-                    Text(entry.timeText)
-                        .font(.caption2).foregroundColor(.secondary)
-                }
-                if !entry.detail.isEmpty {
-                    Text(entry.detail)
-                        .font(.caption).foregroundColor(.secondary)
-                        .lineLimit(2)
+        let source = notificationSource(entry.kind)
+        HStack(spacing: 0) {
+            // 左邊色條
+            RoundedRectangle(cornerRadius: 2)
+                .fill(source.color)
+                .frame(width: 3)
+                .padding(.vertical, 4)
+            HStack(spacing: 10) {
+                Image(systemName: entry.kind.icon)
+                    .foregroundColor(source.color)
+                    .font(.title3)
+                    .frame(width: 28)
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack {
+                        Text(entry.title)
+                            .font(.subheadline).bold()
+                            .lineLimit(1)
+                        Spacer()
+                        Text(entry.timeText)
+                            .font(.caption2).foregroundColor(.secondary)
+                    }
+                    HStack(spacing: 4) {
+                        Text(source.label)
+                            .font(.caption2).bold()
+                            .padding(.horizontal, 5).padding(.vertical, 1)
+                            .background(source.color.opacity(0.18))
+                            .foregroundColor(source.color)
+                            .cornerRadius(3)
+                        if !entry.detail.isEmpty {
+                            Text(entry.detail)
+                                .font(.caption).foregroundColor(.secondary)
+                                .lineLimit(1)
+                        }
+                    }
                 }
             }
+            .padding(.leading, 8)
         }
     }
 
@@ -285,7 +324,7 @@ struct FieldNotificationView: View {
                         .lineLimit(2)
                 }
             }
-            Text("by \(report.author) · \(report.timeText)")
+            Text(L("by %@ · %@", report.author, report.timeText))
                 .font(.caption2).foregroundColor(.secondary)
         }
         .padding(.vertical, 4)
@@ -325,7 +364,7 @@ struct FieldNotificationView: View {
                     NotificationDetailSection(
                         title: L("通知資料"),
                         rows: detailRows([
-                            (L("類型"), entry.kind.rawValue),
+                            (L("類型"), entry.kind.label),
                             (L("時間"), detailTimeText(entry.timestamp)),
                             (L("標題"), entry.title)
                         ]),

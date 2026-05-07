@@ -561,7 +561,7 @@ class LinkGuardViewModel: ObservableObject {
                 if let idx = self.reinforcementRequests.firstIndex(where: { $0.id == reply.id }) {
                     self.reinforcementRequests[idx] = reply
                 }
-                self.appendActivity(kind: .reinforcement, title: L("收到增援回覆"), detail: "\(reply.fromTeam) · \(reply.status.rawValue)")
+                self.appendActivity(kind: .reinforcement, title: L("收到增援回覆"), detail: "\(reply.fromTeam) · \(reply.status.label)")
             }
         }
         commandClient.onDecision = { [weak self] decision in

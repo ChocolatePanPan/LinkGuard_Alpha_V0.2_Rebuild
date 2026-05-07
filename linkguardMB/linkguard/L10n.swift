@@ -757,6 +757,21 @@ final class L10n: ObservableObject {
         "現場風險評估": "Field risk assessment",
         "需要哪些資源": "What resources are needed",
         "撤離路線建議": "Evacuation route suggestions",
+    // ActivityKind 標籤
+        "已發送訊息": "Sent Message",
+        "收到訊息": "Received Message",
+        "指揮命令": "Command",
+        "危害標記": "Hazard",
+        "傷患預警": "Patient Warning",
+        "裝置警報": "Device Alert",
+        "快速狀態": "Quick Status",
+
+        // ReinforcementStatus 標籤
+        "已加入": "Joined",
+        "已過期": "Expired",
+
+        // 通知列表格式
+        "by %@ · %@": "by %@ · %@",
     ]
 }
 
