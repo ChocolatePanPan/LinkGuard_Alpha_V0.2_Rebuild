@@ -102,7 +102,7 @@ struct FieldHospitalView: View {
                         } header: {
                             HStack(spacing: 4) {
                                 Image(systemName: "mappin.and.ellipse")
-                                Text("\(group.region.rawValue)（\(group.items.count) 家）")
+                                Text(L("%@ （%lld 家）", group.region.label, group.items.count))
                             }
                         }
                     }
@@ -115,7 +115,7 @@ struct FieldHospitalView: View {
                 }
                 .listStyle(.plain)
             }
-            .outerNavigationTitle(L("後送醫院（\(FieldHospitalDirectory.all.count) 家）"))
+            .outerNavigationTitle(L("後送醫院（%lld 家）", FieldHospitalDirectory.all.count))
             .onChange(of: query) { q in
                 debounceTask?.cancel()
                 debounceTask = Just(q)
@@ -231,7 +231,7 @@ struct FieldHospitalView: View {
                         selectedLevel = nil
                     }
                     ForEach(allLevels, id: \.self) { lv in
-                        chip(label: lv.rawValue, accent: lv.color, isSelected: selectedLevel == lv) {
+                        chip(label: lv.label, accent: lv.color, isSelected: selectedLevel == lv) {
                             selectedLevel = lv
                         }
                     }
@@ -288,7 +288,7 @@ private struct HospitalRow: View {
                     .frame(width: 18)
                 Text(h.name).font(.subheadline.bold())
                 Spacer(minLength: 0)
-                Text(h.level.rawValue)
+                Text(h.level.label)
                     .font(.caption2.bold())
                     .foregroundColor(h.level.color)
                     .padding(.horizontal, 6)
