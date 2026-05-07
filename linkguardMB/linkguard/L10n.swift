@@ -757,7 +757,64 @@ final class L10n: ObservableObject {
         "現場風險評估": "Field risk assessment",
         "需要哪些資源": "What resources are needed",
         "撤離路線建議": "Evacuation route suggestions",
-    // ActivityKind 標籤
+
+        // 後送醫院
+        "後送醫院": "Transfer Hospitals",
+        "後送醫院（%lld 家）": "Transfer Hospitals (%lld)",
+        "%@ （%lld 家）": "%@ (%lld)",
+        "全部區域": "All Regions",
+        "全部層級": "All Levels",
+        "全部縣市": "All Counties",
+        "搜尋縣市 / 醫院名稱": "Search county / hospital name",
+        "沒有符合的醫院": "No matching hospitals",
+        "已定位至": "Located at",
+        "位置權限未開放": "Location permission is not enabled",
+        "定位失敗": "Location failed",
+
+        // 後送醫院 Region
+        "北部": "North",
+        "中部": "Central",
+        "雲嘉南": "Yunjianan",
+        "高屏澎": "Kaohsiung-Pingtung-Penghu",
+        "東部": "East",
+        "離島": "Offshore Islands",
+
+        // 後送醫院 Level
+        "重度／教學": "Level I / Teaching",
+        "中度": "Level II",
+        "兒童／婦兒": "Pediatric / Women & Children",
+        "待查": "Unclassified",
+
+        // 後送醫院 City / County
+        "基隆市": "Keelung City",
+        "臺北市": "Taipei City",
+        "新北市": "New Taipei City",
+        "桃園市": "Taoyuan City",
+        "新竹市": "Hsinchu City",
+        "新竹縣": "Hsinchu County",
+        "苗栗縣": "Miaoli County",
+        "臺中市": "Taichung City",
+        "彰化縣": "Changhua County",
+        "南投縣": "Nantou County",
+        "雲林縣": "Yunlin County",
+        "嘉義市": "Chiayi City",
+        "嘉義縣": "Chiayi County",
+        "臺南市": "Tainan City",
+        "高雄市": "Kaohsiung City",
+        "屏東縣": "Pingtung County",
+        "澎湖縣": "Penghu County",
+        "臺東縣": "Taitung County",
+        "花蓮縣": "Hualien County",
+        "宜蘭縣": "Yilan County",
+        "金門縣": "Kinmen County",
+        "連江縣": "Lienchiang County",
+
+        // 後送醫院 Bed Labels
+        "%lld 床": "%lld Beds",
+        "ICU %lld": "ICU %lld",
+        "急觀 %lld": "ER Obs %lld",
+
+        // ActivityKind 標籤
         "已發送訊息": "Sent Message",
         "收到訊息": "Received Message",
         "指揮命令": "Command",
