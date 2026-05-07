@@ -114,6 +114,7 @@ class HQViewModel: ObservableObject {
 
     // 傷員回報
     @Published var patientReports: [PatientReport] = []
+    @Published var nfcTagWrites: [NFCTagWriteRecord] = []
     @Published var patientIDConfig = PatientIDConfig()
 
     // AI 副駕駛指令提案執行/忽略狀態（HITL）
@@ -471,6 +472,10 @@ class HQViewModel: ObservableObject {
                 self.applyLocalSTARTTriage(from: reports)
             }
             .store(in: &cancellables)
+
+        server.$nfcTagWrites
+            .receive(on: DispatchQueue.main)
+            .assign(to: &$nfcTagWrites)
 
         server.$patientIDConfig
             .receive(on: DispatchQueue.main)
@@ -895,6 +900,7 @@ class HQViewModel: ObservableObject {
                 if let sender = status.audioStreamCurrentSender {
                     self.audioStreamServer.currentSender = sender
                 }
+                self.nfcTagWrites = status.nfcTagWrites ?? []
             }
             .store(in: &peerCancellables)
     }
@@ -1021,7 +1027,8 @@ class HQViewModel: ObservableObject {
                     lastUpdate: unit.lastUpdate.timeIntervalSince1970,
                     isOnline: unit.isOnline
                 )
-            }
+            },
+            nfcTagWrites: Array(nfcTagWrites.prefix(100))
         )
     }
 
@@ -1288,6 +1295,7 @@ class HQViewModel: ObservableObject {
         hazardReports.removeAll()
         reinforcementRequests.removeAll()
         patientReports.removeAll()
+        nfcTagWrites.removeAll()
         executedProposalIDs.removeAll()
         ignoredProposalIDs.removeAll()
         radioReports.removeAll()
@@ -1319,6 +1327,7 @@ class HQViewModel: ObservableObject {
         server.hazardReports.removeAll()
         server.reinforcementRequests.removeAll()
         server.patientReports.removeAll()
+        server.nfcTagWrites.removeAll()
         server.patientIDConfig = patientIDConfig
         server.radioReports.removeAll()
         server.currentBroadcaster = nil
@@ -1586,6 +1595,12 @@ class HQViewModel: ObservableObject {
 
     func clearTimeline() {
         server.timelineEvents.removeAll()
+    }
+
+    func clearNFCTagWrites() {
+        server.nfcTagWrites.removeAll()
+        nfcTagWrites.removeAll()
+        logEvent(type: .statusReport, title: L("清除 NFC 標籤紀錄"))
     }
 }
 
