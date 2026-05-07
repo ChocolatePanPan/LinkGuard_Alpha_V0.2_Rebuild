@@ -26,7 +26,7 @@ private final class FieldCityLocator: NSObject, ObservableObject, CLLocationMana
         case .authorizedWhenInUse, .authorizedAlways: manager.requestLocation()
         default:
             isLocating = false
-            errorMsg = "位置權限未開放"
+            errorMsg = L("位置權限未開放")
         }
     }
 
@@ -51,7 +51,7 @@ private final class FieldCityLocator: NSObject, ObservableObject, CLLocationMana
     }
 
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        DispatchQueue.main.async { self.isLocating = false; self.errorMsg = "定位失敗" }
+        DispatchQueue.main.async { self.isLocating = false; self.errorMsg = L("定位失敗") }
     }
 }
 
@@ -102,7 +102,7 @@ struct FieldHospitalView: View {
                         } header: {
                             HStack(spacing: 4) {
                                 Image(systemName: "mappin.and.ellipse")
-                                Text(L("%@ （%lld 家）", group.region.label, group.items.count))
+                                Text("\(group.region.rawValue)（\(group.items.count) 家）")
                             }
                         }
                     }
@@ -195,7 +195,7 @@ struct FieldHospitalView: View {
                         availableCities = allCitiesByRegion[nil] ?? []
                     }
                     ForEach(allRegions, id: \.self) { r in
-                        chip(label: r.label, accent: NV.info, isSelected: selectedRegion == r) {
+                        chip(label: r.rawValue, accent: NV.info, isSelected: selectedRegion == r) {
                             selectedRegion = r; selectedCity = nil
                         }
                     }
@@ -231,7 +231,7 @@ struct FieldHospitalView: View {
                         selectedLevel = nil
                     }
                     ForEach(allLevels, id: \.self) { lv in
-                        chip(label: lv.label, accent: lv.color, isSelected: selectedLevel == lv) {
+                        chip(label: lv.rawValue, accent: lv.color, isSelected: selectedLevel == lv) {
                             selectedLevel = lv
                         }
                     }
@@ -288,7 +288,7 @@ private struct HospitalRow: View {
                     .frame(width: 18)
                 Text(h.name).font(.subheadline.bold())
                 Spacer(minLength: 0)
-                Text(h.level.label)
+                Text(h.level.rawValue)
                     .font(.caption2.bold())
                     .foregroundColor(h.level.color)
                     .padding(.horizontal, 6)
@@ -304,7 +304,7 @@ private struct HospitalRow: View {
             }
             HStack(spacing: 10) {
                 if h.totalBeds > 0 {
-                    Label(L("%lld 床", h.totalBeds), systemImage: "bed.double.fill")
+                    Label("\(h.totalBeds)床", systemImage: "bed.double.fill")
                         .font(.caption2).foregroundColor(.secondary)
                 }
                 if h.icuBeds > 0 {
@@ -312,7 +312,7 @@ private struct HospitalRow: View {
                         .font(.caption2).foregroundColor(.red.opacity(0.8))
                 }
                 if h.erBeds > 0 {
-                    Label(L("急觀 %lld", h.erBeds), systemImage: "staroflife.fill")
+                    Label("急觀\(h.erBeds)", systemImage: "staroflife.fill")
                         .font(.caption2).foregroundColor(.orange.opacity(0.8))
                 }
             }
