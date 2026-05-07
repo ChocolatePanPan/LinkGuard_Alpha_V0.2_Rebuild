@@ -1542,6 +1542,7 @@ struct ConnectionView: View {
     @State private var nicknameInput = ""
     @State private var manualIP = ""
     @State private var manualPort = "8930"
+    @State private var showQuickGuide = false
 
     var body: some View {
         List {
@@ -1760,6 +1761,17 @@ struct ConnectionView: View {
                     }
                 }
 
+                Section(header: Text(L("操作手冊")),
+                        footer: Text(L("此區塊是紀錄格式操作手冊，不是醫療處置教學；實際處置依消防、救護、醫療單位 SOP。"))) {
+                    Button {
+                        showQuickGuide = true
+                    } label: {
+                        Label(L("開啟快速操作手冊"), systemImage: "questionmark.circle")
+                    }
+
+                    NFCManualBlockView()
+                }
+
                 // 模擬模式
                 Section(header: Text(L("模擬模式")),
                         footer: Text(L("在沒有硬體時模擬受困者訊號、SOS 警報等即時資料變化，適用於 Demo 展示。"))) {
@@ -1837,6 +1849,9 @@ struct ConnectionView: View {
                 }
             }
         .outerNavigationTitle(L("設定"))
+        .sheet(isPresented: $showQuickGuide) {
+            QuickGuideView()
+        }
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.visible, for: .navigationBar)
@@ -1855,6 +1870,65 @@ struct ConnectionView: View {
             pairInput = vm.nodeStatus.pairCode
             nodeIDInput = vm.nodeStatus.nodeID
             nicknameInput = vm.userNickname
+        }
+    }
+}
+
+private struct NFCManualBlockView: View {
+    private let formatRows: [(String, String, String)] = [
+        ("LG1", "NTAG215", "LG1|ID|T|S|I|V|TX|TM"),
+        ("LG2", "NTAG216", "LG2|ID:...|T:...|S:...|LOC:...|I:...|V:...|TX:...|ALG:...|NOTE:...|TM:...|UPD:...")
+    ]
+
+    private let codeRows: [(String, String)] = [
+        ("檢傷 T", "R=紅/立即; Y=黃/延遲; G=綠/輕傷; B=黑/死亡或無生命跡象; U=未分類"),
+        ("性別年齡 S", "M45=男性約45歲; F30=女性約30歲; C08=兒童約8歲; U=不明"),
+        ("傷勢 I", "HEAD=頭部外傷; CHEST=胸部外傷; ABD=腹部外傷; ARM_BLEED=手臂出血; LEG_BLEED=腿部出血; LEFT_LEG_BLEED=左腿出血; RIGHT_LEG_BLEED=右腿出血; FX=骨折; BURN=燒燙傷; CRUSH=壓砸傷; UNCON=意識不清; CPA=無呼吸心跳"),
+        ("處置 TX", "TQL=左側止血帶; TQR=右側止血帶; BAND=包紮; SPL=固定; O2=給氧; CPR=CPR; AED=AED 使用; IV=靜脈路徑; NONE=尚未處置"),
+        ("過敏 ALG", "PCN=青黴素; U=不明; 空白=未記錄")
+    ]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            ForEach(formatRows, id: \.0) { row in
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text(row.0)
+                            .font(.subheadline.bold())
+                        Text(row.1)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Spacer()
+                    }
+                    Text(row.2)
+                        .font(.caption.monospaced())
+                        .foregroundColor(.secondary)
+                        .textSelection(.enabled)
+                }
+            }
+
+            Divider()
+
+            Text(L("規則：NTAG215 固定使用 LG1；NTAG216 固定使用 LG2；傷患 ID 不可變動；姓名、身分證、電話與完整病歷不寫入 NFC。"))
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            DisclosureGroup(L("LG1 / LG2 代碼表")) {
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(codeRows, id: \.0) { row in
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(row.0)
+                                .font(.caption.bold())
+                            Text(row.1)
+                                .font(.caption2.monospaced())
+                                .foregroundColor(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .textSelection(.enabled)
+                        }
+                    }
+                }
+                .padding(.top, 8)
+            }
         }
     }
 }

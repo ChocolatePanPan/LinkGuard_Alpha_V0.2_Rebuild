@@ -504,7 +504,6 @@ struct FieldNotificationView: View {
         case .hazard:               return NV.danger
         case .patientWarning:       return NV.danger
         case .deviceAlert:          return NV.danger
-        case .call:                 return NV.info
         case .task:                 return NV.command
         case .timer:                return NV.danger
         case .patientReport:        return NV.info

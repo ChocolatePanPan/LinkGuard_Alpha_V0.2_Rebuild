@@ -14,6 +14,20 @@ struct WiFiMessage: Codable {
     let payload: String     // JSON 編碼的 payload
 }
 
+/// 前線 App → HQ：NFC 傷患標籤寫入完成紀錄
+struct NFCTagWriteRecord: Codable, Identifiable {
+    let id: String
+    let patientId: String
+    let compactPatientId: String
+    let format: String
+    let payload: String
+    let tagCapacity: Int
+    let payloadLength: Int
+    let deviceID: String
+    let senderName: String
+    let timestamp: Double
+}
+
 /// 前線 App → 指揮中心：裝置狀態報告
 struct FieldStatusReport: Codable {
     let deviceID: String
@@ -545,6 +559,7 @@ class CommandClient: ObservableObject {
         case "hq_decision": return "decision"
         case "countdown": return "timer_sync"
         case "text_broadcast": return "text_broadcast_rx"
+        case "patient_tag_config": return "patient_id_config"
         default: return rawType
         }
     }
@@ -673,6 +688,10 @@ class CommandClient: ObservableObject {
         case "disaster_update":
             if let site = try? JSONDecoder().decode(DisasterSite.self, from: payloadData) {
                 DispatchQueue.main.async { [weak self] in self?.onDisasterUpdate?(site) }
+            }
+        case "patient_id_config":
+            if let config = try? JSONDecoder().decode(PatientIDConfig.self, from: payloadData) {
+                DispatchQueue.main.async { [weak self] in self?.onPatientIDConfig?(config) }
             }
         case "personnel_assignment":
             if let assignments = try? JSONDecoder().decode([PersonnelAssignment].self, from: payloadData) {
@@ -952,6 +971,10 @@ class CommandClient: ObservableObject {
             device_id: deviceID
         )
         sendWiFiMessage(msgType: "patient", payload: payload)
+    }
+
+    func sendNFCTagWritten(_ record: NFCTagWriteRecord) {
+        sendWiFiMessage(msgType: "nfc_tag_written", payload: record)
     }
 
     /// 規範 5.1：GPS 位置更新

@@ -25,6 +25,7 @@ class HQCommandServer: ObservableObject {
     @Published var hazardReports: [HazardReport] = []
     @Published var reinforcementRequests: [ReinforcementRequest] = []
     @Published var patientReports: [PatientReport] = []
+    @Published var nfcTagWrites: [NFCTagWriteRecord] = []
     @Published var patientIDConfig = PatientIDConfig()
     @Published var radioReports: [HQRadioReport] = []
     @Published var currentBroadcaster: String?
@@ -794,6 +795,29 @@ class HQCommandServer: ObservableObject {
                     title: L("傷員回報：%@", report.patientId),
                     detail: L("位置：%@", report.location),
                     source: connID
+                ))
+            }
+
+        case "nfc_tag_written":
+            guard let payloadData = msg.payload.data(using: .utf8),
+                  let record = try? JSONDecoder().decode(NFCTagWriteRecord.self, from: payloadData) else {
+                print("[HQ-Server] Failed to decode nfc_tag_written payload from \(connID)")
+                return
+            }
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                if !self.nfcTagWrites.contains(where: { $0.id == record.id }) {
+                    self.nfcTagWrites.insert(record, at: 0)
+                    if self.nfcTagWrites.count > 300 {
+                        self.nfcTagWrites = Array(self.nfcTagWrites.prefix(300))
+                    }
+                }
+                let source = record.senderName.isEmpty ? (record.deviceID.isEmpty ? connID : record.deviceID) : record.senderName
+                self.appendTimelineEvent(TimelineEvent(
+                    eventType: .statusReport,
+                    title: L("NFC 標籤寫入：%@", record.compactPatientId),
+                    detail: L("%@ · %@/%@ bytes", record.format, "\(record.payloadLength)", "\(record.tagCapacity)"),
+                    source: source
                 ))
             }
 

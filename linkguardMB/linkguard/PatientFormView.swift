@@ -9,7 +9,7 @@ import CoreNFC
 private final class PatientNFCManager: NSObject, ObservableObject, NFCNDEFReaderSessionDelegate {
     enum Mode {
         case read
-        case write(String)
+        case write((Int) -> String)
     }
 
     @Published var statusText: String = L("NFC 待命")
@@ -18,6 +18,7 @@ private final class PatientNFCManager: NSObject, ObservableObject, NFCNDEFReader
     private var session: NFCNDEFReaderSession?
     private var mode: Mode = .read
     private var onRead: ((String) -> Void)?
+    private var onWrite: ((String, Int, Int) -> Void)?
 
     var isAvailable: Bool { NFCNDEFReaderSession.readingAvailable }
 
@@ -29,19 +30,23 @@ private final class PatientNFCManager: NSObject, ObservableObject, NFCNDEFReader
 
         mode = .read
         self.onRead = onRead
+        onWrite = nil
         statusText = L("請靠近傷患 NFC 標籤")
         session = NFCNDEFReaderSession(delegate: self, queue: nil, invalidateAfterFirstRead: true)
         session?.alertMessage = L("靠近傷患 NFC 標籤以讀取回報資料")
         session?.begin()
     }
 
-    func beginWrite(payload: String) {
+    func beginWrite(payloadForCapacity: @escaping (Int) -> String,
+                    onWrite: @escaping (String, Int, Int) -> Void) {
         guard isAvailable else {
             statusText = L("此裝置不支援 NFC")
             return
         }
 
-        mode = .write(payload)
+        mode = .write(payloadForCapacity)
+        onRead = nil
+        self.onWrite = onWrite
         statusText = L("請靠近可寫入的 NFC 標籤")
         session = NFCNDEFReaderSession(delegate: self, queue: nil, invalidateAfterFirstRead: false)
         session?.alertMessage = L("靠近空白或可覆寫的 NFC 標籤")
@@ -76,7 +81,7 @@ private final class PatientNFCManager: NSObject, ObservableObject, NFCNDEFReader
     }
 
     func readerSession(_ session: NFCNDEFReaderSession, didDetect tags: [NFCNDEFTag]) {
-        guard case .write(let payload) = mode else { return }
+        guard case .write(let payloadForCapacity) = mode else { return }
         guard let tag = tags.first else {
             session.invalidate(errorMessage: L("找不到 NFC 標籤"))
             return
@@ -105,6 +110,7 @@ private final class PatientNFCManager: NSObject, ObservableObject, NFCNDEFReader
                     return
                 }
 
+                let payload = payloadForCapacity(capacity)
                 let message = NFCNDEFMessage(records: [PatientNFCManager.record(from: payload)])
                 guard message.length <= capacity else {
                     session.invalidate(errorMessage: L("NFC 標籤容量不足"))
@@ -120,6 +126,7 @@ private final class PatientNFCManager: NSObject, ObservableObject, NFCNDEFReader
                         DispatchQueue.main.async {
                             self.lastPayload = payload
                             self.statusText = L("NFC 寫入完成")
+                            self.onWrite?(payload, capacity, message.length)
                         }
                     }
                 }
@@ -137,6 +144,10 @@ private final class PatientNFCManager: NSObject, ObservableObject, NFCNDEFReader
         }
         return String(data: record.payload, encoding: .utf8)
     }
+
+    static func ndefLength(for text: String) -> Int {
+        NFCNDEFMessage(records: [record(from: text)]).length
+    }
 }
 #else
 private final class PatientNFCManager: ObservableObject {
@@ -144,7 +155,8 @@ private final class PatientNFCManager: ObservableObject {
     @Published var lastPayload: String = ""
     var isAvailable: Bool { false }
     func beginRead(onRead: @escaping (String) -> Void) { statusText = L("NFC 僅支援 iPhone 實機") }
-    func beginWrite(payload: String) { statusText = L("NFC 僅支援 iPhone 實機") }
+    func beginWrite(payloadForCapacity: @escaping (Int) -> String,
+                    onWrite: @escaping (String, Int, Int) -> Void) { statusText = L("NFC 僅支援 iPhone 實機") }
 }
 #endif
 
@@ -175,11 +187,51 @@ private class PatientLocationManager: NSObject, ObservableObject, CLLocationMana
 
 // MARK: - 傷員回報表單
 
+private enum PatientNFCFormat: String, CaseIterable, Identifiable {
+    case lg1 = "LG1"
+    case lg2 = "LG2"
+    case lg3 = "LG3"
+
+    static let allCases: [PatientNFCFormat] = [.lg1, .lg2]
+    static let ntag215MaxNDEFCapacity = 600
+
+    var id: String { rawValue }
+
+    var capacityHint: String {
+        switch self {
+        case .lg1: return L("NTAG215 / LG1 精簡離線格式")
+        case .lg2: return L("NTAG216 / LG2 完整離線格式")
+        case .lg3: return L("DESFire／高容量完整離線紀錄")
+        }
+    }
+}
+
 struct PatientFormView: View {
+    private typealias NFCPayloadCandidate = (format: PatientNFCFormat, payload: String, length: Int)
+
     @ObservedObject var vm: LinkGuardViewModel
     @StateObject private var voiceManager = VoiceInputManager()
     @StateObject private var locationMgr = PatientLocationManager()
     @StateObject private var nfcManager = PatientNFCManager()
+    @State private var patientIdOverride: String?
+    @State private var selectedNFCFormat: PatientNFCFormat = .lg1
+    @State private var nfcDecodedSummary: String = ""
+    @State private var nfcTriageCode: String = "U"
+    @State private var nfcSexAgeCode: String = "U"
+    @State private var nfcInjuryCode: String = ""
+    @State private var nfcPulseText: String = ""
+    @State private var nfcGCSText: String = ""
+    @State private var nfcTreatmentCode: String = ""
+    @State private var nfcTreatmentBodyCode: String = "GEN"
+    @State private var nfcTreatmentStatusCode: String = "DONE"
+    @State private var nfcAllergyCode: String = ""
+    @State private var nfcFlagCode: String = ""
+    @State private var nfcEvacStatus: String = "WAIT"
+    @State private var nfcDestinationCode: String = ""
+    @State private var nfcTeamCode: String = ""
+
+    private let triageCodes = ["U", "R", "Y", "G", "B"]
+    private let evacuationCodes = ["WAIT", "MOVE", "ARRV", "HOLD", "DEAD"]
 
     // 身分資料
     @State private var nationalId: String = ""
@@ -231,22 +283,26 @@ struct PatientFormView: View {
 
     var body: some View {
         Form {
-            // 傷員 ID（自動生成，僅顯示預覽）
+            // 傷員 ID（由 HQ 配置產生，僅顯示預覽）
             Section {
                 HStack {
                     Text(L("傷員 ID"))
                         .foregroundColor(.secondary)
                     Spacer()
-                    Text("P\(Int(Date().timeIntervalSince1970))")
+                    Text(activePatientID)
                         .font(.system(.caption, design: .monospaced))
                         .foregroundColor(.secondary)
-                    }
-                } header: {
-                    Text(L("自動生成"))
+                        .multilineTextAlignment(.trailing)
                 }
+            } header: {
+                Text(L("HQ 自動編號"))
+            } footer: {
+                Text(activeNFCPayloadPreview)
+                    .font(.system(.caption2, design: .monospaced))
+            }
 
-                // 身分資料
-                Section {
+            // 身分資料
+            Section {
                     HStack {
                         Image(systemName: "person.text.rectangle")
                             .foregroundColor(NV.command)
@@ -387,6 +443,88 @@ struct PatientFormView: View {
                 }
 
                 Section {
+                    Picker(L("離線格式"), selection: $selectedNFCFormat) {
+                        ForEach(PatientNFCFormat.allCases) { format in
+                            Text(format.rawValue).tag(format)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+
+                    Text(selectedNFCFormat.capacityHint)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+
+                    Picker(L("檢傷"), selection: $nfcTriageCode) {
+                        ForEach(triageCodes, id: \.self) { code in
+                            Text(triageLabel(code)).tag(code)
+                        }
+                    }
+
+                    HStack {
+                        TextField(L("性別年齡 M45/F30/C08/U"), text: $nfcSexAgeCode)
+                            .textInputAutocapitalization(.characters)
+                            .autocorrectionDisabled()
+                        TextField(L("傷勢代碼"), text: $nfcInjuryCode)
+                            .textInputAutocapitalization(.characters)
+                            .autocorrectionDisabled()
+                    }
+
+                    HStack {
+                        TextField(L("脈搏"), text: $nfcPulseText)
+                            #if os(iOS)
+                            .keyboardType(.numberPad)
+                            #endif
+                        TextField(L("GCS"), text: $nfcGCSText)
+                            #if os(iOS)
+                            .keyboardType(.numberPad)
+                            #endif
+                        TextField(L("處置代碼"), text: $nfcTreatmentCode)
+                            .textInputAutocapitalization(.characters)
+                            .autocorrectionDisabled()
+                    }
+
+                    if selectedNFCFormat == .lg3 {
+                        HStack {
+                            TextField(L("處置部位 BODY"), text: $nfcTreatmentBodyCode)
+                                .textInputAutocapitalization(.characters)
+                                .autocorrectionDisabled()
+
+                            TextField(L("處置狀態 STATUS"), text: $nfcTreatmentStatusCode)
+                                .textInputAutocapitalization(.characters)
+                                .autocorrectionDisabled()
+                        }
+                    }
+
+                    if selectedNFCFormat == .lg3 {
+                        TextField(L("警示 FLAG"), text: $nfcFlagCode)
+                            .textInputAutocapitalization(.characters)
+                            .autocorrectionDisabled()
+                    }
+
+                    if selectedNFCFormat != .lg1 {
+                        TextField(L("過敏代碼 ALG"), text: $nfcAllergyCode)
+                            .textInputAutocapitalization(.characters)
+                            .autocorrectionDisabled()
+                    }
+
+                    if selectedNFCFormat == .lg3 {
+                        HStack {
+                            Picker(L("後送"), selection: $nfcEvacStatus) {
+                                ForEach(evacuationCodes, id: \.self) { code in
+                                    Text(evacuationLabel(code)).tag(code)
+                                }
+                            }
+                        }
+                        HStack {
+                            TextField(L("目的地 DST"), text: $nfcDestinationCode)
+                                .textInputAutocapitalization(.characters)
+                                .autocorrectionDisabled()
+                            TextField(L("小隊 TEAM"), text: $nfcTeamCode)
+                                .textInputAutocapitalization(.characters)
+                                .autocorrectionDisabled()
+                        }
+                    }
+
                     HStack(spacing: 10) {
                         Image(systemName: "wave.3.right.circle.fill")
                             .foregroundColor(nfcManager.isAvailable ? NV.command : .gray)
@@ -407,6 +545,13 @@ struct PatientFormView: View {
                             .textSelection(.enabled)
                     }
 
+                    if !nfcDecodedSummary.isEmpty {
+                        Text(nfcDecodedSummary)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .textSelection(.enabled)
+                    }
+
                     HStack(spacing: 12) {
                         Button {
                             nfcManager.beginRead { payload in
@@ -418,7 +563,12 @@ struct PatientFormView: View {
                         .disabled(!nfcManager.isAvailable)
 
                         Button {
-                            nfcManager.beginWrite(payload: currentNFCPayload())
+                            let candidates = nfcPayloadCandidatesForWrite()
+                            nfcManager.beginWrite { capacity in
+                                nfcPayload(for: capacity, candidates: candidates)
+                            } onWrite: { payload, capacity, payloadLength in
+                                syncNFCTagWrite(payload: payload, capacity: capacity, payloadLength: payloadLength)
+                            }
                         } label: {
                             Label(L("寫入"), systemImage: "square.and.pencil")
                         }
@@ -427,7 +577,7 @@ struct PatientFormView: View {
                 } header: {
                     Text(L("NFC 讀取／寫入"))
                 } footer: {
-                    Text(L("支援 LinkGuard LG1 文字格式，可將傷患 ID、分級、年齡、傷勢與生命徵象同步到 NFC 標籤。"))
+                    Text(L("NTAG215 固定寫 LG1 精簡格式；NTAG216 固定寫 LG2 完整格式。NFC 不寫姓名、身分證或電話。"))
                 }
 
                 // 語音輸入
@@ -542,50 +692,412 @@ struct PatientFormView: View {
 
     // MARK: - NFC
 
-    private func currentNFCPayload() -> String {
-        var fields = ["LG1"]
-        fields.append("ID:\(nationalId.isEmpty ? "P\(Int(Date().timeIntervalSince1970))" : nationalId.trimmingCharacters(in: .whitespaces))")
-        if let age = calculatedAge { fields.append("AGE:\(age)") }
-        if !location.trimmingCharacters(in: .whitespaces).isEmpty { fields.append("LOC:\(location.trimmingCharacters(in: .whitespaces))") }
-        if !breathingRateText.isEmpty { fields.append("RR\(breathingRateText)") }
-        fields.append("CMD:\(canFollowCommands ? "Y" : "N")")
-        if !notes.trimmingCharacters(in: .whitespaces).isEmpty { fields.append("NOTE:\(notes.trimmingCharacters(in: .whitespaces))") }
-        fields.append("TIME:\(LGDateFormat.hm.string(from: Date()).replacingOccurrences(of: ":", with: ""))")
-        return fields.joined(separator: "|")
+    private var activePatientID: String {
+        patientIdOverride ?? vm.previewPatientID
+    }
+
+    private var activeNFCPayloadPreview: String {
+        buildNFCPayload(for: activePatientID, format: selectedNFCFormat)
+    }
+
+    private func nfcPayloadCandidatesForWrite() -> [NFCPayloadCandidate] {
+        let id = patientIdOverride ?? vm.reserveNextPatientID()
+        patientIdOverride = id
+        return writeFormats().map { format in
+            let payload = buildNFCPayload(for: id, format: format)
+            return (format, payload, ndefLength(for: payload))
+        }
+    }
+
+    private func writeFormats() -> [PatientNFCFormat] {
+        selectedNFCFormat == .lg3 ? [.lg3, .lg2, .lg1] : [.lg2, .lg1]
+    }
+
+    private func nfcPayload(for capacity: Int, candidates: [NFCPayloadCandidate]) -> String {
+        let preferred = preferredNFCFormat(forTagCapacity: capacity)
+        if let exact = candidates.first(where: { $0.format == preferred && $0.length <= capacity }) {
+            return exact.payload
+        }
+        return candidates.first { $0.length <= capacity }?.payload ?? candidates.last?.payload ?? ""
+    }
+
+    private func preferredNFCFormat(forTagCapacity capacity: Int) -> PatientNFCFormat {
+        if selectedNFCFormat == .lg3, capacity > 1024 { return .lg3 }
+        return capacity <= PatientNFCFormat.ntag215MaxNDEFCapacity ? .lg1 : .lg2
+    }
+
+    private func ndefLength(for payload: String) -> Int {
+        #if os(iOS)
+        PatientNFCManager.ndefLength(for: payload)
+        #else
+        payload.utf8.count
+        #endif
+    }
+
+    private func syncNFCTagWrite(payload: String, capacity: Int, payloadLength: Int) {
+        vm.syncNFCTagWrite(
+            patientId: activePatientID,
+            payload: payload,
+            tagCapacity: capacity,
+            payloadLength: payloadLength
+        )
+        if vm.commandClient.isConnected {
+            nfcManager.statusText = L("NFC 寫入完成，已同步 HQ")
+        }
     }
 
     private func applyNFCPayload(_ payload: String) {
+        let trimmed = payload.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.hasPrefix("LG1|") {
+            applyLG1Payload(trimmed)
+            return
+        }
+        if trimmed.hasPrefix("LG2|") {
+            applyKeyedNFCPayload(trimmed, version: .lg2)
+            return
+        }
+        if trimmed.hasPrefix("LG3|") {
+            applyKeyedNFCPayload(trimmed, version: .lg3)
+            return
+        }
+        if trimmed.hasPrefix("LG3E|") {
+            applyEncryptedLG3Payload(trimmed)
+            return
+        }
+
+        if let displayID = vm.displayPatientID(from: payload) {
+            patientIdOverride = displayID
+            nfcManager.statusText = vm.patientIDConfig.isValidChecksum(payload)
+                ? L("NFC 傷患 ID 已讀取")
+                : L("NFC 傷患 ID 已讀取（校驗待確認）")
+            return
+        }
+
         let parts = payload.split(separator: "|").map(String.init)
         guard parts.first == "LG1" else {
-            nfcManager.statusText = L("NFC 格式不是 LinkGuard LG1")
+            nfcManager.statusText = L("NFC 格式不是 LinkGuard 傷患 ID 或 LG1/LG2/LG3")
             return
         }
 
         for part in parts.dropFirst() {
-            if let value = value(after: "ID:", in: part) {
-                nationalId = value
-            } else if let value = value(after: "AGE:", in: part) {
+            if let value = payloadValue(after: "ID:", in: part) {
+                if let displayID = vm.displayPatientID(from: value) {
+                    patientIdOverride = displayID
+                } else {
+                    nationalId = value
+                }
+            } else if let value = payloadValue(after: "AGE:", in: part) {
                 notes = appendNote(notes, L("NFC 年齡：%@", value))
-            } else if let value = value(after: "INJ:", in: part) {
+            } else if let value = payloadValue(after: "INJ:", in: part) {
                 notes = appendNote(notes, L("傷勢：%@", value))
-            } else if let value = value(after: "TX:", in: part) {
+            } else if let value = payloadValue(after: "TX:", in: part) {
                 notes = appendNote(notes, L("處置：%@", value))
-            } else if let value = value(after: "LOC:", in: part) {
+            } else if let value = payloadValue(after: "LOC:", in: part) {
                 location = value
-            } else if let value = value(after: "RR", in: part) ?? value(after: "RR:", in: part) {
+            } else if let value = payloadValue(after: "RR", in: part) ?? payloadValue(after: "RR:", in: part) {
                 breathingRateText = value
-            } else if let value = value(after: "GCS", in: part) ?? value(after: "GCS:", in: part) {
+            } else if let value = payloadValue(after: "GCS", in: part) ?? payloadValue(after: "GCS:", in: part) {
                 if let gcs = Int(value) { canFollowCommands = gcs >= 13 }
                 notes = appendNote(notes, "GCS\(value)")
-            } else if let value = value(after: "T:", in: part) {
+            } else if let value = payloadValue(after: "T:", in: part) {
                 notes = appendNote(notes, L("分級：%@", value))
-            } else if let value = value(after: "TIME:", in: part) {
+            } else if let value = payloadValue(after: "TIME:", in: part) {
                 notes = appendNote(notes, L("標籤時間：%@", value))
             }
         }
     }
 
-    private func value(after prefix: String, in text: String) -> String? {
+    private func buildNFCPayload(for patientID: String, format: PatientNFCFormat) -> String {
+        let compactID = compactPatientID(patientID)
+        switch format {
+        case .lg1:
+            return [
+                "LG1", compactID, triageCodeForNFC(), sexAgeCodeForNFC(), injuryCodeForNFC(),
+                vitalsForNFC(), treatmentPayloadForNFC(format: .lg1), timeHM()
+            ].joined(separator: "|")
+        case .lg2:
+            return [
+                "LG2", "ID:\(compactID)", "T:\(triageCodeForNFC())", "S:\(sexAgeCodeForNFC())",
+                "LOC:\(locationCodeForNFC())", "I:\(injuryCodeForNFC())", "V:\(vitalsForNFC())",
+                "TX:\(treatmentPayloadForNFC(format: .lg2))", "ALG:\(codeValue(nfcAllergyCode))",
+                "NOTE:\(noteForNFC())",
+                "TM:\(timeFull())", "UPD:\(timeHM())"
+            ].joined(separator: "|")
+        case .lg3:
+            let body = [
+                "LG3", "ID:\(compactID)", "T:\(triageCodeForNFC())", "S:\(sexAgeCodeForNFC())",
+                "LOC:\(locationCodeForNFC())", "GPS:\(gpsForNFC())", "I:\(injuryCodeForNFC())",
+                "V:\(timeHM())/\(vitalsForNFC())", "TX:\(treatmentPayloadForNFC(format: .lg3))",
+                "ALG:\(codeValue(nfcAllergyCode))", "FLAG:\(flagCodeForNFC())",
+                "EVAC:\(codeValue(nfcEvacStatus, fallback: "WAIT"))", "DST:\(codeValue(nfcDestinationCode))",
+                "TEAM:\(treatmentTeamCodeForNFC())", "TM:\(timeFull())", "UPD:\(timeHM())"
+            ].joined(separator: "|")
+            return "\(body)|CHK:\(nfcChecksum(for: body))"
+        }
+    }
+
+    private func applyLG1Payload(_ payload: String) {
+        let parts = payload.components(separatedBy: "|")
+        guard parts.count >= 8 else {
+            nfcManager.statusText = L("LG1 欄位不足")
+            return
+        }
+        applyPatientID(parts[1])
+        nfcTriageCode = codeValue(parts[2], fallback: "U")
+        nfcSexAgeCode = codeValue(parts[3], fallback: "U")
+        nfcInjuryCode = codeValue(parts[4])
+        applyVitals(parts[5])
+        applyTreatment(parts[6], version: .lg1)
+        notes = appendNote(notes, L("NFC LG1 時間：%@", formatHM(parts[7])))
+        for part in parts.dropFirst(8) {
+            if let flags = payloadValue(after: "F:", in: part) ?? payloadValue(after: "FLAG:", in: part) {
+                nfcFlagCode = codeValue(flags)
+            }
+        }
+        selectedNFCFormat = .lg1
+        updateNFCSummary(version: "LG1")
+        nfcManager.statusText = L("NFC LG1 已讀取")
+    }
+
+    private func applyKeyedNFCPayload(_ payload: String, version: PatientNFCFormat) {
+        let parts = payload.components(separatedBy: "|")
+        var fields: [String: String] = [:]
+        for part in parts.dropFirst() {
+            guard let separator = part.firstIndex(of: ":") else { continue }
+            let key = String(part[..<separator]).uppercased()
+            let value = String(part[part.index(after: separator)...])
+            fields[key] = value
+        }
+
+        if let id = fields["ID"] { applyPatientID(id) }
+        if let triage = fields["T"] { nfcTriageCode = codeValue(triage, fallback: "U") }
+        if let sexAge = fields["S"] { nfcSexAgeCode = codeValue(sexAge, fallback: "U") }
+        if let loc = fields["LOC"], !loc.isEmpty { location = loc }
+        if let injury = fields["I"] { nfcInjuryCode = codeValue(injury) }
+        if let vitals = fields["V"] { applyVitals(vitals) }
+        if let tx = fields["TX"] { applyTreatment(tx, version: version) }
+        if let alg = fields["ALG"] { nfcAllergyCode = codeValue(alg) }
+        if let note = fields["NOTE"], !note.isEmpty { notes = appendNote(notes, L("NFC 備註：%@", note)) }
+        if let flag = fields["FLAG"] { nfcFlagCode = codeValue(flag) }
+        if let evac = fields["EVAC"] { nfcEvacStatus = codeValue(evac, fallback: "WAIT") }
+        if let dst = fields["DST"] { nfcDestinationCode = codeValue(dst) }
+        if let team = fields["TEAM"] { nfcTeamCode = codeValue(team) }
+        if let tm = fields["TM"], !tm.isEmpty { notes = appendNote(notes, L("NFC 建立：%@", tm)) }
+        if let upd = fields["UPD"], !upd.isEmpty { notes = appendNote(notes, L("NFC 更新：%@", formatHM(upd))) }
+
+        selectedNFCFormat = version
+        updateNFCSummary(version: version.rawValue)
+        if version == .lg3, let checksum = fields["CHK"] {
+            let body = parts.dropLast().joined(separator: "|")
+            nfcManager.statusText = checksum == nfcChecksum(for: body) ? L("NFC LG3 已讀取") : L("NFC LG3 已讀取（校驗待確認）")
+        } else {
+            nfcManager.statusText = L("NFC %@ 已讀取", version.rawValue)
+        }
+    }
+
+    private func applyEncryptedLG3Payload(_ payload: String) {
+        let parts = payload.components(separatedBy: "|")
+        for part in parts.dropFirst() {
+            if let id = payloadValue(after: "ID:", in: part) { applyPatientID(id) }
+            if let keyID = payloadValue(after: "KID:", in: part) { notes = appendNote(notes, L("LG3E 金鑰：%@", keyID)) }
+        }
+        selectedNFCFormat = .lg3
+        updateNFCSummary(version: "LG3E")
+        nfcManager.statusText = L("NFC LG3E 已讀取（需 App 解密）")
+    }
+
+    private func applyPatientID(_ idText: String) {
+        if let displayID = vm.displayPatientID(from: idText) {
+            patientIdOverride = displayID
+        }
+    }
+
+    private func applyVitals(_ vitalsText: String) {
+        let latest = vitalsText.components(separatedBy: ";").last ?? vitalsText
+        for rawSegment in latest.components(separatedBy: "/") {
+            let segment = rawSegment.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+            if let rr = payloadValue(after: "RR", in: segment) {
+                breathingRateText = rr
+            } else if let pulse = payloadValue(after: "P", in: segment) {
+                nfcPulseText = pulse
+            } else if let gcs = payloadValue(after: "G", in: segment) {
+                nfcGCSText = gcs
+                if let gcsValue = Int(gcs) { canFollowCommands = gcsValue >= 13 }
+            }
+        }
+    }
+
+    private func updateNFCSummary(version: String) {
+        var lines = ["\(version) \(compactPatientID(activePatientID))"]
+        lines.append("\(L("檢傷")): \(triageLabel(nfcTriageCode))")
+        lines.append("\(L("性別年齡")): \(nfcSexAgeCode)")
+        if !nfcInjuryCode.isEmpty { lines.append("\(L("傷勢")): \(nfcInjuryCode)") }
+        if !breathingRateText.isEmpty || !nfcPulseText.isEmpty || !nfcGCSText.isEmpty {
+            lines.append("\(L("生命徵象")): \(vitalsForNFC())")
+        }
+        if !nfcTreatmentCode.isEmpty { lines.append("\(L("處置")): \(nfcTreatmentCode)") }
+        if !nfcFlagCode.isEmpty { lines.append("\(L("警示")): \(nfcFlagCode)") }
+        if selectedNFCFormat == .lg3, !nfcEvacStatus.isEmpty { lines.append("\(L("後送")): \(evacuationLabel(nfcEvacStatus))") }
+        nfcDecodedSummary = lines.joined(separator: "\n")
+    }
+
+    private func compactPatientID(_ idText: String) -> String {
+        PatientIDConfig.extractCompactID(from: idText) ?? idText.uppercased().filter { $0.isLetter || $0.isNumber }
+    }
+
+    private func triageCodeForNFC() -> String { codeValue(nfcTriageCode, fallback: "U") }
+
+    private func sexAgeCodeForNFC() -> String { codeValue(nfcSexAgeCode, fallback: "U") }
+
+    private func injuryCodeForNFC() -> String {
+        let fallback = canFollowCommands ? "" : "UNCON"
+        return codeValue(nfcInjuryCode, fallback: fallback)
+    }
+
+    private func treatmentCodesForNFC() -> [String] {
+        codeValue(nfcTreatmentCode)
+            .components(separatedBy: "+")
+            .map { codeValue($0) }
+            .filter { !$0.isEmpty }
+    }
+
+    private func treatmentBodyCodeForNFC() -> String { codeValue(nfcTreatmentBodyCode, fallback: "GEN") }
+
+    private func treatmentStatusCodeForNFC() -> String { codeValue(nfcTreatmentStatusCode, fallback: "DONE") }
+
+    private func treatmentTeamCodeForNFC() -> String { codeValue(nfcTeamCode, fallback: "UNK") }
+
+    private func flagCodeForNFC() -> String { codeValue(nfcFlagCode) }
+
+    private func treatmentPayloadForNFC(format: PatientNFCFormat) -> String {
+        let codes = treatmentCodesForNFC()
+        guard !codes.isEmpty else { return "NONE" }
+
+        switch format {
+        case .lg1:
+            return codes.joined(separator: "+")
+        case .lg2:
+            return codes.joined(separator: "+")
+        case .lg3:
+            let team = treatmentTeamCodeForNFC()
+            let status = treatmentStatusCodeForNFC()
+            return codes.map { "\(timeHM())/\($0)/\(treatmentBodyCodeForNFC())/\(team)/\(status)" }.joined(separator: ";")
+        }
+    }
+
+    private func vitalsForNFC() -> String {
+        let rr = numericCode(breathingRateText, prefix: "RR", fallback: "RRU")
+        let pulse = numericCode(nfcPulseText, prefix: "P", fallback: "PU")
+        let gcsFallback = canFollowCommands ? "G15" : "G12"
+        let gcs = numericCode(nfcGCSText, prefix: "G", fallback: gcsFallback)
+        return "\(rr)/\(pulse)/\(gcs)"
+    }
+
+    private func locationCodeForNFC() -> String {
+        let trimmed = location.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? configuredLocationCode(separator: "-") : codeValue(trimmed, fallback: configuredLocationCode(separator: "-"))
+    }
+
+    private func configuredLocationCode(separator: String) -> String {
+        let config = vm.patientIDConfig
+        return [config.siteCode, config.buildingCode, config.floorCode, config.zoneCode]
+            .map { codeValue($0) }
+            .joined(separator: separator)
+    }
+
+    private func gpsForNFC() -> String {
+        guard let coordinate = locationMgr.lastLocation?.coordinate else { return "" }
+        return String(format: "%.4f,%.4f", coordinate.latitude, coordinate.longitude)
+    }
+
+    private func noteForNFC() -> String {
+        let firstLine = notes.components(separatedBy: .newlines).first ?? ""
+        return codeValue(String(firstLine.prefix(32)))
+    }
+
+    private func codeValue(_ value: String, fallback: String = "") -> String {
+        let allowed = CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_+-.,/;")
+        let uppercased = value.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        let sanitized = String(uppercased.unicodeScalars.filter { allowed.contains($0) })
+        return sanitized.isEmpty ? fallback : sanitized
+    }
+
+    private func numericCode(_ value: String, prefix: String, fallback: String) -> String {
+        let digits = value.filter { $0.isNumber || $0 == "-" }
+        return digits.isEmpty ? fallback : "\(prefix)\(digits)"
+    }
+
+    private func applyTreatment(_ value: String, version: PatientNFCFormat) {
+        let normalizedValue = payloadValue(after: "TX:", in: value) ?? value
+        let entries = normalizedValue.components(separatedBy: ";")
+        var codes: [String] = []
+        var firstBody = ""
+        var firstTeam = ""
+        var firstStatus = ""
+
+        for entry in entries {
+            let parts = entry.components(separatedBy: "/").map { codeValue($0) }
+            if parts.count >= 2 {
+                if !parts[1].isEmpty { codes.append(parts[1]) }
+                if firstBody.isEmpty, parts.count >= 3 { firstBody = parts[2] }
+                if firstTeam.isEmpty, parts.count >= 4 { firstTeam = parts[3] }
+                if firstStatus.isEmpty, parts.count >= 5 { firstStatus = parts[4] }
+            } else {
+                codes.append(contentsOf: entry.components(separatedBy: "+").map { codeValue($0) }.filter { !$0.isEmpty })
+            }
+        }
+
+        nfcTreatmentCode = codes.joined(separator: "+")
+        if !firstBody.isEmpty { nfcTreatmentBodyCode = firstBody }
+        if version == .lg3, !firstTeam.isEmpty { nfcTeamCode = firstTeam }
+        if version == .lg3, !firstStatus.isEmpty { nfcTreatmentStatusCode = firstStatus }
+    }
+
+    private func nfcChecksum(for text: String) -> String {
+        let alphabet = Array("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+        let total = text.utf8.reduce(23) { (($0 * 31) + Int($1)) % 1296 }
+        return "\(alphabet[total / 36])\(alphabet[total % 36])"
+    }
+
+    private func timeHM() -> String {
+        LGDateFormat.hm.string(from: Date()).replacingOccurrences(of: ":", with: "")
+    }
+
+    private func timeFull() -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(identifier: "Asia/Taipei")
+        formatter.dateFormat = "yyyyMMdd'T'HHmm"
+        return formatter.string(from: Date())
+    }
+
+    private func formatHM(_ value: String) -> String {
+        let digits = value.filter { $0.isNumber }
+        guard digits.count == 4 else { return value }
+        return "\(digits.prefix(2)):\(digits.suffix(2))"
+    }
+
+    private func triageLabel(_ code: String) -> String {
+        switch code.uppercased() {
+        case "R": return "R - \(L("紅色"))"
+        case "Y": return "Y - \(L("黃色"))"
+        case "G": return "G - \(L("綠色"))"
+        case "B": return "B - \(L("黑色"))"
+        default: return "U - \(L("未分類"))"
+        }
+    }
+
+    private func evacuationLabel(_ code: String) -> String {
+        switch code.uppercased() {
+        case "MOVE": return "MOVE - \(L("後送中"))"
+        case "ARRV": return "ARRV - \(L("已抵達"))"
+        case "HOLD": return "HOLD - \(L("暫留"))"
+        case "DEAD": return "DEAD - \(L("死亡確認"))"
+        default: return "WAIT - \(L("等待後送"))"
+        }
+    }
+
+    private func payloadValue(after prefix: String, in text: String) -> String? {
         guard text.hasPrefix(prefix) else { return nil }
         return String(text.dropFirst(prefix.count)).trimmingCharacters(in: .whitespaces)
     }
@@ -609,7 +1121,10 @@ struct PatientFormView: View {
         guard let breathingRate = Int(breathingRateText),
               let capillaryRefill = Double(capillaryRefillText) else { return }
 
+        let patientID = patientIdOverride ?? vm.reserveNextPatientID()
+
         let report = PatientReport(
+            patientId: patientID,
             nationalId: nationalId.trimmingCharacters(in: .whitespaces),
             name: patientName.trimmingCharacters(in: .whitespaces),
             birthDate: birthDateString ?? "",
@@ -626,6 +1141,7 @@ struct PatientFormView: View {
         vm.sendPatientReport(report)
 
         // 清空表單
+        patientIdOverride = nil
         nationalId = ""
         patientName = ""
         birthYearText = ""

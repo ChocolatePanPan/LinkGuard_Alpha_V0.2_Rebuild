@@ -191,6 +191,8 @@ class LinkGuardViewModel: ObservableObject {
     @Published var patientWarnings: [PatientWarning] = []
     /// 本地傷患回報（持久化）
     @Published var localPatients: [PatientReport] = []
+    /// HQ 下發的傷患編號配置
+    @Published var patientIDConfig = PatientIDConfig()
     /// 最新翻譯結果
     @Published var latestTranslation: TranslationResult?
     /// 已讀狀態追蹤
@@ -341,6 +343,9 @@ class LinkGuardViewModel: ObservableObject {
         setupWiFiClient()
         setupAppLifecycleRecovery()
         NotificationManager.shared.requestAuthorization()
+        if let saved: PatientIDConfig = PersistenceManager.shared.load(key: "patientIDConfig") {
+            patientIDConfig = saved
+        }
         // 載入本地傷患資料
         if let saved: [PatientReport] = PersistenceManager.shared.load(key: "localPatients") {
             localPatients = saved
@@ -432,6 +437,11 @@ class LinkGuardViewModel: ObservableObject {
                 guard let self else { return }
                 self.disasterSite = site
                 self.appendActivity(kind: .command, title: L("收到災情更新"), detail: site.buildingName)
+            }
+        }
+        commandClient.onPatientIDConfig = { [weak self] config in
+            DispatchQueue.main.async {
+                self?.applyPatientIDConfig(config)
             }
         }
         commandClient.onPersonnelAssignment = { [weak self] assignments in
@@ -966,6 +976,29 @@ class LinkGuardViewModel: ObservableObject {
             nickname: userNickname.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                 ? nil : userNickname.trimmingCharacters(in: .whitespacesAndNewlines)
         )
+    }
+
+    func syncNFCTagWrite(patientId: String, payload: String, tagCapacity: Int, payloadLength: Int) {
+        guard commandClient.isConnected else { return }
+        let compactID = PatientIDConfig.extractCompactID(from: patientId) ?? patientId.uppercased().filter { $0.isLetter || $0.isNumber }
+        let format = payload.components(separatedBy: "|").first ?? "NFC"
+        let sender = userNickname.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? nodeStatus.nodeID
+            : userNickname.trimmingCharacters(in: .whitespacesAndNewlines)
+        let record = NFCTagWriteRecord(
+            id: UUID().uuidString,
+            patientId: patientId,
+            compactPatientId: compactID,
+            format: format,
+            payload: payload,
+            tagCapacity: tagCapacity,
+            payloadLength: payloadLength,
+            deviceID: nodeStatus.nodeID,
+            senderName: sender,
+            timestamp: Date().timeIntervalSince1970
+        )
+        commandClient.sendNFCTagWritten(record)
+        appendActivity(kind: .patientReport, title: L("NFC 標籤已同步 HQ"), detail: "\(format) · \(compactID)")
     }
 
     // MARK: - 電台音訊播放
@@ -1669,6 +1702,43 @@ class LinkGuardViewModel: ObservableObject {
         localPatients.append(report)
         PersistenceManager.shared.save(key: "localPatients", value: localPatients)
         appendActivity(kind: .patientReport, title: L("已送出傷患回報"), detail: report.name.isEmpty ? report.patientId : report.name)
+    }
+
+    var previewPatientID: String {
+        patientIDConfig.displayID()
+    }
+
+    var previewPatientNFCURL: String {
+        patientIDConfig.nfcURL()
+    }
+
+    func displayPatientID(from text: String) -> String? {
+        patientIDConfig.displayID(from: text)
+    }
+
+    func patientNFCURL(for patientID: String) -> String {
+        patientIDConfig.nfcURL(for: patientID)
+    }
+
+    func reserveNextPatientID() -> String {
+        let serial = max(1, patientIDConfig.nextPatientSerial)
+        let id = patientIDConfig.displayID(serial: serial)
+        patientIDConfig.nextPatientSerial = serial + 1
+        PersistenceManager.shared.save(key: "patientIDConfig", value: patientIDConfig)
+        return id
+    }
+
+    private func applyPatientIDConfig(_ incomingConfig: PatientIDConfig) {
+        var config = incomingConfig
+        if config.displayPrefix == patientIDConfig.displayPrefix {
+            config.nextPatientSerial = max(config.nextPatientSerial, patientIDConfig.nextPatientSerial)
+        }
+        let changed = config != patientIDConfig
+        patientIDConfig = config
+        PersistenceManager.shared.save(key: "patientIDConfig", value: patientIDConfig)
+        if changed {
+            appendActivity(kind: .command, title: L("收到傷患編號配置"), detail: patientIDConfig.displayPrefix)
+        }
     }
 
     // MARK: - 交班摘要

@@ -51,6 +51,7 @@ struct HQSettingsView: View {
         HQPage(maxWidth: NV.pageMaxWidth, spacing: NV.pageSpacing) {
             HQPageTitleBar(L("設定"), icon: "gearshape.fill", accent: NV.info)
             generalSection
+            nfcManualSection
             notificationSection
             externalDisplaySection
             backendSection
@@ -78,6 +79,34 @@ struct HQSettingsView: View {
     }
 
     // MARK: - Sections
+
+    private var nfcManualSection: some View {
+        section(L("NFC 標籤操作手冊")) {
+            Text(L("此區塊是紀錄格式操作手冊，不是醫療處置教學；實際處置依消防、救護、醫療單位 SOP。"))
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            VStack(alignment: .leading, spacing: 10) {
+                manualFormatRow(title: "LG1", subtitle: "NTAG215", example: "LG1|ID|T|S|I|V|TX|TM")
+                manualFormatRow(title: "LG2", subtitle: "NTAG216", example: "LG2|ID:...|T:...|S:...|LOC:...|I:...|V:...|TX:...|ALG:...|NOTE:...|TM:...|UPD:...")
+            }
+
+            Text(L("規則：NTAG215 固定使用 LG1；NTAG216 固定使用 LG2；傷患 ID 不可變動；姓名、身分證、電話與完整病歷不寫入 NFC。"))
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            DisclosureGroup(L("LG1 / LG2 代碼表")) {
+                VStack(alignment: .leading, spacing: 8) {
+                    manualCodeRow("檢傷 T", "R=紅/立即; Y=黃/延遲; G=綠/輕傷; B=黑/死亡或無生命跡象; U=未分類")
+                    manualCodeRow("性別年齡 S", "M45=男性約45歲; F30=女性約30歲; C08=兒童約8歲; U=不明")
+                    manualCodeRow("傷勢 I", "HEAD=頭部外傷; CHEST=胸部外傷; ABD=腹部外傷; ARM_BLEED=手臂出血; LEG_BLEED=腿部出血; LEFT_LEG_BLEED=左腿出血; RIGHT_LEG_BLEED=右腿出血; FX=骨折; BURN=燒燙傷; CRUSH=壓砸傷; UNCON=意識不清; CPA=無呼吸心跳")
+                    manualCodeRow("處置 TX", "TQL=左側止血帶; TQR=右側止血帶; BAND=包紮; SPL=固定; O2=給氧; CPR=CPR; AED=AED 使用; IV=靜脈路徑; NONE=尚未處置")
+                    manualCodeRow("過敏 ALG", "PCN=青黴素; U=不明; 空白=未記錄")
+                }
+                .padding(.top, 8)
+            }
+        }
+    }
 
     private var externalDisplaySection: some View {
         let screens = NSScreen.screens
@@ -745,6 +774,35 @@ struct HQSettingsView: View {
             Text(title)
                 .font(.subheadline.bold())
             Spacer()
+        }
+    }
+
+    private func manualFormatRow(title: String, subtitle: String, example: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 8) {
+                Text(title)
+                    .font(.subheadline.bold())
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                Spacer()
+            }
+            Text(example)
+                .font(.caption.monospaced())
+                .foregroundColor(.secondary)
+                .textSelection(.enabled)
+        }
+    }
+
+    private func manualCodeRow(_ title: String, _ codes: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(.caption.bold())
+            Text(codes)
+                .font(.caption2.monospaced())
+                .foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .textSelection(.enabled)
         }
     }
 

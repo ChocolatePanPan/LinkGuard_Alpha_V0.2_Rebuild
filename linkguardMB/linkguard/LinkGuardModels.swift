@@ -40,7 +40,6 @@ enum ActivityKind: String, Codable {
     case hazard
     case patientWarning
     case deviceAlert
-    case call
     case task
     case timer
     case patientReport
@@ -61,7 +60,6 @@ enum ActivityKind: String, Codable {
         case .hazard:               return "exclamationmark.octagon.fill"
         case .patientWarning:       return "heart.text.square.fill"
         case .deviceAlert:          return "antenna.radiowaves.left.and.right.slash"
-        case .call:                 return "phone.fill"
         case .task:                 return "checklist.checked"
         case .timer:                return "timer"
         case .patientReport:        return "cross.case.fill"

@@ -136,6 +136,7 @@ class HQState:
         self.commands: list[dict] = []
         self.chats: list[dict] = []
         self.patients: list[dict] = []
+        self.nfc_tag_writes: list[dict] = []
         self.decisions: list[dict] = []
         self.briefings: list[dict] = []
         self.radio_reports: list[dict] = []
@@ -192,6 +193,7 @@ class HQState:
             "commands": self.commands[-100:],
             "chats": self.chats[-200:],
             "patients": self.patients[-50:],
+            "nfc_tag_writes": self.nfc_tag_writes[-100:],
             "decisions": self.decisions[-50:],
             "briefings": self.briefings[-20:],
             "radio_reports": self.radio_reports[-50:],
@@ -297,6 +299,25 @@ def make_hq_msg(msg_type: str, data: dict) -> dict:
     }
 
 
+def current_patient_id_config() -> dict:
+    taipei_time = datetime.now(timezone(timedelta(hours=8)))
+    return {
+        "systemCode": "LG",
+        "eventDateCode": taipei_time.strftime("%y%m%d"),
+        "cityCode": "TAO",
+        "cityName": "桃園",
+        "districtCode": "ZL",
+        "districtName": "中壢",
+        "eventCode": "E01",
+        "siteCode": "S03",
+        "buildingCode": "B02",
+        "floorCode": "F02",
+        "zoneCode": "A",
+        "nextPatientSerial": max(1, len(state.patients) + 1),
+        "nfcURLBase": "https://linkguard.tw/p/",
+    }
+
+
 async def forward_to_backend(message: dict):
     """轉發資料到後端 TCP:9000"""
     async with state._backend_lock:
@@ -321,7 +342,13 @@ async def handle_field_message(msg: dict, writer: asyncio.StreamWriter):
     device_id = msg.get("device_id", "unknown")
 
     # 註冊裝置
+    is_new_connection = state.field_clients.get(device_id) is not writer
     state.field_clients[device_id] = writer
+    if is_new_connection:
+        try:
+            await field_send(writer, make_hq_msg("patient_id_config", current_patient_id_config()))
+        except Exception as e:
+            print(f"[CMD] 傷患編號配置下發失敗 {device_id}: {e}")
 
     if msg_type == "status_report":
         # 裝置狀態（含受困者/團隊資料）
@@ -437,6 +464,20 @@ async def handle_field_message(msg: dict, writer: asyncio.StreamWriter):
         await forward_to_backend(msg)
         # 自動進行 START 檢傷分類
         asyncio.create_task(_auto_triage_patient(patient))
+
+    elif msg_type == "nfc_tag_written":
+        tag_write = {**data, "device_id": data.get("deviceID") or device_id, "received_at": now_iso()}
+        state.nfc_tag_writes.append(tag_write)
+        if len(state.nfc_tag_writes) > 300:
+            state.nfc_tag_writes = state.nfc_tag_writes[-300:]
+        compact_id = tag_write.get("compactPatientId") or tag_write.get("patientId") or ""
+        fmt = tag_write.get("format", "NFC")
+        payload_len = tag_write.get("payloadLength", 0)
+        capacity = tag_write.get("tagCapacity", 0)
+        state.add_timeline("nfc", f"NFC 標籤寫入 {compact_id}",
+                           f"{fmt} · {payload_len}/{capacity} bytes", device_id)
+        await ws_broadcast("nfc_tag_written", tag_write)
+        await forward_to_backend(msg)
 
     elif msg_type == "sos":
         sos_id = data.get("sos_id", str(uuid.uuid4())[:8])
