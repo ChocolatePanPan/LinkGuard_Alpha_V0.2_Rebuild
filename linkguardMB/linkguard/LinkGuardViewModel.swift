@@ -805,9 +805,8 @@ class LinkGuardViewModel: ObservableObject {
         }
         locationManager.delegate = locationDelegate
         locationManager.desiredAccuracy = kCLLocationAccuracyNearestTenMeters
-        locationManager.requestAlwaysAuthorization()
-        locationManager.allowsBackgroundLocationUpdates = true
-        locationManager.pausesLocationUpdatesAutomatically = false
+        locationManager.requestWhenInUseAuthorization()
+        locationManager.pausesLocationUpdatesAutomatically = true
         locationManager.startUpdatingLocation()
         locationTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
             Task { @MainActor in
@@ -948,8 +947,7 @@ class LinkGuardViewModel: ObservableObject {
                 if isStationaryMode {
                     isStationaryMode = false
                     locationTimer?.invalidate()
-                    locationManager.allowsBackgroundLocationUpdates = true
-                    locationManager.pausesLocationUpdatesAutomatically = false
+                    locationManager.pausesLocationUpdatesAutomatically = true
                     locationManager.startUpdatingLocation()
                     locationTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
                         Task { @MainActor in

@@ -17,37 +17,49 @@ private final class PatientNFCManager: NSObject, ObservableObject, NFCNDEFReader
 
     private var session: NFCNDEFReaderSession?
     private var mode: Mode = .read
+    private var completedSuccessfully = false
+    private var onProgress: ((String, String) -> Void)?
     private var onRead: ((String) -> Void)?
     private var onWrite: ((String, Int, Int) -> Void)?
 
     var isAvailable: Bool { NFCNDEFReaderSession.readingAvailable }
 
-    func beginRead(onRead: @escaping (String) -> Void) {
+    func beginRead(onProgress: ((String, String) -> Void)? = nil,
+                   onRead: @escaping (String) -> Void) {
         guard isAvailable else {
             statusText = L("此裝置不支援 NFC")
+            onProgress?(L("無法啟動 NFC"), L("此裝置不支援 NFC"))
             return
         }
 
         mode = .read
+        completedSuccessfully = false
+        self.onProgress = onProgress
         self.onRead = onRead
         onWrite = nil
         statusText = L("請靠近傷患 NFC 標籤")
+        publishProgress(L("等待標籤"), detail: L("請靠近傷患 NFC 標籤"))
         session = NFCNDEFReaderSession(delegate: self, queue: nil, invalidateAfterFirstRead: true)
         session?.alertMessage = L("靠近傷患 NFC 標籤以讀取回報資料")
         session?.begin()
     }
 
     func beginWrite(payloadForCapacity: @escaping (Int) -> String,
+                    onProgress: ((String, String) -> Void)? = nil,
                     onWrite: @escaping (String, Int, Int) -> Void) {
         guard isAvailable else {
             statusText = L("此裝置不支援 NFC")
+            onProgress?(L("無法啟動 NFC"), L("此裝置不支援 NFC"))
             return
         }
 
         mode = .write(payloadForCapacity)
+        completedSuccessfully = false
+        self.onProgress = onProgress
         onRead = nil
         self.onWrite = onWrite
         statusText = L("請靠近可寫入的 NFC 標籤")
+        publishProgress(L("等待標籤"), detail: L("請靠近空白或可覆寫的 NFC 標籤"))
         session = NFCNDEFReaderSession(delegate: self, queue: nil, invalidateAfterFirstRead: false)
         session?.alertMessage = L("靠近空白或可覆寫的 NFC 標籤")
         session?.begin()
@@ -56,14 +68,17 @@ private final class PatientNFCManager: NSObject, ObservableObject, NFCNDEFReader
     func readerSession(_ session: NFCNDEFReaderSession, didInvalidateWithError error: Error) {
         DispatchQueue.main.async {
             let nsError = error as NSError
-            if nsError.code != NFCReaderError.readerSessionInvalidationErrorUserCanceled.rawValue {
+            if !self.completedSuccessfully,
+               nsError.code != NFCReaderError.readerSessionInvalidationErrorUserCanceled.rawValue {
                 self.statusText = L("NFC 已停止：%@", error.localizedDescription)
+                self.onProgress?(L("流程停止"), error.localizedDescription)
             }
         }
     }
 
     func readerSession(_ session: NFCNDEFReaderSession, didDetectNDEFs messages: [NFCNDEFMessage]) {
         guard case .read = mode else { return }
+        publishProgress(L("讀取 NDEF"), detail: L("%lld 筆訊息", messages.count))
         let payload = messages
             .flatMap(\.records)
             .compactMap { PatientNFCManager.text(from: $0) }
@@ -72,55 +87,73 @@ private final class PatientNFCManager: NSObject, ObservableObject, NFCNDEFReader
         DispatchQueue.main.async {
             guard !payload.isEmpty else {
                 self.statusText = L("NFC 標籤沒有可讀取的文字資料")
+                self.onProgress?(L("讀取失敗"), L("標籤沒有可讀取的文字資料"))
                 return
             }
             self.lastPayload = payload
             self.statusText = L("NFC 讀取完成")
+            self.completedSuccessfully = true
+            self.onProgress?(L("取得 Payload"), "\(payload.utf8.count) bytes")
             self.onRead?(payload)
         }
     }
 
     func readerSession(_ session: NFCNDEFReaderSession, didDetect tags: [NFCNDEFTag]) {
         guard case .write(let payloadForCapacity) = mode else { return }
+        publishProgress(L("偵測標籤"), detail: "\(tags.count) 張")
         guard let tag = tags.first else {
+            publishProgress(L("偵測失敗"), detail: L("找不到 NFC 標籤"))
             session.invalidate(errorMessage: L("找不到 NFC 標籤"))
             return
         }
 
         if tags.count > 1 {
             session.alertMessage = L("一次只靠近一張 NFC 標籤")
+            publishProgress(L("等待單張標籤"), detail: L("一次只靠近一張 NFC 標籤"))
             DispatchQueue.global().asyncAfter(deadline: .now() + 0.6) { session.restartPolling() }
             return
         }
 
+        publishProgress(L("連線標籤"), detail: L("讀取 NDEF 狀態"))
         session.connect(to: tag) { error in
             if let error {
+                self.publishProgress(L("連線失敗"), detail: error.localizedDescription)
                 session.invalidate(errorMessage: error.localizedDescription)
                 return
             }
 
             tag.queryNDEFStatus { status, capacity, error in
                 if let error {
+                    self.publishProgress(L("容量檢查失敗"), detail: error.localizedDescription)
                     session.invalidate(errorMessage: error.localizedDescription)
                     return
                 }
 
+                self.publishProgress(L("檢查容量"), detail: "\(capacity) bytes")
                 guard status == .readWrite else {
+                    self.publishProgress(L("不可寫入"), detail: L("此 NFC 標籤不可寫入"))
                     session.invalidate(errorMessage: L("此 NFC 標籤不可寫入"))
                     return
                 }
 
                 let payload = payloadForCapacity(capacity)
                 let message = NFCNDEFMessage(records: [PatientNFCManager.record(from: payload)])
+                let format = payload.components(separatedBy: "|").first ?? "NFC"
+                self.publishProgress(L("選擇格式"), detail: "\(format) · \(message.length)/\(capacity) bytes")
                 guard message.length <= capacity else {
+                    self.publishProgress(L("容量不足"), detail: "\(message.length)/\(capacity) bytes")
                     session.invalidate(errorMessage: L("NFC 標籤容量不足"))
                     return
                 }
 
+                self.publishProgress(L("寫入 NDEF"), detail: "\(message.length) bytes")
                 tag.writeNDEF(message) { error in
                     if let error {
+                        self.publishProgress(L("寫入失敗"), detail: error.localizedDescription)
                         session.invalidate(errorMessage: error.localizedDescription)
                     } else {
+                        self.publishProgress(L("寫入完成"), detail: format)
+                        self.completedSuccessfully = true
                         session.alertMessage = L("傷患 NFC 標籤寫入完成")
                         session.invalidate()
                         DispatchQueue.main.async {
@@ -131,6 +164,12 @@ private final class PatientNFCManager: NSObject, ObservableObject, NFCNDEFReader
                     }
                 }
             }
+        }
+    }
+
+    private func publishProgress(_ title: String, detail: String = "") {
+        DispatchQueue.main.async {
+            self.onProgress?(title, detail)
         }
     }
 
@@ -154,9 +193,17 @@ private final class PatientNFCManager: ObservableObject {
     @Published var statusText: String = L("NFC 僅支援 iPhone 實機")
     @Published var lastPayload: String = ""
     var isAvailable: Bool { false }
-    func beginRead(onRead: @escaping (String) -> Void) { statusText = L("NFC 僅支援 iPhone 實機") }
+    func beginRead(onProgress: ((String, String) -> Void)? = nil,
+                   onRead: @escaping (String) -> Void) {
+        statusText = L("NFC 僅支援 iPhone 實機")
+        onProgress?(L("無法啟動 NFC"), L("NFC 僅支援 iPhone 實機"))
+    }
     func beginWrite(payloadForCapacity: @escaping (Int) -> String,
-                    onWrite: @escaping (String, Int, Int) -> Void) { statusText = L("NFC 僅支援 iPhone 實機") }
+                    onProgress: ((String, String) -> Void)? = nil,
+                    onWrite: @escaping (String, Int, Int) -> Void) {
+        statusText = L("NFC 僅支援 iPhone 實機")
+        onProgress?(L("無法啟動 NFC"), L("NFC 僅支援 iPhone 實機"))
+    }
 }
 #endif
 
@@ -206,6 +253,15 @@ private enum PatientNFCFormat: String, CaseIterable, Identifiable {
     }
 }
 
+private struct NFCProcessStep: Identifiable {
+    let id = UUID()
+    let title: String
+    let detail: String
+    let timestamp = Date()
+
+    var timeText: String { LGDateFormat.hms.string(from: timestamp) }
+}
+
 struct PatientFormView: View {
     private typealias NFCPayloadCandidate = (format: PatientNFCFormat, payload: String, length: Int)
 
@@ -215,6 +271,7 @@ struct PatientFormView: View {
     @StateObject private var nfcManager = PatientNFCManager()
     @State private var patientIdOverride: String?
     @State private var selectedNFCFormat: PatientNFCFormat = .lg1
+    @State private var nfcProcessSteps: [NFCProcessStep] = []
     @State private var nfcDecodedSummary: String = ""
     @State private var nfcTriageCode: String = "U"
     @State private var nfcSexAgeCode: String = "U"
@@ -552,10 +609,39 @@ struct PatientFormView: View {
                             .textSelection(.enabled)
                     }
 
+                    if !nfcProcessSteps.isEmpty {
+                        VStack(alignment: .leading, spacing: 6) {
+                            ForEach(nfcProcessSteps) { step in
+                                HStack(alignment: .top, spacing: 8) {
+                                    Text(step.timeText)
+                                        .font(.caption2.monospacedDigit())
+                                        .foregroundColor(.secondary)
+                                        .frame(width: 62, alignment: .leading)
+                                    VStack(alignment: .leading, spacing: 1) {
+                                        Text(step.title)
+                                            .font(.caption.bold())
+                                        if !step.detail.isEmpty {
+                                            Text(step.detail)
+                                                .font(.caption2.monospaced())
+                                                .foregroundColor(.secondary)
+                                                .fixedSize(horizontal: false, vertical: true)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        .padding(.vertical, 4)
+                    }
+
                     HStack(spacing: 12) {
                         Button {
-                            nfcManager.beginRead { payload in
+                            startNFCProcess(L("開始讀取"), detail: L("等待傷患 NFC 標籤"))
+                            nfcManager.beginRead(onProgress: { title, detail in
+                                appendNFCProcessStep(title, detail: detail)
+                            }) { payload in
+                                appendNFCProcessStep(L("解析 Payload"), detail: nfcPayloadDescription(payload))
                                 applyNFCPayload(payload)
+                                appendNFCProcessStep(L("讀取流程完成"), detail: compactPatientID(activePatientID))
                             }
                         } label: {
                             Label(L("讀取"), systemImage: "wave.3.right")
@@ -564,11 +650,17 @@ struct PatientFormView: View {
 
                         Button {
                             let candidates = nfcPayloadCandidatesForWrite()
-                            nfcManager.beginWrite { capacity in
+                            startNFCProcess(L("準備寫入"), detail: compactPatientID(activePatientID))
+                            appendNFCProcessStep(L("建立候選格式"), detail: nfcCandidateSummary(candidates))
+                            nfcManager.beginWrite(payloadForCapacity: { capacity in
                                 nfcPayload(for: capacity, candidates: candidates)
-                            } onWrite: { payload, capacity, payloadLength in
+                            }, onProgress: { title, detail in
+                                appendNFCProcessStep(title, detail: detail)
+                            }, onWrite: { payload, capacity, payloadLength in
+                                appendNFCProcessStep(L("寫入結果"), detail: nfcWriteSummary(payload: payload, capacity: capacity, payloadLength: payloadLength))
+                                appendNFCProcessStep(vm.commandClient.isConnected ? L("送出 HQ 同步") : L("HQ 未連線"), detail: compactPatientID(activePatientID))
                                 syncNFCTagWrite(payload: payload, capacity: capacity, payloadLength: payloadLength)
-                            }
+                            })
                         } label: {
                             Label(L("寫入"), systemImage: "square.and.pencil")
                         }
@@ -698,6 +790,32 @@ struct PatientFormView: View {
 
     private var activeNFCPayloadPreview: String {
         buildNFCPayload(for: activePatientID, format: selectedNFCFormat)
+    }
+
+    private func startNFCProcess(_ title: String, detail: String = "") {
+        nfcProcessSteps = [NFCProcessStep(title: title, detail: detail)]
+    }
+
+    private func appendNFCProcessStep(_ title: String, detail: String = "") {
+        nfcProcessSteps.append(NFCProcessStep(title: title, detail: detail))
+        if nfcProcessSteps.count > 10 {
+            nfcProcessSteps = Array(nfcProcessSteps.suffix(10))
+        }
+    }
+
+    private func nfcCandidateSummary(_ candidates: [NFCPayloadCandidate]) -> String {
+        candidates
+            .map { "\($0.format.rawValue) \($0.length) bytes" }
+            .joined(separator: " · ")
+    }
+
+    private func nfcPayloadDescription(_ payload: String) -> String {
+        let format = payload.components(separatedBy: "|").first ?? "NFC"
+        return "\(format) · \(payload.utf8.count) bytes"
+    }
+
+    private func nfcWriteSummary(payload: String, capacity: Int, payloadLength: Int) -> String {
+        "\(nfcPayloadDescription(payload)) · \(payloadLength)/\(capacity) NDEF bytes"
     }
 
     private func nfcPayloadCandidatesForWrite() -> [NFCPayloadCandidate] {
