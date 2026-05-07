@@ -931,7 +931,7 @@ struct EvacuationAlertButton: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(L("全員撤離"))
                             .font(.headline).bold()
-                        Text(L("發布撤離警報，通知所有人員立即撤離至集結點"))
+                        Text(L("通知所有人立即撤離"))
                             .font(.caption)
                             .lineLimit(2)
                     }
