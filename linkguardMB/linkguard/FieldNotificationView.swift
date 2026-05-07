@@ -324,7 +324,7 @@ struct FieldNotificationView: View {
                         .lineLimit(2)
                 }
             }
-            Text("by \(report.author) · \(report.timeText)")
+            Text(L("by %@ · %@", report.author, report.timeText))
                 .font(.caption2).foregroundColor(.secondary)
         }
         .padding(.vertical, 4)
@@ -364,7 +364,7 @@ struct FieldNotificationView: View {
                     NotificationDetailSection(
                         title: L("通知資料"),
                         rows: detailRows([
-                            (L("類型"), entry.kind.rawValue),
+                            (L("類型"), entry.kind.label),
                             (L("時間"), detailTimeText(entry.timestamp)),
                             (L("標題"), entry.title)
                         ]),

@@ -917,6 +917,22 @@ final class L10n: ObservableObject {
         "性別年齡 M45/F30/C08/U": "Sex/Age M45/F30/C08/U",
         "GCS": "GCS",
 
+        // ActivityKind 標籤
+        "已發送訊息": "Sent Message",
+        "收到訊息": "Received Message",
+        "指揮命令": "Command",
+        "危害標記": "Hazard",
+        "傷患預警": "Patient Warning",
+        "裝置警報": "Device Alert",
+        "快速狀態": "Quick Status",
+
+        // ReinforcementStatus 標籤
+        "已加入": "Joined",
+        "已過期": "Expired",
+
+        // 通知列表格式
+        "by %@ · %@": "by %@ · %@",
+
         // 搜尋 / 篩選
         "全部區域": "All Zones",
         "全部層級": "All Levels",
