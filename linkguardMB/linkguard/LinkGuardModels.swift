@@ -68,28 +68,6 @@ enum ActivityKind: String, Codable {
     }
 
     var defaultColor: String { "info" }
-
-    var label: String {
-        switch self {
-        case .sentMessage:          return L("已發送訊息")
-        case .receivedMessage:      return L("收到訊息")
-        case .personalNotification: return L("個人通知")
-        case .command:              return L("指揮命令")
-        case .hqDecision:           return L("HQ 決策")
-        case .pwsAlert:             return L("PWS 警報")
-        case .briefing:             return L("會報")
-        case .broadcast:            return L("廣播")
-        case .sos:                  return L("SOS 警報")
-        case .reinforcement:        return L("增援")
-        case .hazard:               return L("危害標記")
-        case .patientWarning:       return L("傷患預警")
-        case .deviceAlert:          return L("裝置警報")
-        case .task:                 return L("任務")
-        case .timer:                return L("計時器")
-        case .patientReport:        return L("傷員回報")
-        case .quickStatus:          return L("快速狀態")
-        }
-    }
 }
 
 struct ActivityLogEntry: Identifiable {
@@ -1046,8 +1024,6 @@ enum ReinforcementStatus: String {
     case accepted = "已加入"
     case declined = "已拒絕"
     case expired  = "已過期"
-
-    var label: String { L(rawValue) }
 
     var color: Color {
         switch self {
