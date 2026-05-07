@@ -71,14 +71,15 @@ class LinkGuardViewModel: ObservableObject {
         UserDefaults.standard.string(forKey: "linkguard_user_nickname") ?? ""
     }
 
-    /// App 啟動時間戳，用於過濾過期警報
+    /// App 啟動時間戳，用於運行時間顯示
     private let launcherStartTime = Date()
 
-    /// 連線初期靜默期（秒）：剛連上 HQ 時收到的歷史同步訊息不彈全螢幕警報
+    /// 連線/回前景初期靜默期（秒）：收到的歷史同步訊息只記錄，不彈全螢幕警報
     private let startupGracePeriod: TimeInterval = 3.0
-    /// 是否已過啟動靜默期
+    private var alarmSuppressionUntil = Date().addingTimeInterval(3.0)
+    /// 是否已過警報靜默期
     private var pastStartupGrace: Bool {
-        Date().timeIntervalSince(launcherStartTime) > startupGracePeriod
+        Date() >= alarmSuppressionUntil
     }
 
     @Published var victims: [VictimNode]    = []
@@ -324,6 +325,7 @@ class LinkGuardViewModel: ObservableObject {
             .filter { $0 }           // 只對 false → true 的變化觸發
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
+                self?.suppressRealtimeAlarms()
                 // 短暫延遲讓 resolvedIP 先完成填入
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                     self?.sendStatusReport()
@@ -820,6 +822,7 @@ class LinkGuardViewModel: ObservableObject {
         NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
+                self?.prepareForForegroundResume()
                 self?.resumeRealtimeConnectionsAfterForeground()
             }
             .store(in: &cancellables)
@@ -831,6 +834,30 @@ class LinkGuardViewModel: ObservableObject {
             }
             .store(in: &cancellables)
         #endif
+    }
+
+    private func suppressRealtimeAlarms(for duration: TimeInterval? = nil) {
+        let until = Date().addingTimeInterval(duration ?? startupGracePeriod)
+        if until > alarmSuppressionUntil {
+            alarmSuppressionUntil = until
+        }
+    }
+
+    private func prepareForForegroundResume() {
+        suppressRealtimeAlarms()
+        clearTransientAlarmPresentations()
+    }
+
+    private func clearTransientAlarmPresentations() {
+        sosAutoDowngradeTimer?.invalidate()
+        sosAutoDowngradeTimer = nil
+        latestSOSVictim = nil
+        latestCriticalCommand = nil
+        latestReinforcementRequest = nil
+        urgentBroadcast = nil
+        activePatientWarning = nil
+        AlarmPlayer.shared.stopAlarm()
+        stopCriticalHaptics()
     }
 
     private func resumeRealtimeConnectionsAfterForeground() {
@@ -1128,7 +1155,7 @@ class LinkGuardViewModel: ObservableObject {
                     
                     // 只在 App 開啟後產生的新警報才彈出全螢幕通知
                     // 如果是在開啟 App 前就有的（同步過來的舊 SOS），則只記錄在名單但不跳通知
-                    if now.timeIntervalSince(launcherStartTime) > 2.0 {
+                    if pastStartupGrace {
                         triggerSOSNotification(for: victims[idx])
                     }
                 }
@@ -1152,7 +1179,7 @@ class LinkGuardViewModel: ObservableObject {
                     )
                     sosRecords.insert(record, at: 0)
                     
-                    if now.timeIntervalSince(launcherStartTime) > 2.0 {
+                    if pastStartupGrace {
                         triggerSOSNotification(for: victim)
                     }
                 }
@@ -1276,7 +1303,7 @@ class LinkGuardViewModel: ObservableObject {
         // 離線/低電量通知
         for victim in victims {
             let wasOnline = previousOnlineStates[victim.id] ?? victim.isOnline
-            if wasOnline && !victim.isOnline {
+            if wasOnline && !victim.isOnline && pastStartupGrace {
                 NotificationManager.shared.sendOfflineNotification(victimID: victim.id)
                 appendActivity(kind: .deviceAlert, title: L("裝置離線"), detail: victim.id)
             }
@@ -1284,10 +1311,12 @@ class LinkGuardViewModel: ObservableObject {
 
             if victim.battery <= 15 && !lowBatteryNotified.contains(victim.id) {
                 lowBatteryNotified.insert(victim.id)
-                NotificationManager.shared.sendLowBatteryNotification(
-                    victimID: victim.id, battery: victim.battery
-                )
-                appendActivity(kind: .deviceAlert, title: L("低電量警告"), detail: "\(victim.id) · \(victim.battery)%")
+                if pastStartupGrace {
+                    NotificationManager.shared.sendLowBatteryNotification(
+                        victimID: victim.id, battery: victim.battery
+                    )
+                    appendActivity(kind: .deviceAlert, title: L("低電量警告"), detail: "\(victim.id) · \(victim.battery)%")
+                }
             }
         }
 
@@ -1820,6 +1849,7 @@ class LinkGuardViewModel: ObservableObject {
     // MARK: - 觸覺回饋
 
     private func triggerSOSNotification(for victim: VictimNode? = nil) {
+        guard pastStartupGrace else { return }
         if let victim {
             latestSOSVictim = victim
             AlarmPlayer.shared.playSOSAlarm()
