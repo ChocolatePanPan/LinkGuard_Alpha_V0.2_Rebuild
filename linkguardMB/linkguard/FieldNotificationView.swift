@@ -15,7 +15,7 @@ private enum NotificationSource {
 
     var label: String {
         switch self {
-        case .field: return "現場"
+        case .field: return L("現場")
         case .hq: return "HQ"
         }
     }
@@ -30,16 +30,7 @@ struct FieldNotificationView: View {
         NavigationStack {
             List {
                 // ── 統一活動記錄（主要）──
-                Section(header: HStack {
-                    Label(L("所有通知"), systemImage: "list.bullet.rectangle.fill")
-                    Spacer()
-                    NavigationLink {
-                        allNotificationsView()
-                    } label: {
-                        Text(L("查看全部"))
-                            .font(.caption).foregroundColor(.accentColor)
-                    }
-                }) {
+                Section(header: Label(L("所有通知"), systemImage: "list.bullet.rectangle.fill")) {
                     if vm.activityLog.isEmpty {
                         Text(L("暫無記錄"))
                             .font(.caption).foregroundColor(.secondary)
@@ -360,7 +351,7 @@ struct FieldNotificationView: View {
 
     @ViewBuilder
     private func activityDetail(_ entry: ActivityLogEntry) -> some View {
-        if entry.title.contains(L("災情")), let site = vm.disasterSite {
+        if (entry.title.contains("災情") || entry.title.localizedCaseInsensitiveContains(L("災情"))), let site = vm.disasterSite {
             DisasterNotificationDetailView(site: site, receivedAt: entry.timestamp)
         } else {
             NotificationDetailView(
