@@ -9,7 +9,16 @@ struct FieldNotificationView: View {
         NavigationStack {
             List {
                 // ── 統一活動記錄（主要）──
-                Section(header: Label(L("所有通知"), systemImage: "list.bullet.rectangle.fill")) {
+                Section(header: HStack {
+                    Label(L("所有通知"), systemImage: "list.bullet.rectangle.fill")
+                    Spacer()
+                    NavigationLink {
+                        allNotificationsView()
+                    } label: {
+                        Text(L("查看全部"))
+                            .font(.caption).foregroundColor(.accentColor)
+                    }
+                }) {
                     if vm.activityLog.isEmpty {
                         Text(L("暫無記錄"))
                             .font(.caption).foregroundColor(.secondary)
@@ -302,24 +311,29 @@ struct FieldNotificationView: View {
         }
     }
 
+    @ViewBuilder
     private func activityDetail(_ entry: ActivityLogEntry) -> some View {
-        NotificationDetailView(
-            title: entry.title,
-            subtitle: entry.timeText,
-            icon: entry.kind.icon,
-            color: kindColor(entry.kind),
-            sections: [
-                NotificationDetailSection(
-                    title: L("通知資料"),
-                    rows: detailRows([
-                        (L("類型"), entry.kind.rawValue),
-                        (L("時間"), detailTimeText(entry.timestamp)),
-                        (L("標題"), entry.title)
-                    ]),
-                    body: entry.detail
-                )
-            ]
-        )
+        if entry.title.contains(L("災情")), let site = vm.disasterSite {
+            DisasterNotificationDetailView(site: site, receivedAt: entry.timestamp)
+        } else {
+            NotificationDetailView(
+                title: entry.title,
+                subtitle: entry.timeText,
+                icon: entry.kind.icon,
+                color: kindColor(entry.kind),
+                sections: [
+                    NotificationDetailSection(
+                        title: L("通知資料"),
+                        rows: detailRows([
+                            (L("類型"), entry.kind.rawValue),
+                            (L("時間"), detailTimeText(entry.timestamp)),
+                            (L("標題"), entry.title)
+                        ]),
+                        body: entry.detail
+                    )
+                ]
+            )
+        }
     }
 
     private func personalNotificationDetail(_ notif: PersonalNotification) -> some View {
@@ -524,6 +538,122 @@ struct FieldNotificationView: View {
             return NotificationDetailRow(label: label, value: value)
         }
     }
+
+    // MARK: - 全部通知彙總
+
+    @ViewBuilder
+    func allNotificationsView() -> some View {
+        List {
+            // 個人通知
+            if !vm.personalNotifications.isEmpty {
+                Section(header: Label(L("個人通知"), systemImage: "bell.fill")) {
+                    ForEach(vm.personalNotifications) { notif in
+                        NavigationLink {
+                            personalNotificationDetail(notif)
+                                .onAppear { if !notif.isRead { vm.markNotificationAsRead(notif.id) } }
+                        } label: {
+                            personalNotificationRow(notif)
+                        }
+                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                            if !notif.isRead {
+                                Button(L("已讀")) { vm.markNotificationAsRead(notif.id) }
+                                    .tint(NV.info)
+                            }
+                        }
+                    }
+                }
+            }
+
+            // HQ 廣播
+            if !vm.textBroadcasts.isEmpty {
+                Section(header: Label(L("HQ 廣播"), systemImage: "megaphone.fill")) {
+                    ForEach(vm.textBroadcasts) { broadcast in
+                        NavigationLink {
+                            textBroadcastDetail(broadcast)
+                        } label: {
+                            textBroadcastRow(broadcast)
+                        }
+                    }
+                }
+            }
+
+            // HQ 決策
+            if !vm.decisions.isEmpty {
+                Section(header: Label(L("HQ 決策"), systemImage: "checkmark.seal.fill")) {
+                    ForEach(vm.decisions) { decision in
+                        NavigationLink {
+                            decisionDetail(decision)
+                        } label: {
+                            decisionRow(decision)
+                        }
+                    }
+                }
+            }
+
+            // PWS 警報
+            if !vm.pwsAlerts.isEmpty {
+                Section(header: Label(L("PWS 警報"), systemImage: "exclamationmark.triangle.fill")) {
+                    ForEach(vm.pwsAlerts) { alert in
+                        NavigationLink {
+                            pwsAlertDetail(alert)
+                        } label: {
+                            pwsAlertRow(alert)
+                        }
+                    }
+                }
+            }
+
+            // 會報
+            if !vm.briefings.isEmpty {
+                Section(header: Label(L("會報"), systemImage: "doc.text.fill")) {
+                    ForEach(vm.briefings) { report in
+                        NavigationLink {
+                            briefingDetail(report)
+                        } label: {
+                            briefingRow(report)
+                        }
+                    }
+                }
+            }
+
+            // 人員配置
+            if !vm.personnelAssignments.isEmpty {
+                Section(header: Label(L("人員配置"), systemImage: "person.3.fill")) {
+                    ForEach(vm.personnelAssignments) { assign in
+                        NavigationLink {
+                            personnelAssignmentDetail(assign)
+                        } label: {
+                            personnelAssignmentRow(assign)
+                        }
+                    }
+                }
+            }
+
+            // 活動記錄
+            if !vm.activityLog.isEmpty {
+                Section(header: Label(L("活動記錄"), systemImage: "list.bullet.rectangle")) {
+                    ForEach(vm.activityLog) { entry in
+                        NavigationLink {
+                            activityDetail(entry)
+                        } label: {
+                            activityRow(entry)
+                        }
+                    }
+                }
+            }
+
+            if vm.personalNotifications.isEmpty && vm.textBroadcasts.isEmpty &&
+               vm.decisions.isEmpty && vm.pwsAlerts.isEmpty &&
+               vm.briefings.isEmpty && vm.personnelAssignments.isEmpty && vm.activityLog.isEmpty {
+                Section {
+                    Text(L("暫無任何通知"))
+                        .font(.caption).foregroundColor(.secondary)
+                }
+            }
+        }
+        .navigationTitle(L("所有通知"))
+        .navigationBarTitleDisplayMode(.inline)
+    }
 }
 
 private struct NotificationDetailRow: Identifiable {
@@ -596,6 +726,167 @@ private struct NotificationDetailView: View {
             }
         }
         .navigationTitle(L("通知詳情"))
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+// MARK: - 災情通知詳情
+
+private struct DisasterNotificationDetailView: View {
+    let site: DisasterSite
+    let receivedAt: Date
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+
+                // 收到時間
+                GroupBox(label: Label(L("通知資訊"), systemImage: "bell.badge.fill")) {
+                    HStack {
+                        Text(L("收到時間")).font(.caption).foregroundColor(.secondary)
+                        Spacer()
+                        Text(LGDateFormat.mdHm.string(from: receivedAt)).bold()
+                    }
+                    if site.lastUpdated > 0 {
+                        HStack {
+                            Text(L("資料更新")).font(.caption).foregroundColor(.secondary)
+                            Spacer()
+                            Text(LGDateFormat.mdHm.string(from: Date(timeIntervalSince1970: site.lastUpdated))).bold()
+                        }
+                    }
+                }
+
+                // 建物資訊
+                GroupBox(label: Label(L("建物資訊"), systemImage: "building.2")) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        if !site.buildingName.isEmpty {
+                            HStack {
+                                Text(L("名稱")).font(.caption).foregroundColor(.secondary)
+                                Spacer()
+                                Text(site.buildingName).bold()
+                            }
+                        }
+                        if !site.address.isEmpty {
+                            HStack {
+                                Text(L("地址")).font(.caption).foregroundColor(.secondary)
+                                Spacer()
+                                Text(site.address)
+                            }
+                        }
+                        HStack {
+                            Text(L("倒塌類型")).font(.caption).foregroundColor(.secondary)
+                            Spacer()
+                            Text(site.collapseType.label).bold().foregroundColor(NV.warning)
+                        }
+                        HStack {
+                            Text(L("影響樓層")).font(.caption).foregroundColor(.secondary)
+                            Spacer()
+                            Text(L("地上 %lldF / 地下 %lldF", site.aboveGroundFloors, site.undergroundFloors)).bold()
+                        }
+                    }
+                }
+
+                // 樓層狀態
+                if !site.floors.isEmpty {
+                    GroupBox(label: Label(L("樓層狀態"), systemImage: "square.stack.3d.up")) {
+                        VStack(spacing: 6) {
+                            ForEach(site.floors) { floor in
+                                HStack {
+                                    Text(floor.id).font(.headline).frame(width: 40)
+                                    Text(floor.condition.label)
+                                        .font(.caption).bold()
+                                        .padding(.horizontal, 6).padding(.vertical, 2)
+                                        .background(floor.condition.color.opacity(0.2))
+                                        .foregroundColor(floor.condition.color)
+                                        .cornerRadius(4)
+                                    Spacer()
+                                    if !floor.note.isEmpty {
+                                        Text(floor.note).font(.caption2).foregroundColor(.secondary)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 救援分區
+                if !site.zones.isEmpty {
+                    GroupBox(label: Label(L("救援分區"), systemImage: "map")) {
+                        VStack(spacing: 6) {
+                            ForEach(site.zones) { zone in
+                                HStack {
+                                    Text(zone.name).font(.subheadline).bold()
+                                    Spacer()
+                                    Text(zone.status.label)
+                                        .font(.caption).bold()
+                                        .padding(.horizontal, 6).padding(.vertical, 2)
+                                        .background(zone.status.color.opacity(0.2))
+                                        .foregroundColor(zone.status.color)
+                                        .cornerRadius(4)
+                                    if !zone.assignedPersonnel.isEmpty {
+                                        Text(zone.assignedPersonnel.joined(separator: ", "))
+                                            .font(.caption2).foregroundColor(.secondary)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 已知危害
+                if !site.hazards.isEmpty {
+                    GroupBox(label: Label(L("已知危害"), systemImage: "exclamationmark.shield")) {
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 90))], spacing: 6) {
+                            ForEach(site.hazards, id: \.self) { hazard in
+                                HStack(spacing: 4) {
+                                    Image(systemName: hazard.icon)
+                                    Text(hazard.label).font(.caption)
+                                }
+                                .padding(6)
+                                .background(hazard.color.opacity(0.15))
+                                .foregroundColor(hazard.color)
+                                .cornerRadius(6)
+                            }
+                        }
+                    }
+                }
+
+                // 出入口
+                if !site.entryPoints.isEmpty {
+                    GroupBox(label: Label(L("出入口"), systemImage: "door.left.hand.open")) {
+                        VStack(spacing: 6) {
+                            ForEach(site.entryPoints) { entry in
+                                HStack {
+                                    Image(systemName: entry.isAccessible ? "checkmark.circle.fill" : "xmark.circle.fill")
+                                        .foregroundColor(entry.isAccessible ? NV.green : NV.danger)
+                                    Text(entry.name)
+                                    Spacer()
+                                    Text(entry.isAccessible ? L("可通行") : L("封閉"))
+                                        .font(.caption)
+                                        .foregroundColor(entry.isAccessible ? NV.green : NV.danger)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 集結點
+                if !site.rallyPoint.isEmpty {
+                    GroupBox(label: Label(L("集結點"), systemImage: "flag.fill")) {
+                        Text(site.rallyPoint).font(.headline)
+                    }
+                }
+
+                // 備註
+                if !site.note.isEmpty {
+                    GroupBox(label: Label(L("備註"), systemImage: "note.text")) {
+                        Text(site.note).textSelection(.enabled)
+                    }
+                }
+            }
+            .padding()
+        }
+        .navigationTitle(L("災情詳情"))
         .navigationBarTitleDisplayMode(.inline)
     }
 }

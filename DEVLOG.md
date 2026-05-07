@@ -481,4 +481,92 @@ Android 手機（前線回報） ───────────────�
 
 ---
 
-> 日誌版本：1.0 | 最後更新：2026-04-15
+---
+
+## 十四、2026-05-06 開發日誌
+
+### 14.1 概述
+
+本次作業集中於 iOS 現場端（`linkguard`）與 macOS 指揮端（`LinkGuardHQ`）的穩定性修復，並完整移除通話語音功能模組。
+
+---
+
+### 14.2 修復：NFC 簽署授權錯誤（實機建置阻斷）
+
+**問題**：使用個人開發團隊（Personal Team）簽署時，`linkguard.entitlements` 中包含 `com.apple.developer.nfc.readersession.formats`，該能力不受 Personal Team 支援，導致實機 Archive/Build 失敗。
+
+**解法**：從 `linkguard.entitlements` 移除 NFC 授權鍵值，保留空 `<dict/>`。  
+NFC 掃描程式碼保留於 `PatientFormView.swift`（純執行時呼叫，不影響編譯與簽署）。
+
+**結果**：`generic/platform=iOS` 建置成功（EXIT_STATUS=0）。
+
+---
+
+### 14.3 修復：`PatientIDConfig` 找不到型別（編譯錯誤）
+
+**問題**：`LinkGuardModels.swift` 中 `PersonnelAssignment` struct 的大括號縮排錯誤，導致其後宣告的 `PatientIDConfig` struct 被誤判為在前一 struct 內部，引發 `cannot find type 'PatientIDConfig' in scope` 編譯錯誤。
+
+**解法**：修正 `PersonnelAssignment` 結尾大括號位置，使 `init` / `CodingKeys` / `Decoder` 正確收束於 struct 內，`PatientIDConfig` 還原至頂層作用域。
+
+**結果**：編譯錯誤解除，模擬器與實機建置均通過（EXIT_STATUS=0）。
+
+---
+
+### 14.4 確認：FieldNotificationView 詳情頁已完整
+
+確認 `FieldNotificationView.swift` 已針對所有 7 類通知實作 `NavigationLink` 詳情頁：
+- 活動日誌、個人通知、HQ 廣播、決策通知、氣象警報、情況簡報、人員調度
+
+---
+
+### 14.5 功能移除：完整移除通話語音模組
+
+**決策**：通話語音功能因架構複雜度與展示需求不符，決定從 iOS 現場端與 macOS 指揮端完整移除。
+
+#### 14.5.1 刪除檔案
+
+| 刪除檔案 | 說明 |
+|----------|------|
+| `linkguardMB/linkguard/FieldCallView.swift` | 現場端通話介面 |
+| `linkguardMB/linkguard/CallAudioManager.swift` | 現場端通話音訊管理 |
+| `linkguardMB/linkguard/CallKitManager.swift` | iOS CallKit 整合 |
+| `linkguardMB/LinkGuardHQ/LinkGuardHQ/HQCallView.swift` | 指揮端通話介面 |
+| `linkguardMB/LinkGuardHQ/LinkGuardHQ/HQCallAudioManager.swift` | 指揮端通話音訊管理 |
+
+#### 14.5.2 修改檔案
+
+| 檔案 | 移除內容 |
+|------|----------|
+| `linkguardMB/linkguard/LinkGuardModels.swift` | `CallStatus`、`CallInvite`、`CallResponse`、`CallEnd`、`CallSession` struct |
+| `linkguardMB/LinkGuardHQ/LinkGuardHQ/HQModels.swift` | 同上（指揮端） |
+| `linkguardMB/linkguard/ContentView.swift` | `AppTab.call` 列舉、`IncomingCallOverlay`、`CommunicationHubMode.call` 分頁 |
+| `linkguardMB/linkguard/LinkGuardViewModel.swift` | 全部通話狀態屬性、callback 設定、`startCall/acceptCall/declineCall/endCall` |
+| `linkguardMB/CommandEngine.swift` | `onCallInvite/onCallResponse/onCallEnd` callback；`case "call_invite/call_response/call_end"` 分派；`sendCallInvite/Response/End()` |
+| `linkguardMB/NotificationManager.swift` | `CALL_INVITE` 通知類別；`sendCallInviteNotification()` |
+| `linkguardMB/LinkGuardHQ/LinkGuardHQ/HQDashboardView.swift` | `HQSection.call` 列舉、導覽順序、圖示、面板內容、顏色設定 |
+| `linkguardMB/LinkGuardHQ/LinkGuardHQ/HQViewModel.swift` | `callAudioManager`、通話狀態訂閱、`startCall/endCall/toggleCallMute()` |
+| `linkguardMB/LinkGuardHQ/LinkGuardHQ/HQCommandServer.swift` | 通話邀請/回應/結束 handler 與中繼函式 |
+| `linkguardMB/linkguard/L10n.swift` | 所有通話相關翻譯字串 |
+| `linkguardMB/LinkGuardHQ/LinkGuardHQ/L10n.swift` | 所有通話相關翻譯字串（指揮端） |
+
+#### 14.5.3 驗證結果
+
+- 殘留符號搜尋（`CallInvite`、`CallStatus`、`CallSession` 等）：**0 筆符合**
+- 殘留檔案搜尋（`*Call*`、`*call*`）：**0 筆符合**
+- 建置驗證（模擬器）：**EXIT_STATUS=0**
+- Xcode 診斷（`get_errors`）：**No errors found**
+
+---
+
+### 14.6 建置狀態（本日結束）
+
+| 目標 | 結果 |
+|------|------|
+| iOS 模擬器（iphonesimulator） | ✅ EXIT_STATUS=0 |
+| iOS 實機（generic/platform=iOS） | ✅ EXIT_STATUS=0 |
+| Xcode 診斷錯誤 | ✅ 無 |
+| 通話模組殘留 | ✅ 無 |
+
+---
+
+> 日誌版本：1.1 | 最後更新：2026-05-06
