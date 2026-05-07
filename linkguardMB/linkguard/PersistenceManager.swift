@@ -1,6 +1,8 @@
 import Foundation
 import SQLite3
 
+private let sqliteTransient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+
 /// SQLite 鍵值持久化管理器
 /// 使用 JSON 序列化將 Codable 集合存入 SQLite，App 重啟後自動還原資料
 final class PersistenceManager {
@@ -56,8 +58,8 @@ final class PersistenceManager {
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return }
         defer { sqlite3_finalize(stmt) }
-        sqlite3_bind_text(stmt, 1, (key as NSString).utf8String, -1, nil)
-        sqlite3_bind_text(stmt, 2, (json as NSString).utf8String, -1, nil)
+        sqlite3_bind_text(stmt, 1, (key as NSString).utf8String, -1, sqliteTransient)
+        sqlite3_bind_text(stmt, 2, (json as NSString).utf8String, -1, sqliteTransient)
         sqlite3_bind_double(stmt, 3, Date().timeIntervalSince1970)
         sqlite3_step(stmt)
     }
@@ -68,7 +70,7 @@ final class PersistenceManager {
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return nil }
         defer { sqlite3_finalize(stmt) }
-        sqlite3_bind_text(stmt, 1, (key as NSString).utf8String, -1, nil)
+        sqlite3_bind_text(stmt, 1, (key as NSString).utf8String, -1, sqliteTransient)
         guard sqlite3_step(stmt) == SQLITE_ROW,
               let cStr = sqlite3_column_text(stmt, 0) else { return nil }
         let json = String(cString: cStr)
@@ -82,7 +84,7 @@ final class PersistenceManager {
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return }
         defer { sqlite3_finalize(stmt) }
-        sqlite3_bind_text(stmt, 1, (key as NSString).utf8String, -1, nil)
+        sqlite3_bind_text(stmt, 1, (key as NSString).utf8String, -1, sqliteTransient)
         sqlite3_step(stmt)
     }
 
