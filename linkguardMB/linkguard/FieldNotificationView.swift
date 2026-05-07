@@ -9,16 +9,7 @@ struct FieldNotificationView: View {
         NavigationStack {
             List {
                 // ── 統一活動記錄（主要）──
-                Section(header: HStack {
-                    Label(L("所有通知"), systemImage: "list.bullet.rectangle.fill")
-                    Spacer()
-                    NavigationLink {
-                        allNotificationsView()
-                    } label: {
-                        Text(L("查看全部"))
-                            .font(.caption).foregroundColor(.accentColor)
-                    }
-                }) {
+                Section(header: Label(L("所有通知"), systemImage: "list.bullet.rectangle.fill")) {
                     if vm.activityLog.isEmpty {
                         Text(L("暫無記錄"))
                             .font(.caption).foregroundColor(.secondary)
