@@ -8,8 +8,8 @@ private enum NotificationSource {
 
     var color: Color {
         switch self {
-        case .field: return NV.info      // 青綠
-        case .hq:    return NV.command   // 藍
+        case .field: return NV.command   // 藍
+        case .hq:    return NV.danger    // 紅
         }
     }
 
@@ -164,7 +164,7 @@ struct FieldNotificationView: View {
                 .padding(.vertical, 4)
             HStack(spacing: 10) {
                 Image(systemName: entry.kind.icon)
-                    .foregroundColor(kindColor(entry.kind))
+                    .foregroundColor(source.color)
                     .font(.title3)
                     .frame(width: 28)
                 VStack(alignment: .leading, spacing: 2) {
