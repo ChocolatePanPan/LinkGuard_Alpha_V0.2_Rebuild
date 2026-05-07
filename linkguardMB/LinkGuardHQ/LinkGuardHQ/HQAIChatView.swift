@@ -4,8 +4,8 @@ import SwiftUI
 //  HQ 端 AI 自由對話
 // =====================================================
 
-struct HQAIMessage: Identifiable, Equatable {
-    let id = UUID()
+struct HQAIMessage: Identifiable, Equatable, Codable {
+    let id: UUID
     let role: String          // "user" | "assistant"
     let content: String
     let timestamp: Date
@@ -14,9 +14,10 @@ struct HQAIMessage: Identifiable, Equatable {
     let isError: Bool
     let proposals: [AIProposal]
 
-    init(role: String, content: String, timestamp: Date = Date(),
+    init(id: UUID = UUID(), role: String, content: String, timestamp: Date = Date(),
          model: String? = nil, elapsedMs: Int? = nil, isError: Bool = false,
          proposals: [AIProposal] = []) {
+        self.id = id
         self.role = role
         self.content = content
         self.timestamp = timestamp
@@ -34,6 +35,9 @@ struct HQAIChatView: View {
     @State private var isSending: Bool = false
     @State private var typingPulse: Bool = false
     @State private var autoBroadcast: Bool = true
+    @State private var hasLoadedMessages: Bool = false
+
+    private let chatPersistenceKey = "hqAIChatMessages"
 
     var body: some View {
         VStack(spacing: 0) {
@@ -83,6 +87,10 @@ struct HQAIChatView: View {
                 .padding(.vertical, 12)
         }
         .background(NV.bg.ignoresSafeArea())
+        .onAppear { loadMessagesIfNeeded() }
+        .onChange(of: messages) { _, newMessages in
+            saveMessages(newMessages)
+        }
     }
 
     // MARK: - 子視圖
@@ -281,6 +289,19 @@ struct HQAIChatView: View {
     private var canSend: Bool {
         !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
         !isSending && !vm.effectiveBackendHost.isEmpty
+    }
+
+    private func loadMessagesIfNeeded() {
+        guard !hasLoadedMessages else { return }
+        hasLoadedMessages = true
+        guard let data = UserDefaults.standard.data(forKey: chatPersistenceKey),
+              let saved = try? JSONDecoder().decode([HQAIMessage].self, from: data) else { return }
+        messages = saved
+    }
+
+    private func saveMessages(_ value: [HQAIMessage]) {
+        guard let data = try? JSONEncoder().encode(value) else { return }
+        UserDefaults.standard.set(data, forKey: chatPersistenceKey)
     }
 
     private func send() {

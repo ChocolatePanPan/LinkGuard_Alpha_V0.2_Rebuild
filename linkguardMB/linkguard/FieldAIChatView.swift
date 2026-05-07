@@ -6,8 +6,8 @@ import SwiftUI
 //  Host 取自 vm.transcriptionServerHost（HQ 連線解析的真正 IP）
 // =====================================================
 
-struct FieldAIMessage: Identifiable, Equatable {
-    let id = UUID()
+struct FieldAIMessage: Identifiable, Equatable, Codable {
+    let id: UUID
     let role: String          // "user" | "assistant"
     let content: String
     let timestamp: Date
@@ -15,8 +15,9 @@ struct FieldAIMessage: Identifiable, Equatable {
     let elapsedMs: Int?
     let isError: Bool
 
-    init(role: String, content: String, timestamp: Date = Date(),
+    init(id: UUID = UUID(), role: String, content: String, timestamp: Date = Date(),
          model: String? = nil, elapsedMs: Int? = nil, isError: Bool = false) {
+        self.id = id
         self.role = role
         self.content = content
         self.timestamp = timestamp
@@ -33,7 +34,10 @@ struct FieldAIChatView: View {
     @State private var isSending: Bool = false
     @State private var typingPulse: Bool = false
     @State private var includeContext: Bool = true
+    @State private var hasLoadedMessages: Bool = false
     @FocusState private var isInputFocused: Bool
+
+    private let chatPersistenceKey = "fieldAIChatMessages"
 
     var body: some View {
         VStack(spacing: 0) {
@@ -85,6 +89,10 @@ struct FieldAIChatView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.visible, for: .navigationBar)
         #endif
+        .onAppear { loadMessagesIfNeeded() }
+        .onChange(of: messages) { _, newMessages in
+            saveMessages(newMessages)
+        }
     }
 
     // MARK: - 子元件
@@ -266,6 +274,18 @@ struct FieldAIChatView: View {
     private var canSend: Bool {
         !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
         !isSending && vm.isFieldAIAvailable
+    }
+
+    private func loadMessagesIfNeeded() {
+        guard !hasLoadedMessages else { return }
+        hasLoadedMessages = true
+        if let saved: [FieldAIMessage] = PersistenceManager.shared.load(key: chatPersistenceKey) {
+            messages = saved
+        }
+    }
+
+    private func saveMessages(_ value: [FieldAIMessage]) {
+        PersistenceManager.shared.save(key: chatPersistenceKey, value: value)
     }
 
     private func send() {
