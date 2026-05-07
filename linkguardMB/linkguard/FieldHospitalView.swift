@@ -195,7 +195,7 @@ struct FieldHospitalView: View {
                         availableCities = allCitiesByRegion[nil] ?? []
                     }
                     ForEach(allRegions, id: \.self) { r in
-                        chip(label: r.rawValue, accent: NV.info, isSelected: selectedRegion == r) {
+                        chip(label: r.label, accent: NV.info, isSelected: selectedRegion == r) {
                             selectedRegion = r; selectedCity = nil
                         }
                     }
@@ -213,7 +213,7 @@ struct FieldHospitalView: View {
                         selectedCity = nil
                     }
                     ForEach(availableCities, id: \.self) { city in
-                        chip(label: city, accent: NV.command, isSelected: selectedCity == city) {
+                        chip(label: L(city), accent: NV.command, isSelected: selectedCity == city) {
                             selectedCity = city
                         }
                     }
@@ -304,15 +304,15 @@ private struct HospitalRow: View {
             }
             HStack(spacing: 10) {
                 if h.totalBeds > 0 {
-                    Label("\(h.totalBeds)床", systemImage: "bed.double.fill")
+                    Label(L("%lld 床", h.totalBeds), systemImage: "bed.double.fill")
                         .font(.caption2).foregroundColor(.secondary)
                 }
                 if h.icuBeds > 0 {
-                    Label("ICU \(h.icuBeds)", systemImage: "waveform.path.ecg")
+                    Label(L("ICU %lld", h.icuBeds), systemImage: "waveform.path.ecg")
                         .font(.caption2).foregroundColor(.red.opacity(0.8))
                 }
                 if h.erBeds > 0 {
-                    Label("急觀\(h.erBeds)", systemImage: "staroflife.fill")
+                    Label(L("急觀 %lld", h.erBeds), systemImage: "staroflife.fill")
                         .font(.caption2).foregroundColor(.orange.opacity(0.8))
                 }
             }
