@@ -9,16 +9,12 @@ struct FieldHospital: Identifiable, Hashable {
         case gaopingpeng = "高屏澎"
         case east        = "東部"
         case offshore    = "離島"
-
-        var label: String { L(rawValue) }
     }
     enum Level: String, CaseIterable {
         case heavy    = "重度／教學"
         case moderate = "中度"
         case children = "兒童／婦兒"
         case unknown  = "待查"
-
-        var label: String { L(rawValue) }
 
         var icon: String {
             switch self {

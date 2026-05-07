@@ -26,7 +26,7 @@ private final class FieldCityLocator: NSObject, ObservableObject, CLLocationMana
         case .authorizedWhenInUse, .authorizedAlways: manager.requestLocation()
         default:
             isLocating = false
-            errorMsg = L("位置權限未開放")
+            errorMsg = "位置權限未開放"
         }
     }
 
@@ -51,7 +51,7 @@ private final class FieldCityLocator: NSObject, ObservableObject, CLLocationMana
     }
 
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        DispatchQueue.main.async { self.isLocating = false; self.errorMsg = L("定位失敗") }
+        DispatchQueue.main.async { self.isLocating = false; self.errorMsg = "定位失敗" }
     }
 }
 
@@ -115,7 +115,7 @@ struct FieldHospitalView: View {
                 }
                 .listStyle(.plain)
             }
-            .outerNavigationTitle(L("後送醫院（%lld 家）", FieldHospitalDirectory.all.count))
+            .outerNavigationTitle(L("後送醫院（\(FieldHospitalDirectory.all.count) 家）"))
             .onChange(of: query) { q in
                 debounceTask?.cancel()
                 debounceTask = Just(q)
@@ -213,7 +213,7 @@ struct FieldHospitalView: View {
                         selectedCity = nil
                     }
                     ForEach(availableCities, id: \.self) { city in
-                        chip(label: L(city), accent: NV.command, isSelected: selectedCity == city) {
+                        chip(label: city, accent: NV.command, isSelected: selectedCity == city) {
                             selectedCity = city
                         }
                     }
@@ -308,7 +308,7 @@ private struct HospitalRow: View {
                         .font(.caption2).foregroundColor(.secondary)
                 }
                 if h.icuBeds > 0 {
-                    Label(L("ICU %lld", h.icuBeds), systemImage: "waveform.path.ecg")
+                    Label("ICU \(h.icuBeds)", systemImage: "waveform.path.ecg")
                         .font(.caption2).foregroundColor(.red.opacity(0.8))
                 }
                 if h.erBeds > 0 {

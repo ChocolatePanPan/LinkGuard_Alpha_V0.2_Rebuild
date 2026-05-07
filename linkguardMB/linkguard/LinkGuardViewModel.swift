@@ -73,14 +73,12 @@ class LinkGuardViewModel: ObservableObject {
 
     /// App 啟動時間戳，用於過濾過期警報
     private let launcherStartTime = Date()
-    /// 每次進入前台（含首次啟動）的時間 — 用於重設靜默期
-    private var lastForegroundTime = Date()
 
-    /// 連線初期靜默期（秒）：剛連上 HQ 或回到前台時收到的歷史同步訊息不彈全螢幕警報
-    private let startupGracePeriod: TimeInterval = 5.0
-    /// 是否已過最近一次進入前台的靜默期
+    /// 連線初期靜默期（秒）：剛連上 HQ 時收到的歷史同步訊息不彈全螢幕警報
+    private let startupGracePeriod: TimeInterval = 3.0
+    /// 是否已過啟動靜默期
     private var pastStartupGrace: Bool {
-        Date().timeIntervalSince(lastForegroundTime) > startupGracePeriod
+        Date().timeIntervalSince(launcherStartTime) > startupGracePeriod
     }
 
     @Published var victims: [VictimNode]    = []
@@ -563,7 +561,7 @@ class LinkGuardViewModel: ObservableObject {
                 if let idx = self.reinforcementRequests.firstIndex(where: { $0.id == reply.id }) {
                     self.reinforcementRequests[idx] = reply
                 }
-                self.appendActivity(kind: .reinforcement, title: L("收到增援回覆"), detail: "\(reply.fromTeam) · \(reply.status.label)")
+                self.appendActivity(kind: .reinforcement, title: L("收到增援回覆"), detail: "\(reply.fromTeam) · \(reply.status.rawValue)")
             }
         }
         commandClient.onDecision = { [weak self] decision in
@@ -837,8 +835,6 @@ class LinkGuardViewModel: ObservableObject {
     }
 
     private func resumeRealtimeConnectionsAfterForeground() {
-        // 重設靜默期：前台後的短暫時間內不彈全螢幕警報，避免歷史補傳訊息觸發
-        lastForegroundTime = Date()
         GlobalRadioListener.shared.activate()
         if !commandClient.isConnected {
             commandClient.startBrowsing()
@@ -1132,9 +1128,9 @@ class LinkGuardViewModel: ObservableObject {
                     )
                     sosRecords.insert(record, at: 0)
                     
-                    // 只在進入前台後的靜默期過後才彈出全螢幕通知
-                    // 避免回到前台時伺服器補傳的歷史 SOS 觸發警報
-                    if pastStartupGrace {
+                    // 只在 App 開啟後產生的新警報才彈出全螢幕通知
+                    // 如果是在開啟 App 前就有的（同步過來的舊 SOS），則只記錄在名單但不跳通知
+                    if now.timeIntervalSince(launcherStartTime) > 2.0 {
                         triggerSOSNotification(for: victims[idx])
                     }
                 }
@@ -1158,7 +1154,7 @@ class LinkGuardViewModel: ObservableObject {
                     )
                     sosRecords.insert(record, at: 0)
                     
-                    if pastStartupGrace {
+                    if now.timeIntervalSince(launcherStartTime) > 2.0 {
                         triggerSOSNotification(for: victim)
                     }
                 }

@@ -32,5 +32,14 @@
 	<string>LinkGuard 需要存取相簿來選取現場照片進行回報</string>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>LinkGuard 需要藍牙來連線搜救人員的 LoRa 裝置，實時監測生命徵象與傳輸指揮命令</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+		<string>bluetooth-central</string>
+		<string>bluetooth-peripheral</string>
+		<string>fetch</string>
+		<string>location</string>
+		<string>remote-notification</string>
+	</array>
 </dict>
 </plist>
