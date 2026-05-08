@@ -13,7 +13,6 @@ struct TranslatorView: View {
     @State private var inputText = ""
     @State private var sourceLang = "auto"
     @State private var targetLang = "en"
-    @State private var isTranslating = false
     @State private var errorMessage: String?
     @FocusState private var isTranslatorFocused: Bool
 
@@ -107,9 +106,7 @@ struct TranslatorView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.visible, for: .navigationBar)
         #endif
-        .onChange(of: vm.latestTranslation?.translated) { _, _ in
-            isTranslating = false
-        }
+
     }
 
     // MARK: - 語言選擇器
@@ -197,20 +194,20 @@ struct TranslatorView: View {
                     translate()
                 } label: {
                     HStack {
-                        if isTranslating {
+                        if vm.isTranslating {
                             ProgressView()
                                 .tint(.white)
                         } else {
                             Image(systemName: "globe")
                         }
-                        Text(isTranslating ? L("翻譯中...") : L("翻譯"))
+                        Text(vm.isTranslating ? L("翻譯中...") : L("翻譯"))
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(vm.isAIServicePaused ? .gray : NV.command)
-                .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isTranslating)
+                .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || vm.isTranslating)
             }
         }
     }
@@ -323,8 +320,8 @@ struct TranslatorView: View {
         let text = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
         errorMessage = nil
-        isTranslating = true
-        // 清除舊結果，避免 .onChange 因相同字串而不觸發
+        vm.isTranslating = true
+        // 清除舊結果，避免相同字串不觸發重新渲染
         vm.latestTranslation = nil
 
         if vm.isAIServicePaused {
@@ -343,7 +340,7 @@ struct TranslatorView: View {
             } else {
                 errorMessage = L("AI服務暫停，且離線翻譯庫無對應詞句")
             }
-            isTranslating = false
+            vm.isTranslating = false
             return
         }
 
@@ -352,9 +349,9 @@ struct TranslatorView: View {
             vm.requestTranslation(text: text, sourceLang: sourceLang, targetLang: targetLang)
             // 超時保護（12 秒，因 GEMMA4 翻譯可能需 5-10 秒）
             DispatchQueue.main.asyncAfter(deadline: .now() + 12) { [weak vm] in
-                guard self.isTranslating else { return }
+                guard vm?.isTranslating == true else { return }
                 // HQ 未回應 → 嘗試 HTTP 直連 gemma4 備援
-                Task {
+                Task { [weak vm] in
                     let host = vm?.transcriptionServerHost ?? ""
                     if !host.isEmpty && host != "localhost",
                        let directResult = await self.directTranslateHTTP(host: host, text: text, sourceLang: sourceLang, targetLang: targetLang) {
@@ -365,14 +362,14 @@ struct TranslatorView: View {
                                 detectedLang: sourceLang,
                                 targetLang: targetLang
                             )
-                            self.isTranslating = false
-                            self.errorMessage = L("已透過備援路由完成翻譯")
+                            vm?.isTranslating = false
+                            vm?.translationErrorMessage = L("已透過備援路由完成翻譯")
                         }
                         return
                     }
                     // HTTP 也失敗 → 離線 fallback
                     await MainActor.run {
-                        self.isTranslating = false
+                        vm?.isTranslating = false
                         if let offline = OfflineTranslationLibrary.shared.translate(
                             text: text,
                             sourceLang: sourceLang,
@@ -384,9 +381,9 @@ struct TranslatorView: View {
                                 detectedLang: offline.detectedLang,
                                 targetLang: offline.targetLang
                             )
-                            self.errorMessage = L("線上翻譯逾時，已切換離線翻譯庫")
+                            vm?.translationErrorMessage = L("線上翻譯逾時，已切換離線翻譯庫")
                         } else {
-                            self.errorMessage = L("翻譯逾時，且離線翻譯庫無對應詞句")
+                            vm?.translationErrorMessage = L("翻譯逾時，且離線翻譯庫無對應詞句")
                         }
                     }
                 }
@@ -404,7 +401,7 @@ struct TranslatorView: View {
                             detectedLang: sourceLang,
                             targetLang: targetLang
                         )
-                        isTranslating = false
+                        vm.isTranslating = false
                     }
                     return
                 }
@@ -421,9 +418,9 @@ struct TranslatorView: View {
                             targetLang: offline.targetLang
                         )
                     } else {
-                        errorMessage = L("離線翻譯庫無對應詞句，請改用常用救援/醫療短句")
+                        vm.translationErrorMessage = L("離線翻譯庫無對應詞句，請改用常用救援/醫療短句")
                     }
-                    isTranslating = false
+                    vm.isTranslating = false
                 }
             }
         }

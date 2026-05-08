@@ -609,12 +609,15 @@ async def handle_message(msg: dict, writer: asyncio.StreamWriter):
 
     elif msg_type == "translate_request":
         # 翻譯請求
-        text = data.get("text", "")
-        source_lang = data.get("source_lang", "auto")
-        target_lang = data.get("target_lang", "en")
-        context = data.get("context", "medical")
+        # HQ Swift bridge 中繼時，data 是完整 iPhone payload（含巢狀 data 欄位）
+        # 支援兩種結構：{ text, source_lang, ... } 或 { data: { text, ... }, requesting_device_id, ... }
+        _inner = data.get("data", {}) if isinstance(data.get("data"), dict) else {}
+        text = data.get("text", "") or _inner.get("text", "")
+        source_lang = data.get("source_lang", "") or _inner.get("source_lang", "") or "auto"
+        target_lang = data.get("target_lang", "") or _inner.get("target_lang", "") or "en"
+        context = data.get("context", "") or _inner.get("context", "") or "medical"
         # Mac HQ 中繼時會在 data 內帶上原始前線裝置 ID，以便路由回應
-        requesting_device_id = data.get("requesting_device_id", "")
+        requesting_device_id = data.get("requesting_device_id", "") or _inner.get("requesting_device_id", "")
         connected_clients[device_id] = writer
         print(f"[TCP] 翻譯請求 from {device_id} (req={requesting_device_id or '-'}): {text[:40]}")
         await send_to(writer, make_msg("ack", {"received": "translate_request"}))

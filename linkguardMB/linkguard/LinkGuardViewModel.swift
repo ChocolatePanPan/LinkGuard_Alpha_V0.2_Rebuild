@@ -196,6 +196,8 @@ class LinkGuardViewModel: ObservableObject {
     @Published var patientIDConfig = PatientIDConfig()
     /// 最新翻譯結果
     @Published var latestTranslation: TranslationResult?
+    @Published var isTranslating = false
+    @Published var translationErrorMessage: String?
     /// 已讀狀態追蹤
     @Published var readStatuses: [String: (total: Int, readCount: Int)] = [:]
     /// 當前的緊急廣播
@@ -786,6 +788,7 @@ class LinkGuardViewModel: ObservableObject {
                     targetLang: json["target_lang"] as? String ?? "en"
                 )
                 self.latestTranslation = result
+                self.isTranslating = false
             }
         }
         // 自動搜尋指揮中心
