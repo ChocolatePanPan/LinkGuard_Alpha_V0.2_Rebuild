@@ -105,9 +105,9 @@ struct ContentView: View {
                                 .navigationBarTitleDisplayMode(.inline)
                                 .toolbarBackground(.visible, for: .navigationBar)
                         }
-                        Tab(L("後送醫院"), systemImage: "cross.fill", value: AppTab.hospitals) {
+                        Tab(L("救援點位"), systemImage: "mappin.and.ellipse", value: AppTab.hospitals) {
                             FieldHospitalView()
-                                .navigationTitle(L("後送醫院"))
+                            .navigationTitle(L("救援點位"))
                                 .navigationBarTitleDisplayMode(.inline)
                                 .toolbarBackground(.visible, for: .navigationBar)
                         }
