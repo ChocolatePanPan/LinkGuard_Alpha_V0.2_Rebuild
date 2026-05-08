@@ -1,3 +1,4 @@
+import Combine
 import SwiftUI
 
 // =====================================================
@@ -28,16 +29,46 @@ struct HQAIMessage: Identifiable, Equatable, Codable {
     }
 }
 
+final class HQAIChatStore: ObservableObject {
+    private static let persistenceKey = "hqAIChatMessages"
+    private let userDefaults: UserDefaults
+
+    @Published private(set) var messages: [HQAIMessage] {
+        didSet { saveMessages() }
+    }
+
+    init(userDefaults: UserDefaults = .standard) {
+        self.userDefaults = userDefaults
+        if let data = userDefaults.data(forKey: Self.persistenceKey),
+           let saved = try? JSONDecoder().decode([HQAIMessage].self, from: data) {
+            messages = saved
+        } else {
+            messages = []
+        }
+    }
+
+    func append(_ message: HQAIMessage) {
+        messages.append(message)
+    }
+
+    func clear() {
+        messages = []
+        userDefaults.removeObject(forKey: Self.persistenceKey)
+    }
+
+    private func saveMessages() {
+        guard let data = try? JSONEncoder().encode(messages) else { return }
+        userDefaults.set(data, forKey: Self.persistenceKey)
+    }
+}
+
 struct HQAIChatView: View {
     @ObservedObject var vm: HQViewModel
-    @State private var messages: [HQAIMessage] = []
+    @StateObject private var chatStore = HQAIChatStore()
     @State private var draft: String = ""
     @State private var isSending: Bool = false
     @State private var typingPulse: Bool = false
     @State private var autoBroadcast: Bool = true
-    @State private var hasLoadedMessages: Bool = false
-
-    private let chatPersistenceKey = "hqAIChatMessages"
 
     var body: some View {
         VStack(spacing: 0) {
@@ -56,10 +87,10 @@ struct HQAIChatView: View {
                 ScrollView {
                     pageFrame {
                         LazyVStack(alignment: .leading, spacing: 8) {
-                            if messages.isEmpty && !isSending {
+                            if chatStore.messages.isEmpty && !isSending {
                                 emptyHint
                             }
-                            ForEach(messages) { msg in
+                            ForEach(chatStore.messages) { msg in
                                 bubble(for: msg)
                                     .id(msg.id)
                             }
@@ -70,8 +101,8 @@ struct HQAIChatView: View {
                         .padding(.vertical, 10)
                     }
                 }
-                .onChange(of: messages.count) { _, _ in
-                    if let last = messages.last {
+                .onChange(of: chatStore.messages.count) { _, _ in
+                    if let last = chatStore.messages.last {
                         withAnimation { proxy.scrollTo(last.id, anchor: .bottom) }
                     }
                 }
@@ -87,10 +118,6 @@ struct HQAIChatView: View {
                 .padding(.vertical, 12)
         }
         .background(NV.bg.ignoresSafeArea())
-        .onAppear { loadMessagesIfNeeded() }
-        .onChange(of: messages) { _, newMessages in
-            saveMessages(newMessages)
-        }
     }
 
     // MARK: - 子視圖
@@ -113,14 +140,14 @@ struct HQAIChatView: View {
             .buttonStyle(.bordered)
             .controlSize(.small)
             Button {
-                messages.removeAll()
+                chatStore.clear()
             } label: {
                 Image(systemName: "trash")
             }
             .buttonStyle(.borderless)
             .controlSize(.small)
-            .disabled(messages.isEmpty || isSending)
-            .foregroundColor(messages.isEmpty ? .secondary : NV.warning)
+            .disabled(chatStore.messages.isEmpty || isSending)
+            .foregroundColor(chatStore.messages.isEmpty ? .secondary : NV.warning)
         }
     }
 
@@ -291,25 +318,12 @@ struct HQAIChatView: View {
         !isSending && !vm.effectiveBackendHost.isEmpty
     }
 
-    private func loadMessagesIfNeeded() {
-        guard !hasLoadedMessages else { return }
-        hasLoadedMessages = true
-        guard let data = UserDefaults.standard.data(forKey: chatPersistenceKey),
-              let saved = try? JSONDecoder().decode([HQAIMessage].self, from: data) else { return }
-        messages = saved
-    }
-
-    private func saveMessages(_ value: [HQAIMessage]) {
-        guard let data = try? JSONEncoder().encode(value) else { return }
-        UserDefaults.standard.set(data, forKey: chatPersistenceKey)
-    }
-
     private func send() {
         let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, !isSending else { return }
         let host = vm.effectiveBackendHost
         guard !host.isEmpty else {
-            messages.append(HQAIMessage(
+            chatStore.append(HQAIMessage(
                 role: "assistant",
                 content: L("尚未設定後端 AI 伺服器，請於設定畫面配置"),
                 isError: true
@@ -317,11 +331,11 @@ struct HQAIChatView: View {
             return
         }
         let userMsg = HQAIMessage(role: "user", content: text)
-        messages.append(userMsg)
+        chatStore.append(userMsg)
         draft = ""
         isSending = true
 
-        let history = messages.dropLast().suffix(12).map { ["role": $0.role, "content": $0.content] }
+        let history = chatStore.messages.dropLast().suffix(12).map { ["role": $0.role, "content": $0.content] }
         Task {
             do {
                 #if os(macOS)
@@ -329,7 +343,7 @@ struct HQAIChatView: View {
                 #endif
                 let result = try await postChat(host: host, message: text, history: Array(history))
                 await MainActor.run {
-                    messages.append(result)
+                    chatStore.append(result)
                     isSending = false
                     // 自動廣播 AI 回覆給所有前線 / HQ 裝置（提案不自動廣播，需指揮官審批）
                     if autoBroadcast && !result.isError && result.proposals.isEmpty {
@@ -341,7 +355,7 @@ struct HQAIChatView: View {
                 }
             } catch {
                 await MainActor.run {
-                    messages.append(HQAIMessage(
+                    chatStore.append(HQAIMessage(
                         role: "assistant",
                         content: L("AI 連線失敗:%@", error.localizedDescription),
                         isError: true

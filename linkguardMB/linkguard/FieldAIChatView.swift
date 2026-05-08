@@ -1,3 +1,4 @@
+import Combine
 import SwiftUI
 
 // =====================================================
@@ -27,17 +28,39 @@ struct FieldAIMessage: Identifiable, Equatable, Codable {
     }
 }
 
+final class FieldAIChatStore: ObservableObject {
+    private static let persistenceKey = "fieldAIChatMessages"
+
+    @Published private(set) var messages: [FieldAIMessage] {
+        didSet { saveMessages() }
+    }
+
+    init() {
+        messages = PersistenceManager.shared.load(key: Self.persistenceKey) ?? []
+    }
+
+    func append(_ message: FieldAIMessage) {
+        messages.append(message)
+    }
+
+    func clear() {
+        messages = []
+        PersistenceManager.shared.delete(key: Self.persistenceKey)
+    }
+
+    private func saveMessages() {
+        PersistenceManager.shared.save(key: Self.persistenceKey, value: messages)
+    }
+}
+
 struct FieldAIChatView: View {
     @ObservedObject var vm: LinkGuardViewModel
-    @State private var messages: [FieldAIMessage] = []
+    @StateObject private var chatStore = FieldAIChatStore()
     @State private var draft: String = ""
     @State private var isSending: Bool = false
     @State private var typingPulse: Bool = false
     @State private var includeContext: Bool = true
-    @State private var hasLoadedMessages: Bool = false
     @FocusState private var isInputFocused: Bool
-
-    private let chatPersistenceKey = "fieldAIChatMessages"
 
     var body: some View {
         VStack(spacing: 0) {
@@ -54,10 +77,10 @@ struct FieldAIChatView: View {
                 ScrollViewReader { proxy in
                     ScrollView {
                         LazyVStack(alignment: .leading, spacing: 8) {
-                            if messages.isEmpty && !isSending {
+                            if chatStore.messages.isEmpty && !isSending {
                                 emptyHint.padding(.top, 60)
                             }
-                            ForEach(messages) { msg in
+                            ForEach(chatStore.messages) { msg in
                                 bubble(for: msg).id(msg.id)
                             }
                             if isSending {
@@ -67,8 +90,8 @@ struct FieldAIChatView: View {
                         .padding(.horizontal, 12)
                         .padding(.vertical, 10)
                     }
-                    .onChange(of: messages.count) { _, _ in
-                        if let last = messages.last {
+                    .onChange(of: chatStore.messages.count) { _, _ in
+                        if let last = chatStore.messages.last {
                             withAnimation { proxy.scrollTo(last.id, anchor: .bottom) }
                         }
                     }
@@ -89,10 +112,6 @@ struct FieldAIChatView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.visible, for: .navigationBar)
         #endif
-        .onAppear { loadMessagesIfNeeded() }
-        .onChange(of: messages) { _, newMessages in
-            saveMessages(newMessages)
-        }
     }
 
     // MARK: - 子元件
@@ -115,13 +134,13 @@ struct FieldAIChatView: View {
             .controlSize(.mini)
             .tint(NV.info)
             Button {
-                messages.removeAll()
+                chatStore.clear()
             } label: {
                 Image(systemName: "trash").font(.caption)
             }
             .buttonStyle(.plain)
-            .disabled(messages.isEmpty || isSending)
-            .foregroundColor(messages.isEmpty ? .secondary : NV.warning)
+            .disabled(chatStore.messages.isEmpty || isSending)
+            .foregroundColor(chatStore.messages.isEmpty ? .secondary : NV.warning)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
@@ -276,23 +295,11 @@ struct FieldAIChatView: View {
         !isSending && vm.isFieldAIAvailable
     }
 
-    private func loadMessagesIfNeeded() {
-        guard !hasLoadedMessages else { return }
-        hasLoadedMessages = true
-        if let saved: [FieldAIMessage] = PersistenceManager.shared.load(key: chatPersistenceKey) {
-            messages = saved
-        }
-    }
-
-    private func saveMessages(_ value: [FieldAIMessage]) {
-        PersistenceManager.shared.save(key: chatPersistenceKey, value: value)
-    }
-
     private func send() {
         let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, !isSending else { return }
         guard !vm.isAIServicePaused else {
-            messages.append(FieldAIMessage(
+            chatStore.append(FieldAIMessage(
                 role: "assistant",
                 content: L("AI服務暫停"),
                 isError: true
@@ -301,7 +308,7 @@ struct FieldAIChatView: View {
         }
         let host = vm.transcriptionServerHost
         guard !host.isEmpty, host != "localhost" else {
-            messages.append(FieldAIMessage(
+            chatStore.append(FieldAIMessage(
                 role: "assistant",
                 content: L("尚未連接到 AI 伺服器，請先連線 HQ。"),
                 isError: true
@@ -309,14 +316,14 @@ struct FieldAIChatView: View {
             return
         }
         let userMsg = FieldAIMessage(role: "user", content: text)
-        messages.append(userMsg)
+        chatStore.append(userMsg)
         draft = ""
         isSending = true
 
         // 收集現場上下文（受困者數量、傷患摘要、災情）作為提示，
         // 讓 AI 回答時能對齊當下情境
         let composedMessage = includeContext ? composeWithContext(text) : text
-        let history = messages.dropLast().suffix(12).map {
+        let history = chatStore.messages.dropLast().suffix(12).map {
             ["role": $0.role, "content": $0.content]
         }
 
@@ -326,12 +333,12 @@ struct FieldAIChatView: View {
                                                 message: composedMessage,
                                                 history: Array(history))
                 await MainActor.run {
-                    messages.append(result)
+                    chatStore.append(result)
                     isSending = false
                 }
             } catch {
                 await MainActor.run {
-                    messages.append(FieldAIMessage(
+                    chatStore.append(FieldAIMessage(
                         role: "assistant",
                         content: L("AI 回覆失敗：%@", error.localizedDescription),
                         isError: true

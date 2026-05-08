@@ -1061,6 +1061,8 @@ struct HQServerStatusSnapshot: Codable {
     var teamCount: Int
     // 前線裝置清單
     var fieldUnits: [FieldUnitSummary]
+    // NFC 寫卡紀錄（HQ peer 同步用）
+    var nfcTagWrites: [NFCTagWriteRecord]? = nil
 }
 
 /// 前線裝置摘要（Codable 版本，用於 peer 同步）

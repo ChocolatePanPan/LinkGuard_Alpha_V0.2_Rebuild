@@ -178,10 +178,7 @@ private final class PatientNFCManager: NSObject, ObservableObject, NFCNDEFReader
     }
 
     private static func text(from record: NFCNDEFPayload) -> String? {
-        if let decoded = record.wellKnownTypeTextPayload().0 {
-            return decoded
-        }
-        return String(data: record.payload, encoding: .utf8)
+        record.linkGuardReadableString()
     }
 
     static func ndefLength(for text: String) -> Int {

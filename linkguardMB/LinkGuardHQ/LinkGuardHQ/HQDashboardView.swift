@@ -12,6 +12,7 @@ enum HQSection: String, CaseIterable, Identifiable {
     case disaster = "災害狀態"
     case personnelOverview = "人員總覽"
     case victimOverview = "受困者總覽"
+    case nfcTags = "NFC 標籤管理"
     case personnel = "人員配置"
     case chat = "通訊頻道"
     case pws = "PWS 警報"
@@ -41,6 +42,7 @@ enum HQSection: String, CaseIterable, Identifiable {
         .disaster,
         .personnelOverview,
         .victimOverview,
+        .nfcTags,
         .personnel,
         .zonemap,
         .resources,
@@ -75,6 +77,7 @@ enum HQSection: String, CaseIterable, Identifiable {
         case .disaster: return "building.2"
         case .personnelOverview: return "person.3.sequence.fill"
         case .victimOverview: return "person.fill.questionmark"
+        case .nfcTags: return "tag.fill"
         case .personnel: return "person.badge.plus"
         case .chat: return "bubble.left.and.bubble.right.fill"
         case .pws: return "exclamationmark.triangle.fill"
@@ -264,6 +267,7 @@ struct HQDashboardView: View {
         case .disaster: HQDisasterView(vm: vm)
         case .personnelOverview: HQPersonnelOverviewView(vm: vm)
         case .victimOverview: HQVictimOverviewView(vm: vm)
+        case .nfcTags: HQNFCTagManagementView(vm: vm)
         case .personnel: HQPersonnelView(vm: vm)
         case .chat: HQChatView(vm: vm)
         case .pws: HQPWSView(vm: vm)
@@ -466,6 +470,7 @@ struct HQDashboardView: View {
             case .disaster: HQDisasterView(vm: vm)
             case .personnelOverview: HQPersonnelOverviewView(vm: vm)
             case .victimOverview: HQVictimOverviewView(vm: vm)
+            case .nfcTags: HQNFCTagManagementView(vm: vm)
             case .personnel: HQPersonnelView(vm: vm)
             case .chat: HQChatView(vm: vm)
             case .pws: HQPWSView(vm: vm)
@@ -966,6 +971,14 @@ struct HQDashboardView: View {
                     .background(vm.sosCount > 0 ? NV.danger : NV.warning.opacity(NV.tagOpacity))
                     .cornerRadius(NV.tagRadius)
             }
+        case .nfcTags:
+            if !vm.nfcTagWrites.isEmpty {
+                Text("\(vm.nfcTagWrites.count)")
+                    .font(.caption2).bold()
+                    .padding(.horizontal, 6).padding(.vertical, 2)
+                    .background(NV.info.opacity(NV.tagOpacity))
+                    .cornerRadius(NV.tagRadius)
+            }
         case .chat:
             if !vm.chatMessages.isEmpty {
                 Text("\(vm.chatMessages.count)")
@@ -1020,6 +1033,7 @@ struct HQDashboardView: View {
         case .disaster: return NV.warning
         case .personnelOverview: return NV.team
         case .victimOverview: return NV.warning
+        case .nfcTags: return NV.info
         case .personnel: return NV.info
         case .chat: return NV.command
         case .pws: return NV.danger

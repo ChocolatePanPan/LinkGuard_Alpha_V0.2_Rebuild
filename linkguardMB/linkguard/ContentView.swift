@@ -3,7 +3,7 @@ import SwiftUI
 // MARK: - Main View
 
 enum AppTab: Hashable {
-    case dashboard, victims, sos, disaster, chat, reinforcement, team, commands, notifications, radio, connection, patientForm, decision, translator, photo, personnelAssignment, ai, communication, hospitals
+    case dashboard, victims, sos, disaster, chat, reinforcement, team, commands, notifications, radio, connection, patientForm, nfcReader, decision, translator, photo, personnelAssignment, ai, communication, hospitals
 }
 
 struct ContentView: View {
@@ -90,6 +90,12 @@ struct ContentView: View {
                         Tab(L("傷員回報"), systemImage: "heart.text.square", value: AppTab.patientForm) {
                             PatientFormView(vm: viewModel)
                                 .navigationTitle(L("傷員回報"))
+                                .navigationBarTitleDisplayMode(.inline)
+                                .toolbarBackground(.visible, for: .navigationBar)
+                        }
+                        Tab(L("NFC 讀取"), systemImage: "wave.3.right.circle.fill", value: AppTab.nfcReader) {
+                            NFCReaderView(vm: viewModel)
+                                .navigationTitle(L("NFC 讀取"))
                                 .navigationBarTitleDisplayMode(.inline)
                                 .toolbarBackground(.visible, for: .navigationBar)
                         }
