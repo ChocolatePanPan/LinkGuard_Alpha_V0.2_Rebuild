@@ -59,6 +59,7 @@ private final class FieldCityLocator: NSObject, ObservableObject, CLLocationMana
 
 private enum FieldPointMode: String, CaseIterable, Hashable {
     case hospitals = "後送醫院"
+    case hospitalCapacity = "醫療量能"
     case responseCenters = "應變中心"
     case rescueUnits = "救援單位"
     case fireTraining = "訓練機構"
@@ -67,7 +68,7 @@ private enum FieldPointMode: String, CaseIterable, Hashable {
 
     var supportKind: FieldSupportSite.Kind? {
         switch self {
-        case .hospitals, .fireTraining: return nil
+        case .hospitals, .hospitalCapacity, .fireTraining: return nil
         case .responseCenters: return .responseCenter
         case .rescueUnits: return .rescueUnit
         }
@@ -76,6 +77,7 @@ private enum FieldPointMode: String, CaseIterable, Hashable {
     var count: Int {
         switch self {
         case .hospitals: return FieldHospitalDirectory.all.count
+        case .hospitalCapacity: return FieldHospitalCapacityDirectory.all.count
         case .responseCenters: return FieldSupportSiteDirectory.responseCenters.count
         case .rescueUnits: return FieldSupportSiteDirectory.rescueUnits.count
         case .fireTraining: return FieldFireTrainingInstitutionDirectory.all.count
@@ -85,6 +87,7 @@ private enum FieldPointMode: String, CaseIterable, Hashable {
     var title: String {
         switch self {
         case .hospitals: return L("後送醫院（%lld 家）", count)
+        case .hospitalCapacity: return L("醫療量能（%lld 筆）", count)
         case .responseCenters: return L("應變中心（%lld 筆）", count)
         case .rescueUnits: return L("救援單位（%lld 筆）", count)
         case .fireTraining: return L("防火訓練機構（%lld 筆）", count)
@@ -94,6 +97,7 @@ private enum FieldPointMode: String, CaseIterable, Hashable {
     var searchPlaceholder: String {
         switch self {
         case .hospitals: return L("搜尋縣市 / 醫院名稱")
+        case .hospitalCapacity: return L("搜尋縣市 / 醫院 / 床位項目")
         case .responseCenters, .rescueUnits: return L("搜尋縣市 / 名稱 / 地址")
         case .fireTraining: return L("搜尋縣市 / 名稱 / 地址 / 聯絡人")
         }
@@ -102,6 +106,7 @@ private enum FieldPointMode: String, CaseIterable, Hashable {
     var emptyMessage: String {
         switch self {
         case .hospitals: return L("沒有符合的醫院")
+        case .hospitalCapacity: return L("沒有符合的量能資料")
         case .responseCenters, .rescueUnits: return L("沒有符合的點位")
         case .fireTraining: return L("沒有符合的機構")
         }
@@ -124,6 +129,8 @@ private func pointCities(for mode: FieldPointMode, region: FieldHospital.Region?
     switch mode {
     case .hospitals:
         return allCitiesByRegion[region] ?? []
+    case .hospitalCapacity:
+        return FieldHospitalCapacityDirectory.cities(region: region)
     case .responseCenters, .rescueUnits:
         guard let kind = mode.supportKind else { return [] }
         return FieldSupportSiteDirectory.cities(kind: kind, region: region)
@@ -148,6 +155,7 @@ struct FieldHospitalView: View {
 
     // 快取結果（onChange 更新，避免每次 render 重算）
     @State private var filteredGroups: [(region: FieldHospital.Region, items: [FieldHospital])] = allGrouped
+    @State private var filteredCapacityGroups: [(region: FieldHospital.Region, items: [FieldHospitalCapacity])] = []
     @State private var filteredSupportGroups: [(region: FieldHospital.Region, items: [FieldSupportSite])] = []
     @State private var filteredTrainingGroups: [(region: FieldHospital.Region, items: [FieldFireTrainingInstitution])] = []
     @State private var availableCities: [String] = pointCities(for: .hospitals, region: nil)
@@ -177,6 +185,25 @@ struct FieldHospitalView: View {
                     if filteredGroups.isEmpty {
                         Section {
                             Label(L("沒有符合的醫院"), systemImage: "magnifyingglass")
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                case .hospitalCapacity:
+                    ForEach(filteredCapacityGroups, id: \.region) { group in
+                        Section {
+                            ForEach(group.items) { capacity in
+                                HospitalCapacityRow(capacity: capacity)
+                            }
+                        } header: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "bed.double.fill")
+                                Text(L("%@ （%lld 筆）", group.region.label, group.items.count))
+                            }
+                        }
+                    }
+                    if filteredCapacityGroups.isEmpty {
+                        Section {
+                            Label(selectedMode.emptyMessage, systemImage: "magnifyingglass")
                                 .foregroundColor(.secondary)
                         }
                     }
@@ -317,7 +344,7 @@ struct FieldHospitalView: View {
                 HStack(spacing: 6) {
                     chip(label: L("全部區域"), accent: NV.info, isSelected: selectedRegion == nil) {
                         selectedRegion = nil; selectedCity = nil
-                        availableCities = allCitiesByRegion[nil] ?? []
+                        availableCities = pointCities(for: selectedMode, region: nil)
                     }
                     ForEach(allRegions, id: \.self) { r in
                         chip(label: r.label, accent: NV.info, isSelected: selectedRegion == r) {
@@ -388,6 +415,23 @@ struct FieldHospitalView: View {
                 return items.isEmpty ? nil : (group.region, items)
             }
             filteredGroups = result
+            filteredCapacityGroups = []
+            filteredSupportGroups = []
+            filteredTrainingGroups = []
+            return
+
+        case .hospitalCapacity:
+            let capacityResult = FieldHospitalCapacityDirectory.grouped().compactMap { group -> (region: FieldHospital.Region, items: [FieldHospitalCapacity])? in
+                if let r = selectedRegion, r != group.region { return nil }
+                let items = group.items.filter { capacity in
+                    if let city = selectedCity, capacity.city != city { return false }
+                    if trimmed.isEmpty { return true }
+                    return capacity.searchableText.localizedCaseInsensitiveContains(trimmed)
+                }
+                return items.isEmpty ? nil : (group.region, items)
+            }
+            filteredGroups = []
+            filteredCapacityGroups = capacityResult
             filteredSupportGroups = []
             filteredTrainingGroups = []
             return
@@ -408,6 +452,7 @@ struct FieldHospitalView: View {
                 return items.isEmpty ? nil : (group.region, items)
             }
             filteredGroups = []
+            filteredCapacityGroups = []
             filteredSupportGroups = supportResult
             filteredTrainingGroups = []
 
@@ -430,6 +475,7 @@ struct FieldHospitalView: View {
                 return items.isEmpty ? nil : (group.region, items)
             }
             filteredGroups = []
+            filteredCapacityGroups = []
             filteredSupportGroups = []
             filteredTrainingGroups = trainingResult
         }
@@ -511,6 +557,75 @@ private struct HospitalRow: View {
                         .font(.caption.bold()).foregroundColor(.blue)
                 }
                 .buttonStyle(.plain)
+            }
+        }
+        .padding(.vertical, 2)
+    }
+}
+
+private struct HospitalCapacityRow: View {
+    let capacity: FieldHospitalCapacity
+
+    var body: some View {
+        let metrics = capacity.nonZeroMetrics
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                Image(systemName: "bed.double.fill")
+                    .foregroundColor(NV.green)
+                    .frame(width: 18)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(capacity.name)
+                        .font(.subheadline.bold())
+                        .lineLimit(2)
+                    Text([L(capacity.city), capacity.agency].filter { !$0.isEmpty }.joined(separator: " · "))
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+                Spacer(minLength: 0)
+                Text(capacity.sourceKind.label)
+                    .font(.caption2.bold())
+                    .foregroundColor(NV.green)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(NV.green.opacity(0.12))
+                    .clipShape(Capsule())
+            }
+
+            HStack(spacing: 10) {
+                Label(L("合計 %lld", capacity.totalCount), systemImage: "number.circle.fill")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                if let mapsURL = capacity.mapsURL {
+                    Button {
+                        UIApplication.shared.open(mapsURL)
+                    } label: {
+                        Label(L("開啟地圖"), systemImage: "map.fill")
+                            .font(.caption.bold())
+                            .foregroundColor(NV.green)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            if !metrics.isEmpty {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 120), spacing: 6)], alignment: .leading, spacing: 4) {
+                    ForEach(metrics, id: \.label) { metric in
+                        HStack(spacing: 4) {
+                            Text(L(metric.label))
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.85)
+                            Spacer(minLength: 4)
+                            Text("\(metric.count)")
+                                .fontWeight(.semibold)
+                        }
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 4)
+                        .background(NV.green.opacity(0.08))
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                    }
+                }
             }
         }
         .padding(.vertical, 2)
