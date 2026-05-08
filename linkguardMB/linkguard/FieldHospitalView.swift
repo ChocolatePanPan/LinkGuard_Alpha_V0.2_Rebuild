@@ -57,6 +57,52 @@ private final class FieldCityLocator: NSObject, ObservableObject, CLLocationMana
 
 // MARK: - 預先計算靜態資料
 
+private enum FieldPointMode: String, CaseIterable, Hashable {
+    case hospitals = "後送醫院"
+    case responseCenters = "應變中心"
+    case rescueUnits = "救援單位"
+
+    var label: String { L(rawValue) }
+
+    var supportKind: FieldSupportSite.Kind? {
+        switch self {
+        case .hospitals: return nil
+        case .responseCenters: return .responseCenter
+        case .rescueUnits: return .rescueUnit
+        }
+    }
+
+    var count: Int {
+        switch self {
+        case .hospitals: return FieldHospitalDirectory.all.count
+        case .responseCenters: return FieldSupportSiteDirectory.responseCenters.count
+        case .rescueUnits: return FieldSupportSiteDirectory.rescueUnits.count
+        }
+    }
+
+    var title: String {
+        switch self {
+        case .hospitals: return L("後送醫院（%lld 家）", count)
+        case .responseCenters: return L("應變中心（%lld 筆）", count)
+        case .rescueUnits: return L("救援單位（%lld 筆）", count)
+        }
+    }
+
+    var searchPlaceholder: String {
+        switch self {
+        case .hospitals: return L("搜尋縣市 / 醫院名稱")
+        case .responseCenters, .rescueUnits: return L("搜尋縣市 / 名稱 / 地址")
+        }
+    }
+
+    var emptyMessage: String {
+        switch self {
+        case .hospitals: return L("沒有符合的醫院")
+        case .responseCenters, .rescueUnits: return L("沒有符合的點位")
+        }
+    }
+}
+
 private let allGrouped = FieldHospitalDirectory.grouped()
 private let allRegions = FieldHospital.Region.allCases
 private let allLevels = FieldHospital.Level.allCases
@@ -69,6 +115,16 @@ private let allCitiesByRegion: [FieldHospital.Region?: [String]] = {
     return result
 }()
 
+private func pointCities(for mode: FieldPointMode, region: FieldHospital.Region?) -> [String] {
+    switch mode {
+    case .hospitals:
+        return allCitiesByRegion[region] ?? []
+    case .responseCenters, .rescueUnits:
+        guard let kind = mode.supportKind else { return [] }
+        return FieldSupportSiteDirectory.cities(kind: kind, region: region)
+    }
+}
+
 // MARK: - View
 
 struct FieldHospitalView: View {
@@ -76,6 +132,7 @@ struct FieldHospitalView: View {
     @EnvironmentObject private var l10n: L10n
 
     // 篩選狀態
+    @State private var selectedMode: FieldPointMode = .hospitals
     @State private var query = ""
     @State private var debouncedQuery = ""
     @State private var selectedRegion: FieldHospital.Region? = nil
@@ -84,7 +141,8 @@ struct FieldHospitalView: View {
 
     // 快取結果（onChange 更新，避免每次 render 重算）
     @State private var filteredGroups: [(region: FieldHospital.Region, items: [FieldHospital])] = allGrouped
-    @State private var availableCities: [String] = allCitiesByRegion[nil]!
+    @State private var filteredSupportGroups: [(region: FieldHospital.Region, items: [FieldSupportSite])] = []
+    @State private var availableCities: [String] = pointCities(for: .hospitals, region: nil)
 
     // debounce timer
     @State private var debounceTask: AnyCancellable? = nil
@@ -94,6 +152,8 @@ struct FieldHospitalView: View {
             filterHeader
             Divider()
             List {
+                switch selectedMode {
+                case .hospitals:
                     ForEach(filteredGroups, id: \.region) { group in
                         Section {
                             ForEach(group.items) { h in
@@ -112,10 +172,30 @@ struct FieldHospitalView: View {
                                 .foregroundColor(.secondary)
                         }
                     }
+                case .responseCenters, .rescueUnits:
+                    ForEach(filteredSupportGroups, id: \.region) { group in
+                        Section {
+                            ForEach(group.items) { site in
+                                SupportSiteRow(site: site)
+                            }
+                        } header: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "mappin.and.ellipse")
+                                Text(L("%@ （%lld 筆）", group.region.label, group.items.count))
+                            }
+                        }
+                    }
+                    if filteredSupportGroups.isEmpty {
+                        Section {
+                            Label(selectedMode.emptyMessage, systemImage: "magnifyingglass")
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
                 }
                 .listStyle(.plain)
             }
-            .outerNavigationTitle(L("後送醫院（%lld 家）", FieldHospitalDirectory.all.count))
+            .outerNavigationTitle(selectedMode.title)
             .onChange(of: query) { q in
                 debounceTask?.cancel()
                 debounceTask = Just(q)
@@ -125,8 +205,14 @@ struct FieldHospitalView: View {
                         recompute()
                     }
             }
+            .onChange(of: selectedMode) { _, _ in
+                if selectedMode != .hospitals { selectedLevel = nil }
+                availableCities = pointCities(for: selectedMode, region: selectedRegion)
+                if let sel = selectedCity, !availableCities.contains(sel) { selectedCity = nil }
+                recompute()
+            }
             .onChange(of: selectedRegion) { _, _ in
-                availableCities = allCitiesByRegion[selectedRegion] ?? []
+                availableCities = pointCities(for: selectedMode, region: selectedRegion)
                 if let sel = selectedCity, !availableCities.contains(sel) { selectedCity = nil }
                 recompute()
             }
@@ -137,7 +223,7 @@ struct FieldHospitalView: View {
                 guard let city else { return }
                 selectedCity = city
                 selectedRegion = nil
-                availableCities = allCitiesByRegion[nil] ?? []
+                availableCities = pointCities(for: selectedMode, region: nil)
             }
     }
 
@@ -145,10 +231,21 @@ struct FieldHospitalView: View {
 
     private var filterHeader: some View {
         VStack(spacing: 0) {
+            Picker(L("點位類型"), selection: $selectedMode) {
+                ForEach(FieldPointMode.allCases, id: \.self) { mode in
+                    Text(mode.label).tag(mode)
+                }
+            }
+            .pickerStyle(.segmented)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+
+            Divider()
+
             // 搜尋列
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass").foregroundColor(.secondary)
-                TextField(L("搜尋縣市 / 醫院名稱"), text: $query)
+                TextField(selectedMode.searchPlaceholder, text: $query)
                     .autocorrectionDisabled()
                 if !query.isEmpty {
                     Button { query = "" } label: {
@@ -223,22 +320,24 @@ struct FieldHospitalView: View {
                 .padding(.vertical, 6)
             }
 
-            Divider()
+            if selectedMode == .hospitals {
+                Divider()
 
-            // 層級 chips
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 6) {
-                    chip(label: L("全部層級"), accent: NV.green, isSelected: selectedLevel == nil) {
-                        selectedLevel = nil
-                    }
-                    ForEach(allLevels, id: \.self) { lv in
-                        chip(label: lv.label, accent: lv.color, isSelected: selectedLevel == lv) {
-                            selectedLevel = lv
+                // 層級 chips
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        chip(label: L("全部層級"), accent: NV.green, isSelected: selectedLevel == nil) {
+                            selectedLevel = nil
+                        }
+                        ForEach(allLevels, id: \.self) { lv in
+                            chip(label: lv.label, accent: lv.color, isSelected: selectedLevel == lv) {
+                                selectedLevel = lv
+                            }
                         }
                     }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
             }
         }
     }
@@ -247,19 +346,39 @@ struct FieldHospitalView: View {
 
     private func recompute() {
         let trimmed = debouncedQuery.trimmingCharacters(in: .whitespaces)
-        let result = allGrouped.compactMap { group -> (region: FieldHospital.Region, items: [FieldHospital])? in
+        guard let supportKind = selectedMode.supportKind else {
+            let result = allGrouped.compactMap { group -> (region: FieldHospital.Region, items: [FieldHospital])? in
+                if let r = selectedRegion, r != group.region { return nil }
+                let items = group.items.filter { h in
+                    if let city = selectedCity, h.city != city { return false }
+                    if let lv = selectedLevel, lv != h.level { return false }
+                    if trimmed.isEmpty { return true }
+                    return h.name.localizedCaseInsensitiveContains(trimmed)
+                        || h.englishName.localizedCaseInsensitiveContains(trimmed)
+                        || h.city.localizedCaseInsensitiveContains(trimmed)
+                }
+                return items.isEmpty ? nil : (group.region, items)
+            }
+            filteredGroups = result
+            filteredSupportGroups = []
+            return
+        }
+
+        let supportResult = FieldSupportSiteDirectory.grouped(kind: supportKind).compactMap { group -> (region: FieldHospital.Region, items: [FieldSupportSite])? in
             if let r = selectedRegion, r != group.region { return nil }
-            let items = group.items.filter { h in
-                if let city = selectedCity, h.city != city { return false }
-                if let lv = selectedLevel, lv != h.level { return false }
+            let items = group.items.filter { site in
+                if let city = selectedCity, site.city != city { return false }
                 if trimmed.isEmpty { return true }
-                return h.name.localizedCaseInsensitiveContains(trimmed)
-                    || h.englishName.localizedCaseInsensitiveContains(trimmed)
-                    || h.city.localizedCaseInsensitiveContains(trimmed)
+                return site.name.localizedCaseInsensitiveContains(trimmed)
+                    || site.address.localizedCaseInsensitiveContains(trimmed)
+                    || site.phone.localizedCaseInsensitiveContains(trimmed)
+                    || site.city.localizedCaseInsensitiveContains(trimmed)
+                    || site.note.localizedCaseInsensitiveContains(trimmed)
             }
             return items.isEmpty ? nil : (group.region, items)
         }
-        filteredGroups = result
+        filteredGroups = []
+        filteredSupportGroups = supportResult
     }
 
     // MARK: - Chip
@@ -338,6 +457,113 @@ private struct HospitalRow: View {
                         .font(.caption.bold()).foregroundColor(.blue)
                 }
                 .buttonStyle(.plain)
+            }
+        }
+        .padding(.vertical, 2)
+    }
+}
+
+private struct SupportSiteRow: View {
+    let site: FieldSupportSite
+
+    private var icon: String {
+        switch site.kind {
+        case .responseCenter: return "building.columns.fill"
+        case .rescueUnit: return site.name.contains("特種搜救") ? "shield.lefthalf.filled" : "flame.fill"
+        }
+    }
+
+    private var accent: Color {
+        switch site.kind {
+        case .responseCenter: return NV.command
+        case .rescueUnit: return site.name.contains("特種搜救") ? NV.danger : NV.info
+        }
+    }
+
+    private var badgeText: String? {
+        switch site.kind {
+        case .responseCenter:
+            guard !site.note.isEmpty else { return nil }
+            return site.note == "是" ? L("消防局同址") : site.note
+        case .rescueUnit:
+            if site.name.contains("特種搜救") { return L("特搜") }
+            if site.name.contains("大隊") { return L("大隊") }
+            if site.name.contains("分隊") { return L("分隊") }
+            return L("消防局")
+        }
+    }
+
+    private var dialablePhone: String? {
+        guard !site.phone.isEmpty else { return nil }
+        let first = site.phone.components(separatedBy: CharacterSet(charactersIn: "、,，；;()（）")).first ?? site.phone
+        let cleaned = first.filter { $0.isNumber || $0 == "+" || $0 == "*" || $0 == "#" || $0 == "-" }
+        return cleaned.isEmpty ? nil : cleaned
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 6) {
+                Image(systemName: icon)
+                    .foregroundColor(accent)
+                    .frame(width: 18)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(site.name).font(.subheadline.bold())
+                    Text(L(site.city))
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+                Spacer(minLength: 0)
+                if let badgeText {
+                    Text(badgeText)
+                        .font(.caption2.bold())
+                        .foregroundColor(accent)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(accent.opacity(0.12))
+                        .clipShape(Capsule())
+                }
+            }
+            if !site.address.isEmpty {
+                Text(site.address)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+            }
+            HStack(spacing: 10) {
+                if let coordinateDescription = site.coordinateDescription {
+                    Label(coordinateDescription, systemImage: "mappin.and.ellipse")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+                if site.coordinateDescription == nil {
+                    Label(L("無座標"), systemImage: "mappin.slash")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+            }
+            HStack(spacing: 12) {
+                if !site.phone.isEmpty {
+                    Button {
+                        if let dialablePhone, let url = URL(string: "tel://\(dialablePhone)") {
+                            UIApplication.shared.open(url)
+                        }
+                    } label: {
+                        Label(site.phone, systemImage: "phone.fill")
+                            .font(.caption.bold())
+                            .foregroundColor(.blue)
+                    }
+                    .buttonStyle(.plain)
+                }
+                if let mapsURL = site.mapsURL {
+                    Button {
+                        UIApplication.shared.open(mapsURL)
+                    } label: {
+                        Label(L("開啟地圖"), systemImage: "map.fill")
+                            .font(.caption.bold())
+                            .foregroundColor(NV.green)
+                    }
+                    .buttonStyle(.plain)
+                }
             }
         }
         .padding(.vertical, 2)
