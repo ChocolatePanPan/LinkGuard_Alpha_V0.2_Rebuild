@@ -1881,9 +1881,39 @@ struct ConnectionView: View {
 }
 
 private struct NFCManualBlockView: View {
+    private let identityRows: [(String, String)] = [
+        ("顯示 ID", "LG-260506-TAO-ZL-E01-S03-B02-F02-A-P023-K"),
+        ("資料庫 Key", "LG260506TAOZLE01S03B02F02AP023K"),
+        ("NFC URL", "https://linkguard.tw/p/LG260506TAOZLE01S03B02F02AP023K"),
+        ("隱私規則", "姓名、身分證、電話與完整病歷不寫入 NFC；傷患 ID 不可變動。")
+    ]
+
     private let formatRows: [(String, String, String)] = [
         ("LG1", "NTAG215", "LG1|ID|T|S|I|V|TX|TM"),
         ("LG2", "NTAG216", "LG2|ID:...|T:...|S:...|LOC:...|I:...|V:...|TX:...|ALG:...|NOTE:...|TM:...|UPD:...")
+    ]
+
+    private let workflowRows: [(String, String)] = [
+        ("1. 建立傷患", "先完成傷患 ID、分區、樓層、檢傷、生命徵象與處置欄位。"),
+        ("2. 選擇容量", "NTAG215 固定 LG1；NTAG216 固定 LG2。容量不確定時先選 LG1。"),
+        ("3. 寫入標籤", "按下寫入後只靠近一張空白或可覆寫標籤，等待 Apple 原生 NFC 視窗顯示完成。"),
+        ("4. 回讀確認", "寫完後用 NFC 讀取頁或同頁讀取按鈕回讀，確認 ID 與檢傷欄位一致。"),
+        ("5. 交接", "同一名傷患只維護一張主要卡；換卡時先讀舊卡確認 ID，再覆寫或補登 HQ 紀錄。")
+    ]
+
+    private let syncRows: [(String, String)] = [
+        ("同步時機", "寫卡成功後 App 會送出 nfc_tag_written 到 HQ。"),
+        ("HQ 查核", "到 HQ「NFC 標籤管理」搜尋傷患 ID，確認格式、容量、寫入裝置與 payload。"),
+        ("未同步", "先確認 iPhone 已連線 HQ、同一區域網路、Bonjour 或手動 IP 連線正常。"),
+        ("Peer HQ", "Peer 模式只顯示主 HQ 同步紀錄，不能清除主 HQ 的寫卡紀錄。")
+    ]
+
+    private let troubleshootingRows: [(String, String)] = [
+        ("掃描畫面未出現", "請用 iPhone 實機；Xcode target 需有 Near Field Communication Tag Reading capability。"),
+        ("免費帳號限制", "真機測 CoreNFC 通常需要 Apple Developer Program 或加入已付費 Team。"),
+        ("讀得到 URL 但 App 讀不到", "URL 背景讀取不等於 App CoreNFC 權限；請重新簽名安裝含 NFC entitlement 的 App。"),
+        ("讀取失敗", "確認標籤已 NDEF 格式化、容量足夠、沒有一次靠近多張卡。"),
+        ("備援", "Android/USB NFC 可先寫 URL；現場同時列印 QR Code，iPhone 可用相機掃描。")
     ]
 
     private let codeRows: [(String, String)] = [
@@ -1896,6 +1926,19 @@ private struct NFCManualBlockView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
+            Text(L("此手冊只定義 LinkGuard 紀錄格式與操作流程，不取代現場醫療處置 SOP。"))
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            DisclosureGroup(L("身分與隱私規則")) {
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(identityRows, id: \.0) { row in
+                        manualRow(row.0, row.1, monospaced: row.0 != "隱私規則")
+                    }
+                }
+                .padding(.top, 8)
+            }
+
             ForEach(formatRows, id: \.0) { row in
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
@@ -1913,11 +1956,27 @@ private struct NFCManualBlockView: View {
                 }
             }
 
-            Divider()
-
-            Text(L("規則：NTAG215 固定使用 LG1；NTAG216 固定使用 LG2；傷患 ID 不可變動；姓名、身分證、電話與完整病歷不寫入 NFC。"))
+            Text(L("容量規則：NTAG215 固定使用 LG1；NTAG216 固定使用 LG2；若現場不確定標籤容量，先寫 LG1。"))
                 .font(.caption)
                 .foregroundColor(.secondary)
+
+            DisclosureGroup(L("寫卡與交接流程")) {
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(workflowRows, id: \.0) { row in
+                        manualRow(row.0, row.1)
+                    }
+                }
+                .padding(.top, 8)
+            }
+
+            DisclosureGroup(L("HQ 同步檢查")) {
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(syncRows, id: \.0) { row in
+                        manualRow(row.0, row.1)
+                    }
+                }
+                .padding(.top, 8)
+            }
 
             DisclosureGroup(L("LG1 / LG2 代碼表")) {
                 VStack(alignment: .leading, spacing: 8) {
@@ -1935,6 +1994,27 @@ private struct NFCManualBlockView: View {
                 }
                 .padding(.top, 8)
             }
+
+            DisclosureGroup(L("讀不到 / 寫失敗排除")) {
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(troubleshootingRows, id: \.0) { row in
+                        manualRow(row.0, row.1)
+                    }
+                }
+                .padding(.top, 8)
+            }
+        }
+    }
+
+    private func manualRow(_ title: String, _ detail: String, monospaced: Bool = false) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(L(title))
+                .font(.caption.bold())
+            Text(L(detail))
+                .font(monospaced ? .caption2.monospaced() : .caption)
+                .foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .textSelection(.enabled)
         }
     }
 }

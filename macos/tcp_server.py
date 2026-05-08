@@ -235,18 +235,65 @@ async def call_qwen_server(voice_text: str, patients: list, weather: dict) -> di
         "resources": "",
     }
     async with httpx.AsyncClient(timeout=120) as client:
-        resp = await client.post(QWEN_SERVER_URL, json=payload)
-        resp.raise_for_status()
-        return resp.json()
+        try:
+            resp = await client.post(QWEN_SERVER_URL, json=payload)
+            resp.raise_for_status()
+            return resp.json()
+        except httpx.HTTPStatusError as e:
+            detail = (e.response.text or "").strip()[:500]
+            print(f"[TCP] AI 決策服務 HTTP {e.response.status_code}: {detail}")
+            return _tcp_rule_fallback_decision(voice_text, patients, weather, e, detail)
+        except httpx.HTTPError as e:
+            print(f"[TCP] AI 決策服務連線失敗: {e}")
+            return _tcp_rule_fallback_decision(voice_text, patients, weather, e, "")
+
+
+def _tcp_rule_fallback_decision(voice_text: str, patients: list, weather: dict,
+                                error: Exception, detail: str = "") -> dict:
+    patient_count = len(patients) if isinstance(patients, list) else 0
+    if isinstance(weather, dict) and weather:
+        weather_note = (
+            f"氣溫 {weather.get('temperature', 'N/A')}°C、"
+            f"風速 {weather.get('wind_speed', 'N/A')}m/s、"
+            f"雨量 {weather.get('rainfall', 'N/A')}mm"
+        )
+    else:
+        weather_note = "氣象資料暫無回報"
+    error_text = detail or str(error)
+    context_note = voice_text.strip() or "現場尚未輸入額外情境"
+    return {
+        "status": "ok",
+        "decision": (
+            "【優先處置】AI 決策服務暫時無法完成請求，已啟用中繼備援決策。"
+            f"目前佇列傷患 {patient_count} 人；先依 START 排序處置紅色傷患，並維持撤離路線、通訊與現場安全警戒。\n"
+            "【資源調配】保留醫療包、擔架、AED 與撤離通道給最高優先傷患；若沒有傷患資料，先派員回報位置與生命徵象。\n"
+            f"【注意事項】{weather_note}。HQ 情境：{context_note}。必要時稍後重新請求 AI 建議。\n"
+            "【與上次決策的差異】本次為 TCP 中繼備援輸出，避免 AI HTTP 服務錯誤造成決策空窗。\n"
+            f"【系統狀態】/generate 暫時不可用：{error_text}"
+        ),
+        "patients": patients if isinstance(patients, list) else [],
+        "model": "tcp-rule-fallback",
+        "escalated": False,
+        "provisional": False,
+        "escalation_status": "ai_http_unavailable",
+        "queue_position": None,
+        "request_id": generate_msg_id("REQ"),
+        "ai_unavailable": True,
+        "error": error_text,
+    }
 
 
 async def _rank_patients_remote(patients: list) -> list:
     """呼叫 qwen_server /triage/rank 取得評分排序結果。"""
     async with httpx.AsyncClient(timeout=30) as client:
-        resp = await client.post(TRIAGE_RANK_URL, json={"patients": patients})
-        resp.raise_for_status()
-        body = resp.json()
-        return body.get("data", {}).get("queue", patients)
+        try:
+            resp = await client.post(TRIAGE_RANK_URL, json={"patients": patients})
+            resp.raise_for_status()
+            body = resp.json()
+            return body.get("data", {}).get("queue", patients)
+        except httpx.HTTPError as e:
+            print(f"[TCP] 傷患排序服務暫時不可用，使用原始佇列: {e}")
+            return patients
 
 
 # === 雙模型升級狀態追蹤（HQ 廣播）===

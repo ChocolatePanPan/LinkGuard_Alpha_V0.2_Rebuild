@@ -259,6 +259,16 @@ private struct NFCProcessStep: Identifiable {
     var timeText: String { LGDateFormat.hms.string(from: timestamp) }
 }
 
+private struct NFCAutoFillValues {
+    let triageCode: String
+    let sexAgeCode: String
+    let injuryCode: String
+    let pulseText: String
+    let gcsText: String
+    let treatmentCode: String
+    let allergyCode: String
+}
+
 struct PatientFormView: View {
     private typealias NFCPayloadCandidate = (format: PatientNFCFormat, payload: String, length: Int)
 
@@ -268,6 +278,7 @@ struct PatientFormView: View {
     @StateObject private var nfcManager = PatientNFCManager()
     @State private var patientIdOverride: String?
     @State private var selectedNFCFormat: PatientNFCFormat = .lg1
+    @State private var nfcAutoFillEnabled = true
     @State private var nfcProcessSteps: [NFCProcessStep] = []
     @State private var nfcDecodedSummary: String = ""
     @State private var nfcTriageCode: String = "U"
@@ -507,6 +518,24 @@ struct PatientFormView: View {
                     Text(selectedNFCFormat.capacityHint)
                         .font(.caption)
                         .foregroundColor(.secondary)
+
+                    Toggle(isOn: $nfcAutoFillEnabled) {
+                        Label(L("自動帶入傷患資料"), systemImage: "wand.and.stars")
+                    }
+                    .tint(NV.green)
+
+                    Text(nfcAutoFillSummary)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Button {
+                        applyNFCAutoFill(overwrite: true)
+                        appendNFCProcessStep(L("自動帶入 NFC 欄位"), detail: nfcAutoFillSummary)
+                    } label: {
+                        Label(L("立即帶入"), systemImage: "arrow.down.doc")
+                    }
+                    .buttonStyle(.bordered)
 
                     Picker(L("檢傷"), selection: $nfcTriageCode) {
                         ForEach(triageCodes, id: \.self) { code in
@@ -749,6 +778,18 @@ struct PatientFormView: View {
         }
         #endif
         .contentMargins(.top, 0, for: .scrollContent)
+        .onAppear { applyNFCAutoFillIfNeeded() }
+        .onChange(of: nfcAutoFillEnabled) { _, enabled in
+            if enabled { applyNFCAutoFill(overwrite: true) }
+        }
+        .onChange(of: nationalId) { _, _ in applyNFCAutoFillIfNeeded() }
+        .onChange(of: birthYearText) { _, _ in applyNFCAutoFillIfNeeded() }
+        .onChange(of: birthMonthText) { _, _ in applyNFCAutoFillIfNeeded() }
+        .onChange(of: birthDayText) { _, _ in applyNFCAutoFillIfNeeded() }
+        .onChange(of: breathingRateText) { _, _ in applyNFCAutoFillIfNeeded() }
+        .onChange(of: capillaryRefillText) { _, _ in applyNFCAutoFillIfNeeded() }
+        .onChange(of: canFollowCommands) { _, _ in applyNFCAutoFillIfNeeded() }
+        .onChange(of: notes) { _, _ in applyNFCAutoFillIfNeeded() }
         .overlay(alignment: .bottom) {
             if showConfirmation {
                 HStack(spacing: 10) {
@@ -789,6 +830,163 @@ struct PatientFormView: View {
         buildNFCPayload(for: activePatientID, format: selectedNFCFormat)
     }
 
+    private var nfcAutoFillSummary: String {
+        let values = automaticNFCValues()
+        var parts = [
+            "T:", triageLabel(values.triageCode),
+            "S:", values.sexAgeCode
+        ]
+        if !values.injuryCode.isEmpty { parts.append("I:"); parts.append(values.injuryCode) }
+        if !values.pulseText.isEmpty { parts.append("P:"); parts.append(values.pulseText) }
+        if !values.gcsText.isEmpty { parts.append("GCS:"); parts.append(values.gcsText) }
+        if !values.treatmentCode.isEmpty { parts.append("TX:"); parts.append(values.treatmentCode) }
+        if !values.allergyCode.isEmpty { parts.append("ALG:"); parts.append(values.allergyCode) }
+        return parts.joined(separator: " ")
+    }
+
+    private func applyNFCAutoFillIfNeeded() {
+        guard nfcAutoFillEnabled else { return }
+        applyNFCAutoFill(overwrite: true)
+    }
+
+    private func applyNFCAutoFill(overwrite: Bool) {
+        let values = automaticNFCValues()
+        nfcTriageCode = values.triageCode
+        nfcSexAgeCode = values.sexAgeCode
+        if overwrite || nfcInjuryCode.isEmpty { nfcInjuryCode = values.injuryCode }
+        if overwrite || nfcPulseText.isEmpty { nfcPulseText = values.pulseText }
+        if overwrite || nfcGCSText.isEmpty { nfcGCSText = values.gcsText }
+        if overwrite || nfcTreatmentCode.isEmpty { nfcTreatmentCode = values.treatmentCode }
+        if overwrite || nfcAllergyCode.isEmpty { nfcAllergyCode = values.allergyCode }
+    }
+
+    private func automaticNFCValues() -> NFCAutoFillValues {
+        NFCAutoFillValues(
+            triageCode: automaticTriageCode(),
+            sexAgeCode: automaticSexAgeCode(),
+            injuryCode: automaticInjuryCode(),
+            pulseText: automaticPulseText(),
+            gcsText: automaticGCSText(),
+            treatmentCode: automaticTreatmentCode(),
+            allergyCode: automaticAllergyCode()
+        )
+    }
+
+    private func automaticTriageCode() -> String {
+        let breathingRate = Int(breathingRateText.trimmingCharacters(in: .whitespacesAndNewlines))
+        let capillaryRefill = Double(capillaryRefillText.trimmingCharacters(in: .whitespacesAndNewlines))
+
+        guard breathingRate != nil || capillaryRefill != nil else { return "U" }
+        if breathingRate == -1 { return "B" }
+        if capillaryRefill == -1 { return "R" }
+        if let breathingRate, breathingRate > 30 { return "R" }
+        if let capillaryRefill, capillaryRefill > 2 { return "R" }
+        if !canFollowCommands { return "Y" }
+        return "G"
+    }
+
+    private func automaticSexAgeCode() -> String {
+        guard let age = calculatedAge else { return "U" }
+        let ageText = String(format: "%02d", min(max(age, 0), 99))
+        if age < 13 { return "C\(ageText)" }
+        guard let sexPrefix = inferredSexPrefixFromNationalID() else { return "U" }
+        return "\(sexPrefix)\(ageText)"
+    }
+
+    private func inferredSexPrefixFromNationalID() -> String? {
+        let compactID = nationalId.uppercased().filter { $0.isLetter || $0.isNumber }
+        guard compactID.count >= 2 else { return nil }
+        let secondIndex = compactID.index(after: compactID.startIndex)
+        switch compactID[secondIndex] {
+        case "1", "8": return "M"
+        case "2", "9": return "F"
+        default: return nil
+        }
+    }
+
+    private func automaticInjuryCode() -> String {
+        if Int(breathingRateText.trimmingCharacters(in: .whitespacesAndNewlines)) == -1 { return "CPA" }
+        if Double(capillaryRefillText.trimmingCharacters(in: .whitespacesAndNewlines)) == -1 { return "CPA" }
+
+        let source = nfcInferenceSource
+        let hasBleeding = source.contains("出血") || source.contains("BLEED") || source.contains("流血")
+        if hasBleeding, containsAny(source, ["左腿", "左下肢", "LEFT_LEG", "LEFT LEG"]) { return "LEFT_LEG_BLEED" }
+        if hasBleeding, containsAny(source, ["右腿", "右下肢", "RIGHT_LEG", "RIGHT LEG"]) { return "RIGHT_LEG_BLEED" }
+        if hasBleeding, containsAny(source, ["腿", "下肢", "LEG"]) { return "LEG_BLEED" }
+        if hasBleeding, containsAny(source, ["手", "上肢", "臂", "ARM"]) { return "ARM_BLEED" }
+        if containsAny(source, ["頭", "HEAD"]) { return "HEAD" }
+        if containsAny(source, ["胸", "CHEST"]) { return "CHEST" }
+        if containsAny(source, ["腹", "ABD", "ABDOMEN"]) { return "ABD" }
+        if containsAny(source, ["骨折", "FRACTURE", "FX"]) { return "FX" }
+        if containsAny(source, ["燒", "燙", "BURN"]) { return "BURN" }
+        if containsAny(source, ["壓", "砸", "夾", "CRUSH"]) { return "CRUSH" }
+        if !canFollowCommands, hasClinicalInput { return "UNCON" }
+        return ""
+    }
+
+    private func automaticPulseText() -> String {
+        firstNumber(after: ["P", "PULSE", "脈搏"], in: nfcInferenceSource) ?? ""
+    }
+
+    private func automaticGCSText() -> String {
+        if let gcs = firstNumber(after: ["GCS", "G"], in: nfcInferenceSource) { return gcs }
+        guard hasClinicalInput else { return "" }
+        return canFollowCommands ? "15" : "12"
+    }
+
+    private func automaticTreatmentCode() -> String {
+        let source = nfcInferenceSource
+        var codes: [String] = []
+        if containsAny(source, ["TQL", "左止血帶", "左側止血帶"]) { codes.append("TQL") }
+        if containsAny(source, ["TQR", "右止血帶", "右側止血帶"]) { codes.append("TQR") }
+        if !codes.contains("TQL"), !codes.contains("TQR"), containsAny(source, ["止血帶", "TOURNIQUET"]) { codes.append("TQL") }
+        if containsAny(source, ["包紮", "BANDAGE", "BAND"]) { codes.append("BAND") }
+        if containsAny(source, ["固定", "夾板", "SPLINT", "SPL"]) { codes.append("SPL") }
+        if containsAny(source, ["給氧", "氧氣", "O2"]) { codes.append("O2") }
+        if containsAny(source, ["CPR", "心肺復甦"]) { codes.append("CPR") }
+        if containsAny(source, ["AED", "電擊"]) { codes.append("AED") }
+        if containsAny(source, ["IV", "靜脈", "點滴"]) { codes.append("IV") }
+        return Array(NSOrderedSet(array: codes)).compactMap { $0 as? String }.joined(separator: "+")
+    }
+
+    private func automaticAllergyCode() -> String {
+        let source = nfcInferenceSource
+        if containsAny(source, ["PCN", "PENICILLIN", "青黴素", "盤尼西林"]) { return "PCN" }
+        return ""
+    }
+
+    private var hasClinicalInput: Bool {
+        !breathingRateText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+        !capillaryRefillText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+        !notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var nfcInferenceSource: String {
+        "\(location) \(notes)".uppercased()
+    }
+
+    private func containsAny(_ text: String, _ needles: [String]) -> Bool {
+        needles.contains { text.contains($0.uppercased()) }
+    }
+
+    private func firstNumber(after prefixes: [String], in text: String) -> String? {
+        for prefix in prefixes {
+            if let number = firstNumber(after: prefix, in: text) { return number }
+        }
+        return nil
+    }
+
+    private func firstNumber(after prefix: String, in text: String) -> String? {
+        guard let range = text.range(of: prefix.uppercased()) else { return nil }
+        let tail = text[range.upperBound...]
+        let digits = tail
+            .drop { character in
+                character == " " || character == ":" || character == "：" || character == "=" || character == "/"
+            }
+            .prefix { $0.isNumber }
+        return digits.isEmpty ? nil : String(digits)
+    }
+
     private func startNFCProcess(_ title: String, detail: String = "") {
         nfcProcessSteps = [NFCProcessStep(title: title, detail: detail)]
     }
@@ -816,6 +1014,7 @@ struct PatientFormView: View {
     }
 
     private func nfcPayloadCandidatesForWrite() -> [NFCPayloadCandidate] {
+        applyNFCAutoFillIfNeeded()
         let id = patientIdOverride ?? vm.reserveNextPatientID()
         patientIdOverride = id
         return writeFormats().map { format in

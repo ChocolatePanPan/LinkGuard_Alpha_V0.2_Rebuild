@@ -19,7 +19,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, PlainTextResponse
 from collections import deque
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import ollama
 
 # === 日誌設定（檔案 + console，print 也會被重導向）===
@@ -689,13 +689,20 @@ START_RULES = (
 
 def save_decision(voice_text: str, patients_summary: str,
                   weather_summary: str, decision_text: str):
-    linkguard_db.save_decision(voice_text, patients_summary,
-                               weather_summary, decision_text,
-                               trigger_type="llm")
+    try:
+        linkguard_db.save_decision(voice_text, patients_summary,
+                                   weather_summary, decision_text,
+                                   trigger_type="llm")
+    except Exception as e:
+        logger.warning(f"[GENERATE] 儲存決策記憶失敗，略過: {e}")
 
 
 def get_recent_decisions(n: int = 5) -> str:
-    rows = linkguard_db.get_recent_decisions(n)
+    try:
+        rows = linkguard_db.get_recent_decisions(n)
+    except Exception as e:
+        logger.warning(f"[GENERATE] 讀取歷史決策失敗，略過: {e}")
+        return t("history.none")
     if not rows:
         return t("history.none")
     lines = []
@@ -865,10 +872,10 @@ def get_current_model():
 
 
 class GenerateRequest(BaseModel):
-    voice_text: str
-    patients: list
-    weather: dict
-    resources: str
+    voice_text: str = ""
+    patients: object = Field(default_factory=list)
+    weather: object = Field(default_factory=dict)
+    resources: object = ""
     show_reasoning: bool = False
 
 
@@ -1201,40 +1208,123 @@ def _rule_fallback_decision(ranked: list, resource_text: str, weather_summary: s
     )
 
 
+def _safe_rank_patients_for_generate(raw_patients) -> list:
+    if not isinstance(raw_patients, list):
+        logger.warning("[GENERATE] patients 不是 list，已改用空清單")
+        return []
+    patients = [patient for patient in raw_patients if isinstance(patient, dict)]
+    if len(patients) != len(raw_patients):
+        logger.warning("[GENERATE] patients 含有非 dict 資料，已略過")
+    try:
+        return rank_patients(patients)
+    except Exception as e:
+        logger.exception(f"[GENERATE] START 排序失敗，改用保守排序: {e}")
+        fallback = []
+        for patient in patients:
+            try:
+                scored = rank_patients([patient])
+                fallback.append(scored[0] if scored else patient)
+            except Exception as item_error:
+                item = dict(patient)
+                item.setdefault("priority", "未知")
+                item.setdefault("reason", f"資料格式需確認: {item_error}")
+                item.setdefault("start_bonus", 0)
+                item.setdefault("dimension_score", 0)
+                item.setdefault("total_score", 0)
+                item.setdefault("dimensions", [])
+                fallback.append(item)
+        for index, item in enumerate(fallback, 1):
+            item["rank"] = index
+        return fallback
+
+
+def _safe_patient_summary_for_generate(ranked: list) -> str:
+    if not ranked:
+        return "目前無受困者資料。"
+    try:
+        summary = format_for_llm(ranked)
+        return summary or "目前無受困者資料。"
+    except Exception as e:
+        logger.exception(f"[GENERATE] 傷患摘要格式化失敗，改用精簡摘要: {e}")
+        lines = []
+        for index, patient in enumerate(ranked, 1):
+            patient_id = patient.get("id") or patient.get("patient_id") or f"傷患{index}"
+            priority = patient.get("priority", "未知")
+            location = patient.get("location", "未知區")
+            reason = patient.get("reason", "無")
+            lines.append(f"[{patient_id}] 優先級：{priority} | 原因：{reason} | 位置：{location}")
+        return "\n".join(lines) or "目前無受困者資料。"
+
+
+def _safe_weather_summary_for_generate(raw_weather) -> str:
+    if not isinstance(raw_weather, dict) or not raw_weather:
+        return t("misc.no_weather")
+    try:
+        return format_weather_for_llm(raw_weather)
+    except Exception as e:
+        logger.warning(f"[GENERATE] 氣象摘要格式化失敗，略過: {e}")
+        return t("misc.no_weather")
+
+
+def _safe_resource_text_for_generate(raw_resources) -> str:
+    resource_text = raw_resources if isinstance(raw_resources, str) else ""
+    if resource_text.strip():
+        return resource_text
+    try:
+        summary = linkguard_db.get_resource_summary()
+        if summary:
+            parts = []
+            for rtype, info in summary.items():
+                rkey = f"res.{rtype}"
+                name = t(rkey) if rkey in I18N_STRINGS else rtype
+                if isinstance(info, dict):
+                    available = info.get("available", "?")
+                    total = info.get("total", "?")
+                else:
+                    available = "?"
+                    total = "?"
+                parts.append(f"{name} {available}/{total}")
+            return " | ".join(parts)
+    except Exception as e:
+        logger.warning(f"[GENERATE] 資源摘要讀取失敗，略過: {e}")
+    return ""
+
+
+def _safe_status_text_for_generate() -> str:
+    try:
+        return _format_status_for_llm()
+    except Exception as e:
+        logger.warning(f"[GENERATE] 系統狀態摘要失敗，略過: {e}")
+        return "系統狀態：暫無可用摘要。"
+
+
+def _safe_voice_history_for_generate(limit: int = 8) -> str:
+    try:
+        return _format_recent_voice_for_llm(limit=limit)
+    except Exception as e:
+        logger.warning(f"[GENERATE] 語音歷史摘要失敗，略過: {e}")
+        return ""
+
+
 @app.post("/generate")
 async def generate(req: GenerateRequest):
     # 1. 對每個 patient 進行完整評分（START + 六維度）並排序
-    ranked = rank_patients(req.patients)
+    ranked = _safe_rank_patients_for_generate(req.patients)
 
     # 2. 生成傷員摘要（含分數與排序）
-    patient_summary = format_for_llm(ranked)
+    patient_summary = _safe_patient_summary_for_generate(ranked)
 
     # 3. 生成氣象摘要
-    if req.weather:
-        weather_summary = format_weather_for_llm(req.weather)
-    else:
-        weather_summary = t("misc.no_weather")
+    weather_summary = _safe_weather_summary_for_generate(req.weather)
 
     # 4. 取得歷史決策記憶
     recent_decisions = get_recent_decisions(5)
 
     # 5. 自動注入資源狀態
-    resource_text = req.resources
-    if not resource_text:
-        try:
-            summary = linkguard_db.get_resource_summary()
-            if summary:
-                parts = []
-                for rtype, info in summary.items():
-                    rkey = f"res.{rtype}"
-                    name = t(rkey) if rkey in I18N_STRINGS else rtype
-                    parts.append(f"{name} {info['available']}/{info['total']}")
-                resource_text = " | ".join(parts)
-        except Exception:
-            resource_text = ""
+    resource_text = _safe_resource_text_for_generate(req.resources)
 
     # 5b. 注入系統狀態（節點、傷患統計、佇列）
-    status_text = _format_status_for_llm()
+    status_text = _safe_status_text_for_generate()
 
     # 6. 組合 system prompt + user prompt
     role_label = DUAL_CFG.get("local_model", "GEMMA4 26B") if _is_small_role() else "GEMMA4 26B"
@@ -1268,7 +1358,7 @@ async def generate(req: GenerateRequest):
         system_prompt += _CONFIDENCE_SUFFIX
 
     now = datetime.now(TZ_TW).isoformat()
-    voice_history = _format_recent_voice_for_llm(limit=8)
+    voice_history = _safe_voice_history_for_generate(limit=8)
     user_prompt = (
         f"目前時間：{now}\n"
         f"最新語音回報：{req.voice_text}\n\n"
