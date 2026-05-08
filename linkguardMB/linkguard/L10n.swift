@@ -1056,6 +1056,12 @@ final class L10n: ObservableObject {
         "離線欄位": "Offline Fields",
         "靠近傷患 NFC 標籤以讀取回報資料": "Hold near the patient NFC tag to read report data",
         "靠近空白或可覆寫的 NFC 標籤": "Hold near a blank or rewritable NFC tag",
+        "HQ 同步檢查": "HQ Sync Check",
+        "容量規則：NTAG215 固定使用 LG1；NTAG216 固定使用 LG2；若現場不確定標籤容量，先寫 LG1。": "Capacity rule: NTAG215 always uses LG1; NTAG216 always uses LG2. If tag capacity is uncertain in the field, write LG1 first.",
+        "寫卡與交接流程": "Tag Writing and Handoff Flow",
+        "此手冊只定義 LinkGuard 紀錄格式與操作流程，不取代現場醫療處置 SOP。": "This manual only defines the LinkGuard record format and operating flow. It does not replace field medical treatment SOPs.",
+        "讀不到 / 寫失敗排除": "Read / Write Failure Troubleshooting",
+        "身分與隱私規則": "Identity and Privacy Rules",
     ]
 }
 
