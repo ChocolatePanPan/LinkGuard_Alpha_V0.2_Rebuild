@@ -49,13 +49,51 @@ struct QuickGuideView: View {
             title: L("NFC 檢傷標籤"),
             color: .teal,
             steps: [
-                L("此區塊是紀錄格式操作手冊，不是醫療處置教學；實際處置依消防、救護、醫療單位 SOP。"),
-                L("NTAG215 固定使用 LG1：LG1|ID|T|S|I|V|TX|TM。"),
-                L("NTAG216 固定使用 LG2：LG2|ID:...|T:...|S:...|LOC:...|I:...|V:...|TX:...|ALG:...|NOTE:...|TM:...|UPD:...。"),
+                L("用途是讓傷患卡片離線保留最小可交接資料；這不是醫療處置教學，實際處置依消防、救護、醫療單位 SOP。"),
+                L("正式顯示 ID：LG-260506-TAO-ZL-E01-S03-B02-F02-A-P023-K。"),
+                L("NFC URL：https://linkguard.tw/p/LG260506TAOZLE01S03B02F02AP023K。"),
+                L("資料庫 Key 與離線 payload 使用緊湊 ID：LG260506TAOZLE01S03B02F02AP023K。"),
+                L("姓名、身分證、電話與完整病歷不寫入 NFC；傷患 ID 不可變動，檢傷、生命徵象、位置與處置可更新。"),
+                L("同一名傷患只維護一張主要 NFC 卡；換卡時要先讀舊卡確認 ID，再覆寫或補登 HQ 紀錄。"),
+            ]
+        ),
+        GuidePage(
+            icon: "tag.fill",
+            title: L("NFC 寫卡流程"),
+            color: .teal,
+            steps: [
+                L("進入「傷員回報」頁面，先確認傷患 ID、分區、樓層、檢傷、生命徵象與處置欄位。"),
+                L("NTAG215 選 LG1：LG1|ID|T|S|I|V|TX|TM，適合最低容量與快速交接。"),
+                L("NTAG216 選 LG2：包含 LOC、ALG、NOTE、UPD，適合完整離線資料。"),
+                L("按「寫入 NFC」後，只讓一張空白或可覆寫標籤靠近 iPhone 頂端。"),
+                L("看到「NFC 寫入完成」後不要立刻離開頁面；App 會把 nfc_tag_written 同步到 HQ。"),
+                L("回到 HQ 的「NFC 標籤管理」，用傷患 ID 搜尋，確認格式、容量、寫入裝置與 payload 都有紀錄。"),
+            ]
+        ),
+        GuidePage(
+            icon: "text.magnifyingglass",
+            title: L("LG1 / LG2 速查"),
+            color: .teal,
+            steps: [
                 L("LG1 範例：LG1|LG260506TAOZLE01S03B02F02AP023K|R|M45|LEG_BLEED|RR28/P120/G14|TQL|1430。"),
                 L("LG2 範例：LG2|ID:LG260506TAOZLE01S03B02F02AP023K|T:R|S:M45|LOC:S03-B02-F02-A|I:LEFT_LEG_BLEED|V:RR28/P120/G14|TX:TQL+BAND|ALG:PCN|NOTE:CONSCIOUS|TM:20260506T1430|UPD:1455。"),
+                L("T：R=紅/立即，Y=黃/延遲，G=綠/輕傷，B=黑/死亡或無生命跡象，U=未分類。"),
+                L("S：M45=男性約45歲，F30=女性約30歲，C08=兒童約8歲，U=不明。"),
+                L("常用 I：HEAD、CHEST、ABD、ARM_BLEED、LEG_BLEED、FX、BURN、CRUSH、UNCON、CPA。"),
                 L("常用 TX：TQL、TQR、BAND、SPL、O2、CPR、AED、IV、NONE；多項處置用 + 連接。"),
-                L("姓名、身分證、電話與完整病歷不寫入 NFC；傷患 ID 不可變動，檢傷、生命徵象與處置可更新。"),
+            ]
+        ),
+        GuidePage(
+            icon: "exclamationmark.magnifyingglass",
+            title: L("NFC 讀不到排除"),
+            color: .orange,
+            steps: [
+                L("iOS 必須使用 Apple 原生 NFC 掃描介面；本 App 會呼叫 NFCNDEFReaderSession，不會出現自製掃描畫面。"),
+                L("Simulator 不能測 NFC；請使用支援 NFC 的 iPhone 實機，並把標籤靠近機身頂端。"),
+                L("若掃描畫面完全沒有跳出，先檢查 Xcode Signing & Capabilities 是否有 Near Field Communication Tag Reading。"),
+                L("免費 Apple Developer 帳號通常無法帶 NFC capability；真機測 CoreNFC 需付費 Developer Program 或已加入付費 Team。"),
+                L("若 Apple 掃描畫面有跳出但讀不到，檢查標籤是否已 NDEF 格式化、容量是否足夠、一次是否靠近多張卡。"),
+                L("備援流程：Android 或 HQ USB NFC 寫 URL，iPhone 背景 NFC 開網頁；同時印 QR Code 供相機掃描。"),
             ]
         ),
         GuidePage(

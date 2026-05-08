@@ -81,19 +81,68 @@ struct HQSettingsView: View {
     // MARK: - Sections
 
     private var nfcManualSection: some View {
-        section(L("NFC 標籤操作手冊")) {
-            Text(L("此區塊是紀錄格式操作手冊，不是醫療處置教學；實際處置依消防、救護、醫療單位 SOP。"))
+        let identityRows: [(String, String, Bool)] = [
+            ("顯示 ID", "LG-260506-TAO-ZL-E01-S03-B02-F02-A-P023-K", true),
+            ("資料庫 Key", "LG260506TAOZLE01S03B02F02AP023K", true),
+            ("NFC URL", "https://linkguard.tw/p/LG260506TAOZLE01S03B02F02AP023K", true),
+            ("隱私規則", "姓名、身分證、電話與完整病歷不寫入 NFC；傷患 ID 不可變動。", false)
+        ]
+
+        let hqWorkflowRows: [(String, String)] = [
+            ("1. 先確認 ID 規則", "HQ 發出的 patientIDConfig 會決定前線裝置的顯示 ID、資料庫 Key 與 NFC URL。"),
+            ("2. 前線寫卡", "iOS 在傷員回報頁寫入 NFC，成功後送 nfc_tag_written 到 HQ。"),
+            ("3. HQ 稽核", "在「NFC 標籤管理」搜尋傷患 ID，檢查格式、容量、寫入裝置、時間與 payload。"),
+            ("4. 交接確認", "同一名傷患只保留一張主要卡；若換卡，保留新的 HQ 寫卡紀錄並確認舊卡不再使用。")
+        ]
+
+        let checklistRows: [(String, String)] = [
+            ("容量", "LG1 payload 應落在 NTAG215 容量內；LG2 僅給 NTAG216。容量不足時改 LG1 或縮短 NOTE。"),
+            ("同步", "前線 App 顯示寫入完成，但 HQ 沒紀錄時，先查 WiFi/Bonjour/手動 IP 連線。"),
+            ("重複", "同一 ID 多筆寫卡紀錄代表曾覆寫或換卡；以最新時間與現場回讀結果為準。"),
+            ("權限", "iOS 真機 CoreNFC 需要 NFC capability；免費 Apple Developer 帳號通常無法測 App 內 NFC。"),
+            ("備援", "Android/USB NFC 可先寫 URL；同時列印 QR Code，讓 iPhone 用背景 NFC 或相機開資料頁。")
+        ]
+
+        return section(L("NFC 標籤操作手冊")) {
+            Text(L("此手冊定義 LinkGuard 紀錄格式、寫卡同步與 HQ 稽核流程，不取代現場醫療處置 SOP。"))
                 .font(.caption)
                 .foregroundColor(.secondary)
+
+            DisclosureGroup(L("身分與資料規則")) {
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(identityRows, id: \.0) { row in
+                        manualDetailRow(row.0, row.1, monospaced: row.2)
+                    }
+                }
+                .padding(.top, 8)
+            }
 
             VStack(alignment: .leading, spacing: 10) {
                 manualFormatRow(title: "LG1", subtitle: "NTAG215", example: "LG1|ID|T|S|I|V|TX|TM")
                 manualFormatRow(title: "LG2", subtitle: "NTAG216", example: "LG2|ID:...|T:...|S:...|LOC:...|I:...|V:...|TX:...|ALG:...|NOTE:...|TM:...|UPD:...")
             }
 
-            Text(L("規則：NTAG215 固定使用 LG1；NTAG216 固定使用 LG2；傷患 ID 不可變動；姓名、身分證、電話與完整病歷不寫入 NFC。"))
+            Text(L("容量規則：NTAG215 固定使用 LG1；NTAG216 固定使用 LG2；若現場不確定標籤容量，先寫 LG1。"))
                 .font(.caption)
                 .foregroundColor(.secondary)
+
+            DisclosureGroup(L("HQ 操作流程")) {
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(hqWorkflowRows, id: \.0) { row in
+                        manualDetailRow(row.0, row.1)
+                    }
+                }
+                .padding(.top, 8)
+            }
+
+            DisclosureGroup(L("同步與排除檢查表")) {
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(checklistRows, id: \.0) { row in
+                        manualDetailRow(row.0, row.1)
+                    }
+                }
+                .padding(.top, 8)
+            }
 
             DisclosureGroup(L("LG1 / LG2 代碼表")) {
                 VStack(alignment: .leading, spacing: 8) {
@@ -800,6 +849,18 @@ struct HQSettingsView: View {
                 .font(.caption.bold())
             Text(codes)
                 .font(.caption2.monospaced())
+                .foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .textSelection(.enabled)
+        }
+    }
+
+    private func manualDetailRow(_ title: String, _ detail: String, monospaced: Bool = false) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(L(title))
+                .font(.caption.bold())
+            Text(L(detail))
+                .font(monospaced ? .caption2.monospaced() : .caption)
                 .foregroundColor(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
                 .textSelection(.enabled)
