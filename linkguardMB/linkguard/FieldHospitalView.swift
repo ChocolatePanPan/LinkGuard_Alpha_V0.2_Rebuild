@@ -132,6 +132,7 @@ struct FieldHospitalView: View {
             }
             .onChange(of: selectedCity) { _, _ in recompute() }
             .onChange(of: selectedLevel) { _, _ in recompute() }
+            .onChange(of: l10n.language) { _, _ in recompute() }
             .onChange(of: locator.detectedCity) { _, city in
                 guard let city else { return }
                 selectedCity = city
@@ -253,6 +254,7 @@ struct FieldHospitalView: View {
                 if let lv = selectedLevel, lv != h.level { return false }
                 if trimmed.isEmpty { return true }
                 return h.name.localizedCaseInsensitiveContains(trimmed)
+                    || h.englishName.localizedCaseInsensitiveContains(trimmed)
                     || h.city.localizedCaseInsensitiveContains(trimmed)
             }
             return items.isEmpty ? nil : (group.region, items)
@@ -279,14 +281,24 @@ struct FieldHospitalView: View {
 
 private struct HospitalRow: View {
     let h: FieldHospital
+    @EnvironmentObject private var l10n: L10n
 
     var body: some View {
+        let displayName = h.displayName(language: l10n.language)
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 6) {
                 Image(systemName: h.level.icon)
                     .foregroundColor(h.level.color)
                     .frame(width: 18)
-                Text(h.name).font(.subheadline.bold())
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(displayName).font(.subheadline.bold())
+                    if displayName != h.name {
+                        Text(h.name)
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                            .lineLimit(1)
+                    }
+                }
                 Spacer(minLength: 0)
                 Text(h.level.label)
                     .font(.caption2.bold())
