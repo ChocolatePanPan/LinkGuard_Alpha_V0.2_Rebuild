@@ -758,7 +758,7 @@ final class L10n: ObservableObject {
         "界面配置": "Interface Layout",
         "登錄為危險回報": "Log as hazard report",
         "發布撤離警報，通知所有人員立即撤離至集結點": "Issue evacuation alert and notify everyone to evacuate to assembly point",
-        "通知所有人立即撤離": "Notify everyone to evacuate immediately",
+        "通知所有人立即撤離": "Notify everyone to evacuate",
         "確認 iPhone 與 Mac HQ 在同一區域網路": "Ensure iPhone and Mac HQ are on the same LAN",
         "等待 HQ 連線": "Waiting for HQ connection",
         "系統會自動搜尋 Mac HQ (Bonjour)": "System auto-discovers Mac HQ via Bonjour",
