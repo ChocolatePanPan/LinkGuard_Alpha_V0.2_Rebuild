@@ -106,7 +106,9 @@ struct TranslatorView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.visible, for: .navigationBar)
         #endif
-
+        .onChange(of: vm.translationErrorMessage) { _, msg in
+            if let msg { errorMessage = msg }
+        }
     }
 
     // MARK: - 語言選擇器
