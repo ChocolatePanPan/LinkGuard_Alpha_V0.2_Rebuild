@@ -28,6 +28,7 @@ struct FieldAIMessage: Identifiable, Equatable, Codable {
     }
 }
 
+@MainActor
 final class FieldAIChatStore: ObservableObject {
     private static let persistenceKey = "fieldAIChatMessages"
 
@@ -55,12 +56,17 @@ final class FieldAIChatStore: ObservableObject {
 
 struct FieldAIChatView: View {
     @ObservedObject var vm: LinkGuardViewModel
-    @StateObject private var chatStore = FieldAIChatStore()
+    @ObservedObject private var chatStore: FieldAIChatStore
     @State private var draft: String = ""
     @State private var isSending: Bool = false
     @State private var typingPulse: Bool = false
     @State private var includeContext: Bool = true
     @FocusState private var isInputFocused: Bool
+
+    init(vm: LinkGuardViewModel) {
+        self.vm = vm
+        self._chatStore = ObservedObject(wrappedValue: vm.fieldAIChatStore)
+    }
 
     var body: some View {
         VStack(spacing: 0) {

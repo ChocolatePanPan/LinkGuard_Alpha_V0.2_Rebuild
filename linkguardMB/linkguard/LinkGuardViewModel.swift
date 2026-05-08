@@ -180,6 +180,9 @@ class LinkGuardViewModel: ObservableObject {
     /// 正在播放的報告 ID
     @Published var playingReportId: String?
     private var radioAudioPlayer: AVAudioPlayer?
+    /// AI 通訊 / 助理對話暫存，由 ViewModel 持有以避免畫面切換時重建清空
+    let fieldAIChatManager = FieldAIChatManager()
+    let fieldAIChatStore = FieldAIChatStore()
     // 照片回報
     @Published var photoReports: [PhotoReport] = []
     /// 資源狀態

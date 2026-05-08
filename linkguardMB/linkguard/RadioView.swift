@@ -24,7 +24,7 @@ struct RadioView: View {
     @State private var mode: RadioMode = .live
     @StateObject private var briefingManager = BriefingRecordManager()
     @StateObject private var liveManager = LiveBroadcastManager()
-    @StateObject private var aiChatManager = FieldAIChatManager()
+    @ObservedObject private var aiChatManager: FieldAIChatManager
     @FocusState private var isAIChatFocused: Bool
     private let initialMode: RadioMode
     private let showsModePicker: Bool
@@ -36,6 +36,7 @@ struct RadioView: View {
         self.showsModePicker = showsModePicker
         self.embedsNavigationStack = embedsNavigationStack
         self._mode = State(initialValue: initialMode)
+        self._aiChatManager = ObservedObject(wrappedValue: vm.fieldAIChatManager)
     }
 
     private var titleText: String {
@@ -1283,12 +1284,20 @@ final class LiveBroadcastManager: ObservableObject {
 
 // MARK: - AI 通訊模型
 
-struct AIChatMessage: Identifiable {
-    let id = UUID()
+struct AIChatMessage: Identifiable, Equatable, Codable {
+    let id: UUID
     let role: String          // "user" | "assistant" | "system"
     let content: String
     let timestamp: Date
     var isEscalation: Bool = false
+
+    init(id: UUID = UUID(), role: String, content: String, timestamp: Date, isEscalation: Bool = false) {
+        self.id = id
+        self.role = role
+        self.content = content
+        self.timestamp = timestamp
+        self.isEscalation = isEscalation
+    }
 }
 
 struct EscalationState {
@@ -1359,7 +1368,11 @@ private struct AIChatBubble: View {
 
 @MainActor
 final class FieldAIChatManager: ObservableObject {
-    @Published var messages: [AIChatMessage] = []
+    private static let messagesPersistenceKey = "fieldAICommunicationMessages"
+
+    @Published var messages: [AIChatMessage] = [] {
+        didSet { saveMessages() }
+    }
     @Published var draft = ""
     @Published var isLoading = false
     @Published var activeEscalation: EscalationState?
@@ -1368,6 +1381,10 @@ final class FieldAIChatManager: ObservableObject {
 
     var serverHost = ""
     var senderName = ""
+
+    init() {
+        messages = PersistenceManager.shared.load(key: Self.messagesPersistenceKey) ?? []
+    }
 
     /// 後端 session_id：前線裝置一律為 "field_{deviceID}"
     private var sessionId: String {
@@ -1383,7 +1400,7 @@ final class FieldAIChatManager: ObservableObject {
         draft = ""
 
         let userMsg = AIChatMessage(role: "user", content: trimmed, timestamp: Date())
-        messages.append(userMsg)
+        appendMessage(userMsg)
 
         isLoading = true
 
@@ -1393,12 +1410,12 @@ final class FieldAIChatManager: ObservableObject {
 
             if !result.reply.isEmpty {
                 let aiMsg = AIChatMessage(role: "assistant", content: result.reply, timestamp: Date())
-                messages.append(aiMsg)
+                appendMessage(aiMsg)
             } else {
                 let detail = result.errorMessage?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
                 let message = detail.isEmpty ? L("AI 回覆失敗，請重試") : L("AI 回覆失敗：%@", detail)
                 let errMsg = AIChatMessage(role: "system", content: message, timestamp: Date())
-                messages.append(errMsg)
+                appendMessage(errMsg)
             }
 
             // 後端若偵測到 ESCALATE 訊號：顯示「等待 HQ AI 共識」提示
@@ -1411,7 +1428,7 @@ final class FieldAIChatManager: ObservableObject {
                     content: L("現場 AI 建議上報，等待 HQ AI 同步確認中…"),
                     timestamp: Date()
                 )
-                messages.append(sysMsg)
+                appendMessage(sysMsg)
 
                 // 90 秒後若仍未共識，清除提示
                 Task { [weak self] in
@@ -1537,7 +1554,7 @@ final class FieldAIChatManager: ObservableObject {
             timestamp: Date(),
             isEscalation: true
         )
-        messages.append(msg)
+        appendMessage(msg)
 
         // 啟動輪詢以取得主模型回覆
         pollEscalationResult(requestId: requestId)
@@ -1579,7 +1596,7 @@ final class FieldAIChatManager: ObservableObject {
                         timestamp: Date(),
                         isEscalation: true
                     )
-                    messages.append(msg)
+                    appendMessage(msg)
 
                     try? await Task.sleep(nanoseconds: 2_000_000_000)
                     activeEscalation = nil
@@ -1592,7 +1609,7 @@ final class FieldAIChatManager: ObservableObject {
                         timestamp: Date(),
                         isEscalation: true
                     )
-                    messages.append(msg)
+                    appendMessage(msg)
                     activeEscalation = nil
                     return
                 }
@@ -1605,7 +1622,7 @@ final class FieldAIChatManager: ObservableObject {
                 content: L("上報等待逾時，將使用現場 AI 的判斷繼續處理"),
                 timestamp: Date()
             )
-            messages.append(msg)
+            appendMessage(msg)
             activeEscalation = nil
         }
     }
@@ -1621,6 +1638,17 @@ final class FieldAIChatManager: ObservableObject {
             h = String(h.dropFirst(7))
         }
         return h
+    }
+
+    private func appendMessage(_ message: AIChatMessage) {
+        messages.append(message)
+        if messages.count > 200 {
+            messages = Array(messages.suffix(200))
+        }
+    }
+
+    private func saveMessages() {
+        PersistenceManager.shared.save(key: Self.messagesPersistenceKey, value: messages)
     }
 
     private func responsePayload(from json: [String: Any]) -> [String: Any] {
