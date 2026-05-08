@@ -61,12 +61,13 @@ private enum FieldPointMode: String, CaseIterable, Hashable {
     case hospitals = "後送醫院"
     case responseCenters = "應變中心"
     case rescueUnits = "救援單位"
+    case fireTraining = "訓練機構"
 
     var label: String { L(rawValue) }
 
     var supportKind: FieldSupportSite.Kind? {
         switch self {
-        case .hospitals: return nil
+        case .hospitals, .fireTraining: return nil
         case .responseCenters: return .responseCenter
         case .rescueUnits: return .rescueUnit
         }
@@ -77,6 +78,7 @@ private enum FieldPointMode: String, CaseIterable, Hashable {
         case .hospitals: return FieldHospitalDirectory.all.count
         case .responseCenters: return FieldSupportSiteDirectory.responseCenters.count
         case .rescueUnits: return FieldSupportSiteDirectory.rescueUnits.count
+        case .fireTraining: return FieldFireTrainingInstitutionDirectory.all.count
         }
     }
 
@@ -85,6 +87,7 @@ private enum FieldPointMode: String, CaseIterable, Hashable {
         case .hospitals: return L("後送醫院（%lld 家）", count)
         case .responseCenters: return L("應變中心（%lld 筆）", count)
         case .rescueUnits: return L("救援單位（%lld 筆）", count)
+        case .fireTraining: return L("防火訓練機構（%lld 筆）", count)
         }
     }
 
@@ -92,6 +95,7 @@ private enum FieldPointMode: String, CaseIterable, Hashable {
         switch self {
         case .hospitals: return L("搜尋縣市 / 醫院名稱")
         case .responseCenters, .rescueUnits: return L("搜尋縣市 / 名稱 / 地址")
+        case .fireTraining: return L("搜尋縣市 / 名稱 / 地址 / 聯絡人")
         }
     }
 
@@ -99,6 +103,7 @@ private enum FieldPointMode: String, CaseIterable, Hashable {
         switch self {
         case .hospitals: return L("沒有符合的醫院")
         case .responseCenters, .rescueUnits: return L("沒有符合的點位")
+        case .fireTraining: return L("沒有符合的機構")
         }
     }
 }
@@ -122,6 +127,8 @@ private func pointCities(for mode: FieldPointMode, region: FieldHospital.Region?
     case .responseCenters, .rescueUnits:
         guard let kind = mode.supportKind else { return [] }
         return FieldSupportSiteDirectory.cities(kind: kind, region: region)
+    case .fireTraining:
+        return FieldFireTrainingInstitutionDirectory.cities(region: region)
     }
 }
 
@@ -142,6 +149,7 @@ struct FieldHospitalView: View {
     // 快取結果（onChange 更新，避免每次 render 重算）
     @State private var filteredGroups: [(region: FieldHospital.Region, items: [FieldHospital])] = allGrouped
     @State private var filteredSupportGroups: [(region: FieldHospital.Region, items: [FieldSupportSite])] = []
+    @State private var filteredTrainingGroups: [(region: FieldHospital.Region, items: [FieldFireTrainingInstitution])] = []
     @State private var availableCities: [String] = pointCities(for: .hospitals, region: nil)
 
     // debounce timer
@@ -186,6 +194,25 @@ struct FieldHospitalView: View {
                         }
                     }
                     if filteredSupportGroups.isEmpty {
+                        Section {
+                            Label(selectedMode.emptyMessage, systemImage: "magnifyingglass")
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                case .fireTraining:
+                    ForEach(filteredTrainingGroups, id: \.region) { group in
+                        Section {
+                            ForEach(group.items) { institution in
+                                FireTrainingInstitutionRow(institution: institution)
+                            }
+                        } header: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "graduationcap.fill")
+                                Text(L("%@ （%lld 筆）", group.region.label, group.items.count))
+                            }
+                        }
+                    }
+                    if filteredTrainingGroups.isEmpty {
                         Section {
                             Label(selectedMode.emptyMessage, systemImage: "magnifyingglass")
                                 .foregroundColor(.secondary)
@@ -346,7 +373,8 @@ struct FieldHospitalView: View {
 
     private func recompute() {
         let trimmed = debouncedQuery.trimmingCharacters(in: .whitespaces)
-        guard let supportKind = selectedMode.supportKind else {
+        switch selectedMode {
+        case .hospitals:
             let result = allGrouped.compactMap { group -> (region: FieldHospital.Region, items: [FieldHospital])? in
                 if let r = selectedRegion, r != group.region { return nil }
                 let items = group.items.filter { h in
@@ -361,24 +389,50 @@ struct FieldHospitalView: View {
             }
             filteredGroups = result
             filteredSupportGroups = []
+            filteredTrainingGroups = []
             return
-        }
 
-        let supportResult = FieldSupportSiteDirectory.grouped(kind: supportKind).compactMap { group -> (region: FieldHospital.Region, items: [FieldSupportSite])? in
-            if let r = selectedRegion, r != group.region { return nil }
-            let items = group.items.filter { site in
-                if let city = selectedCity, site.city != city { return false }
-                if trimmed.isEmpty { return true }
-                return site.name.localizedCaseInsensitiveContains(trimmed)
-                    || site.address.localizedCaseInsensitiveContains(trimmed)
-                    || site.phone.localizedCaseInsensitiveContains(trimmed)
-                    || site.city.localizedCaseInsensitiveContains(trimmed)
-                    || site.note.localizedCaseInsensitiveContains(trimmed)
+        case .responseCenters, .rescueUnits:
+            guard let supportKind = selectedMode.supportKind else { return }
+            let supportResult = FieldSupportSiteDirectory.grouped(kind: supportKind).compactMap { group -> (region: FieldHospital.Region, items: [FieldSupportSite])? in
+                if let r = selectedRegion, r != group.region { return nil }
+                let items = group.items.filter { site in
+                    if let city = selectedCity, site.city != city { return false }
+                    if trimmed.isEmpty { return true }
+                    return site.name.localizedCaseInsensitiveContains(trimmed)
+                        || site.address.localizedCaseInsensitiveContains(trimmed)
+                        || site.phone.localizedCaseInsensitiveContains(trimmed)
+                        || site.city.localizedCaseInsensitiveContains(trimmed)
+                        || site.note.localizedCaseInsensitiveContains(trimmed)
+                }
+                return items.isEmpty ? nil : (group.region, items)
             }
-            return items.isEmpty ? nil : (group.region, items)
+            filteredGroups = []
+            filteredSupportGroups = supportResult
+            filteredTrainingGroups = []
+
+        case .fireTraining:
+            let trainingResult = FieldFireTrainingInstitutionDirectory.grouped().compactMap { group -> (region: FieldHospital.Region, items: [FieldFireTrainingInstitution])? in
+                if let r = selectedRegion, r != group.region { return nil }
+                let items = group.items.filter { institution in
+                    if let city = selectedCity, institution.city != city { return false }
+                    if trimmed.isEmpty { return true }
+                    return institution.name.localizedCaseInsensitiveContains(trimmed)
+                        || institution.address.localizedCaseInsensitiveContains(trimmed)
+                        || institution.phone.localizedCaseInsensitiveContains(trimmed)
+                        || institution.fax.localizedCaseInsensitiveContains(trimmed)
+                        || institution.email.localizedCaseInsensitiveContains(trimmed)
+                        || institution.website.localizedCaseInsensitiveContains(trimmed)
+                        || institution.contact.localizedCaseInsensitiveContains(trimmed)
+                        || institution.city.localizedCaseInsensitiveContains(trimmed)
+                        || institution.postcode.localizedCaseInsensitiveContains(trimmed)
+                }
+                return items.isEmpty ? nil : (group.region, items)
+            }
+            filteredGroups = []
+            filteredSupportGroups = []
+            filteredTrainingGroups = trainingResult
         }
-        filteredGroups = []
-        filteredSupportGroups = supportResult
     }
 
     // MARK: - Chip
@@ -555,6 +609,123 @@ private struct SupportSiteRow: View {
                     .buttonStyle(.plain)
                 }
                 if let mapsURL = site.mapsURL {
+                    Button {
+                        UIApplication.shared.open(mapsURL)
+                    } label: {
+                        Label(L("開啟地圖"), systemImage: "map.fill")
+                            .font(.caption.bold())
+                            .foregroundColor(NV.green)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .padding(.vertical, 2)
+    }
+}
+
+private struct FireTrainingInstitutionRow: View {
+    let institution: FieldFireTrainingInstitution
+
+    private var dialablePhone: String? {
+        guard !institution.phone.isEmpty else { return nil }
+        let first = institution.phone.components(separatedBy: CharacterSet(charactersIn: "、,，；;()（）/／")).first ?? institution.phone
+        let cleaned = first.filter { $0.isNumber || $0 == "+" || $0 == "*" || $0 == "#" || $0 == "-" }
+        return cleaned.isEmpty ? nil : cleaned
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 6) {
+                Image(systemName: "graduationcap.fill")
+                    .foregroundColor(.purple)
+                    .frame(width: 18)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(institution.name).font(.subheadline.bold())
+                    Text([L(institution.city), institution.postcode].filter { !$0.isEmpty }.joined(separator: " · "))
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+                Spacer(minLength: 0)
+                Text(L("防火管理"))
+                    .font(.caption2.bold())
+                    .foregroundColor(.purple)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color.purple.opacity(0.12))
+                    .clipShape(Capsule())
+            }
+            if !institution.address.isEmpty {
+                Text(institution.address)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                if !institution.contact.isEmpty {
+                    Label(L("聯絡人：%@", institution.contact), systemImage: "person.crop.circle")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+                if !institution.phone.isEmpty {
+                    Label(institution.phone, systemImage: "phone.fill")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                }
+                if !institution.fax.isEmpty {
+                    Label(L("傳真：%@", institution.fax), systemImage: "printer.fill")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                }
+                if !institution.email.isEmpty {
+                    Label(institution.email, systemImage: "envelope.fill")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                }
+                if !institution.website.isEmpty {
+                    Label(institution.website, systemImage: "safari.fill")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                }
+            }
+            HStack(spacing: 12) {
+                if let dialablePhone {
+                    Button {
+                        if let url = URL(string: "tel://\(dialablePhone)") {
+                            UIApplication.shared.open(url)
+                        }
+                    } label: {
+                        Label(L("撥打"), systemImage: "phone.fill")
+                            .font(.caption.bold())
+                            .foregroundColor(.blue)
+                    }
+                    .buttonStyle(.plain)
+                }
+                if let emailURL = institution.emailURL {
+                    Button {
+                        UIApplication.shared.open(emailURL)
+                    } label: {
+                        Label(L("寄信"), systemImage: "envelope.fill")
+                            .font(.caption.bold())
+                            .foregroundColor(NV.info)
+                    }
+                    .buttonStyle(.plain)
+                }
+                if let websiteURL = institution.websiteURL {
+                    Button {
+                        UIApplication.shared.open(websiteURL)
+                    } label: {
+                        Label(L("網站"), systemImage: "safari.fill")
+                            .font(.caption.bold())
+                            .foregroundColor(NV.command)
+                    }
+                    .buttonStyle(.plain)
+                }
+                if let mapsURL = institution.mapsURL {
                     Button {
                         UIApplication.shared.open(mapsURL)
                     } label: {
