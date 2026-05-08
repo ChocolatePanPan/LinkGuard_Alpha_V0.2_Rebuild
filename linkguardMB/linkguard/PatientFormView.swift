@@ -962,7 +962,7 @@ struct PatientFormView: View {
     }
 
     private var nfcInferenceSource: String {
-        "\(location) \(notes) \(nfcInjuryCode) \(nfcTreatmentCode)".uppercased()
+        "\(location) \(notes)".uppercased()
     }
 
     private func containsAny(_ text: String, _ needles: [String]) -> Bool {
@@ -979,7 +979,11 @@ struct PatientFormView: View {
     private func firstNumber(after prefix: String, in text: String) -> String? {
         guard let range = text.range(of: prefix.uppercased()) else { return nil }
         let tail = text[range.upperBound...]
-        let digits = tail.drop { !$0.isNumber }.prefix { $0.isNumber }
+        let digits = tail
+            .drop { character in
+                character == " " || character == ":" || character == "：" || character == "=" || character == "/"
+            }
+            .prefix { $0.isNumber }
         return digits.isEmpty ? nil : String(digits)
     }
 
