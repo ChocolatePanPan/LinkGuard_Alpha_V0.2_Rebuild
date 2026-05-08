@@ -1098,9 +1098,10 @@ class HQCommandServer: ObservableObject {
                     print("[HQ-Server] translate_request 已轉發後台，req=\(requestingDeviceId)")
                 } else {
                     // 未連上後台時才使用本地備援譯文，並明確告知使用者為離線模式
-                    let text = json["text"] as? String ?? ""
-                    let sourceLang = json["source_lang"] as? String ?? "auto"
-                    let targetLang = json["target_lang"] as? String ?? "en"
+                    let inner = json["data"] as? [String: Any] ?? [:]
+                    let text = json["text"] as? String ?? inner["text"] as? String ?? ""
+                    let sourceLang = json["source_lang"] as? String ?? inner["source_lang"] as? String ?? "auto"
+                    let targetLang = json["target_lang"] as? String ?? inner["target_lang"] as? String ?? "en"
                     Task {
                         await self.requestTranslation(text: text, sourceLang: sourceLang, targetLang: targetLang, forDevice: requestingDeviceId, connID: connID)
                     }
@@ -1167,31 +1168,7 @@ class HQCommandServer: ObservableObject {
             return
         }
 
-        // HTTP 也失敗 → 離線本地 fallback
-        let translated = localFallbackTranslate(text: text, sourceLang: sourceLang, targetLang: targetLang)
-        let result = HQTranslationResult(
-            original: text,
-            translated: translated,
-            detectedLang: sourceLang,
-            targetLang: targetLang
-        )
-
-        DispatchQueue.main.async { [weak self] in
-            self?.latestTranslation = result
-        }
-
-        let payload: [String: Any] = [
-            "original": text,
-            "translated": translated,
-            "detected_lang": sourceLang,
-            "target_lang": targetLang,
-            "engine": "local_fallback"
-        ]
-        if let payloadData = try? JSONSerialization.data(withJSONObject: payload),
-           let payloadStr = String(data: payloadData, encoding: .utf8),
-           let msgData = encodeWiFiMessage(msgType: "translate_result", payload: payloadStr) {
-            sendToDevices(msgData, targetDeviceIDs: [deviceId])
-        }
+        print("[HQ-Server] ⚠️ 翻譯後台不可用，略過 placeholder fallback；前線將使用內建離線句庫")
     }
 
     /// 透過 HTTP 直連 Mac-local gemma4_server /translate 端點
@@ -1238,14 +1215,6 @@ class HQCommandServer: ObservableObject {
             }
         }
         return nil
-    }
-
-    private func localFallbackTranslate(text: String, sourceLang: String, targetLang: String) -> String {
-        let normalizedTarget = targetLang.lowercased()
-        if normalizedTarget.hasPrefix("zh") {
-            return "[本地翻譯] \(text)"
-        }
-        return "[LOCAL \(sourceLang)->\(targetLang)] \(text)"
     }
 
     // MARK: - HQ 主動發送文字廣播

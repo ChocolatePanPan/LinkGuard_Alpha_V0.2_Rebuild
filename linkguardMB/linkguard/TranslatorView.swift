@@ -54,60 +54,59 @@ struct TranslatorView: View {
                     AIServicePausedBanner(message: vm.aiServicePauseMessage)
                 }
 
-                    // 連線狀態提示
-                    if !vm.isWiFiCommandMode {
-                        HStack(spacing: 6) {
-                            Image(systemName: "wifi.slash")
-                                .foregroundColor(NV.warning)
-                            Text(L("未連線指揮中心，使用 iPhone 內建離線翻譯庫"))
-                                .font(.caption)
-                                .foregroundColor(NV.warning)
-                        }
-                        .padding(10)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(NV.warning.opacity(0.1))
-                        .cornerRadius(8)
+                if !vm.isWiFiCommandMode {
+                    HStack(spacing: 6) {
+                        Image(systemName: "wifi.slash")
+                            .foregroundColor(NV.warning)
+                        Text(L("未連線指揮中心，使用 iPhone 內建離線翻譯庫"))
+                            .font(.caption)
+                            .foregroundColor(NV.warning)
                     }
-
-                    // 語言選擇
-                    languageSelector
-
-                    // 輸入區
-                    inputSection
-
-                    // 錯誤提示
-                    if let err = errorMessage {
-                        HStack(spacing: 6) {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundColor(NV.danger)
-                            Text(err)
-                                .font(.caption)
-                                .foregroundColor(NV.danger)
-                        }
-                        .padding(10)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(NV.danger.opacity(0.1))
-                        .cornerRadius(8)
-                    }
-
-                    // 快速醫療用語
-                    quickPhraseSection
-
-                    // 翻譯結果
-                    if let result = vm.latestTranslation {
-                        resultSection(result)
-                    }
+                    .padding(10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(NV.warning.opacity(0.1))
+                    .cornerRadius(8)
                 }
-                .padding()
+
+                languageSelector
+                inputSection
+
+                if let err = errorMessage {
+                    HStack(spacing: 6) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundColor(NV.danger)
+                        Text(err)
+                            .font(.caption)
+                            .foregroundColor(NV.danger)
+                    }
+                    .padding(10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(NV.danger.opacity(0.1))
+                    .cornerRadius(8)
+                }
+
+                quickPhraseSection
+
+                if let result = vm.latestTranslation {
+                    resultSection(result)
+                }
             }
-            .contentMargins(.top, 0, for: .scrollContent)
+            .padding()
+        }
+        .contentMargins(.top, 0, for: .scrollContent)
         .outerNavigationTitle(L("翻譯"))
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.visible, for: .navigationBar)
         #endif
         .onChange(of: vm.translationErrorMessage) { _, msg in
-            if let msg { errorMessage = msg }
+            errorMessage = msg
+        }
+        .onChange(of: sourceLang) { _, _ in
+            clearTranslationResult()
+        }
+        .onChange(of: targetLang) { _, _ in
+            clearTranslationResult()
         }
     }
 
@@ -231,7 +230,7 @@ struct TranslatorView: View {
                 ForEach(quickPhrases, id: \.text) { phrase in
                     Button {
                         inputText = phrase.text
-                        translate()
+                        translate(textOverride: phrase.text)
                     } label: {
                         Text(phrase.label)
                             .font(.caption)
@@ -255,7 +254,6 @@ struct TranslatorView: View {
         VStack(alignment: .leading, spacing: 12) {
             Divider()
 
-            // 原文
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
                     Text(L("原文"))
@@ -271,7 +269,6 @@ struct TranslatorView: View {
                     .font(.body)
             }
 
-            // 譯文
             VStack(alignment: .leading, spacing: 4) {
                 Text(L("譯文 (%@)", result.targetLang))
                     .font(.caption)
@@ -286,7 +283,6 @@ struct TranslatorView: View {
             .background(NV.command.opacity(0.08))
             .cornerRadius(12)
 
-            // 操作按鈕
             HStack(spacing: 16) {
                 Button {
                     copyToPasteboard(result.translated)
@@ -318,13 +314,34 @@ struct TranslatorView: View {
         #endif
     }
 
-    private func translate() {
-        let text = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
+    private func clearTranslationResult() {
+        guard !vm.isTranslating else { return }
+        errorMessage = nil
+        vm.translationErrorMessage = nil
+        vm.latestTranslation = nil
+    }
+
+    private func translate(textOverride: String? = nil) {
+        let text = (textOverride ?? inputText).trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
         errorMessage = nil
+        vm.translationErrorMessage = nil
         vm.isTranslating = true
-        // 清除舊結果，避免相同字串不觸發重新渲染
         vm.latestTranslation = nil
+
+        if let offline = OfflineTranslationLibrary.shared.translateExact(
+            text: text,
+            sourceLang: sourceLang,
+            targetLang: targetLang
+        ) {
+            applyTranslation(
+                original: text,
+                translated: offline.translated,
+                detectedLang: offline.detectedLang,
+                targetLang: offline.targetLang
+            )
+            return
+        }
 
         if vm.isAIServicePaused {
             if let offline = OfflineTranslationLibrary.shared.translate(
@@ -332,46 +349,42 @@ struct TranslatorView: View {
                 sourceLang: sourceLang,
                 targetLang: targetLang
             ) {
-                vm.latestTranslation = TranslationResult(
+                applyTranslation(
                     original: text,
                     translated: offline.translated,
                     detectedLang: offline.detectedLang,
-                    targetLang: offline.targetLang
+                    targetLang: offline.targetLang,
+                    message: L("AI服務暫停，已切換離線翻譯庫")
                 )
-                errorMessage = L("AI服務暫停，已切換離線翻譯庫")
             } else {
                 errorMessage = L("AI服務暫停，且離線翻譯庫無對應詞句")
+                vm.translationErrorMessage = errorMessage
+                vm.isTranslating = false
             }
-            vm.isTranslating = false
             return
         }
 
-        if vm.commandClient.isConnected {
-            // 線上翻譯（透過 HQ → 後台 gemma4）
-            vm.requestTranslation(text: text, sourceLang: sourceLang, targetLang: targetLang)
-            // 超時保護（12 秒，因 GEMMA4 翻譯可能需 5-10 秒）
-            DispatchQueue.main.asyncAfter(deadline: .now() + 12) { [weak vm] in
-                guard vm?.isTranslating == true else { return }
-                // HQ 未回應 → 嘗試 HTTP 直連 gemma4 備援
-                Task { [weak vm] in
-                    let host = vm?.transcriptionServerHost ?? ""
-                    if !host.isEmpty && host != "localhost",
-                       let directResult = await self.directTranslateHTTP(host: host, text: text, sourceLang: sourceLang, targetLang: targetLang) {
-                        await MainActor.run {
-                            vm?.latestTranslation = TranslationResult(
-                                original: text,
-                                translated: directResult,
-                                detectedLang: sourceLang,
-                                targetLang: targetLang
-                            )
-                            vm?.isTranslating = false
-                            vm?.translationErrorMessage = L("已透過備援路由完成翻譯")
-                        }
-                        return
-                    }
-                    // HTTP 也失敗 → 離線 fallback
-                    await MainActor.run {
-                        vm?.isTranslating = false
+        Task {
+            let host = await MainActor.run { vm.transcriptionServerHost }
+            if !host.isEmpty && host != "localhost",
+               let directResult = await directTranslateHTTP(host: host, text: text, sourceLang: sourceLang, targetLang: targetLang) {
+                await MainActor.run {
+                    applyTranslation(
+                        original: text,
+                        translated: directResult,
+                        detectedLang: sourceLang,
+                        targetLang: targetLang
+                    )
+                }
+                return
+            }
+
+            let canUseHQRelay = await MainActor.run { vm.commandClient.isConnected }
+            if canUseHQRelay {
+                await MainActor.run {
+                    vm.requestTranslation(text: text, sourceLang: sourceLang, targetLang: targetLang)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak vm] in
+                        guard vm?.isTranslating == true else { return }
                         if let offline = OfflineTranslationLibrary.shared.translate(
                             text: text,
                             sourceLang: sourceLang,
@@ -383,67 +396,72 @@ struct TranslatorView: View {
                                 detectedLang: offline.detectedLang,
                                 targetLang: offline.targetLang
                             )
-                            vm?.translationErrorMessage = L("線上翻譯逾時，已切換離線翻譯庫")
+                            vm?.translationErrorMessage = L("線上翻譯較慢，已切換離線翻譯庫")
                         } else {
-                            vm?.translationErrorMessage = L("翻譯逾時，且離線翻譯庫無對應詞句")
+                            vm?.translationErrorMessage = L("線上翻譯回應較慢，請確認 HQ 與 AI 服務狀態")
                         }
+                        vm?.isTranslating = false
                     }
                 }
+                return
             }
-        } else {
-            // 離線模式：先嘗試直連 gemma4，再 fallback 離線翻譯庫
-            Task {
-                let host = vm.transcriptionServerHost
-                if !host.isEmpty && host != "localhost",
-                   let directResult = await directTranslateHTTP(host: host, text: text, sourceLang: sourceLang, targetLang: targetLang) {
-                    await MainActor.run {
-                        vm.latestTranslation = TranslationResult(
-                            original: text,
-                            translated: directResult,
-                            detectedLang: sourceLang,
-                            targetLang: targetLang
-                        )
-                        vm.isTranslating = false
-                    }
-                    return
-                }
-                await MainActor.run {
-                    if let offline = OfflineTranslationLibrary.shared.translate(
-                        text: text,
-                        sourceLang: sourceLang,
-                        targetLang: targetLang
-                    ) {
-                        vm.latestTranslation = TranslationResult(
-                            original: text,
-                            translated: offline.translated,
-                            detectedLang: offline.detectedLang,
-                            targetLang: offline.targetLang
-                        )
-                    } else {
-                        vm.translationErrorMessage = L("離線翻譯庫無對應詞句，請改用常用救援/醫療短句")
-                    }
+
+            await MainActor.run {
+                if let offline = OfflineTranslationLibrary.shared.translate(
+                    text: text,
+                    sourceLang: sourceLang,
+                    targetLang: targetLang
+                ) {
+                    applyTranslation(
+                        original: text,
+                        translated: offline.translated,
+                        detectedLang: offline.detectedLang,
+                        targetLang: offline.targetLang
+                    )
+                } else {
+                    errorMessage = L("離線翻譯庫無對應詞句，請改用常用救援/醫療短句")
+                    vm.translationErrorMessage = errorMessage
                     vm.isTranslating = false
                 }
             }
         }
     }
 
-    /// 直連 gemma4 /translate HTTP 備援
+    private func applyTranslation(
+        original: String,
+        translated: String,
+        detectedLang: String,
+        targetLang: String,
+        message: String? = nil
+    ) {
+        vm.latestTranslation = TranslationResult(
+            original: original,
+            translated: translated,
+            detectedLang: detectedLang,
+            targetLang: targetLang
+        )
+        errorMessage = message
+        vm.translationErrorMessage = message
+        vm.isTranslating = false
+    }
+
     private func directTranslateHTTP(host: String, text: String, sourceLang: String, targetLang: String) async -> String? {
         guard let url = URL(string: "http://\(host):8001/translate") else { return nil }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.timeoutInterval = 10
+        request.timeoutInterval = 5
         let body: [String: Any] = ["text": text, "source_lang": sourceLang, "target_lang": targetLang, "context": "rescue_medical"]
         guard let bodyData = try? JSONSerialization.data(withJSONObject: body) else { return nil }
         request.httpBody = bodyData
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
             guard let httpResp = response as? HTTPURLResponse, (200...299).contains(httpResp.statusCode) else { return nil }
-            if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-               let translated = json["translated"] as? String, !translated.isEmpty {
-                return translated
+            if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                let payload = json["data"] as? [String: Any] ?? json
+                if let translated = payload["translated"] as? String, !translated.isEmpty {
+                    return translated
+                }
             }
         } catch {
             // 連線失敗 — silent fallback
@@ -459,7 +477,7 @@ struct TranslatorView: View {
             "id": "id-ID", "ms": "ms-MY",
         ]
         utterance.voice = AVSpeechSynthesisVoice(language: langMap[lang] ?? "en-US")
-        utterance.rate = 0.45
+        utterance.rate = 0.56
         AVSpeechSynthesizer().speak(utterance)
     }
 }

@@ -781,11 +781,17 @@ class LinkGuardViewModel: ObservableObject {
         commandClient.onTranslateResult = { [weak self] json in
             DispatchQueue.main.async {
                 guard let self else { return }
+                let payload = json["data"] as? [String: Any] ?? json
+                let translated = payload["translated"] as? String ?? payload["result"] as? String ?? ""
+                let engine = payload["engine"] as? String ?? ""
+                if translated.isEmpty || engine == "local_fallback" || translated.hasPrefix("[LOCAL ") || translated.hasPrefix("[本地翻譯]") {
+                    return
+                }
                 let result = TranslationResult(
-                    original: json["original"] as? String ?? json["text"] as? String ?? "",
-                    translated: json["translated"] as? String ?? json["result"] as? String ?? "",
-                    detectedLang: json["detected_lang"] as? String ?? json["source_lang"] as? String ?? "auto",
-                    targetLang: json["target_lang"] as? String ?? "en"
+                    original: payload["original"] as? String ?? payload["text"] as? String ?? "",
+                    translated: translated,
+                    detectedLang: payload["detected_lang"] as? String ?? payload["source_lang"] as? String ?? "auto",
+                    targetLang: payload["target_lang"] as? String ?? "en"
                 )
                 self.latestTranslation = result
                 self.isTranslating = false

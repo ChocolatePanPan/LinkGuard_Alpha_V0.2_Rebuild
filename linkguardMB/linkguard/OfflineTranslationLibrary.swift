@@ -38,7 +38,10 @@ struct OfflineTranslationLibrary {
             translations: [
                 "zh-TW": "我要幫助你", "en": "I am here to help you.", "ja": "あなたを助けます。", "ko": "제가 도와드릴게요.", "vi": "Tôi ở đây để giúp bạn.", "th": "ฉันอยู่ที่นี่เพื่อช่วยคุณ", "id": "Saya di sini untuk membantu Anda.", "ms": "Saya di sini untuk membantu anda.",
             ],
-            aliases: ["zh-TW": ["我要幫你"]]
+            aliases: [
+                "zh-TW": ["我要幫你"],
+                "en": ["i will help you", "i'll help you", "im here to help you", "i'm here to help you", "i am here to help", "i can help you"],
+            ]
         ),
         PhraseEntry(
             translations: [
@@ -310,6 +313,27 @@ struct OfflineTranslationLibrary {
         }
 
         if let translated = fuzzyTranslate(text: original, detected: detected, target: targetLang) {
+            return OfflineHit(translated: translated, detectedLang: detected, targetLang: targetLang)
+        }
+
+        return nil
+    }
+
+    func translateExact(text: String, sourceLang: String = "auto", targetLang: String) -> OfflineHit? {
+        let original = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !original.isEmpty else { return nil }
+        guard supportedLangs.contains(targetLang) else { return nil }
+
+        var detected = sourceLang
+        if sourceLang == "auto" {
+            detected = detectLanguage(for: original)
+        }
+
+        if detected == targetLang {
+            return OfflineHit(translated: original, detectedLang: detected, targetLang: targetLang)
+        }
+
+        if let translated = exactTranslate(text: original, detected: detected, target: targetLang) {
             return OfflineHit(translated: translated, detectedLang: detected, targetLang: targetLang)
         }
 
