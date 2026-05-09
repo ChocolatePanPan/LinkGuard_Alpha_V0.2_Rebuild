@@ -112,7 +112,7 @@ class HQCommandServer: ObservableObject {
         guard !isRunning, listener == nil else { return }
         do {
             let params = NWParameters.tcp
-            params.includePeerToPeer = false
+            params.includePeerToPeer = true
 
             guard let nwPort = NWEndpoint.Port(rawValue: port) else {
                 print("[HQ-Server] ❌ Invalid port: \(port)")
@@ -129,9 +129,11 @@ class HQCommandServer: ObservableObject {
                         print("[HQ-Server] Ready on port \(self?.port ?? 0)")
                     case .failed(let error):
                         self?.isRunning = false
+                        self?.listener = nil
                         print("[HQ-Server] Failed: \(error)")
                     case .cancelled:
                         self?.isRunning = false
+                        self?.listener = nil
                     default:
                         break
                     }

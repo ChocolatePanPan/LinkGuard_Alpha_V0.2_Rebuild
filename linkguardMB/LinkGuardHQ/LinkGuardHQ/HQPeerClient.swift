@@ -56,7 +56,7 @@ class HQPeerClient: ObservableObject {
         DispatchQueue.main.async { self.isSearching = true; self.discoveredServers = [] }
 
         let params = NWParameters()
-        params.includePeerToPeer = false
+        params.includePeerToPeer = true
         browser = NWBrowser(
             for: .bonjour(type: "_linkguard-hq._tcp", domain: nil),
             using: params
@@ -92,7 +92,7 @@ class HQPeerClient: ObservableObject {
     func connect(to server: DiscoveredHQServer) {
         disconnect()
         let params = NWParameters.tcp
-        params.includePeerToPeer = false
+        params.includePeerToPeer = true
         let conn = NWConnection(to: server.endpoint, using: params)
         connection = conn
 

@@ -87,12 +87,12 @@ struct HQChatView: View {
     }
 
     private var canSendDraft: Bool {
-        !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && vm.server.isRunning
+        !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && vm.isHQActive
     }
 
     private func sendDraft() {
         let message = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !message.isEmpty, vm.server.isRunning else { return }
+        guard !message.isEmpty, vm.isHQActive else { return }
         vm.sendChat(message)
         draft = ""
     }

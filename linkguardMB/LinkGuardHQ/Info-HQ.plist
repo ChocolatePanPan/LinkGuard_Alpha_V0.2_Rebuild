@@ -6,8 +6,11 @@
 	<true/>
 	<key>NSBonjourServices</key>
 	<array>
-		<string>_linkguard-hq._tcp</string><string>_linkguardpy._tcp</string>
+		<string>_linkguard-hq._tcp</string>
+		<string>_linkguardpy._tcp</string>
 	</array>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>LinkGuard HQ 需要存取本地網路，才能建立通訊頻道並讓前線裝置連線</string>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>LinkGuard HQ 需要藍牙來連線 LoRa 指揮模組</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
