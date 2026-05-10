@@ -26,6 +26,8 @@ class HQViewModel: ObservableObject {
     @Published var bluetoothManager = HQBluetoothManager()
     @Published var loraReceivedCommands: [HQLoRaReceivedCommand] = []
     @Published var backendBridge = HQBackendBridge()
+    @Published var usarStore = USAROperationStore()
+    @Published var usarMessageLog: [USARWirePayload] = []
     #if os(macOS)
     /// 內建 Python 後端管理員 (sidecar)
     @Published var backendSupervisor = BackendSupervisor()
@@ -291,6 +293,7 @@ class HQViewModel: ObservableObject {
     }
 
     private var cancellables = Set<AnyCancellable>()
+    private var usarStoreRelay: AnyCancellable?
     /// peer 模式的 Combine 綁定（切換角色時重置）
     private var peerCancellables = Set<AnyCancellable>()
     private var whisperObserver: NSObjectProtocol?
@@ -302,6 +305,12 @@ class HQViewModel: ObservableObject {
         server.backendBridge = backendBridge
         backendBridge.server = server
         server.patientIDConfig = patientIDConfig
+        bindUSARStoreRelay()
+        server.onUSARMessage = { [weak self] wirePayload in
+            DispatchQueue.main.async {
+                self?.handleUSARWirePayload(wirePayload, source: "Field")
+            }
+        }
 
         // LGAP TCP 串流音訊 → 轉發到 UDPAudioServer 語音辨識管線
         audioStreamServer.onPCMDataReceived = { [weak self] pcmData, senderID in
@@ -1228,6 +1237,203 @@ class HQViewModel: ObservableObject {
         logEvent(type: .personnel, title: L("移除人員：%@", name))
     }
 
+    // MARK: - USAR 指揮鏈
+
+    private var defaultUSARIncidentID: String { "USAR-LOCAL-INCIDENT" }
+    private var defaultUSARSectorID: String { "USAR-SECTOR-ALPHA" }
+    private var defaultUSARTeamID: String { "USAR-TEAM-ALPHA" }
+
+    private func bindUSARStoreRelay() {
+        usarStoreRelay = usarStore.objectWillChange
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.objectWillChange.send() }
+    }
+
+    func ensureDefaultUSAROperation() -> (USARIncident, Sector) {
+        let now = Date()
+        let incident: USARIncident
+        if let existingIncident = usarStore.incidents.values.sorted(by: { $0.updatedAt > $1.updatedAt }).first {
+            incident = existingIncident
+        } else {
+            let created = USARIncident(
+                id: defaultUSARIncidentID,
+                name: L("LinkGuard USAR 作業"),
+                operationalPhase: .operations,
+                uccName: senderName,
+                lemaName: L("地方災害應變中心"),
+                createdAt: now,
+                updatedAt: now
+            )
+            usarStore.upsertIncident(created)
+            incident = created
+        }
+
+        let sector: Sector
+        if let existingSector = usarStore.sectors.values
+            .filter({ $0.incidentID == incident.id })
+            .sorted(by: { $0.code.localizedStandardCompare($1.code) == .orderedAscending })
+            .first {
+            sector = existingSector
+        } else {
+            let created = Sector(
+                id: defaultUSARSectorID,
+                incidentID: incident.id,
+                code: "A",
+                name: L("A 分區"),
+                commanderName: senderName,
+                boundaryDescription: L("由 UCC 建立的預設分區"),
+                updatedAt: now
+            )
+            usarStore.upsertSector(created)
+            sector = created
+        }
+        return (incident, sector)
+    }
+
+    func createUSARWorksite(code: String, name: String, address: String, priority: WorksitePriority) {
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedName.isEmpty else { return }
+        let (incident, sector) = ensureDefaultUSAROperation()
+        let normalizedCode = code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? String(format: "W%02d", usarStore.worksites.count + 1)
+            : code.trimmingCharacters(in: .whitespacesAndNewlines)
+        var worksite = usarStore.worksites.values.first { $0.incidentID == incident.id && $0.code == normalizedCode }
+            ?? Worksite(incidentID: incident.id, sectorID: sector.id, code: normalizedCode, name: trimmedName)
+        worksite.sectorID = sector.id
+        worksite.name = trimmedName
+        worksite.address = address.trimmingCharacters(in: .whitespacesAndNewlines)
+        worksite.priority = priority
+        worksite.status = .unassigned
+        worksite.updatedAt = Date()
+        usarStore.upsertWorksite(worksite)
+
+        let payload = USARWorksiteAssignmentPayload(sector: sector, worksite: worksite, instructions: L("UCC 建立工作點"))
+        sendUSARMessage(
+            USARProtocolEnvelope(
+                messageType: .worksiteAssignment,
+                incidentID: incident.id,
+                originRole: .uccOperations,
+                originID: senderName,
+                targetRole: .sectorCommander,
+                payload: payload
+            )
+        )
+        logEvent(type: .command, title: L("USAR 工作點建立：%@", worksite.code), detail: worksite.name)
+    }
+
+    func dispatchUSARSquadTask(worksiteID: String, targetDeviceID: String, kind: SquadTaskKind, title: String, instructions: String) {
+        guard var worksite = usarStore.worksites[worksiteID] ?? usarStore.worksites.values.sorted(by: { $0.updatedAt > $1.updatedAt }).first else { return }
+        let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedTitle.isEmpty else { return }
+
+        let targetIDs = resolvedUSARTargetDeviceIDs(preferredDeviceID: targetDeviceID)
+        let primaryDeviceID = targetIDs.first ?? targetDeviceID.trimmingCharacters(in: .whitespacesAndNewlines)
+        let squadID = primaryDeviceID.isEmpty ? "SQ-UCC-UNASSIGNED" : "SQ-\(primaryDeviceID)"
+        let team = ensureUSARTeam(primaryDeviceID: primaryDeviceID, squadID: squadID)
+        let squad = Squad(
+            id: squadID,
+            teamID: team.id,
+            code: primaryDeviceID.isEmpty ? "SQ" : primaryDeviceID,
+            name: primaryDeviceID.isEmpty ? L("未指定小隊") : L("%@ 小隊", primaryDeviceID),
+            function: function(for: kind),
+            leaderID: primaryDeviceID.isEmpty ? "pending" : primaryDeviceID,
+            leaderName: primaryDeviceID.isEmpty ? L("待指定") : primaryDeviceID,
+            deviceID: primaryDeviceID.isEmpty ? nil : primaryDeviceID,
+            memberCount: 0,
+            status: .standby
+        )
+        usarStore.upsertSquad(squad)
+
+        if !worksite.assignedTeamIDs.contains(team.id) {
+            worksite.assignedTeamIDs.append(team.id)
+        }
+        worksite.status = .assigned
+        worksite.updatedAt = Date()
+        usarStore.upsertWorksite(worksite)
+
+        let task = SquadTask(
+            incidentID: worksite.incidentID,
+            sectorID: worksite.sectorID,
+            worksiteID: worksite.id,
+            squadID: squad.id,
+            kind: kind,
+            title: trimmedTitle,
+            instructions: instructions.trimmingCharacters(in: .whitespacesAndNewlines),
+            priority: worksite.priority,
+            assignedByRole: .uccOperations,
+            assignedByID: senderName
+        )
+        usarStore.upsertTask(task)
+        let payload = USARSquadTaskPayload(task: task, worksite: worksite)
+        sendUSARMessage(
+            USARProtocolEnvelope(
+                messageType: .squadTask,
+                incidentID: worksite.incidentID,
+                originRole: .uccOperations,
+                originID: senderName,
+                targetRole: .squadLeader,
+                targetIDs: targetIDs,
+                payload: payload
+            ),
+            targetDeviceIDs: targetIDs.isEmpty ? effectiveTargetIDs : targetIDs
+        )
+        logEvent(type: .command, title: L("USAR 任務派遣：%@", task.title), detail: worksite.code)
+    }
+
+    private func ensureUSARTeam(primaryDeviceID: String, squadID: String) -> USARTeam {
+        if let existing = usarStore.teams[defaultUSARTeamID] { return existing }
+        let team = USARTeam(
+            id: defaultUSARTeamID,
+            code: "TW-LG-A",
+            name: L("LinkGuard USAR A 隊"),
+            capabilityTier: .medium,
+            functions: USARFunction.allCases,
+            squadIDs: [squadID],
+            leaderDeviceID: primaryDeviceID.isEmpty ? nil : primaryDeviceID,
+            selfSufficientDays: 7,
+            status: .assigned
+        )
+        usarStore.upsertTeam(team)
+        return team
+    }
+
+    private func resolvedUSARTargetDeviceIDs(preferredDeviceID: String) -> [String] {
+        let trimmed = preferredDeviceID.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty { return [trimmed] }
+        return effectiveTargetIDs ?? []
+    }
+
+    private func function(for kind: SquadTaskKind) -> USARFunction {
+        switch kind {
+        case .assess, .search, .marking: return .search
+        case .rescue, .evacuation: return .rescue
+        case .medical: return .medical
+        case .logistics: return .logistics
+        case .safety: return .safety
+        }
+    }
+
+    private func sendUSARMessage<Payload: Codable>(_ envelope: USARProtocolEnvelope<Payload>, targetDeviceIDs: [String]? = nil) {
+        do {
+            let wirePayload = try envelope.wirePayload()
+            handleUSARWirePayload(wirePayload, source: "HQ")
+            server.sendUSARMessage(envelope, targetDeviceIDs: targetDeviceIDs)
+        } catch {
+            logEvent(type: .command, title: L("USAR 封包編碼失敗"), detail: error.localizedDescription)
+        }
+    }
+
+    private func handleUSARWirePayload(_ wirePayload: USARWirePayload, source: String) {
+        if !usarMessageLog.contains(where: { $0.messageID == wirePayload.messageID }) {
+            usarMessageLog.insert(wirePayload, at: 0)
+            if usarMessageLog.count > 200 { usarMessageLog = Array(usarMessageLog.prefix(200)) }
+        }
+        usarStore.apply(wirePayload)
+        if source != "HQ" {
+            logEvent(type: .command, title: L("收到 USAR 回報"), detail: wirePayload.messageType, source: source)
+        }
+    }
+
     // MARK: - PWS 警報
 
     func addPWSAlert(_ alert: PWSAlert) {
@@ -1296,6 +1502,9 @@ class HQViewModel: ObservableObject {
         reinforcementRequests.removeAll()
         patientReports.removeAll()
         nfcTagWrites.removeAll()
+        usarStore = USAROperationStore()
+        bindUSARStoreRelay()
+        usarMessageLog.removeAll()
         executedProposalIDs.removeAll()
         ignoredProposalIDs.removeAll()
         radioReports.removeAll()

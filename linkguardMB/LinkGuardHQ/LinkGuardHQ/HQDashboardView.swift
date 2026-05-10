@@ -9,6 +9,7 @@ import AppKit
 enum HQSection: String, CaseIterable, Identifiable {
     case dashboard = "儀表板"
     case grandDashboard = "大儀表板"
+    case usarCommand = "USAR 指揮鏈"
     case disaster = "災害狀態"
     case personnelOverview = "人員總覽"
     case victimOverview = "受困者總覽"
@@ -39,6 +40,7 @@ enum HQSection: String, CaseIterable, Identifiable {
     static let navigationOrder: [HQSection] = [
         .dashboard,
         .grandDashboard,
+        .usarCommand,
         .disaster,
         .personnelOverview,
         .victimOverview,
@@ -74,6 +76,7 @@ enum HQSection: String, CaseIterable, Identifiable {
         switch self {
         case .dashboard: return "gauge.with.dots.needle.33percent"
         case .grandDashboard: return "square.grid.3x3.fill"
+        case .usarCommand: return "point.3.connected.trianglepath.dotted"
         case .disaster: return "building.2"
         case .personnelOverview: return "person.3.sequence.fill"
         case .victimOverview: return "person.fill.questionmark"
@@ -264,6 +267,7 @@ struct HQDashboardView: View {
         switch section {
         case .dashboard: dashboardDetailView
         case .grandDashboard: HQGrandDashboardView(vm: vm)
+        case .usarCommand: HQUSARCommandView(vm: vm)
         case .disaster: HQDisasterView(vm: vm)
         case .personnelOverview: HQPersonnelOverviewView(vm: vm)
         case .victimOverview: HQVictimOverviewView(vm: vm)
@@ -467,6 +471,7 @@ struct HQDashboardView: View {
             switch selectedSection {
             case .dashboard: dashboardDetailView
             case .grandDashboard: HQGrandDashboardView(vm: vm)
+            case .usarCommand: HQUSARCommandView(vm: vm)
             case .disaster: HQDisasterView(vm: vm)
             case .personnelOverview: HQPersonnelOverviewView(vm: vm)
             case .victimOverview: HQVictimOverviewView(vm: vm)
@@ -1030,6 +1035,7 @@ struct HQDashboardView: View {
         switch section {
         case .dashboard: return NV.green
         case .grandDashboard: return NV.command
+        case .usarCommand: return NV.command
         case .disaster: return NV.warning
         case .personnelOverview: return NV.team
         case .victimOverview: return NV.warning

@@ -161,6 +161,8 @@ class LinkGuardViewModel: ObservableObject {
 
     // 任務指派（從 HQ 接收）
     @Published var tasks: [TaskAssignment] = []
+    @Published var usarStore = USAROperationStore()
+    @Published var usarMessageLog: [USARWirePayload] = []
 
     // 倒數計時器（從 HQ 接收）
     @Published var countdownTimers: [CountdownTimerModel] = []
@@ -305,6 +307,7 @@ class LinkGuardViewModel: ObservableObject {
     private let locationManager = CLLocationManager()
     private let locationDelegate = LocationDelegate()
     private var cancellables = Set<AnyCancellable>()
+    private var usarStoreRelay: AnyCancellable?
 
     // 離線/低電量通知追蹤
     private var previousOnlineStates: [String: Bool] = [:]
@@ -346,6 +349,7 @@ class LinkGuardViewModel: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in self?.objectWillChange.send() }
             .store(in: &cancellables)
+        bindUSARStoreRelay()
         setupBLECallbacks()
         setupWiFiClient()
         setupAppLifecycleRecovery()
@@ -408,6 +412,11 @@ class LinkGuardViewModel: ObservableObject {
     // MARK: - WiFi 指揮中心連線
 
     private func setupWiFiClient() {
+        commandClient.onUSARMessage = { [weak self] wirePayload in
+            DispatchQueue.main.async {
+                self?.handleUSARWirePayload(wirePayload, source: "HQ")
+            }
+        }
         commandClient.onCommand = { [weak self] wifiCmd in
             self?.handleWiFiCommand(wifiCmd)
         }
@@ -1630,6 +1639,103 @@ class LinkGuardViewModel: ObservableObject {
     }
 
     var activeTaskCount: Int { tasks.filter(\.isActive).count }
+
+    // MARK: - USAR 小隊長流程
+
+    private var localUSARSquadID: String { "SQ-\(nodeStatus.nodeID)" }
+
+    var visibleUSARTasks: [SquadTask] {
+        let acceptedIDs: Set<String> = [nodeStatus.nodeID, localUSARSquadID, "\(nodeStatus.deptCode)-\(nodeStatus.nodeID)"]
+        let matching = usarStore.squadTasks.values.filter { acceptedIDs.contains($0.squadID) }
+        let source = matching.isEmpty ? Array(usarStore.squadTasks.values) : matching
+        return source
+            .filter { ![.completed, .cancelled].contains($0.status) }
+            .sorted { $0.updatedAt > $1.updatedAt }
+    }
+
+    private func bindUSARStoreRelay() {
+        usarStoreRelay = usarStore.objectWillChange
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.objectWillChange.send() }
+    }
+
+    private func handleUSARWirePayload(_ wirePayload: USARWirePayload, source: String) {
+        if !usarMessageLog.contains(where: { $0.messageID == wirePayload.messageID }) {
+            usarMessageLog.insert(wirePayload, at: 0)
+            if usarMessageLog.count > 120 { usarMessageLog = Array(usarMessageLog.prefix(120)) }
+        }
+        usarStore.apply(wirePayload)
+        appendActivity(kind: .task, title: L("收到 USAR 指揮鏈資料"), detail: wirePayload.messageType)
+    }
+
+    func sendUSARSquadStatus(taskID: String?, status: SquadOperationalStatus, note: String, locationDescription: String = "") {
+        let task = taskID.flatMap { usarStore.squadTasks[$0] }
+        let incidentID = task?.incidentID ?? usarStore.worksites.values.first?.incidentID ?? "USAR-FIELD-\(nodeStatus.nodeID)"
+        let squadID = task?.squadID ?? localUSARSquadID
+        let statusReport = SquadStatus(
+            incidentID: incidentID,
+            squadID: squadID,
+            taskID: task?.id,
+            worksiteID: task?.worksiteID,
+            status: status,
+            personnelAvailable: max(teamMembers.count, 1),
+            personnelInHazardArea: 0,
+            batteryPercent: effectiveBattery,
+            locationDescription: locationDescription,
+            note: note
+        )
+        let payload = USARSquadStatusPayload(status: statusReport, relatedTask: task)
+        sendUSARMessage(
+            USARProtocolEnvelope(
+                messageType: .squadStatus,
+                incidentID: incidentID,
+                originRole: .squadLeader,
+                originID: nodeStatus.nodeID,
+                targetRole: .uccOperations,
+                payload: payload
+            )
+        )
+        appendActivity(kind: .task, title: L("已送出 USAR 狀態"), detail: status.displayText)
+    }
+
+    func sendUSARResourceRequest(taskID: String?, resourceType: String, quantity: Int, reason: String) {
+        let trimmedResource = resourceType.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedResource.isEmpty else { return }
+        let task = taskID.flatMap { usarStore.squadTasks[$0] }
+        let incidentID = task?.incidentID ?? usarStore.worksites.values.first?.incidentID ?? "USAR-FIELD-\(nodeStatus.nodeID)"
+        let request = ResourceRequest(
+            incidentID: incidentID,
+            requesterRole: .squadLeader,
+            requesterID: nodeStatus.nodeID,
+            worksiteID: task?.worksiteID,
+            squadID: task?.squadID ?? localUSARSquadID,
+            resourceType: trimmedResource,
+            quantity: max(quantity, 1),
+            priority: task?.priority ?? .normal,
+            reason: reason.trimmingCharacters(in: .whitespacesAndNewlines)
+        )
+        sendUSARMessage(
+            USARProtocolEnvelope(
+                messageType: .resourceRequest,
+                incidentID: incidentID,
+                originRole: .squadLeader,
+                originID: nodeStatus.nodeID,
+                targetRole: .uccResources,
+                payload: USARResourceRequestPayload(request: request)
+            )
+        )
+        appendActivity(kind: .task, title: L("已送出 USAR 資源請求"), detail: trimmedResource)
+    }
+
+    private func sendUSARMessage<Payload: Codable>(_ envelope: USARProtocolEnvelope<Payload>) {
+        do {
+            let wirePayload = try envelope.wirePayload()
+            handleUSARWirePayload(wirePayload, source: "Local")
+            commandClient.sendUSARMessage(envelope)
+        } catch {
+            appendActivity(kind: .task, title: L("USAR 封包編碼失敗"), detail: error.localizedDescription)
+        }
+    }
 
     // MARK: - HQ 遠端控制（iPad 連線 Mac HQ 時可發送指揮命令）
 

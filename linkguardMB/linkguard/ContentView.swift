@@ -3,7 +3,7 @@ import SwiftUI
 // MARK: - Main View
 
 enum AppTab: Hashable {
-    case dashboard, victims, sos, disaster, chat, reinforcement, team, commands, notifications, radio, connection, patientForm, nfcReader, decision, translator, photo, personnelAssignment, ai, communication, hospitals
+    case dashboard, victims, sos, disaster, chat, reinforcement, team, commands, notifications, radio, connection, patientForm, nfcReader, decision, translator, photo, personnelAssignment, ai, communication, hospitals, squadLeader
 }
 
 struct ContentView: View {
@@ -61,6 +61,13 @@ struct ContentView: View {
                             .toolbarBackground(.visible, for: .navigationBar)
                     }
                     .badge(viewModel.decisions.count + viewModel.unreadCommandCount)
+                    Tab("USAR", systemImage: "figure.run.circle.fill", value: AppTab.squadLeader) {
+                        SquadLeaderView(vm: viewModel)
+                            .navigationTitle(L("USAR 小隊長"))
+                            .navigationBarTitleDisplayMode(.inline)
+                            .toolbarBackground(.visible, for: .navigationBar)
+                    }
+                    .badge(viewModel.visibleUSARTasks.count)
                     TabSection(L("其他")) {
                         Tab(L("受困者"), systemImage: "person.fill.questionmark", value: AppTab.victims) {
                             VictimListView(vm: viewModel)
