@@ -1653,6 +1653,14 @@ class LinkGuardViewModel: ObservableObject {
             .sorted { $0.updatedAt > $1.updatedAt }
     }
 
+    var visibleUSARWorksites: [Worksite] {
+        usarStore.worksites.values.sorted { lhs, rhs in
+            if lhs.priority.rank != rhs.priority.rank { return lhs.priority.rank < rhs.priority.rank }
+            if lhs.updatedAt != rhs.updatedAt { return lhs.updatedAt > rhs.updatedAt }
+            return lhs.code.localizedStandardCompare(rhs.code) == .orderedAscending
+        }
+    }
+
     private func bindUSARStoreRelay() {
         usarStoreRelay = usarStore.objectWillChange
             .receive(on: DispatchQueue.main)
@@ -1665,7 +1673,110 @@ class LinkGuardViewModel: ObservableObject {
             if usarMessageLog.count > 120 { usarMessageLog = Array(usarMessageLog.prefix(120)) }
         }
         usarStore.apply(wirePayload)
-        appendActivity(kind: .task, title: L("收到 USAR 指揮鏈資料"), detail: wirePayload.messageType)
+        if source != "Local" {
+            appendActivity(kind: .task, title: L("收到 USAR 指揮鏈資料"), detail: wirePayload.messageType)
+        }
+    }
+
+    func sendUSARWorksiteUpdate(worksiteID: String,
+                                status: WorksiteStatus,
+                                priority: WorksitePriority,
+                                victimCount: Int,
+                                note: String,
+                                originRole: UCCRole) {
+        guard var worksite = usarStore.worksites[worksiteID] else { return }
+        worksite.status = status
+        worksite.priority = priority
+        worksite.victimCount = max(victimCount, 0)
+        let trimmedNote = note.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedNote.isEmpty {
+            worksite.locationDescription = trimmedNote
+        }
+        worksite.updatedAt = Date()
+
+        let payload = USARWorksiteUpsertPayload(worksite: worksite)
+        sendUSARMessage(
+            USARProtocolEnvelope(
+                messageType: .worksiteUpsert,
+                incidentID: worksite.incidentID,
+                originRole: originRole,
+                originID: nodeStatus.nodeID,
+                targetRole: .uccOperations,
+                payload: payload
+            )
+        )
+        appendActivity(kind: .task, title: L("已送出 USAR 工作點更新"), detail: "\(worksite.code) · \(status.displayText)")
+    }
+
+    func sendUSARASRObservation(worksiteID: String,
+                                level: ASRLevel,
+                                structureType: StructureType,
+                                recommendedPriority: WorksitePriority,
+                                notes: String) {
+        guard var worksite = usarStore.worksites[worksiteID] else { return }
+        let trimmedNotes = notes.trimmingCharacters(in: .whitespacesAndNewlines)
+        let assessment = ASRAssessment(
+            incidentID: worksite.incidentID,
+            worksiteID: worksite.id,
+            level: level,
+            structureType: structureType,
+            collapsePattern: trimmedNotes,
+            trappedSigns: "",
+            voidPotential: "",
+            accessRoutes: "",
+            recommendedPriority: recommendedPriority,
+            confidence: .probable,
+            assessorRole: .worksiteManager,
+            assessorID: nodeStatus.nodeID,
+            notes: trimmedNotes
+        )
+        worksite.currentASRLevel = level
+        worksite.priority = recommendedPriority
+        worksite.updatedAt = Date()
+
+        let payload = USARASRObservationPayload(assessment: assessment, suggestedWorksiteUpdate: worksite)
+        sendUSARMessage(
+            USARProtocolEnvelope(
+                messageType: .asrObservation,
+                incidentID: worksite.incidentID,
+                originRole: .worksiteManager,
+                originID: nodeStatus.nodeID,
+                targetRole: .uccPlanning,
+                payload: payload
+            )
+        )
+        appendActivity(kind: .task, title: L("已送出 USAR ASR"), detail: "\(worksite.code) · \(level.displayText)")
+    }
+
+    func sendUSARHazardReport(worksiteID: String,
+                              hazardType: USARHazardType,
+                              severity: USARHazardSeverity,
+                              description: String,
+                              mitigation: String) {
+        let trimmedDescription = description.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedDescription.isEmpty, let worksite = usarStore.worksites[worksiteID] else { return }
+        let hazard = HazardFlag(
+            incidentID: worksite.incidentID,
+            worksiteID: worksite.id,
+            hazardType: hazardType,
+            severity: severity,
+            description: trimmedDescription,
+            mitigation: mitigation.trimmingCharacters(in: .whitespacesAndNewlines),
+            reportedByRole: .worksiteManager,
+            reportedByID: nodeStatus.nodeID
+        )
+
+        sendUSARMessage(
+            USARProtocolEnvelope(
+                messageType: .hazardReport,
+                incidentID: worksite.incidentID,
+                originRole: .worksiteManager,
+                originID: nodeStatus.nodeID,
+                targetRole: .uccSafety,
+                payload: USARHazardReportPayload(hazard: hazard)
+            )
+        )
+        appendActivity(kind: .hazard, title: L("已送出 USAR 危害"), detail: "\(hazardType.displayText) · \(severity.displayText)")
     }
 
     func sendUSARSquadStatus(taskID: String?, status: SquadOperationalStatus, note: String, locationDescription: String = "") {

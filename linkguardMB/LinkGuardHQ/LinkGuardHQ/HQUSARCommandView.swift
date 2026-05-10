@@ -31,6 +31,14 @@ struct HQUSARCommandView: View {
         vm.usarStore.resourceRequests.values.sorted { $0.createdAt > $1.createdAt }
     }
 
+    private var assessments: [ASRAssessment] {
+        vm.usarStore.assessments.values.sorted { $0.timestamp > $1.timestamp }
+    }
+
+    private var hazards: [HazardFlag] {
+        vm.usarStore.hazards.values.sorted { $0.timestamp > $1.timestamp }
+    }
+
     var body: some View {
         HQPage {
             HQPageTitleBar(L("USAR UCC 指揮鏈"), subtitle: L("UCC → 分區 → 工作點 → 小隊長"), icon: "point.3.connected.trianglepath.dotted", accent: NV.command) {
@@ -50,6 +58,8 @@ struct HQUSARCommandView: View {
                 StatLabel(icon: "building.2.fill", label: L("工作點"), value: "\(worksites.count)", color: NV.command)
                 StatLabel(icon: "checklist.checked", label: L("任務"), value: "\(tasks.count)", color: NV.green)
                 StatLabel(icon: "dot.radiowaves.left.and.right", label: L("狀態回報"), value: "\(latestStatuses.count)", color: NV.info)
+                StatLabel(icon: "magnifyingglass", label: "ASR", value: "\(assessments.count)", color: NV.team)
+                StatLabel(icon: "exclamationmark.triangle.fill", label: L("危害"), value: "\(hazards.count)", color: NV.danger)
                 StatLabel(icon: "shippingbox.fill", label: L("資源請求"), value: "\(resourceRequests.count)", color: NV.reinforce)
             }
 
@@ -63,6 +73,7 @@ struct HQUSARCommandView: View {
                 taskAndStatusBoard
             }
 
+            assessmentAndHazardBoard
             resourceRequestBoard
             packetLogBoard
         }
@@ -305,6 +316,94 @@ struct HQUSARCommandView: View {
         }
     }
 
+    private var assessmentAndHazardBoard: some View {
+        HStack(alignment: .top, spacing: NV.panelSpacing) {
+            HQPanel(title: L("ASR / 工作點評估"), icon: "magnifyingglass.circle.fill", accent: NV.team) {
+                if assessments.isEmpty {
+                    HQEmptyStateView(icon: "magnifyingglass", title: L("尚未收到 ASR"), subtitle: L("工作點管理回報 ASR 後會出現在這裡。"), minHeight: 140)
+                } else {
+                    LazyVStack(spacing: 8) {
+                        ForEach(assessments.prefix(8)) { assessment in
+                            HStack(alignment: .top, spacing: 12) {
+                                VStack(spacing: 4) {
+                                    Text(assessment.level.displayText)
+                                        .font(.headline.monospaced())
+                                    Text(assessment.recommendedPriority.displayText)
+                                        .font(.caption2.bold())
+                                        .foregroundColor(priorityColor(assessment.recommendedPriority))
+                                }
+                                .frame(width: 66)
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(worksiteCode(for: assessment.worksiteID))
+                                        .font(.headline)
+                                    Text("\(assessment.structureType.displayText) · \(assessment.confidence.displayText)")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                    if !assessment.notes.isEmpty {
+                                        Text(assessment.notes)
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                            .lineLimit(2)
+                                    }
+                                }
+                                Spacer()
+                                Text(Self.timeFormatter.string(from: assessment.timestamp))
+                                    .font(.caption2.monospacedDigit())
+                                    .foregroundColor(.secondary)
+                            }
+                            .padding(10)
+                            .hqThemedSurfaceBackground(opacity: 0.68)
+                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        }
+                    }
+                }
+            }
+
+            HQPanel(title: L("危害回報"), icon: "exclamationmark.triangle.fill", accent: NV.danger) {
+                if hazards.isEmpty {
+                    HQEmptyStateView(icon: "exclamationmark.triangle", title: L("尚未收到危害回報"), subtitle: L("工作點管理送出危害後會出現在這裡。"), minHeight: 140)
+                } else {
+                    LazyVStack(spacing: 8) {
+                        ForEach(hazards.prefix(8)) { hazard in
+                            HStack(alignment: .top, spacing: 12) {
+                                Image(systemName: hazard.isActive ? "exclamationmark.triangle.fill" : "checkmark.shield.fill")
+                                    .foregroundColor(hazard.isActive ? severityColor(hazard.severity) : NV.green)
+                                    .frame(width: 24)
+                                VStack(alignment: .leading, spacing: 4) {
+                                    HStack(spacing: 6) {
+                                        Text(hazard.hazardType.displayText)
+                                            .font(.headline)
+                                        Text(hazard.severity.displayText)
+                                            .font(.caption2.bold())
+                                            .foregroundColor(severityColor(hazard.severity))
+                                            .padding(.horizontal, 6)
+                                            .padding(.vertical, 2)
+                                            .background(severityColor(hazard.severity).opacity(0.14))
+                                            .clipShape(Capsule())
+                                    }
+                                    Text(worksiteCode(for: hazard.worksiteID))
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                    Text(hazard.description)
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                        .lineLimit(2)
+                                }
+                                Spacer()
+                                Text(Self.timeFormatter.string(from: hazard.timestamp))
+                                    .font(.caption2.monospacedDigit())
+                                    .foregroundColor(.secondary)
+                            }
+                            .padding(10)
+                            .hqThemedSurfaceBackground(opacity: 0.68)
+                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     private var packetLogBoard: some View {
         HQPanel(title: L("USAR 封包紀錄"), icon: "network", accent: NV.team) {
             if vm.usarMessageLog.isEmpty {
@@ -343,6 +442,20 @@ struct HQUSARCommandView: View {
         case .low: return NV.info
         case .deferred: return .secondary
         }
+    }
+
+    private func severityColor(_ severity: USARHazardSeverity) -> Color {
+        switch severity {
+        case .monitor: return NV.info
+        case .caution: return NV.warning
+        case .high: return NV.reinforce
+        case .critical: return NV.danger
+        }
+    }
+
+    private func worksiteCode(for worksiteID: String) -> String {
+        guard let worksite = vm.usarStore.worksites[worksiteID] else { return worksiteID }
+        return "\(worksite.code) · \(worksite.name)"
     }
 
     private static let timeFormatter: DateFormatter = {

@@ -65,6 +65,31 @@ extension ASRLevel {
     var displayText: String { "ASR \(rawValue)" }
 }
 
+extension ASRConfidence {
+    var displayText: String {
+        switch self {
+        case .initial: return "初步"
+        case .probable: return "可能"
+        case .confirmed: return "確認"
+        case .needsReview: return "需複核"
+        }
+    }
+}
+
+extension StructureType {
+    var displayText: String {
+        switch self {
+        case .wood: return "木構造"
+        case .unreinforcedMasonry: return "未補強磚造"
+        case .reinforcedMasonry: return "補強磚造"
+        case .reinforcedConcrete: return "鋼筋混凝土"
+        case .structuralSteel: return "鋼構"
+        case .mixed: return "混合構造"
+        case .unknown: return "未知"
+        }
+    }
+}
+
 extension SquadTaskKind {
     var displayText: String {
         switch self {

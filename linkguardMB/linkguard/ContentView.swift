@@ -62,8 +62,8 @@ struct ContentView: View {
                     }
                     .badge(viewModel.decisions.count + viewModel.unreadCommandCount)
                     Tab("USAR", systemImage: "figure.run.circle.fill", value: AppTab.squadLeader) {
-                        SquadLeaderView(vm: viewModel)
-                            .navigationTitle(L("USAR 小隊長"))
+                        USARFieldRoleView(vm: viewModel)
+                            .navigationTitle(L("USAR 指揮鏈"))
                             .navigationBarTitleDisplayMode(.inline)
                             .toolbarBackground(.visible, for: .navigationBar)
                     }
