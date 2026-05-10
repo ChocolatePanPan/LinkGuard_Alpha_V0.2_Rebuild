@@ -163,6 +163,7 @@ class LinkGuardViewModel: ObservableObject {
     @Published var tasks: [TaskAssignment] = []
     @Published var usarStore = USAROperationStore()
     @Published var usarMessageLog: [USARWirePayload] = []
+    @Published var currentUSARRoleScope: USARRoleScope?
 
     // 倒數計時器（從 HQ 接收）
     @Published var countdownTimers: [CountdownTimerModel] = []
@@ -304,6 +305,7 @@ class LinkGuardViewModel: ObservableObject {
     private var sosAutoDowngradeTimer: Timer?
     private var statusReportTimer: Timer?
     private var locationTimer: Timer?
+    private static let currentUSARRoleScopeKey = "currentUSARRoleScope"
     private let locationManager = CLLocationManager()
     private let locationDelegate = LocationDelegate()
     private var cancellables = Set<AnyCancellable>()
@@ -360,6 +362,10 @@ class LinkGuardViewModel: ObservableObject {
         // 載入本地傷患資料
         if let saved: [PatientReport] = PersistenceManager.shared.load(key: "localPatients") {
             localPatients = saved
+        }
+        if let savedScope: USARRoleScope = PersistenceManager.shared.load(key: Self.currentUSARRoleScopeKey) {
+            currentUSARRoleScope = savedScope
+            usarStore.upsertRoleScope(savedScope)
         }
     }
 
@@ -1645,16 +1651,40 @@ class LinkGuardViewModel: ObservableObject {
     private var localUSARSquadID: String { "SQ-\(nodeStatus.nodeID)" }
 
     var visibleUSARTasks: [SquadTask] {
-        let acceptedIDs: Set<String> = [nodeStatus.nodeID, localUSARSquadID, "\(nodeStatus.deptCode)-\(nodeStatus.nodeID)"]
+        let scopedSquadID = currentUSARRoleScope?.squadID
+        let acceptedIDs: Set<String> = [nodeStatus.nodeID, localUSARSquadID, "\(nodeStatus.deptCode)-\(nodeStatus.nodeID)", scopedSquadID]
+            .compactMap { $0 }
+            .reduce(into: Set<String>()) { $0.insert($1) }
         let matching = usarStore.squadTasks.values.filter { acceptedIDs.contains($0.squadID) }
-        let source = matching.isEmpty ? Array(usarStore.squadTasks.values) : matching
+        let scopedByWorksite = currentUSARRoleScope?.worksiteID.map { worksiteID in
+            usarStore.squadTasks.values.filter { $0.worksiteID == worksiteID }
+        } ?? []
+        let source: [SquadTask]
+        if currentUSARRoleScope?.role == .squadLeader {
+            source = matching
+        } else if !matching.isEmpty {
+            source = matching
+        } else if !scopedByWorksite.isEmpty {
+            source = scopedByWorksite
+        } else {
+            source = Array(usarStore.squadTasks.values)
+        }
         return source
             .filter { ![.completed, .cancelled].contains($0.status) }
             .sorted { $0.updatedAt > $1.updatedAt }
     }
 
     var visibleUSARWorksites: [Worksite] {
-        usarStore.worksites.values.sorted { lhs, rhs in
+        let scoped: [Worksite]
+        if let worksiteID = currentUSARRoleScope?.worksiteID,
+           let worksite = usarStore.worksites[worksiteID] {
+            scoped = [worksite]
+        } else if let sectorID = currentUSARRoleScope?.sectorID {
+            scoped = usarStore.worksites.values.filter { $0.sectorID == sectorID }
+        } else {
+            scoped = Array(usarStore.worksites.values)
+        }
+        return scoped.sorted { lhs, rhs in
             if lhs.priority.rank != rhs.priority.rank { return lhs.priority.rank < rhs.priority.rank }
             if lhs.updatedAt != rhs.updatedAt { return lhs.updatedAt > rhs.updatedAt }
             return lhs.code.localizedStandardCompare(rhs.code) == .orderedAscending
@@ -1673,9 +1703,25 @@ class LinkGuardViewModel: ObservableObject {
             if usarMessageLog.count > 120 { usarMessageLog = Array(usarMessageLog.prefix(120)) }
         }
         usarStore.apply(wirePayload)
+        applyUSARRoleAssignmentIfNeeded(wirePayload)
         if source != "Local" {
             appendActivity(kind: .task, title: L("收到 USAR 指揮鏈資料"), detail: wirePayload.messageType)
         }
+    }
+
+    private func applyUSARRoleAssignmentIfNeeded(_ wirePayload: USARWirePayload) {
+        guard wirePayload.messageType == USARMessageType.roleAssignment.rawValue,
+              let payloadData = wirePayload.payloadJSON.data(using: .utf8),
+              let payload = try? USARJSON.makeDecoder().decode(USARRoleAssignmentPayload.self, from: payloadData) else { return }
+        let acceptedIDs: Set<String> = [nodeStatus.nodeID, "\(nodeStatus.deptCode)-\(nodeStatus.nodeID)"]
+        let targetIDs = Set(wirePayload.targetIDs)
+        guard payload.assignedDeviceID == nodeStatus.nodeID || acceptedIDs.contains(payload.assignedDeviceID) || !targetIDs.isDisjoint(with: acceptedIDs) else { return }
+
+        currentUSARRoleScope = payload.scope
+        usarStore.upsertRoleScope(payload.scope)
+        PersistenceManager.shared.save(key: Self.currentUSARRoleScopeKey, value: payload.scope)
+        let detail = payload.instructions.isEmpty ? payload.scope.displayName : payload.instructions
+        appendActivity(kind: .task, title: L("收到 USAR 角色派令：%@", payload.scope.role.displayText), detail: detail)
     }
 
     func sendUSARWorksiteUpdate(worksiteID: String,

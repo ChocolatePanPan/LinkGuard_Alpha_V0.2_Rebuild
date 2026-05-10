@@ -2,6 +2,7 @@ import Foundation
 import Combine
 
 final class USAROperationStore: ObservableObject {
+    @Published private(set) var roleScopes: [String: USARRoleScope] = [:]
     @Published private(set) var incidents: [String: USARIncident] = [:]
     @Published private(set) var sectors: [String: Sector] = [:]
     @Published private(set) var worksites: [String: Worksite] = [:]
@@ -16,6 +17,10 @@ final class USAROperationStore: ObservableObject {
     @Published private(set) var markings: [String: RCMMarking] = [:]
     @Published private(set) var medicalTransfers: [String: MedicalTransfer] = [:]
     @Published private(set) var operationalLogs: [String: OperationalLog] = [:]
+
+    func upsertRoleScope(_ scope: USARRoleScope) {
+        roleScopes[scope.id] = scope
+    }
 
     func upsertIncident(_ incident: USARIncident) {
         incidents[incident.id] = incident
@@ -120,6 +125,9 @@ final class USAROperationStore: ObservableObject {
 
         let decoder = USARJSON.makeDecoder()
         switch messageType {
+        case .roleAssignment:
+            guard let decoded = try? decoder.decode(USARRoleAssignmentPayload.self, from: payloadData) else { return }
+            upsertRoleScope(decoded.scope)
         case .worksiteUpsert:
             guard let decoded = try? decoder.decode(USARWorksiteUpsertPayload.self, from: payloadData) else { return }
             upsertWorksite(decoded.worksite)

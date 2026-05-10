@@ -458,6 +458,7 @@
 | `text_broadcast` | Field → Backend → Field | 文字廣播 |
 | `message_ack` | Field → HQ | 訊息確認收到 |
 | `hello` | Field → HQ | 連線握手（含 role 判斷 field_unit / hq_peer） |
+| `usar_role_assignment` | UCC/HQ → Field | USAR 角色、分區、工作點與小隊 scope 派令 |
 | `usar_worksite_upsert` | UCC/Sector/Worksite → HQ → Field | 工作場地建立或更新 |
 | `usar_worksite_assignment` | UCC/Sector → HQ → Field | 工作場地指派 |
 | `usar_squad_task` | UCC/Sector/Worksite → HQ → Squad Leader | 小隊任務下發 |
@@ -500,6 +501,7 @@ typed payload 對應表：
 
 | msgType | payloadJSON 解碼型別 | 主要內容 |
 |---------|----------------------|----------|
+| `usar_role_assignment` | `USARRoleAssignmentPayload` | `scope`, `assignedDeviceID`, `instructions` |
 | `usar_worksite_upsert` | `USARWorksiteUpsertPayload` | `worksite`, `zones`, `currentASR` |
 | `usar_worksite_assignment` | `USARWorksiteAssignmentPayload` | `sector`, `worksite`, `assignedTeamIDs`, `instructions` |
 | `usar_squad_task` | `USARSquadTaskPayload` | `task`, `worksite` |
@@ -712,7 +714,8 @@ HQ（macOS/Android）透過 BackendBridge 連接 Win11 tcp_server(:9000)：
    HQ → WiFiMessage{command} → 前線（可選 broadcast 或 selected targets）
 
 10. USAR Command Chain:
-  UCC 建立/更新 Worksite → WiFiMessage{usar_worksite_upsert} → HQ → Sector/Worksite
+  UCC/HQ 指派裝置角色 → WiFiMessage{usar_role_assignment} → Field role shell
+  → UCC 建立/更新 Worksite → WiFiMessage{usar_worksite_upsert} → HQ → Sector/Worksite
   → Worksite 指派小隊任務 → WiFiMessage{usar_squad_task} → Squad Leader
   → Squad Leader 回報狀態/ASR/危害/資源 → WiFiMessage{usar_squad_status | usar_asr_observation | usar_hazard_report | usar_resource_request}
   → HQ `USAROperationStore` 去重與彙整 → UCC/Sector/Worksite 顯示更新

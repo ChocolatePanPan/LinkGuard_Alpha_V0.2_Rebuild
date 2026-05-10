@@ -21,6 +21,7 @@ enum USARJSON {
 }
 
 enum USARMessageType: String, Codable, CaseIterable, Identifiable {
+    case roleAssignment = "usar_role_assignment"
     case worksiteUpsert = "usar_worksite_upsert"
     case worksiteAssignment = "usar_worksite_assignment"
     case squadTask = "usar_squad_task"
@@ -33,6 +34,18 @@ enum USARMessageType: String, Codable, CaseIterable, Identifiable {
     case operationalLog = "usar_operational_log"
 
     var id: String { rawValue }
+}
+
+struct USARRoleAssignmentPayload: Codable, Equatable {
+    var scope: USARRoleScope
+    var assignedDeviceID: String
+    var instructions: String
+
+    init(scope: USARRoleScope, assignedDeviceID: String, instructions: String = "") {
+        self.scope = scope
+        self.assignedDeviceID = assignedDeviceID
+        self.instructions = instructions
+    }
 }
 
 struct USARProtocolEnvelope<Payload: Codable>: Codable, Identifiable {

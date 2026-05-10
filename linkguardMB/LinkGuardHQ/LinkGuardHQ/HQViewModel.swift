@@ -1380,8 +1380,70 @@ class HQViewModel: ObservableObject {
         logEvent(type: .command, title: L("USAR 任務派遣：%@", task.title), detail: worksite.code)
     }
 
+    func assignUSARRole(deviceID: String, role: UCCRole, worksiteID: String?, displayName: String, instructions: String) {
+        let trimmedDeviceID = deviceID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedDeviceID.isEmpty else { return }
+        let (incident, sector) = ensureDefaultUSAROperation()
+        let worksite = worksiteID.flatMap { usarStore.worksites[$0] }
+        let squadID = role == .squadLeader ? "SQ-\(trimmedDeviceID)" : nil
+        let scope = USARRoleScope(
+            id: "role-\(trimmedDeviceID)",
+            role: role,
+            incidentID: incident.id,
+            sectorID: worksite?.sectorID ?? sector.id,
+            worksiteID: worksite?.id,
+            squadID: squadID,
+            displayName: displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? trimmedDeviceID : displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        )
+        usarStore.upsertRoleScope(scope)
+
+        if role == .squadLeader {
+            let team = ensureUSARTeam(primaryDeviceID: trimmedDeviceID, squadID: squadID ?? "SQ-\(trimmedDeviceID)")
+            let squad = Squad(
+                id: squadID ?? "SQ-\(trimmedDeviceID)",
+                teamID: team.id,
+                code: trimmedDeviceID,
+                name: L("%@ 小隊", trimmedDeviceID),
+                function: .rescue,
+                leaderID: trimmedDeviceID,
+                leaderName: scope.displayName,
+                deviceID: trimmedDeviceID,
+                status: .standby
+            )
+            usarStore.upsertSquad(squad)
+        }
+
+        let payload = USARRoleAssignmentPayload(
+            scope: scope,
+            assignedDeviceID: trimmedDeviceID,
+            instructions: instructions.trimmingCharacters(in: .whitespacesAndNewlines)
+        )
+        sendUSARMessage(
+            USARProtocolEnvelope(
+                messageType: .roleAssignment,
+                incidentID: incident.id,
+                originRole: .uccCommander,
+                originID: senderName,
+                targetRole: role,
+                targetIDs: [trimmedDeviceID],
+                payload: payload
+            ),
+            targetDeviceIDs: [trimmedDeviceID]
+        )
+        logEvent(type: .personnel, title: L("USAR 角色派令：%@", role.displayText), detail: "\(trimmedDeviceID) · \(scope.displayName)")
+    }
+
     private func ensureUSARTeam(primaryDeviceID: String, squadID: String) -> USARTeam {
-        if let existing = usarStore.teams[defaultUSARTeamID] { return existing }
+        if var existing = usarStore.teams[defaultUSARTeamID] {
+            if !existing.squadIDs.contains(squadID) {
+                existing.squadIDs.append(squadID)
+            }
+            if existing.leaderDeviceID == nil, !primaryDeviceID.isEmpty {
+                existing.leaderDeviceID = primaryDeviceID
+            }
+            usarStore.upsertTeam(existing)
+            return existing
+        }
         let team = USARTeam(
             id: defaultUSARTeamID,
             code: "TW-LG-A",

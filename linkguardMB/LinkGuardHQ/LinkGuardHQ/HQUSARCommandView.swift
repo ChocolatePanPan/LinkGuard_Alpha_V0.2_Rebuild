@@ -11,6 +11,11 @@ struct HQUSARCommandView: View {
     @State private var taskKind: SquadTaskKind = .assess
     @State private var taskTitle = ""
     @State private var taskInstructions = ""
+    @State private var selectedRoleDeviceID = ""
+    @State private var selectedUSARRole: UCCRole = .sectorCommander
+    @State private var selectedRoleWorksiteID = ""
+    @State private var roleDisplayName = ""
+    @State private var roleInstructions = ""
 
     private var worksites: [Worksite] {
         vm.usarStore.worksites.values.sorted { lhs, rhs in
@@ -39,6 +44,15 @@ struct HQUSARCommandView: View {
         vm.usarStore.hazards.values.sorted { $0.timestamp > $1.timestamp }
     }
 
+    private var roleScopes: [USARRoleScope] {
+        vm.usarStore.roleScopes.values.sorted { lhs, rhs in
+            if lhs.role.rawValue != rhs.role.rawValue { return lhs.role.rawValue < rhs.role.rawValue }
+            return lhs.displayName.localizedStandardCompare(rhs.displayName) == .orderedAscending
+        }
+    }
+
+    private var assignableRoles: [UCCRole] { [.sectorCommander, .worksiteManager, .squadLeader] }
+
     var body: some View {
         HQPage {
             HQPageTitleBar(L("USAR UCC 指揮鏈"), subtitle: L("UCC → 分區 → 工作點 → 小隊長"), icon: "point.3.connected.trianglepath.dotted", accent: NV.command) {
@@ -56,6 +70,7 @@ struct HQUSARCommandView: View {
 
             HStack(spacing: NV.panelSpacing) {
                 StatLabel(icon: "building.2.fill", label: L("工作點"), value: "\(worksites.count)", color: NV.command)
+                StatLabel(icon: "person.badge.key.fill", label: L("角色"), value: "\(roleScopes.count)", color: NV.team)
                 StatLabel(icon: "checklist.checked", label: L("任務"), value: "\(tasks.count)", color: NV.green)
                 StatLabel(icon: "dot.radiowaves.left.and.right", label: L("狀態回報"), value: "\(latestStatuses.count)", color: NV.info)
                 StatLabel(icon: "magnifyingglass", label: "ASR", value: "\(assessments.count)", color: NV.team)
@@ -65,6 +80,7 @@ struct HQUSARCommandView: View {
 
             HStack(alignment: .top, spacing: NV.panelSpacing) {
                 worksiteComposer
+                roleAssignmentPanel
                 squadTaskComposer
             }
 
@@ -84,6 +100,9 @@ struct HQUSARCommandView: View {
             if selectedDeviceID.isEmpty {
                 selectedDeviceID = vm.server.fieldUnits.first?.deviceID ?? ""
             }
+            if selectedRoleDeviceID.isEmpty {
+                selectedRoleDeviceID = vm.server.fieldUnits.first?.deviceID ?? ""
+            }
         }
         .onChange(of: worksites.map(\.id)) { _, ids in
             if selectedWorksiteID.isEmpty || !ids.contains(selectedWorksiteID) {
@@ -93,6 +112,9 @@ struct HQUSARCommandView: View {
         .onChange(of: vm.server.fieldUnits.map(\.deviceID)) { _, ids in
             if selectedDeviceID.isEmpty || !ids.contains(selectedDeviceID) {
                 selectedDeviceID = ids.first ?? ""
+            }
+            if selectedRoleDeviceID.isEmpty || !ids.contains(selectedRoleDeviceID) {
+                selectedRoleDeviceID = ids.first ?? ""
             }
         }
     }
@@ -174,6 +196,85 @@ struct HQUSARCommandView: View {
                 .buttonStyle(.borderedProminent)
                 .tint(NV.green)
                 .disabled(selectedWorksiteID.isEmpty || taskTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+        }
+    }
+
+    private var roleAssignmentPanel: some View {
+        HQPanel(title: L("角色派令"), icon: "person.badge.key.fill", accent: NV.team) {
+            VStack(alignment: .leading, spacing: 10) {
+                Picker(L("裝置"), selection: $selectedRoleDeviceID) {
+                    Text(L("請選擇裝置")).tag("")
+                    ForEach(vm.server.fieldUnits) { unit in
+                        Text("\(unit.deptCode)-\(unit.deviceID)").tag(unit.deviceID)
+                    }
+                }
+                .pickerStyle(.menu)
+
+                Picker(L("角色"), selection: $selectedUSARRole) {
+                    ForEach(assignableRoles, id: \.self) { role in
+                        Text(role.displayText).tag(role)
+                    }
+                }
+                .pickerStyle(.segmented)
+
+                Picker(L("工作點"), selection: $selectedRoleWorksiteID) {
+                    Text(L("全分區 / 未指定")).tag("")
+                    ForEach(worksites) { worksite in
+                        Text("\(worksite.code) · \(worksite.name)").tag(worksite.id)
+                    }
+                }
+                .pickerStyle(.menu)
+
+                TextField(L("顯示名稱"), text: $roleDisplayName)
+                    .textFieldStyle(.roundedBorder)
+                TextField(L("派令備註"), text: $roleInstructions, axis: .vertical)
+                    .textFieldStyle(.roundedBorder)
+
+                Button {
+                    vm.assignUSARRole(
+                        deviceID: selectedRoleDeviceID,
+                        role: selectedUSARRole,
+                        worksiteID: selectedRoleWorksiteID.isEmpty ? nil : selectedRoleWorksiteID,
+                        displayName: roleDisplayName,
+                        instructions: roleInstructions
+                    )
+                    roleDisplayName = ""
+                    roleInstructions = ""
+                } label: {
+                    Label(L("同步角色"), systemImage: "paperplane.fill")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(NV.team)
+                .disabled(selectedRoleDeviceID.isEmpty)
+
+                if !roleScopes.isEmpty {
+                    Divider()
+                    LazyVStack(spacing: 8) {
+                        ForEach(roleScopes.prefix(5)) { scope in
+                            HStack(spacing: 8) {
+                                Image(systemName: icon(for: scope.role))
+                                    .foregroundColor(NV.team)
+                                    .frame(width: 20)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(scope.displayName)
+                                        .font(.caption.bold())
+                                    Text(scope.role.displayText)
+                                        .font(.caption2)
+                                        .foregroundColor(.secondary)
+                                }
+                                Spacer()
+                                Text(scope.worksiteID.flatMap { vm.usarStore.worksites[$0]?.code } ?? scope.sectorID ?? "-")
+                                    .font(.caption2.monospaced())
+                                    .foregroundColor(.secondary)
+                            }
+                            .padding(8)
+                            .hqThemedSurfaceBackground(opacity: 0.62)
+                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        }
+                    }
+                }
             }
         }
     }
@@ -450,6 +551,19 @@ struct HQUSARCommandView: View {
         case .caution: return NV.warning
         case .high: return NV.reinforce
         case .critical: return NV.danger
+        }
+    }
+
+    private func icon(for role: UCCRole) -> String {
+        switch role {
+        case .sectorCommander, .sectorSafety, .sectorLogistics:
+            return "map.fill"
+        case .worksiteManager, .searchLead, .rescueLead, .medicalLead, .logisticsLead:
+            return "building.2.fill"
+        case .squadLeader:
+            return "figure.run.circle.fill"
+        case .uccCommander, .uccOperations, .uccPlanning, .uccResources, .uccMedical, .uccSafety:
+            return "person.3.sequence.fill"
         }
     }
 

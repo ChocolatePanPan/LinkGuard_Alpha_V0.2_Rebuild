@@ -22,6 +22,19 @@ private enum USARFieldRoleMode: String, CaseIterable, Identifiable {
         case .squadLeader: return "figure.run.circle.fill"
         }
     }
+
+    init?(role: UCCRole?) {
+        switch role {
+        case .sectorCommander, .sectorSafety, .sectorLogistics:
+            self = .sectorCommander
+        case .worksiteManager, .searchLead, .rescueLead, .medicalLead, .logisticsLead:
+            self = .worksiteManager
+        case .squadLeader:
+            self = .squadLeader
+        default:
+            return nil
+        }
+    }
 }
 
 struct USARFieldRoleView: View {
@@ -30,6 +43,10 @@ struct USARFieldRoleView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            if let scope = vm.currentUSARRoleScope {
+                activeRoleBanner(scope)
+            }
+
             Picker(L("角色"), selection: $roleMode) {
                 ForEach(USARFieldRoleMode.allCases) { mode in
                     Label(mode.title, systemImage: mode.icon).tag(mode)
@@ -52,6 +69,34 @@ struct USARFieldRoleView: View {
             }
         }
         .outerNavigationTitle(L("USAR 指揮鏈"))
+        .onAppear { syncRoleModeFromAssignment() }
+        .onChange(of: vm.currentUSARRoleScope?.role) { _, _ in syncRoleModeFromAssignment() }
+    }
+
+    private func activeRoleBanner(_ scope: USARRoleScope) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: USARFieldRoleMode(role: scope.role)?.icon ?? roleMode.icon)
+                .foregroundColor(NV.team)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(scope.role.displayText)
+                    .font(.caption.bold())
+                Text(scope.displayName)
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
+            Spacer()
+            Text(scope.worksiteID ?? scope.sectorID ?? scope.incidentID)
+                .font(.caption2.monospaced())
+                .foregroundColor(.secondary)
+        }
+        .padding(.horizontal)
+        .padding(.top, 12)
+    }
+
+    private func syncRoleModeFromAssignment() {
+        if let assigned = USARFieldRoleMode(role: vm.currentUSARRoleScope?.role) {
+            roleMode = assigned
+        }
     }
 }
 
