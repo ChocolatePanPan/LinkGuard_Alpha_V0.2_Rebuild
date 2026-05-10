@@ -133,6 +133,12 @@ private struct SectorCommanderView: View {
 
                 worksiteList
                 sectorControlPanel
+                FieldSquadTaskComposer(
+                    vm: vm,
+                    worksite: selectedWorksite,
+                    originRole: .sectorCommander,
+                    accent: NV.command
+                )
             }
             .padding()
         }
@@ -267,6 +273,12 @@ private struct WorksiteManagerView: View {
 
                 worksitePicker
                 worksiteUpdatePanel
+                FieldSquadTaskComposer(
+                    vm: vm,
+                    worksite: selectedWorksite,
+                    originRole: .worksiteManager,
+                    accent: NV.green
+                )
                 asrPanel
                 hazardPanel
             }
@@ -452,6 +464,74 @@ private struct WorksiteManagerView: View {
         worksitePriority = selectedWorksite.priority
         asrPriority = selectedWorksite.priority
         victimCount = selectedWorksite.victimCount
+    }
+}
+
+private struct FieldSquadTaskComposer: View {
+    @ObservedObject var vm: LinkGuardViewModel
+    let worksite: Worksite?
+    let originRole: UCCRole
+    let accent: Color
+    @State private var targetDeviceID = ""
+    @State private var taskKind: SquadTaskKind = .assess
+    @State private var taskTitle = ""
+    @State private var taskInstructions = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Label(L("小隊任務"), systemImage: "figure.run.circle.fill")
+                    .font(.headline)
+                Spacer()
+                Text(originRole.displayText)
+                    .font(.caption2.bold())
+                    .foregroundColor(accent)
+            }
+
+            if let worksite {
+                Text("\(worksite.code) · \(worksite.name)")
+                    .font(.subheadline.bold())
+            }
+
+            TextField(L("小隊長裝置 ID / SQ-ID"), text: $targetDeviceID)
+                .textFieldStyle(.roundedBorder)
+
+            Picker(L("任務類型"), selection: $taskKind) {
+                ForEach(SquadTaskKind.allCases) { kind in
+                    Text(kind.displayText).tag(kind)
+                }
+            }
+            .pickerStyle(.menu)
+
+            TextField(L("任務標題"), text: $taskTitle)
+                .textFieldStyle(.roundedBorder)
+            TextField(L("任務指示"), text: $taskInstructions, axis: .vertical)
+                .textFieldStyle(.roundedBorder)
+
+            Button {
+                guard let worksite else { return }
+                vm.sendUSARSquadTask(
+                    worksiteID: worksite.id,
+                    targetDeviceID: targetDeviceID,
+                    kind: taskKind,
+                    title: taskTitle,
+                    instructions: taskInstructions,
+                    originRole: originRole
+                )
+                taskTitle = ""
+                taskInstructions = ""
+            } label: {
+                Label(L("派發小隊任務"), systemImage: "paperplane.fill")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(accent)
+            .disabled(worksite == nil
+                      || targetDeviceID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                      || taskTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        }
+        .padding()
+        .glassEffect(.regular, in: .rect(cornerRadius: 12))
     }
 }
 

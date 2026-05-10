@@ -1754,6 +1754,63 @@ class LinkGuardViewModel: ObservableObject {
         appendActivity(kind: .task, title: L("已送出 USAR 工作點更新"), detail: "\(worksite.code) · \(status.displayText)")
     }
 
+    func sendUSARSquadTask(worksiteID: String,
+                           targetDeviceID: String,
+                           kind: SquadTaskKind,
+                           title: String,
+                           instructions: String,
+                           originRole: UCCRole) {
+        let trimmedTarget = targetDeviceID.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedTarget.isEmpty, !trimmedTitle.isEmpty, var worksite = usarStore.worksites[worksiteID] else { return }
+
+        let squadID = normalizedUSARSquadID(for: trimmedTarget)
+        let task = SquadTask(
+            incidentID: worksite.incidentID,
+            sectorID: worksite.sectorID,
+            worksiteID: worksite.id,
+            squadID: squadID,
+            kind: kind,
+            title: trimmedTitle,
+            instructions: instructions.trimmingCharacters(in: .whitespacesAndNewlines),
+            priority: worksite.priority,
+            assignedByRole: originRole,
+            assignedByID: nodeStatus.nodeID
+        )
+        worksite.status = .assigned
+        worksite.updatedAt = Date()
+        usarStore.upsertWorksite(worksite)
+        usarStore.upsertTask(task)
+
+        sendUSARMessage(
+            USARProtocolEnvelope(
+                messageType: .squadTask,
+                incidentID: worksite.incidentID,
+                originRole: originRole,
+                originID: nodeStatus.nodeID,
+                targetRole: .squadLeader,
+                targetIDs: resolvedUSARSquadTargetIDs(for: trimmedTarget),
+                payload: USARSquadTaskPayload(task: task, worksite: worksite)
+            )
+        )
+        appendActivity(kind: .task, title: L("已派發 USAR 小隊任務"), detail: "\(worksite.code) · \(trimmedTitle)")
+    }
+
+    private func normalizedUSARSquadID(for targetDeviceID: String) -> String {
+        let trimmed = targetDeviceID.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.hasPrefix("SQ-") ? trimmed : "SQ-\(trimmed)"
+    }
+
+    private func resolvedUSARSquadTargetIDs(for targetDeviceID: String) -> [String] {
+        let trimmed = targetDeviceID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return [] }
+        if trimmed.hasPrefix("SQ-") {
+            let deviceID = String(trimmed.dropFirst(3)).trimmingCharacters(in: .whitespacesAndNewlines)
+            return deviceID.isEmpty ? [trimmed] : [deviceID, trimmed]
+        }
+        return [trimmed]
+    }
+
     func sendUSARASRObservation(worksiteID: String,
                                 level: ASRLevel,
                                 structureType: StructureType,
