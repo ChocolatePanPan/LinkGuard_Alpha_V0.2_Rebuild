@@ -1941,6 +1941,42 @@ class LinkGuardViewModel: ObservableObject {
         appendActivity(kind: .task, title: L("已送出 USAR 資源請求"), detail: trimmedResource)
     }
 
+    func sendUSARMedicalTransfer(taskID: String?,
+                                 victimID: String,
+                                 triageCode: String,
+                                 status: MedicalTransferStatus,
+                                 toFacilityName: String,
+                                 notes: String) {
+        let trimmedVictimID = victimID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedVictimID.isEmpty else { return }
+        let task = taskID.flatMap { usarStore.squadTasks[$0] }
+        let worksiteID = task?.worksiteID ?? currentUSARRoleScope?.worksiteID ?? usarStore.worksites.values.first?.id ?? "USAR-FIELD-WORKSITE"
+        let incidentID = task?.incidentID ?? usarStore.worksites[worksiteID]?.incidentID ?? currentUSARRoleScope?.incidentID ?? "USAR-FIELD-\(nodeStatus.nodeID)"
+        let destination = toFacilityName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let triage = triageCode.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        let transfer = MedicalTransfer(
+            incidentID: incidentID,
+            victimID: trimmedVictimID,
+            fromWorksiteID: worksiteID,
+            toFacilityName: destination.isEmpty ? L("醫療集結點") : destination,
+            triageCode: triage.isEmpty ? "UNKNOWN" : triage,
+            status: status,
+            requestedByID: nodeStatus.nodeID,
+            notes: notes.trimmingCharacters(in: .whitespacesAndNewlines)
+        )
+        sendUSARMessage(
+            USARProtocolEnvelope(
+                messageType: .medicalUpdate,
+                incidentID: incidentID,
+                originRole: .squadLeader,
+                originID: nodeStatus.nodeID,
+                targetRole: .uccMedical,
+                payload: USARMedicalUpdatePayload(transfer: transfer)
+            )
+        )
+        appendActivity(kind: .patientReport, title: L("已送出 USAR 醫療後送"), detail: "\(trimmedVictimID) · \(status.displayText)")
+    }
+
     private func sendUSARMessage<Payload: Codable>(_ envelope: USARProtocolEnvelope<Payload>) {
         do {
             let wirePayload = try envelope.wirePayload()

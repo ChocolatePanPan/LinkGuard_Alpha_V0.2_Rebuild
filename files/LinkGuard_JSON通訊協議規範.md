@@ -717,7 +717,7 @@ HQ（macOS/Android）透過 BackendBridge 連接 Win11 tcp_server(:9000)：
   UCC/HQ 指派裝置角色 → WiFiMessage{usar_role_assignment} → Field role shell
   → UCC 建立/更新 Worksite → WiFiMessage{usar_worksite_upsert} → HQ → Sector/Worksite
   → Worksite 指派小隊任務 → WiFiMessage{usar_squad_task} → Squad Leader
-  → Squad Leader 回報狀態/ASR/危害/資源 → WiFiMessage{usar_squad_status | usar_asr_observation | usar_hazard_report | usar_resource_request}
+  → Squad Leader 回報狀態/ASR/危害/資源/醫療後送 → WiFiMessage{usar_squad_status | usar_asr_observation | usar_hazard_report | usar_resource_request | usar_medical_update}
   → HQ `USAROperationStore` 去重與彙整 → UCC/Sector/Worksite 顯示更新
 ```
 

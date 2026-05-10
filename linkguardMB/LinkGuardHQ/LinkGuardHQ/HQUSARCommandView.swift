@@ -36,6 +36,10 @@ struct HQUSARCommandView: View {
         vm.usarStore.resourceRequests.values.sorted { $0.createdAt > $1.createdAt }
     }
 
+    private var medicalTransfers: [MedicalTransfer] {
+        vm.usarStore.medicalTransfers.values.sorted { $0.timestamp > $1.timestamp }
+    }
+
     private var assessments: [ASRAssessment] {
         vm.usarStore.assessments.values.sorted { $0.timestamp > $1.timestamp }
     }
@@ -76,6 +80,7 @@ struct HQUSARCommandView: View {
                 StatLabel(icon: "magnifyingglass", label: "ASR", value: "\(assessments.count)", color: NV.team)
                 StatLabel(icon: "exclamationmark.triangle.fill", label: L("危害"), value: "\(hazards.count)", color: NV.danger)
                 StatLabel(icon: "shippingbox.fill", label: L("資源請求"), value: "\(resourceRequests.count)", color: NV.reinforce)
+                StatLabel(icon: "cross.case.fill", label: L("醫療"), value: "\(medicalTransfers.count)", color: NV.danger)
             }
 
             HStack(alignment: .top, spacing: NV.panelSpacing) {
@@ -90,7 +95,7 @@ struct HQUSARCommandView: View {
             }
 
             assessmentAndHazardBoard
-            resourceRequestBoard
+            supportAndMedicalBoard
             packetLogBoard
         }
         .onAppear {
@@ -386,6 +391,13 @@ struct HQUSARCommandView: View {
         }
     }
 
+    private var supportAndMedicalBoard: some View {
+        HStack(alignment: .top, spacing: NV.panelSpacing) {
+            resourceRequestBoard
+            medicalTransferBoard
+        }
+    }
+
     private var resourceRequestBoard: some View {
         HQPanel(title: L("資源請求"), icon: "shippingbox", accent: NV.reinforce) {
             if resourceRequests.isEmpty {
@@ -407,6 +419,49 @@ struct HQUSARCommandView: View {
                             Text(request.status.displayText)
                                 .font(.caption.bold())
                                 .foregroundColor(NV.reinforce)
+                        }
+                        .padding(10)
+                        .hqThemedSurfaceBackground(opacity: 0.68)
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    }
+                }
+            }
+        }
+    }
+
+    private var medicalTransferBoard: some View {
+        HQPanel(title: L("醫療後送"), icon: "cross.case.fill", accent: NV.danger) {
+            if medicalTransfers.isEmpty {
+                HQEmptyStateView(icon: "cross.case", title: L("尚未收到醫療後送"), minHeight: 120)
+            } else {
+                LazyVStack(spacing: 8) {
+                    ForEach(medicalTransfers.prefix(8)) { transfer in
+                        HStack(alignment: .top, spacing: 12) {
+                            Image(systemName: "cross.case.fill")
+                                .foregroundColor(medicalStatusColor(transfer.status))
+                                .frame(width: 24)
+                            VStack(alignment: .leading, spacing: 4) {
+                                HStack(spacing: 6) {
+                                    Text(transfer.victimID)
+                                        .font(.headline.monospaced())
+                                    Text(transfer.triageCode)
+                                        .font(.caption2.bold())
+                                        .foregroundColor(NV.danger)
+                                }
+                                Text("\(transfer.status.displayText) · \(transfer.toFacilityName)")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                if !transfer.notes.isEmpty {
+                                    Text(transfer.notes)
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                        .lineLimit(2)
+                                }
+                            }
+                            Spacer()
+                            Text(Self.timeFormatter.string(from: transfer.timestamp))
+                                .font(.caption2.monospacedDigit())
+                                .foregroundColor(.secondary)
                         }
                         .padding(10)
                         .hqThemedSurfaceBackground(opacity: 0.68)
@@ -551,6 +606,15 @@ struct HQUSARCommandView: View {
         case .caution: return NV.warning
         case .high: return NV.reinforce
         case .critical: return NV.danger
+        }
+    }
+
+    private func medicalStatusColor(_ status: MedicalTransferStatus) -> Color {
+        switch status {
+        case .pending, .packaged: return NV.warning
+        case .moving: return NV.reinforce
+        case .handedOff, .completed: return NV.green
+        case .cancelled: return .secondary
         }
     }
 

@@ -178,3 +178,16 @@ extension ResourceRequestStatus {
         }
     }
 }
+
+extension MedicalTransferStatus {
+    var displayText: String {
+        switch self {
+        case .pending: return "待後送"
+        case .packaged: return "已包紮"
+        case .moving: return "後送中"
+        case .handedOff: return "已交接"
+        case .completed: return "已完成"
+        case .cancelled: return "已取消"
+        }
+    }
+}

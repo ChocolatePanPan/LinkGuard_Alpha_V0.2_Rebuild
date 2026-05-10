@@ -8,6 +8,11 @@ struct SquadLeaderView: View {
     @State private var resourceType = ""
     @State private var resourceQuantity = 1
     @State private var resourceReason = ""
+    @State private var medicalVictimID = ""
+    @State private var medicalTriageCode = "RED"
+    @State private var medicalDestination = ""
+    @State private var medicalNotes = ""
+    @State private var medicalStatus: MedicalTransferStatus = .pending
 
     private var tasks: [SquadTask] { vm.visibleUSARTasks }
 
@@ -29,6 +34,7 @@ struct SquadLeaderView: View {
                 header
                 taskList
                 statusPanel
+                medicalPanel
                 resourcePanel
                 recentPackets
             }
@@ -68,6 +74,7 @@ struct SquadLeaderView: View {
             HStack(spacing: 10) {
                 SquadStatTile(icon: "checklist.checked", title: L("待辦"), value: "\(tasks.count)", color: NV.command)
                 SquadStatTile(icon: "building.2", title: L("工作點"), value: "\(worksites.count)", color: NV.info)
+                SquadStatTile(icon: "cross.case.fill", title: L("後送"), value: "\(vm.usarStore.medicalTransfers.count)", color: NV.danger)
                 SquadStatTile(icon: "network", title: L("封包"), value: "\(vm.usarMessageLog.count)", color: NV.green)
             }
         }
@@ -134,6 +141,63 @@ struct SquadLeaderView: View {
                     .tint(color(for: status))
                 }
             }
+        }
+        .padding()
+        .glassEffect(.regular, in: .rect(cornerRadius: 12))
+    }
+
+    private var medicalPanel: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label(L("醫療後送"), systemImage: "cross.case.fill")
+                .font(.headline)
+
+            if !vm.localPatients.isEmpty {
+                Picker(L("本機傷患"), selection: $medicalVictimID) {
+                    Text(L("手動輸入")).tag("")
+                    ForEach(vm.localPatients) { patient in
+                        Text(patient.name.isEmpty ? patient.patientId : "\(patient.patientId) · \(patient.name)")
+                            .tag(patient.patientId)
+                    }
+                }
+                .pickerStyle(.menu)
+            }
+
+            TextField(L("傷患 ID / NFC ID"), text: $medicalVictimID)
+                .textFieldStyle(.roundedBorder)
+            TextField(L("檢傷代碼"), text: $medicalTriageCode)
+                .textFieldStyle(.roundedBorder)
+                .textInputAutocapitalization(.characters)
+            Picker(L("後送狀態"), selection: $medicalStatus) {
+                ForEach(MedicalTransferStatus.allCases) { status in
+                    Text(status.displayText).tag(status)
+                }
+            }
+            .pickerStyle(.menu)
+            TextField(L("目的地 / 交接點"), text: $medicalDestination)
+                .textFieldStyle(.roundedBorder)
+            TextField(L("醫療備註"), text: $medicalNotes, axis: .vertical)
+                .textFieldStyle(.roundedBorder)
+
+            Button {
+                vm.sendUSARMedicalTransfer(
+                    taskID: selectedTask?.id,
+                    victimID: medicalVictimID,
+                    triageCode: medicalTriageCode,
+                    status: medicalStatus,
+                    toFacilityName: medicalDestination,
+                    notes: medicalNotes
+                )
+                medicalVictimID = ""
+                medicalDestination = ""
+                medicalNotes = ""
+                medicalStatus = .pending
+            } label: {
+                Label(L("送出醫療後送"), systemImage: "paperplane.fill")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(NV.danger)
+            .disabled(medicalVictimID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         }
         .padding()
         .glassEffect(.regular, in: .rect(cornerRadius: 12))
