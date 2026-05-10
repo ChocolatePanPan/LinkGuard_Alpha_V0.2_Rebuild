@@ -270,7 +270,7 @@ Node ID：RT-{HEX}-{DEPT}（如 RT-A3F-EMT）
 | Worksite Manager | Worksite 控制點、ASR 1-5、危害、RCM/標記、小隊派工 |
 | Squad Leader | 任務確認、狀態回報、危害/資源請求、醫療後送、撤離或完成 |
 
-所有 USAR 角色頁都必須顯示對應的 INSARAG 作業節奏與檢核項，並以正式 USAR 封包同步到 `USAROperationStore`。
+所有 USAR 角色頁都必須顯示對應的 INSARAG 作業節奏與檢核項，並以正式 USAR 封包同步到 `USAROperationStore`。Worksite / Squad Leader 需支援 RCM 標記，Sector / Worksite / Squad Leader 需支援 SITREP / 作戰日誌回傳，UCC 頁面需彙整顯示標記、日誌、醫療後送、資源與危害。
 
 ### 2.4 HQ 指揮伺服器 (HQCommandServer.swift)
 

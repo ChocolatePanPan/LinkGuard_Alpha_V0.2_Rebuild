@@ -48,6 +48,14 @@ struct HQUSARCommandView: View {
         vm.usarStore.hazards.values.sorted { $0.timestamp > $1.timestamp }
     }
 
+    private var markings: [RCMMarking] {
+        vm.usarStore.markings.values.sorted { $0.timestamp > $1.timestamp }
+    }
+
+    private var operationalLogs: [OperationalLog] {
+        vm.usarStore.operationalLogs.values.sorted { $0.timestamp > $1.timestamp }
+    }
+
     private var roleScopes: [USARRoleScope] {
         vm.usarStore.roleScopes.values.sorted { lhs, rhs in
             if lhs.role.rawValue != rhs.role.rawValue { return lhs.role.rawValue < rhs.role.rawValue }
@@ -98,6 +106,7 @@ struct HQUSARCommandView: View {
 
             assessmentAndHazardBoard
             supportAndMedicalBoard
+            markingAndLogBoard
             packetLogBoard
         }
         .onAppear {
@@ -474,6 +483,99 @@ struct HQUSARCommandView: View {
         }
     }
 
+    private var markingAndLogBoard: some View {
+        HStack(alignment: .top, spacing: NV.panelSpacing) {
+            markingBoard
+            operationalLogBoard
+        }
+    }
+
+    private var markingBoard: some View {
+        HQPanel(title: L("RCM / 場地標記"), icon: "mappin.and.ellipse", accent: NV.info) {
+            if markings.isEmpty {
+                HQEmptyStateView(icon: "mappin.and.ellipse", title: L("尚未收到 RCM 標記"), minHeight: 120)
+            } else {
+                LazyVStack(spacing: 8) {
+                    ForEach(markings.prefix(8)) { marking in
+                        HStack(alignment: .top, spacing: 12) {
+                            Image(systemName: icon(for: marking.markingType))
+                                .foregroundColor(NV.info)
+                                .frame(width: 24)
+                            VStack(alignment: .leading, spacing: 4) {
+                                HStack(spacing: 6) {
+                                    Text(marking.code)
+                                        .font(.headline.monospaced())
+                                    Text(marking.markingType.displayText)
+                                        .font(.caption2.bold())
+                                        .foregroundColor(NV.info)
+                                }
+                                Text(worksiteCode(for: marking.worksiteID))
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                if !marking.meaning.isEmpty {
+                                    Text(marking.meaning)
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                        .lineLimit(2)
+                                }
+                            }
+                            Spacer()
+                            Text(Self.timeFormatter.string(from: marking.timestamp))
+                                .font(.caption2.monospacedDigit())
+                                .foregroundColor(.secondary)
+                        }
+                        .padding(10)
+                        .hqThemedSurfaceBackground(opacity: 0.68)
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    }
+                }
+            }
+        }
+    }
+
+    private var operationalLogBoard: some View {
+        HQPanel(title: L("SITREP / 作戰日誌"), icon: "doc.text.fill", accent: NV.team) {
+            if operationalLogs.isEmpty {
+                HQEmptyStateView(icon: "doc.text", title: L("尚未收到 SITREP"), minHeight: 120)
+            } else {
+                LazyVStack(spacing: 8) {
+                    ForEach(operationalLogs.prefix(8)) { log in
+                        HStack(alignment: .top, spacing: 12) {
+                            Image(systemName: "doc.text.fill")
+                                .foregroundColor(NV.team)
+                                .frame(width: 24)
+                            VStack(alignment: .leading, spacing: 4) {
+                                HStack(spacing: 6) {
+                                    Text(log.eventType.displayText)
+                                        .font(.caption2.bold())
+                                        .foregroundColor(NV.team)
+                                    Text(log.title)
+                                        .font(.headline)
+                                }
+                                Text("\(log.sourceRole.displayText) · \(log.sourceID)")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                if !log.detail.isEmpty {
+                                    Text(log.detail)
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                        .lineLimit(2)
+                                }
+                            }
+                            Spacer()
+                            Text(Self.timeFormatter.string(from: log.timestamp))
+                                .font(.caption2.monospacedDigit())
+                                .foregroundColor(.secondary)
+                        }
+                        .padding(10)
+                        .hqThemedSurfaceBackground(opacity: 0.68)
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    }
+                }
+            }
+        }
+    }
+
     private var assessmentAndHazardBoard: some View {
         HStack(alignment: .top, spacing: NV.panelSpacing) {
             HQPanel(title: L("ASR / 工作點評估"), icon: "magnifyingglass.circle.fill", accent: NV.team) {
@@ -617,6 +719,16 @@ struct HQUSARCommandView: View {
         case .moving: return NV.reinforce
         case .handedOff, .completed: return NV.green
         case .cancelled: return .secondary
+        }
+    }
+
+    private func icon(for markingType: RCMMarkingType) -> String {
+        switch markingType {
+        case .worksiteClassification: return "building.2.fill"
+        case .victimLocation: return "person.fill.questionmark"
+        case .rapidClearance: return "checkmark.seal.fill"
+        case .hazard: return "exclamationmark.triangle.fill"
+        case .route: return "arrow.triangle.turn.up.right.circle.fill"
         }
     }
 

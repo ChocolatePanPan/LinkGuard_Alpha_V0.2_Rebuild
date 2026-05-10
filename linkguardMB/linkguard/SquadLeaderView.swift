@@ -28,6 +28,10 @@ struct SquadLeaderView: View {
         vm.usarStore.worksites.values.sorted { $0.updatedAt > $1.updatedAt }
     }
 
+    private var selectedWorksite: Worksite? {
+        selectedTask.flatMap { vm.usarStore.worksites[$0.worksiteID] }
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -35,6 +39,14 @@ struct SquadLeaderView: View {
                 FieldINSARAGBriefPanel(profile: .squadLeader, accent: NV.green)
                 taskList
                 statusPanel
+                FieldRCMMarkingPanel(vm: vm, worksite: selectedWorksite, originRole: .squadLeader, accent: NV.info)
+                FieldUSAROperationalLogPanel(
+                    vm: vm,
+                    worksite: selectedWorksite,
+                    taskID: selectedTask?.id,
+                    originRole: .squadLeader,
+                    accent: NV.green
+                )
                 medicalPanel
                 resourcePanel
                 recentPackets

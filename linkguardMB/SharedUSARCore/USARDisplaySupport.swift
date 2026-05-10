@@ -179,6 +179,34 @@ extension ResourceRequestStatus {
     }
 }
 
+extension RCMMarkingType {
+    var displayText: String {
+        switch self {
+        case .worksiteClassification: return "工作點分類"
+        case .victimLocation: return "受困者位置"
+        case .rapidClearance: return "快速清除"
+        case .hazard: return "危害標記"
+        case .route: return "路線標記"
+        }
+    }
+}
+
+extension OperationalLogType {
+    var displayText: String {
+        switch self {
+        case .command: return "指揮"
+        case .assignment: return "派令"
+        case .status: return "狀態"
+        case .asr: return "ASR"
+        case .hazard: return "危害"
+        case .resource: return "資源"
+        case .marking: return "標記"
+        case .medical: return "醫療"
+        case .system: return "系統"
+        }
+    }
+}
+
 extension MedicalTransferStatus {
     var displayText: String {
         switch self {

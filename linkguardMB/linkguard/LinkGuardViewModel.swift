@@ -1882,6 +1882,74 @@ class LinkGuardViewModel: ObservableObject {
         appendActivity(kind: .hazard, title: L("已送出 USAR 危害"), detail: "\(hazardType.displayText) · \(severity.displayText)")
     }
 
+    func sendUSARMarkingUpdate(worksiteID: String,
+                               markingType: RCMMarkingType,
+                               code: String,
+                               meaning: String,
+                               locationDescription: String,
+                               originRole: UCCRole) {
+        let trimmedCode = code.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedCode.isEmpty, let worksite = usarStore.worksites[worksiteID] else { return }
+        let marking = RCMMarking(
+            incidentID: worksite.incidentID,
+            worksiteID: worksite.id,
+            markingType: markingType,
+            code: trimmedCode,
+            meaning: meaning.trimmingCharacters(in: .whitespacesAndNewlines),
+            locationDescription: locationDescription.trimmingCharacters(in: .whitespacesAndNewlines),
+            placedByRole: originRole,
+            placedByID: nodeStatus.nodeID
+        )
+        sendUSARMessage(
+            USARProtocolEnvelope(
+                messageType: .markingUpdate,
+                incidentID: worksite.incidentID,
+                originRole: originRole,
+                originID: nodeStatus.nodeID,
+                targetRole: .uccPlanning,
+                payload: USARMarkingUpdatePayload(marking: marking)
+            )
+        )
+        appendActivity(kind: .task, title: L("已送出 USAR 標記"), detail: "\(markingType.displayText) · \(trimmedCode)")
+    }
+
+    func sendUSAROperationalLog(eventType: OperationalLogType,
+                                title: String,
+                                detail: String,
+                                worksiteID: String?,
+                                taskID: String?,
+                                originRole: UCCRole) {
+        let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedTitle.isEmpty else { return }
+        let task = taskID.flatMap { usarStore.squadTasks[$0] }
+        let resolvedWorksiteID = worksiteID ?? task?.worksiteID ?? currentUSARRoleScope?.worksiteID
+        let incidentID = resolvedWorksiteID.flatMap { usarStore.worksites[$0]?.incidentID }
+            ?? task?.incidentID
+            ?? currentUSARRoleScope?.incidentID
+            ?? "USAR-FIELD-\(nodeStatus.nodeID)"
+        let log = OperationalLog(
+            incidentID: incidentID,
+            sourceRole: originRole,
+            sourceID: nodeStatus.nodeID,
+            eventType: eventType,
+            title: trimmedTitle,
+            detail: detail.trimmingCharacters(in: .whitespacesAndNewlines),
+            relatedWorksiteID: resolvedWorksiteID,
+            relatedTaskID: taskID
+        )
+        sendUSARMessage(
+            USARProtocolEnvelope(
+                messageType: .operationalLog,
+                incidentID: incidentID,
+                originRole: originRole,
+                originID: nodeStatus.nodeID,
+                targetRole: .uccOperations,
+                payload: USAROperationalLogPayload(log: log)
+            )
+        )
+        appendActivity(kind: .task, title: L("已送出 USAR 作戰日誌"), detail: "\(eventType.displayText) · \(trimmedTitle)")
+    }
+
     func sendUSARSquadStatus(taskID: String?, status: SquadOperationalStatus, note: String, locationDescription: String = "") {
         let task = taskID.flatMap { usarStore.squadTasks[$0] }
         let incidentID = task?.incidentID ?? usarStore.worksites.values.first?.incidentID ?? "USAR-FIELD-\(nodeStatus.nodeID)"

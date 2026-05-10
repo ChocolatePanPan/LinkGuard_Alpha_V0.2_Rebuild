@@ -133,6 +133,13 @@ private struct SectorCommanderView: View {
 
                 worksiteList
                 FieldINSARAGBriefPanel(profile: .sector, accent: NV.command)
+                FieldUSAROperationalLogPanel(
+                    vm: vm,
+                    worksite: selectedWorksite,
+                    taskID: nil,
+                    originRole: .sectorCommander,
+                    accent: NV.command
+                )
                 sectorControlPanel
                 FieldSquadTaskComposer(
                     vm: vm,
@@ -283,6 +290,14 @@ private struct WorksiteManagerView: View {
                 )
                 asrPanel
                 hazardPanel
+                FieldRCMMarkingPanel(vm: vm, worksite: selectedWorksite, originRole: .worksiteManager, accent: NV.info)
+                FieldUSAROperationalLogPanel(
+                    vm: vm,
+                    worksite: selectedWorksite,
+                    taskID: nil,
+                    originRole: .worksiteManager,
+                    accent: NV.green
+                )
             }
             .padding()
         }
@@ -515,6 +530,121 @@ struct FieldINSARAGBriefPanel: View {
                     .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 }
             }
+        }
+        .padding()
+        .glassEffect(.regular, in: .rect(cornerRadius: 12))
+    }
+}
+
+struct FieldRCMMarkingPanel: View {
+    @ObservedObject var vm: LinkGuardViewModel
+    let worksite: Worksite?
+    let originRole: UCCRole
+    let accent: Color
+    @State private var markingType: RCMMarkingType = .worksiteClassification
+    @State private var markingCode = ""
+    @State private var markingMeaning = ""
+    @State private var markingLocation = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label(L("RCM / 場地標記"), systemImage: "mappin.and.ellipse")
+                .font(.headline)
+            if let worksite {
+                Text("\(worksite.code) · \(worksite.name)")
+                    .font(.subheadline.bold())
+            }
+            Picker(L("標記類型"), selection: $markingType) {
+                ForEach(RCMMarkingType.allCases) { type in
+                    Text(type.displayText).tag(type)
+                }
+            }
+            .pickerStyle(.menu)
+            TextField(L("標記代碼 / 符號"), text: $markingCode)
+                .textFieldStyle(.roundedBorder)
+                .textInputAutocapitalization(.characters)
+            TextField(L("標記意義"), text: $markingMeaning, axis: .vertical)
+                .textFieldStyle(.roundedBorder)
+            TextField(L("標記位置"), text: $markingLocation, axis: .vertical)
+                .textFieldStyle(.roundedBorder)
+            Button {
+                guard let worksite else { return }
+                vm.sendUSARMarkingUpdate(
+                    worksiteID: worksite.id,
+                    markingType: markingType,
+                    code: markingCode,
+                    meaning: markingMeaning,
+                    locationDescription: markingLocation,
+                    originRole: originRole
+                )
+                markingCode = ""
+                markingMeaning = ""
+                markingLocation = ""
+            } label: {
+                Label(L("送出 RCM 標記"), systemImage: "paperplane.fill")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(accent)
+            .disabled(worksite == nil || markingCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        }
+        .padding()
+        .glassEffect(.regular, in: .rect(cornerRadius: 12))
+    }
+}
+
+struct FieldUSAROperationalLogPanel: View {
+    @ObservedObject var vm: LinkGuardViewModel
+    let worksite: Worksite?
+    let taskID: String?
+    let originRole: UCCRole
+    let accent: Color
+    @State private var eventType: OperationalLogType = .status
+    @State private var logTitle = ""
+    @State private var logDetail = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Label(L("SITREP / 作戰日誌"), systemImage: "doc.text.fill")
+                    .font(.headline)
+                Spacer()
+                Text(originRole.displayText)
+                    .font(.caption2.bold())
+                    .foregroundColor(accent)
+            }
+            if let worksite {
+                Text("\(worksite.code) · \(worksite.name)")
+                    .font(.subheadline.bold())
+            }
+            Picker(L("事件類型"), selection: $eventType) {
+                ForEach(OperationalLogType.allCases) { type in
+                    Text(type.displayText).tag(type)
+                }
+            }
+            .pickerStyle(.menu)
+            TextField(L("回報標題"), text: $logTitle)
+                .textFieldStyle(.roundedBorder)
+            TextField(L("回報內容"), text: $logDetail, axis: .vertical)
+                .textFieldStyle(.roundedBorder)
+            Button {
+                vm.sendUSAROperationalLog(
+                    eventType: eventType,
+                    title: logTitle,
+                    detail: logDetail,
+                    worksiteID: worksite?.id,
+                    taskID: taskID,
+                    originRole: originRole
+                )
+                logTitle = ""
+                logDetail = ""
+            } label: {
+                Label(L("送出 SITREP"), systemImage: "paperplane.fill")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(accent)
+            .disabled(logTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         }
         .padding()
         .glassEffect(.regular, in: .rect(cornerRadius: 12))
