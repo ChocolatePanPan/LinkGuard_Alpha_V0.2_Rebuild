@@ -8,7 +8,7 @@
 
 ## 一、系統數據流總覽
 
-### 1.1 主要數據流（12 條）
+### 1.1 主要數據流（13 條）
 
 | # | 數據流 | 來源 | 目標 | 協議 |
 |---|--------|------|------|------|
@@ -24,6 +24,7 @@
 | 10 | 裝置狀態流 | 前線裝置 | → HQ App | TCP (WiFi) |
 | 11 | 聊天訊息流 | 雙向 | HQ ↔ 前線裝置 | TCP (WiFi) |
 | 12 | 電台控制流 | 手機 APP | tcp_server → 所有裝置 | TCP |
+| 13 | USAR 指揮鏈流 | UCC / Sector / Worksite / Squad Leader | HQ ↔ 前線裝置 | TCP (WiFi) |
 
 ---
 
@@ -54,6 +55,7 @@
 ```json
 {
   "msgType": "<訊息類型>",
+  "deviceID": "<發送方裝置ID，可選>",
   "payload": "<JSON 字串化的內容>"
 }
 ```
@@ -61,6 +63,7 @@
 | 欄位 | 型別 | 說明 |
 |------|------|------|
 | `msgType` | string | 訊息類型（如 `"command"`, `"status_report"`, `"chat_message"`） |
+| `deviceID` | string | 發送方裝置 ID；HQ 可省略，前線裝置建議帶入 |
 | `payload` | string | JSON 編碼的字串（需二次解碼） |
 
 ### 2.3 格式正規化
@@ -455,6 +458,58 @@
 | `text_broadcast` | Field → Backend → Field | 文字廣播 |
 | `message_ack` | Field → HQ | 訊息確認收到 |
 | `hello` | Field → HQ | 連線握手（含 role 判斷 field_unit / hq_peer） |
+| `usar_worksite_upsert` | UCC/Sector/Worksite → HQ → Field | 工作場地建立或更新 |
+| `usar_worksite_assignment` | UCC/Sector → HQ → Field | 工作場地指派 |
+| `usar_squad_task` | UCC/Sector/Worksite → HQ → Squad Leader | 小隊任務下發 |
+| `usar_squad_status` | Squad Leader → HQ → UCC/Sector/Worksite | 小隊狀態回報 |
+| `usar_asr_observation` | Worksite/Squad Leader → HQ → UCC/Sector | ASR 觀察與建議 |
+| `usar_hazard_report` | 任一角色 → HQ → 相關角色 | USAR 危害旗標 |
+| `usar_resource_request` | Sector/Worksite/Squad Leader → HQ/UCC | USAR 支援與資源請求 |
+| `usar_marking_update` | Worksite/Squad Leader → HQ → 相關角色 | RCM/場地標記更新 |
+| `usar_medical_update` | Medical/Squad Leader → HQ → 相關角色 | 傷患後送與醫療狀態 |
+| `usar_operational_log` | 任一角色 → HQ → 相關角色 | 作戰紀錄與審計日誌 |
+
+### 10.4 USAR 指揮鏈封包（UCC → 小隊長）
+
+USAR 指揮鏈沿用 WiFiMessage 外層；`msgType` 必須是 `usar_*`，`payload` 解碼後為 `USARWirePayload`。`payloadJSON` 再解碼成對應的 typed payload，例如 `USARSquadTaskPayload` 或 `USARSquadStatusPayload`。
+
+```json
+{
+  "msgType": "usar_squad_task",
+  "deviceID": "UCC-01",
+  "payload": "{\"version\":1,\"messageID\":\"USAR-001\",\"messageType\":\"usar_squad_task\",\"incidentID\":\"INC-260506-HC\",\"originRole\":\"uccOperations\",\"originID\":\"UCC-01\",\"targetRole\":\"squadLeader\",\"targetIDs\":[\"SQ-3\"],\"timestamp\":1712345678,\"payloadJSON\":\"{...}\"}"
+}
+```
+
+`USARWirePayload` 欄位：
+
+| 欄位 | 型別 | 必填 | 說明 |
+|------|------|------|------|
+| `version` | int | ✅ | USAR 協議版本，目前為 `1` |
+| `messageID` | string | ✅ | 去重與審計用訊息 ID |
+| `messageType` | string | ✅ | 必須與外層 `msgType` 相同 |
+| `incidentID` | string | ✅ | 事件 ID |
+| `originRole` | string | ✅ | 來源角色，例如 `uccOperations`, `sectorCommander`, `worksiteManager`, `squadLeader` |
+| `originID` | string | ✅ | 來源人員、裝置或節點 ID |
+| `targetRole` | string | ❌ | 目標角色；空值代表廣播或依 `targetIDs` 路由 |
+| `targetIDs` | string[] | ❌ | 目標裝置、人員、小隊或 HQ peer ID |
+| `timestamp` | number/date | ✅ | 產生時間 |
+| `payloadJSON` | string | ✅ | typed payload 的 JSON 字串 |
+
+typed payload 對應表：
+
+| msgType | payloadJSON 解碼型別 | 主要內容 |
+|---------|----------------------|----------|
+| `usar_worksite_upsert` | `USARWorksiteUpsertPayload` | `worksite`, `zones`, `currentASR` |
+| `usar_worksite_assignment` | `USARWorksiteAssignmentPayload` | `sector`, `worksite`, `assignedTeamIDs`, `instructions` |
+| `usar_squad_task` | `USARSquadTaskPayload` | `task`, `worksite` |
+| `usar_squad_status` | `USARSquadStatusPayload` | `status`, `relatedTask` |
+| `usar_asr_observation` | `USARASRObservationPayload` | `assessment`, `suggestedWorksiteUpdate` |
+| `usar_hazard_report` | `USARHazardReportPayload` | `hazard` |
+| `usar_resource_request` | `USARResourceRequestPayload` | `request` |
+| `usar_marking_update` | `USARMarkingUpdatePayload` | `marking` |
+| `usar_medical_update` | `USARMedicalUpdatePayload` | `transfer` |
+| `usar_operational_log` | `USAROperationalLogPayload` | `log` |
 
 ---
 
@@ -655,6 +710,12 @@ HQ（macOS/Android）透過 BackendBridge 連接 Win11 tcp_server(:9000)：
 
 9. Command:
    HQ → WiFiMessage{command} → 前線（可選 broadcast 或 selected targets）
+
+10. USAR Command Chain:
+  UCC 建立/更新 Worksite → WiFiMessage{usar_worksite_upsert} → HQ → Sector/Worksite
+  → Worksite 指派小隊任務 → WiFiMessage{usar_squad_task} → Squad Leader
+  → Squad Leader 回報狀態/ASR/危害/資源 → WiFiMessage{usar_squad_status | usar_asr_observation | usar_hazard_report | usar_resource_request}
+  → HQ `USAROperationStore` 去重與彙整 → UCC/Sector/Worksite 顯示更新
 ```
 
 

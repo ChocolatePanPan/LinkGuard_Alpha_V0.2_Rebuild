@@ -55,6 +55,11 @@
 			path = linkguardUITests;
 			sourceTree = "<group>";
 		};
+		9C0A00012FA0000000000001 /* SharedUSARCore */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = SharedUSARCore;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -87,6 +92,7 @@
 			children = (
 				79881C182F8F76510057449D /* linkguard.xctestplan */,
 				79381A612F6EBF8100FE8D95 /* linkguard */,
+				9C0A00012FA0000000000001 /* SharedUSARCore */,
 				79381A6F2F6EBF8300FE8D95 /* linkguardTests */,
 				79381A792F6EBF8300FE8D95 /* linkguardUITests */,
 				79381A602F6EBF8100FE8D95 /* Products */,
@@ -123,6 +129,7 @@
 			);
 			fileSystemSynchronizedGroups = (
 				79381A612F6EBF8100FE8D95 /* linkguard */,
+				9C0A00012FA0000000000001 /* SharedUSARCore */,
 			);
 			name = linkguard;
 			packageProductDependencies = (

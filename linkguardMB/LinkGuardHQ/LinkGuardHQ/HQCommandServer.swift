@@ -26,6 +26,7 @@ class HQCommandServer: ObservableObject {
     @Published var reinforcementRequests: [ReinforcementRequest] = []
     @Published var patientReports: [PatientReport] = []
     @Published var nfcTagWrites: [NFCTagWriteRecord] = []
+    @Published var usarMessages: [USARWirePayload] = []
     @Published var patientIDConfig = PatientIDConfig()
     @Published var radioReports: [HQRadioReport] = []
     @Published var currentBroadcaster: String?
@@ -47,6 +48,8 @@ class HQCommandServer: ObservableObject {
     var onChatReceived: ((ChatMessage) -> Void)?
     /// 收到傷員回報的回呼
     var onPatientReport: ((PatientReport) -> Void)?
+    /// 收到 USAR 指揮鏈訊息的回呼，供 UCC/Sector/Worksite 狀態層接入。
+    var onUSARMessage: ((USARWirePayload) -> Void)?
     /// 後台橋接器（收到前線資料時自動轉發）
     var backendBridge: HQBackendBridge?
     /// 狀態快照提供者（由 ViewModel 設定，定期發送給 HQ peer）
@@ -245,6 +248,18 @@ class HQCommandServer: ObservableObject {
         sendToDevices(data, targetDeviceIDs: targetDeviceIDs)
     }
 
+    func sendUSARMessage<Payload: Codable>(_ envelope: USARProtocolEnvelope<Payload>, targetDeviceIDs: [String]? = nil) {
+        guard let wirePayload = try? envelope.wirePayload(),
+              let data = encodeWiFiMessage(msgType: envelope.messageType.rawValue, payload: wirePayload) else { return }
+        let targets = targetDeviceIDs ?? (envelope.targetIDs.isEmpty ? nil : envelope.targetIDs)
+        sendToDevices(
+            data,
+            targetDeviceIDs: targets,
+            fallbackToBroadcastOnNoMatch: targets?.isEmpty == false,
+            context: "USAR \(envelope.messageType.rawValue)"
+        )
+    }
+
     // MARK: - 連線管理
 
     private func handleConnection(_ connection: NWConnection) {
@@ -393,6 +408,11 @@ class HQCommandServer: ObservableObject {
         }
 
         switch msg.msgType {
+
+        case let rawType where USARMessageType(rawValue: rawType) != nil:
+            guard let usarType = USARMessageType(rawValue: rawType) else { return }
+            handleUSARMessage(type: usarType, msg: msg, connID: connID)
+            return
 
         case "hello":
             guard let payloadData = msg.payload.data(using: .utf8) else {
@@ -1138,6 +1158,42 @@ class HQCommandServer: ObservableObject {
 
         default:
             print("[HQ-Server] Unknown message type: \(msg.msgType)")
+        }
+    }
+
+    @MainActor private func handleUSARMessage(type: USARMessageType, msg: WiFiMessage, connID: String) {
+        guard let payloadData = msg.payload.data(using: .utf8),
+              let wirePayload = try? JSONDecoder().decode(USARWirePayload.self, from: payloadData),
+              wirePayload.messageType == type.rawValue else {
+            print("[HQ-Server] Failed to decode USAR payload for \(type.rawValue) from \(connID)")
+            return
+        }
+
+        if !usarMessages.contains(where: { $0.messageID == wirePayload.messageID }) {
+            usarMessages.insert(wirePayload, at: 0)
+            if usarMessages.count > 500 {
+                usarMessages = Array(usarMessages.prefix(300))
+            }
+        }
+        onUSARMessage?(wirePayload)
+
+        appendTimelineEvent(TimelineEvent(
+            eventType: .command,
+            title: "USAR \(type.rawValue)",
+            detail: "\(wirePayload.originRole) → \(wirePayload.targetRole ?? "broadcast")",
+            source: wirePayload.originID.isEmpty ? connID : wirePayload.originID
+        ))
+
+        guard let relayData = encodeWiFiMessage(msgType: type.rawValue, payload: wirePayload) else { return }
+        if wirePayload.targetIDs.isEmpty {
+            relayBroadcast(relayData, fromConnID: connID)
+        } else {
+            sendToDevices(
+                relayData,
+                targetDeviceIDs: wirePayload.targetIDs,
+                fallbackToBroadcastOnNoMatch: true,
+                context: "USAR \(type.rawValue)"
+            )
         }
     }
 

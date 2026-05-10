@@ -15,6 +15,12 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		9C0A00022FA0000000000001 /* SharedUSARCore */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			name = SharedUSARCore;
+			path = ../SharedUSARCore;
+			sourceTree = "<group>";
+		};
 		AA111B012F7100000000001A /* LinkGuardHQ */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = LinkGuardHQ;
@@ -38,6 +44,7 @@
 			isa = PBXGroup;
 			children = (
 				AA111B012F7100000000001A /* LinkGuardHQ */,
+				9C0A00022FA0000000000001 /* SharedUSARCore */,
 				AA111B012F7100000000001E /* Products */,
 			);
 			sourceTree = "<group>";
@@ -66,6 +73,7 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
+				9C0A00022FA0000000000001 /* SharedUSARCore */,
 				AA111B012F7100000000001A /* LinkGuardHQ */,
 			);
 			name = LinkGuardHQ;

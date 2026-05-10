@@ -325,6 +325,8 @@ class CommandClient: ObservableObject {
     var onEscalationTrigger: (([String: Any]) -> Void)?
     /// 收到 HQ 下發的傷患編號配置
     var onPatientIDConfig: ((PatientIDConfig) -> Void)?
+    /// 收到 USAR 指揮鏈訊息（UCC/Sector/Worksite/Squad Leader 共用）
+    var onUSARMessage: ((USARWirePayload) -> Void)?
 
     private var browsers: [NWBrowser] = []
     private var connection: NWConnection?
@@ -676,6 +678,11 @@ class CommandClient: ObservableObject {
         let msgType = normalizedMessageType(rawType)
         let payloadData = normalizedPayloadData(for: msgType, payloadData: rawPayloadData)
 
+        if let usarType = USARMessageType(rawValue: msgType) {
+            handleUSARMessage(type: usarType, payloadData: payloadData)
+            return
+        }
+
         switch msgType {
         case "command":
             if let cmd = try? JSONDecoder().decode(WiFiCommand.self, from: payloadData) {
@@ -865,6 +872,14 @@ class CommandClient: ObservableObject {
         }
     }
 
+    private func handleUSARMessage(type: USARMessageType, payloadData: Data) {
+        guard let wirePayload = try? JSONDecoder().decode(USARWirePayload.self, from: payloadData),
+              wirePayload.messageType == type.rawValue else { return }
+        DispatchQueue.main.async { [weak self] in
+            self?.onUSARMessage?(wirePayload)
+        }
+    }
+
     private func handleCommand(_ cmd: WiFiCommand) {
         guard !receivedIDs.contains(cmd.id) else { return }
         receivedIDs.insert(cmd.id)
@@ -975,6 +990,11 @@ class CommandClient: ObservableObject {
 
     func sendNFCTagWritten(_ record: NFCTagWriteRecord) {
         sendWiFiMessage(msgType: "nfc_tag_written", payload: record)
+    }
+
+    func sendUSARMessage<Payload: Codable>(_ envelope: USARProtocolEnvelope<Payload>) {
+        guard let wirePayload = try? envelope.wirePayload() else { return }
+        sendWiFiMessage(msgType: envelope.messageType.rawValue, payload: wirePayload)
     }
 
     /// 規範 5.1：GPS 位置更新
