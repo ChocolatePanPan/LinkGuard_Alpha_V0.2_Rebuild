@@ -32,6 +32,7 @@ struct SquadLeaderView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 header
+                FieldINSARAGBriefPanel(profile: .squadLeader, accent: NV.green)
                 taskList
                 statusPanel
                 medicalPanel

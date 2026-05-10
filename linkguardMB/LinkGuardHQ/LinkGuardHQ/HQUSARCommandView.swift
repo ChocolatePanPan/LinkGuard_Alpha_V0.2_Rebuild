@@ -83,6 +83,8 @@ struct HQUSARCommandView: View {
                 StatLabel(icon: "cross.case.fill", label: L("醫療"), value: "\(medicalTransfers.count)", color: NV.danger)
             }
 
+            HQINSARAGBriefPanel(profile: .ucc)
+
             HStack(alignment: .top, spacing: NV.panelSpacing) {
                 worksiteComposer
                 roleAssignmentPanel
@@ -641,4 +643,44 @@ struct HQUSARCommandView: View {
         formatter.dateFormat = "HH:mm:ss"
         return formatter
     }()
+}
+
+private struct HQINSARAGBriefPanel: View {
+    let profile: INSARAGRoleProfile
+
+    private var brief: INSARAGRoleBrief { profile.brief }
+
+    var body: some View {
+        HQPanel(title: brief.title, icon: "checklist.checked", accent: NV.team) {
+            VStack(alignment: .leading, spacing: 12) {
+                Text(brief.subtitle)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                HStack(alignment: .top, spacing: 10) {
+                    Image(systemName: "arrow.triangle.2.circlepath.circle.fill")
+                        .foregroundColor(NV.team)
+                        .frame(width: 22)
+                    Text(brief.cycle)
+                        .font(.caption.bold())
+                        .foregroundColor(.primary)
+                }
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                    ForEach(brief.checklist) { item in
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(item.title)
+                                .font(.caption.bold())
+                            Text(item.detail)
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                                .lineLimit(3)
+                        }
+                        .padding(10)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .hqThemedSurfaceBackground(opacity: 0.58)
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    }
+                }
+            }
+        }
+    }
 }

@@ -132,6 +132,7 @@ private struct SectorCommanderView: View {
                 )
 
                 worksiteList
+                FieldINSARAGBriefPanel(profile: .sector, accent: NV.command)
                 sectorControlPanel
                 FieldSquadTaskComposer(
                     vm: vm,
@@ -272,6 +273,7 @@ private struct WorksiteManagerView: View {
                 )
 
                 worksitePicker
+                FieldINSARAGBriefPanel(profile: .worksite, accent: NV.green)
                 worksiteUpdatePanel
                 FieldSquadTaskComposer(
                     vm: vm,
@@ -464,6 +466,58 @@ private struct WorksiteManagerView: View {
         worksitePriority = selectedWorksite.priority
         asrPriority = selectedWorksite.priority
         victimCount = selectedWorksite.victimCount
+    }
+}
+
+struct FieldINSARAGBriefPanel: View {
+    let profile: INSARAGRoleProfile
+    let accent: Color
+
+    private var brief: INSARAGRoleBrief { profile.brief }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Image(systemName: "checklist.checked")
+                    .foregroundColor(accent)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(brief.title)
+                        .font(.headline)
+                    Text(brief.subtitle)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                Spacer()
+            }
+
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: "arrow.triangle.2.circlepath.circle.fill")
+                    .foregroundColor(accent)
+                    .frame(width: 18)
+                Text(brief.cycle)
+                    .font(.caption.bold())
+                    .foregroundColor(.primary)
+            }
+
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                ForEach(brief.checklist) { item in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(item.title)
+                            .font(.caption.bold())
+                        Text(item.detail)
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                            .lineLimit(3)
+                    }
+                    .padding(10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(accent.opacity(0.08))
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                }
+            }
+        }
+        .padding()
+        .glassEffect(.regular, in: .rect(cornerRadius: 12))
     }
 }
 

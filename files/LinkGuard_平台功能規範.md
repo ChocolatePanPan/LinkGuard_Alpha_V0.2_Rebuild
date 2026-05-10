@@ -239,7 +239,7 @@ Node ID：RT-{HEX}-{DEPT}（如 RT-A3F-EMT）
 
 ### 2.3 HQ Dashboard 側邊欄 (HQDashboardView.swift)
 
-**HQSection enum（16 個分區）**：
+**HQSection enum（17 個分區）**：
 
 | Section | 標籤 | 圖示 | View |
 |---------|------|------|------|
@@ -259,6 +259,18 @@ Node ID：RT-{HEX}-{DEPT}（如 RT-A3F-EMT）
 | photoWall | 照片牆 | photo.on.rectangle.angled | HQPhotoWallView |
 | **stats** | **統計儀表板** | chart.bar.xaxis | HQStatsDashboardView |
 | **resources** | **資源管理** | shippingbox | HQResourceView |
+| **usarCommand** | **USAR 指揮鏈** | point.3.connected.trianglepath.dotted | HQUSARCommandView |
+
+**USAR / INSARAG 頁面對齊標準**：
+
+| 頁面角色 | INSARAG 對齊重點 |
+|---------|------------------|
+| UCC | 事件目標、分區/工作點優先序、派令與資源、安全監督、SITREP/ASR 回收 |
+| Sector Commander | Sector 邊界、通道、工作點節奏、資源請求、分區 SITREP |
+| Worksite Manager | Worksite 控制點、ASR 1-5、危害、RCM/標記、小隊派工 |
+| Squad Leader | 任務確認、狀態回報、危害/資源請求、醫療後送、撤離或完成 |
+
+所有 USAR 角色頁都必須顯示對應的 INSARAG 作業節奏與檢核項，並以正式 USAR 封包同步到 `USAROperationStore`。
 
 ### 2.4 HQ 指揮伺服器 (HQCommandServer.swift)
 
