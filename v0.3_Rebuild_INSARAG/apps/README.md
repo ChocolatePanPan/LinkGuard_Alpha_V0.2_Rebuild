@@ -2,7 +2,7 @@
 
 此資料夾規劃 LinkGuard v0.3 的角色分流版本。
 
-目前只建立資料夾與 README，不建立 Xcode target 或 scheme。
+目前建立資料夾、README 與各版本獨立 Xcode project 殼，不建立 Xcode target 或 scheme。
 
 ## 原則
 

@@ -1,0 +1,66 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+		010000000000000000000001 = {
+			isa = PBXGroup;
+			children = (
+				010000000000000000000002,
+			);
+			sourceTree = "<group>";
+		};
+		010000000000000000000002 = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		010000000000000000000003 = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastUpgradeCheck = 1640;
+			};
+			buildConfigurationList = 010000000000000000000004;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 010000000000000000000001;
+			productRefGroup = 010000000000000000000002;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+			);
+		};
+		010000000000000000000004 = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				010000000000000000000005,
+				010000000000000000000006,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		010000000000000000000005 = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		010000000000000000000006 = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Release;
+		};
+	};
+	rootObject = 010000000000000000000003;
+}

@@ -1,6 +1,6 @@
 # LinkGuard v0.3 Rebuild INSARAG
 
-本資料夾目前只建立 v0.3 的資料夾骨架與 README，不建立 Xcode 專案，也不放入 Swift 程式碼。
+本資料夾目前建立 v0.3 的資料夾骨架、README 與各版本獨立 Xcode project 殼，不建立 target、scheme，也不放入 Swift 程式碼。
 
 v0.3 的方向是 USAR/INSARAG + ICS 架構，採用共享核心與角色分流版本。Mac HQ 不再是唯一操作中心，UCC 作為最高協調與資料權威，SCC 作為現場指揮中心，iOS/iPad 依角色分成 VO、TE、TL、EMT。
 
@@ -27,3 +27,7 @@ v0.3 的方向是 USAR/INSARAG + ICS 架構，採用共享核心與角色分流�
 - `modules/`：ICS 五大模組、醫療模組與災後復盤。
 - `docs/`：架構、權限、流程規格。
 - `resources/`：地圖 overlay 與範例資料。
+
+## Xcode projects
+
+各角色版本的 Xcode project 分開建立於自己的版本資料夾內。這些 project 目前只是可由 Xcode 開啟的空殼，尚未包含 target 或 scheme。
