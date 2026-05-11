@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">LinkGuard</string>
+
+    <!-- Navigation Groups -->
+    <string name="nav_ops">Ops</string>
+    <string name="nav_comms">Comms</string>
+    <string name="nav_support">Support</string>
+    <string name="nav_tools">Tools</string>
+
+    <!-- Screen Titles -->
+    <string name="title_dashboard">Dashboard</string>
+    <string name="title_victims">Victims</string>
+    <string name="title_sos">SOS</string>
+    <string name="title_disaster">Disaster</string>
+    <string name="title_chat">Chat</string>
+    <string name="title_radio">Radio</string>
+    <string name="title_commands">Commands</string>
+    <string name="title_notifications">Notifications</string>
+    <string name="title_team">Team</string>
+    <string name="title_reinforcement">Reinforcement</string>
+    <string name="title_patient">Patient Form</string>
+    <string name="title_decision">HQ Decision</string>
+    <string name="title_translator">Translator</string>
+    <string name="title_photo_report">Photo Report</string>
+    <string name="title_connection">Connection</string>
+
+    <!-- Dashboard -->
+    <string name="dashboard_victims">Victims</string>
+    <string name="dashboard_sos">SOS</string>
+    <string name="dashboard_team">Team</string>
+    <string name="dashboard_uptime">Uptime</string>
+    <string name="dashboard_battery">Battery</string>
+    <string name="dashboard_ble">BLE</string>
+    <string name="dashboard_wifi">WiFi</string>
+    <string name="dashboard_connected">Connected</string>
+    <string name="dashboard_disconnected">Disconnected</string>
+    <string name="dashboard_no_data">No data yet</string>
+
+    <!-- SOS -->
+    <string name="sos_send">Send SOS</string>
+    <string name="sos_cancel">Cancel SOS</string>
+    <string name="sos_emergency">Emergency SOS</string>
+    <string name="sos_confirm_title">Confirm SOS</string>
+    <string name="sos_confirm_msg">Send emergency SOS to all nodes and HQ?</string>
+    <string name="sos_no_records">No SOS records</string>
+
+    <!-- Disaster -->
+    <string name="disaster_no_reports">No disaster reports yet</string>
+    <string name="disaster_report">Report Hazard</string>
+    <string name="disaster_subtitle">Activate reporting to record hazards</string>
+
+    <!-- Chat -->
+    <string name="chat_title">Field Chat</string>
+    <string name="chat_send">Send</string>
+    <string name="chat_placeholder">Enter message…</string>
+    <string name="chat_no_messages">No messages yet</string>
+
+    <!-- Radio -->
+    <string name="radio_live">Live Broadcast</string>
+    <string name="radio_briefing">Fixed Briefing</string>
+    <string name="radio_text">Text Broadcast</string>
+    <string name="radio_priority">Priority</string>
+    <string name="radio_normal">Normal</string>
+    <string name="radio_urgent">Urgent</string>
+    <string name="radio_placeholder">Enter broadcast message…</string>
+    <string name="radio_send">Send Broadcast</string>
+    <string name="radio_no_broadcasts">No text broadcasts</string>
+
+    <!-- Notifications -->
+    <string name="notif_title">Notifications</string>
+    <string name="notif_empty">No notifications</string>
+    <string name="notif_empty_subtitle">New alerts will appear here</string>
+
+    <!-- Patient Form -->
+    <string name="patient_title">Patient Form</string>
+    <string name="patient_submit">Submit Assessment</string>
+
+    <!-- Decision -->
+    <string name="decision_title">HQ Decisions</string>
+    <string name="decision_empty">No decisions yet</string>
+    <string name="decision_empty_subtitle">HQ directives will appear here</string>
+
+    <!-- Translator -->
+    <string name="translator_detect">Auto Detect</string>
+    <string name="translator_swap">Swap</string>
+    <string name="translator_translate">Translate</string>
+    <string name="translator_placeholder">Enter text to translate…</string>
+    <string name="translator_quick">Quick Medical Phrases</string>
+    <string name="translator_original">Original</string>
+    <string name="translator_result">Translation</string>
+    <string name="translator_copy">Copy</string>
+    <string name="translator_speak">Speak</string>
+
+    <!-- Photo Report -->
+    <string name="photo_title">Photo Report</string>
+    <string name="photo_select">Select or take a photo</string>
+    <string name="photo_camera">Camera</string>
+    <string name="photo_gallery">Gallery</string>
+    <string name="photo_location">Location (e.g. Zone B 3F hallway)</string>
+    <string name="photo_caption">Photo caption</string>
+    <string name="photo_upload">Upload Photo Report</string>
+    <string name="photo_uploading">Uploading…</string>
+    <string name="photo_reported">Reported Photos (%1$d)</string>
+
+    <!-- Voice Input -->
+    <string name="voice_input">Voice Input</string>
+    <string name="voice_recording">Recording… Tap to stop</string>
+    <string name="voice_transcribing">Transcribing…</string>
+    <string name="voice_done">Transcribed</string>
+
+    <!-- Connection -->
+    <string name="conn_ble">BLE</string>
+    <string name="conn_wifi">WiFi</string>
+    <string name="conn_gps">GPS</string>
+    <string name="conn_retry">Retry</string>
+
+    <!-- Onboarding -->
+    <string name="onboarding_welcome">Welcome to LinkGuard</string>
+    <string name="onboarding_welcome_desc">Field rescue communication and management platform</string>
+    <string name="onboarding_role">Select Your Role</string>
+    <string name="onboarding_role_search">Search</string>
+    <string name="onboarding_role_rescue">Rescue</string>
+    <string name="onboarding_role_medical">Medical</string>
+    <string name="onboarding_role_logistics">Logistics</string>
+    <string name="onboarding_role_commander">Commander</string>
+    <string name="onboarding_dept">Department Code</string>
+    <string name="onboarding_tour">Feature Tour</string>
+    <string name="onboarding_ready">Ready to Go</string>
+    <string name="onboarding_skip">Skip</string>
+    <string name="onboarding_next">Next</string>
+    <string name="onboarding_start">Get Started</string>
+
+    <!-- Common -->
+    <string name="confirm">Confirm</string>
+    <string name="cancel">Cancel</string>
+    <string name="send">Send</string>
+    <string name="retry">Retry</string>
+    <string name="back_to_dashboard">Back to Dashboard</string>
+    <string name="no_connection">Not connected to HQ</string>
+    <string name="upload_success">Upload successful</string>
+    <string name="upload_failed">Upload failed</string>
+</resources>

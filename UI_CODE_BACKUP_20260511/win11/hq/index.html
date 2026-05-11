@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LinkGuard HQ — 指揮中心</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ========== SIDEBAR ========== -->
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <h1> LINKGUARD HQ</h1>
+    <div class="hq-status">
+      <div class="dot" id="wsDot"></div>
+      <span id="wsStatus">連線中…</span>
+    </div>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">總覽</div>
+    <div class="nav-item active" data-page="dashboard">
+      <span class="icon"></span> 儀表板
+    </div>
+    <div class="nav-item" data-page="timeline">
+      <span class="icon"></span> 事件日誌
+    </div>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">人員與受困者</div>
+    <div class="nav-item" data-page="victims">
+      <span class="icon"></span> 受困者總覽
+      <span class="badge-count" id="badgeVictimsSOS" style="display:none">0</span>
+    </div>
+    <div class="nav-item" data-page="teams">
+      <span class="icon"></span> 隊員總覽
+    </div>
+    <div class="nav-item" data-page="personnel">
+      <span class="icon"></span> 人員配置
+    </div>
+    <div class="nav-item" data-page="patients">
+      <span class="icon"></span> 傷患檢傷
+    </div>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">通訊</div>
+    <div class="nav-item" data-page="commands">
+      <span class="icon"></span> 命令廣播
+      <span class="badge-count" id="badgeCommands" style="display:none">0</span>
+    </div>
+    <div class="nav-item" data-page="chat">
+      <span class="icon"></span> 通訊頻道
+      <span class="badge-count" id="badgeChats" style="display:none">0</span>
+    </div>
+    <div class="nav-item" data-page="broadcast">
+      <span class="icon"></span> 文字廣播
+    </div>
+    <div class="nav-item" data-page="notifications">
+      <span class="icon"></span> 通知管理
+    </div>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">災情</div>
+    <div class="nav-item" data-page="disaster">
+      <span class="icon">️</span> 災害現場
+    </div>
+    <div class="nav-item" data-page="hazards">
+      <span class="icon">️</span> 危害回報
+    </div>
+    <div class="nav-item" data-page="reinforcements">
+      <span class="icon"></span> 增援請求
+      <span class="badge-count" id="badgeReinforce" style="display:none">0</span>
+    </div>
+    <div class="nav-item" data-page="quickstatus">
+      <span class="icon"></span> 快速狀態
+    </div>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">電台與AI</div>
+    <div class="nav-item" data-page="radio">
+      <span class="icon"></span> 電台監聽
+    </div>
+    <div class="nav-item" data-page="decisions">
+      <span class="icon"></span> AI 決策
+    </div>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">其他</div>
+    <div class="nav-item" data-page="photos">
+      <span class="icon"></span> 照片牆
+    </div>
+    <div class="nav-item" data-page="briefings">
+      <span class="icon"></span> 會報系統
+    </div>
+    <div class="nav-item" data-page="tasks">
+      <span class="icon"></span> 任務指派
+    </div>
+    <div class="nav-item" data-page="pws">
+      <span class="icon"></span> PWS 警報
+    </div>
+    <div class="nav-item" data-page="weather">
+      <span class="icon">️</span> 即時氣象
+    </div>
+    <div class="nav-item" data-page="lora">
+      <span class="icon"></span> LoRa 節點
+    </div>
+    <div class="nav-item" data-page="settings">
+      <span class="icon">️</span> 連線設定
+    </div>
+  </div>
+
+  <div class="sidebar-footer">
+    <div class="conn-info">
+      <div class="conn-dot" id="backendDot"></div>
+      <span id="backendStatus">後端: 等待中</span>
+    </div>
+    <div class="conn-info">
+      <div class="conn-dot off" id="fieldDot"></div>
+      <span id="fieldStatus">前線: 0 裝置</span>
+    </div>
+    <div style="margin-top:4px; color:var(--nv-text3)">v1.0 Windows HQ</div>
+  </div>
+</nav>
+
+<!-- ========== MAIN CONTENT ========== -->
+<div class="main-content">
+  <div class="top-bar">
+    <div class="page-title" id="pageTitle"> 儀表板</div>
+    <div class="actions" id="topActions"></div>
+  </div>
+
+  <div class="page-container">
+
+    <!-- ===== DASHBOARD ===== -->
+    <div class="page active" id="page-dashboard">
+      <div class="info-banner" id="demoBanner">
+        <span class="banner-icon"></span>
+        <div class="banner-body">
+          <strong>展示模式</strong> — 目前顯示的是模擬情境資料（信義商業大樓地震救援）。當前線裝置連線後，即時資料將自動覆蓋。
+        </div>
+      </div>
+      <div class="stat-grid" id="dashStatGrid"></div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px">
+        <div class="card">
+          <div class="card-title"><div class="accent"></div>快速狀態</div>
+          <div id="dashQuickStatus">
+            <div class="empty-state"><div class="text">尚無快速狀態</div></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title"><div class="accent"></div>最新事件</div>
+          <div id="dashTimeline" style="max-height:300px; overflow-y:auto">
+            <div class="empty-state"><div class="text">等待事件…</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== TIMELINE ===== -->
+    <div class="page" id="page-timeline">
+      <div class="card">
+        <div class="card-title"><div class="accent"></div>完整事件日誌</div>
+        <div id="timelineList">
+          <div class="empty-state"><div class="icon"></div><div class="text">等待事件…</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== VICTIMS ===== -->
+    <div class="page" id="page-victims">
+      <div class="card">
+        <div class="card-title"><div class="accent" style="background:var(--nv-danger)"></div>受困者列表</div>
+        <div style="margin-bottom:12px">
+          <input class="form-input" id="victimSearch" placeholder="搜尋受困者 ID / 名稱…" style="max-width:300px">
+        </div>
+        <table class="data-table">
+          <thead><tr>
+            <th>ID</th><th>心率</th><th>電量</th><th>RSSI</th>
+            <th>SOS</th><th>線上</th><th>優先級</th><th>備註</th><th>操作</th>
+          </tr></thead>
+          <tbody id="victimTableBody">
+            <tr><td colspan="9" style="color:var(--nv-text3); text-align:center">等待資料…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ===== TEAMS ===== -->
+    <div class="page" id="page-teams">
+      <div class="card">
+        <div class="card-title"><div class="accent" style="background:var(--nv-green)"></div>隊員列表</div>
+        <table class="data-table">
+          <thead><tr>
+            <th>ID</th><th>部門</th><th>電量</th><th>RSSI</th>
+            <th>線上</th><th>受困者數</th><th>來源</th>
+          </tr></thead>
+          <tbody id="teamTableBody">
+            <tr><td colspan="7" style="color:var(--nv-text3); text-align:center">等待資料…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ===== PERSONNEL ===== -->
+    <div class="page" id="page-personnel">
+      <div style="display:flex; justify-content:space-between; margin-bottom:16px">
+        <div></div>
+        <button class="btn" onclick="showPersonnelModal()">+ 配置人員</button>
+      </div>
+      <div id="personnelList">
+        <div class="empty-state"><div class="icon"></div><div class="text">尚無人員配置</div></div>
+      </div>
+    </div>
+
+    <!-- ===== PATIENTS ===== -->
+    <div class="page" id="page-patients">
+      <div class="card">
+        <div class="card-title"><div class="accent" style="background:var(--nv-danger)"></div>傷患檢傷記錄 (START)</div>
+        <div id="patientList">
+          <div class="empty-state"><div class="icon"></div><div class="text">尚無傷患資料</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== COMMANDS ===== -->
+    <div class="page" id="page-commands">
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-title"><div class="accent"></div>發送搜救命令</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>命令類型</label>
+            <select class="form-select" id="cmdType">
+              <option value="search">搜索 (Search)</option>
+              <option value="standby">待命 (Standby)</option>
+              <option value="support">支援 (Support)</option>
+              <option value="report">回報 (Report)</option>
+              <option value="evacuation">撤離 (Evacuation)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>優先級</label>
+            <select class="form-select" id="cmdPriority">
+              <option value="0">例行</option>
+              <option value="1">緊急</option>
+              <option value="2">危急</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>標題</label>
+          <input class="form-input" id="cmdTitle" placeholder="例: B棟1F搜救">
+        </div>
+        <div class="form-group">
+          <label>詳細內容</label>
+          <textarea class="form-textarea" id="cmdDetail" placeholder="命令詳細說明…" rows="2"></textarea>
+        </div>
+        <button class="btn btn-green" onclick="sendCommand()"> 發送命令</button>
+      </div>
+      <div class="card">
+        <div class="card-title"><div class="accent"></div>歷史命令</div>
+        <div id="commandList">
+          <div class="empty-state"><div class="text">尚無命令</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== CHAT ===== -->
+    <div class="page" id="page-chat">
+      <div class="chat-container">
+        <div class="chat-messages" id="chatMessages">
+          <div class="empty-state"><div class="text">尚無訊息</div></div>
+        </div>
+        <div class="chat-input-bar">
+          <input type="text" id="chatInput" placeholder="輸入訊息… (Enter 發送)">
+          <button class="btn" onclick="sendChat()">發送</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== BROADCAST ===== -->
+    <div class="page" id="page-broadcast">
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-title"><div class="accent" style="background:var(--nv-reinforce)"></div>發送文字廣播</div>
+        <div class="form-group">
+          <label>廣播內容</label>
+          <textarea class="form-textarea" id="broadcastMsg" placeholder="輸入廣播訊息…" rows="3"></textarea>
+        </div>
+        <div class="form-group">
+          <label>優先級</label>
+          <select class="form-select" id="broadcastPriority" style="max-width:200px">
+            <option value="normal">一般</option>
+            <option value="urgent">緊急</option>
+            <option value="critical">危急</option>
+          </select>
+        </div>
+        <button class="btn btn-warning" onclick="sendBroadcast()"> 廣播</button>
+      </div>
+      <div class="card">
+        <div class="card-title"><div class="accent"></div>歷史廣播</div>
+        <div id="broadcastList">
+          <div class="empty-state"><div class="text">尚無廣播</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== NOTIFICATIONS ===== -->
+    <div class="page" id="page-notifications">
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-title"><div class="accent" style="background:var(--nv-info)"></div>發送個人通知</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>目標裝置</label>
+            <select class="form-select" id="notifTarget"></select>
+          </div>
+          <div class="form-group">
+            <label>標題</label>
+            <input class="form-input" id="notifTitle" placeholder="通知標題">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>內容</label>
+          <textarea class="form-textarea" id="notifContent" placeholder="通知內容…" rows="2"></textarea>
+        </div>
+        <button class="btn" onclick="sendNotification()"> 發送通知</button>
+      </div>
+      <div class="card">
+        <div class="card-title"><div class="accent"></div>已發送通知</div>
+        <div id="notificationList">
+          <div class="empty-state"><div class="text">尚無通知</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== DISASTER ===== -->
+    <div class="page" id="page-disaster">
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-title"><div class="accent" style="background:var(--nv-danger)"></div>災害現場資訊</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>建築名稱</label>
+            <input class="form-input" id="disasterBuilding" placeholder="例: A棟大樓">
+          </div>
+          <div class="form-group">
+            <label>地址</label>
+            <input class="form-input" id="disasterAddress" placeholder="地址">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>樓層數</label>
+            <input type="number" class="form-input" id="disasterFloors" value="5">
+          </div>
+          <div class="form-group">
+            <label>倒塌類型</label>
+            <select class="form-select" id="disasterCollapse">
+              <option value="partial">部分倒塌</option>
+              <option value="pancake">層疊式</option>
+              <option value="lean">傾斜</option>
+              <option value="v_shape">V 型</option>
+              <option value="cantilever">懸臂式</option>
+              <option value="none">無倒塌</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>集結點</label>
+          <input class="form-input" id="disasterRally" placeholder="例: 停車場北側">
+        </div>
+        <div class="form-group">
+          <label>筆記</label>
+          <textarea class="form-textarea" id="disasterNotes" rows="2" placeholder="現場筆記…"></textarea>
+        </div>
+        <button class="btn" onclick="updateDisasterSite()"> 更新災害資訊</button>
+      </div>
+      <div class="card">
+        <div class="card-title"><div class="accent"></div>樓層狀態</div>
+        <div class="floor-grid" id="floorGrid"></div>
+      </div>
+    </div>
+
+    <!-- ===== HAZARDS ===== -->
+    <div class="page" id="page-hazards">
+      <div class="card">
+        <div class="card-title"><div class="accent" style="background:var(--nv-warning)"></div>危害回報</div>
+        <div id="hazardList">
+          <div class="empty-state"><div class="icon">️</div><div class="text">尚無危害回報</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== REINFORCEMENTS ===== -->
+    <div class="page" id="page-reinforcements">
+      <div class="card">
+        <div class="card-title"><div class="accent" style="background:var(--nv-reinforce)"></div>增援請求</div>
+        <div id="reinforcementList">
+          <div class="empty-state"><div class="icon"></div><div class="text">尚無增援請求</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== QUICK STATUS ===== -->
+    <div class="page" id="page-quickstatus">
+      <div class="card">
+        <div class="card-title"><div class="accent" style="background:var(--nv-green)"></div>快速狀態回報</div>
+        <div id="quickStatusList">
+          <div class="empty-state"><div class="icon"></div><div class="text">尚無快速狀態</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== RADIO ===== -->
+    <div class="page" id="page-radio">
+      <div class="radio-status" id="radioStatus">
+        <div class="radio-indicator" id="radioIndicator"></div>
+        <div class="radio-info">
+          <h3 id="radioTitle">電台待命中</h3>
+          <div class="sub" id="radioSub">等待 PTT 廣播…</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title"><div class="accent" style="background:var(--nv-info)"></div>會報轉錄紀錄</div>
+        <div id="radioReportList">
+          <div class="empty-state"><div class="icon"></div><div class="text">尚無會報轉錄</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== DECISIONS ===== -->
+    <div class="page" id="page-decisions">
+      <div style="margin-bottom:16px">
+        <button class="btn" onclick="requestDecision()"> 請求 AI 決策</button>
+      </div>
+      <div class="card">
+        <div class="card-title"><div class="accent" style="background:var(--nv-purple)"></div>AI 決策列表</div>
+        <div id="decisionList">
+          <div class="empty-state"><div class="icon"></div><div class="text">尚無 AI 決策</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== PHOTOS ===== -->
+    <div class="page" id="page-photos">
+      <div class="card">
+        <div class="card-title"><div class="accent" style="background:var(--nv-green)"></div>現場照片牆</div>
+        <div class="photo-grid" id="photoGrid">
+          <div class="empty-state" style="grid-column:1/-1"><div class="icon"></div><div class="text">尚無照片</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== BRIEFINGS ===== -->
+    <div class="page" id="page-briefings">
+      <div style="margin-bottom:16px">
+        <button class="btn" onclick="showBriefingModal()">+ 新增會報</button>
+      </div>
+      <div class="card">
+        <div class="card-title"><div class="accent"></div>會報列表</div>
+        <div id="briefingList">
+          <div class="empty-state"><div class="icon"></div><div class="text">尚無會報</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== TASKS ===== -->
+    <div class="page" id="page-tasks">
+      <div style="margin-bottom:16px">
+        <button class="btn" onclick="showTaskModal()">+ 新增任務</button>
+      </div>
+      <div class="card">
+        <div class="card-title"><div class="accent" style="background:var(--nv-green)"></div>任務列表</div>
+        <table class="data-table">
+          <thead><tr>
+            <th>標題</th><th>指派</th><th>區域</th><th>優先級</th><th>狀態</th>
+          </tr></thead>
+          <tbody id="taskTableBody">
+            <tr><td colspan="5" style="color:var(--nv-text3); text-align:center">尚無任務</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ===== PWS ===== -->
+    <div class="page" id="page-pws">
+      <div style="margin-bottom:16px">
+        <button class="btn btn-warning" onclick="showPWSModal()">+ 發布 PWS 警報</button>
+      </div>
+      <div id="pwsList">
+        <div class="empty-state"><div class="icon"></div><div class="text">目前無 PWS 警報</div></div>
+      </div>
+    </div>
+
+    <!-- ===== WEATHER ===== -->
+    <div class="page" id="page-weather">
+      <div class="card">
+        <div class="card-title"><div class="accent" style="background:var(--nv-info)"></div>即時氣象</div>
+        <div class="weather-grid" id="weatherGrid">
+          <div class="empty-state" style="grid-column:1/-1"><div class="text">等待氣象資料…</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== LORA ===== -->
+    <div class="page" id="page-lora">
+      <div class="card">
+        <div class="card-title"><div class="accent" style="background:var(--nv-green)"></div>LoRa 節點狀態</div>
+        <table class="data-table">
+          <thead><tr>
+            <th>節點 ID</th><th>RSSI</th><th>SNR</th><th>電量</th>
+            <th>PDR</th><th>最後通訊</th>
+          </tr></thead>
+          <tbody id="loraTableBody">
+            <tr><td colspan="6" style="color:var(--nv-text3); text-align:center">等待節點資料…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ===== SETTINGS ===== -->
+    <div class="page" id="page-settings">
+      <div class="card">
+        <div class="card-title"><div class="accent"></div>連線設定</div>
+        <div class="form-group">
+          <label>服務狀態</label>
+          <div style="display:flex; flex-direction:column; gap:8px; margin:8px 0">
+            <div class="list-item" style="border:1px solid var(--nv-border); border-radius:6px">
+              <span>命令伺服器 (TCP 8930)</span>
+              <span class="badge badge-green" style="margin-left:auto">運行中</span>
+            </div>
+            <div class="list-item" style="border:1px solid var(--nv-border); border-radius:6px">
+              <span>LGAP 音訊 (TCP 8005)</span>
+              <span class="badge badge-green" style="margin-left:auto">運行中</span>
+            </div>
+            <div class="list-item" style="border:1px solid var(--nv-border); border-radius:6px">
+              <span>儀表板 (HTTP 8080)</span>
+              <span class="badge badge-green" style="margin-left:auto">運行中</span>
+            </div>
+            <div class="list-item" style="border:1px solid var(--nv-border); border-radius:6px">
+              <span>後端橋接 (TCP 9000)</span>
+              <span class="badge" id="backendBadge">--</span>
+            </div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>已連線前線裝置</label>
+          <div id="connectedDevicesList" style="margin-top:8px">
+            <div style="color:var(--nv-text3); font-size:13px">無裝置連線</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ========== SOS OVERLAY (hidden) ========== -->
+<div class="sos-overlay" id="sosOverlay" style="display:none">
+  <div class="sos-panel">
+    <h2> SOS 緊急警報</h2>
+    <div class="sos-list" id="sosList"></div>
+    <div style="text-align:center; margin-top:20px">
+      <button class="btn btn-danger" onclick="dismissAllSOS()" style="font-size:16px; padding:12px 32px">確認所有警報</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== TOAST CONTAINER ========== -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- ========== MODAL CONTAINER ========== -->
+<div id="modalContainer"></div>
+
+<!-- ========== PHOTO MODAL ========== -->
+<div class="modal-overlay" id="photoModal" style="display:none" onclick="closePhotoModal()">
+  <img id="photoModalImg" src="" alt="" style="max-width:90%; max-height:90%; border-radius:8px">
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
+

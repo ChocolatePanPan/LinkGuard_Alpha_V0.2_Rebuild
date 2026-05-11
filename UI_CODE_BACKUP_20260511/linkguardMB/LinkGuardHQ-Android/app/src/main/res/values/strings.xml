@@ -1,0 +1,506 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">LinkGuard HQ</string>
+
+    <!-- ===== Dashboard / Top Bar ===== -->
+    <string name="server_running">Server Running</string>
+    <string name="server_stopped">Server Stopped</string>
+
+    <!-- ===== Tab Names ===== -->
+    <string name="tab_overview">Overview</string>
+    <string name="tab_command">Command</string>
+    <string name="tab_field_units">Field Units</string>
+    <string name="tab_personnel_overview">Personnel Overview</string>
+    <string name="tab_victims">Victims</string>
+    <string name="tab_disaster">Disaster</string>
+    <string name="tab_chat">Chat</string>
+    <string name="tab_personnel">Personnel</string>
+    <string name="tab_pws">PWS</string>
+    <string name="tab_briefing">Briefing</string>
+    <string name="tab_notification">Notification</string>
+    <string name="tab_patient_report">Patient Report</string>
+    <string name="tab_decision">Decision</string>
+    <string name="tab_timeline">Timeline</string>
+    <string name="tab_zone_map">Zone Map</string>
+    <string name="tab_reports">Reports</string>
+    <string name="tab_stats">Statistics</string>
+    <string name="tab_resources">Resources</string>
+    <string name="tab_photo_wall">Photo Wall</string>
+    <string name="tab_task_assign">Task Assign</string>
+    <string name="tab_broadcast">Broadcast</string>
+    <string name="tab_radio">Radio</string>
+    <string name="tab_patient_warning">Patient Warning</string>
+    <string name="tab_ai_chat">AI Chat</string>
+
+    <!-- ===== Overview Tab ===== -->
+    <string name="stat_field_units">Field Units</string>
+    <string name="stat_victims">Victims</string>
+    <string name="stat_sos">SOS</string>
+    <string name="backend_ai_server">Backend AI Server</string>
+    <string name="connected_host">Connected · %s</string>
+    <string name="not_connected">Not Connected</string>
+    <string name="backend_ip_hint">Backend IP (e.g. 192.168.50.34)</string>
+    <string name="btn_connect">Connect</string>
+    <string name="searching">Searching…</string>
+    <string name="auto_search_backend">🔍 Auto Search Backend</string>
+    <string name="connect_arrow">Connect →</string>
+    <string name="error_prefix">Error: %s</string>
+    <string name="btn_disconnect">Disconnect</string>
+    <string name="label_field_units">Field Units</string>
+    <string name="waiting_field_units">Waiting for field units…</string>
+    <string name="ensure_same_wifi">Ensure server is running and on the same WiFi network</string>
+    <string name="victim_overview">Victim Overview</string>
+
+    <!-- ===== Field Unit Detail ===== -->
+    <string name="online">Online</string>
+    <string name="offline">Offline</string>
+    <string name="label_battery">Battery</string>
+    <string name="label_ble">BLE Connection</string>
+    <string name="ble_connected">Connected</string>
+    <string name="ble_not_connected">Not Connected</string>
+    <string name="label_victims">Victims</string>
+    <string name="label_sos">SOS</string>
+    <string name="label_last_report">Last Report</string>
+    <string name="detected_victims">Detected Victims:</string>
+
+    <!-- lastReportText -->
+    <string name="time_just_now">Just now</string>
+    <string name="time_seconds_ago">%d sec ago</string>
+    <string name="time_minutes_ago">%d min ago</string>
+    <string name="time_hours_ago">%d hr ago</string>
+
+    <!-- ===== Command Tab ===== -->
+    <string name="send_command">Send Command</string>
+    <string name="broadcast_to_units">Broadcast to %d field units</string>
+    <string name="label_command_type">Command Type</string>
+    <string name="label_priority">Priority</string>
+    <string name="label_command_title">Command Title</string>
+    <string name="label_command_detail">Command Detail</string>
+    <string name="label_sender">Sender</string>
+    <string name="btn_broadcast_command">Broadcast Command</string>
+    <string name="btn_send_to_devices">Send to %d devices</string>
+    <string name="quick_commands">Quick Commands</string>
+    <string name="countdown_timer">Countdown Timer</string>
+    <string name="label_tag">Tag</string>
+    <string name="label_minutes">Minutes</string>
+    <string name="default_timer">Timer</string>
+    <string name="start_timer">Start Timer</string>
+    <string name="command_history">Command History</string>
+    <string name="no_sent_commands">No sent commands</string>
+
+    <!-- ===== Disaster Tab ===== -->
+    <string name="disaster_status">Disaster Status</string>
+    <string name="building_info">Building Info</string>
+    <string name="label_building_name">Building Name</string>
+    <string name="label_address">Address</string>
+    <string name="section_other">Other</string>
+    <string name="label_rally_point">Rally Point</string>
+    <string name="label_notes">Notes</string>
+    <string name="label_collapse_type">Collapse Type</string>
+    <string name="label_above_floors">Floors Above Ground</string>
+    <string name="label_below_floors">Floors Below Ground</string>
+    <string name="section_floors">Floor Status</string>
+    <string name="floor_label_format">%s</string>
+    <string name="section_hazards">Site Hazards</string>
+    <string name="no_hazards">No known hazards</string>
+    <string name="section_entry_points">Entry Points</string>
+    <string name="no_entry_points">No entry points</string>
+    <string name="add_entry_point">Add Entry Point</string>
+    <string name="label_entry_name">Name</string>
+    <string name="label_entry_desc">Description</string>
+    <string name="label_accessible">Accessible</string>
+    <string name="label_blocked">Blocked</string>
+    <string name="generate_floors">Generate Floors</string>
+    <string name="floor_above_format">%dF</string>
+    <string name="floor_below_format">B%d</string>
+    <string name="save_broadcast_disaster">Save &amp; Broadcast Disaster</string>
+    <string name="send_to_n_devices">Send to %d devices</string>
+    <string name="resource_item_name">Item Name</string>
+    <string name="resource_total">Total</string>
+    <string name="resource_available">Available</string>
+    <string name="add_resource">Add Resource</string>
+    <string name="resource_inventory">Resource Inventory</string>
+    <string name="no_resources">No resources recorded</string>
+    <string name="resource_ratio">%1$d / %2$d</string>
+    <string name="btn_delete">Delete</string>
+    <string name="zone_note_hint">Zone note</string>
+    <string name="zone_hazard">Hazard Markers</string>
+    <string name="n_persons">%d persons</string>
+
+    <!-- ===== Chat Tab ===== -->
+    <string name="input_message_hint">Enter message…</string>
+
+    <!-- ===== Personnel Tab ===== -->
+    <string name="personnel_assignment">Personnel Assignment</string>
+    <string name="assigned_count">%d assigned</string>
+    <string name="no_personnel">No personnel assigned</string>
+    <string name="add_personnel">Add Personnel</string>
+    <string name="label_name">Name</string>
+    <string name="label_role">Role</string>
+    <string name="label_zone">Zone</string>
+    <string name="label_floor">Floor</string>
+    <string name="btn_confirm">Confirm</string>
+    <string name="btn_cancel">Cancel</string>
+
+    <!-- ===== PWS Tab ===== -->
+    <string name="pws_alerts">PWS Alerts</string>
+    <string name="no_pws_alerts">No PWS Alerts</string>
+    <string name="pws_active">Active</string>
+    <string name="source_prefix">Source: %s</string>
+    <string name="add_pws_alert">Add PWS Alert</string>
+    <string name="label_title">Title</string>
+    <string name="label_content">Content</string>
+    <string name="label_type">Type</string>
+    <string name="label_severity">Severity</string>
+
+    <!-- ===== Briefing Tab ===== -->
+    <string name="briefing_system">Briefing System</string>
+    <string name="no_briefings">No briefings created</string>
+    <string name="add_briefing">Add Briefing</string>
+    <string name="label_author">Author</string>
+    <string name="label_section_title">Section Title</string>
+    <string name="label_section_content">Section Content</string>
+
+    <!-- ===== Notification Tab ===== -->
+    <string name="personal_notifications">Personal Notifications</string>
+    <string name="count_items">%d items</string>
+    <string name="no_personal_notifications">No personal notifications sent</string>
+    <string name="send_notification">Send Personal Notification</string>
+    <string name="label_target_device">Target Device</string>
+    <string name="no_online_units">No online field units</string>
+    <string name="btn_send">Send</string>
+
+    <!-- ===== Timeline Tab ===== -->
+    <string name="event_log">Event Log</string>
+    <string name="btn_clear">Clear</string>
+    <string name="filter_all">All</string>
+    <string name="no_events">No events recorded</string>
+    <string name="events_auto_log">System events will be recorded here</string>
+
+    <!-- ===== Zone Map Tab ===== -->
+    <string name="zone_map">Zone Map</string>
+    <string name="stat_total_zones">Total Zones</string>
+    <string name="stat_searching">Searching</string>
+    <string name="stat_cleared">Cleared</string>
+    <string name="stat_dangerous">Dangerous</string>
+    <string name="no_zones">No rescue zones created</string>
+    <string name="tap_add_zone">Tap + to add zone</string>
+    <string name="persons_count">%d people</string>
+    <string name="add_rescue_zone">Add Rescue Zone</string>
+    <string name="label_zone_name">Zone Name</string>
+    <string name="btn_add">Add</string>
+
+    <!-- ===== Reports Tab ===== -->
+    <string name="report_dashboard">Report Dashboard</string>
+    <string name="n_reports">%d reports</string>
+    <string name="no_reports">No reports</string>
+    <string name="reports_hint">Reports from field devices will appear here</string>
+    <string name="device_prefix">Device: %s</string>
+    <string name="collapse_text">Collapse ▲</string>
+    <string name="expand_text">Expand ▼</string>
+
+    <!-- ===== Stats Dashboard Tab ===== -->
+    <string name="stats_dashboard">Statistics Dashboard</string>
+    <string name="realtime_data">Realtime Data</string>
+    <string name="stat_field_unit_count">Field Units</string>
+    <string name="stat_victim_count">Victims</string>
+    <string name="stat_sos_count">SOS</string>
+    <string name="stat_online_victims">Online Victims</string>
+    <string name="stat_team_members">Team Members</string>
+    <string name="stat_sos_victims">SOS Victims</string>
+    <string name="field_unit_status">Field Unit Status</string>
+    <string name="no_connected_units">No connected field units</string>
+    <string name="unit_stats_format">Victims: %1$d  SOS: %2$d  Battery: %3$d%%</string>
+
+    <!-- ===== Resource Tab ===== -->
+    <string name="resource_management">Resource Management</string>
+    <string name="human_resources">Human Resources</string>
+    <string name="stat_field_teams">Field Teams</string>
+    <string name="stat_team_online">Team Online</string>
+    <string name="battery_monitor">Battery Monitor</string>
+    <string name="supply_records">Supply Records</string>
+    <string name="label_water_food">Water / Food</string>
+    <string name="label_medical">Medical Supplies</string>
+    <string name="label_equipment">Equipment</string>
+
+    <!-- ===== Photo Wall Tab ===== -->
+    <string name="photo_wall">Photo Wall</string>
+    <string name="status_connected">Connected</string>
+    <string name="status_disconnected">Disconnected</string>
+    <string name="n_photos">%d photos</string>
+    <string name="no_photos">No photos</string>
+    <string name="photos_hint">Photos from field devices will appear via photo_server</string>
+    <string name="btn_close">Close</string>
+    <string name="photo_detail">Photo Detail</string>
+    <string name="photographer_prefix">Photographer: %s</string>
+    <string name="caption_prefix">Caption: %s</string>
+    <string name="time_prefix">Time: %s</string>
+
+    <!-- ===== Task Assignment Tab ===== -->
+    <string name="task_assignment">Task Assignment</string>
+    <string name="n_tasks">%d tasks</string>
+    <string name="no_tasks">No tasks assigned</string>
+    <string name="add_task">Add Task</string>
+    <string name="label_task_title">Task Title</string>
+    <string name="label_task_content">Task Content</string>
+    <string name="label_assign_target">Assign Target</string>
+    <string name="btn_assign">Assign</string>
+
+    <!-- ===== Broadcast Tab ===== -->
+    <string name="text_broadcast">Text Broadcast</string>
+    <string name="n_broadcasts">%d broadcasts</string>
+    <string name="send_new_broadcast">Send New Broadcast</string>
+    <string name="priority_prefix">Priority:</string>
+    <string name="priority_normal">Normal</string>
+    <string name="priority_urgent">Urgent</string>
+    <string name="label_broadcast_message">Broadcast Message</string>
+    <string name="btn_send_broadcast">Send Broadcast</string>
+    <string name="no_broadcasts">No broadcasts sent</string>
+    <string name="label_urgent">Urgent</string>
+    <string name="read_receipt">Read %1$d/%2$d</string>
+
+    <!-- ===== Radio Tab ===== -->
+    <string name="radio_monitor">Radio Monitor</string>
+    <string name="field_device">Field Device</string>
+    <string name="broadcasting">Broadcasting…</string>
+    <string name="standby">Standby</string>
+    <string name="waiting_ptt">Waiting for PTT broadcast</string>
+    <string name="hq_voice_transcription">HQ Voice Transcription</string>
+    <string name="recording_press_stop">Recording…press stop</string>
+    <string name="whisper_transcribing">Whisper Transcribing…</string>
+    <string name="press_to_transcribe">Press to start voice transcription</string>
+    <string name="backend_not_connected">⚠ Backend not connected</string>
+    <string name="latest_transcription">Latest Transcription:</string>
+    <string name="voice_transcription_log">Voice Transcription Log</string>
+    <string name="n_entries">%d entries</string>
+    <string name="no_transcription_log">No transcription records</string>
+    <string name="stop_recording">Stop Recording</string>
+    <string name="start_recording">Start Recording</string>
+
+    <!-- ===== Patient Warning Tab ===== -->
+    <string name="patient_warning">Patient Deterioration Warning</string>
+    <string name="n_critical">%d critical</string>
+    <string name="n_warnings">%d warnings</string>
+    <string name="no_patient_warnings">No patient deterioration warnings</string>
+    <string name="level_critical">Critical</string>
+    <string name="level_moderate">Moderate</string>
+    <string name="level_mild">Mild</string>
+    <string name="level_deceased">Deceased</string>
+    <string name="source_device">Source: %s</string>
+
+    <!-- ===== SOS Overlay ===== -->
+    <string name="sos_emergency">🚨 SOS Emergency Alert</string>
+    <string name="sos_unacknowledged">%d unacknowledged SOS alerts</string>
+    <string name="btn_acknowledge">Acknowledge</string>
+    <string name="btn_acknowledge_all">Acknowledge All</string>
+
+    <!-- ===== Decision Tab ===== -->
+    <string name="ai_decision_suggest">AI Decision Suggestion</string>
+    <string name="ai_context_hint">Additional context (optional)</string>
+    <string name="ai_analyzing">AI Analyzing…</string>
+    <string name="request_ai_decision">Request AI Decision</string>
+    <string name="backend_not_connected_plain">Backend server not connected</string>
+    <string name="command_decision">Command Decision</string>
+    <string name="no_decisions">No decisions · Waiting for command center</string>
+    <string name="decision_count">%d entries · newest first</string>
+    <string name="waiting_decisions">Waiting for command center to send decisions…</string>
+    <string name="label_decision">Decision</string>
+    <string name="trigger_patient">Patient report trigger</string>
+    <string name="trigger_voice">Voice report trigger</string>
+    <string name="trigger_manual">Manual trigger</string>
+    <string name="trigger_hq_request">AI suggestion trigger</string>
+    <string name="trigger_ai">AI auto trigger</string>
+    <string name="trigger_prefix">Trigger: %s</string>
+    <string name="patient_list">Patient List (%d people)</string>
+    <string name="priority_red">Red · Immediate</string>
+    <string name="priority_black">Black · Deceased</string>
+    <string name="priority_green">Green · Minor</string>
+    <string name="priority_yellow">Yellow · Delayed</string>
+    <string name="priority_unclassified">Unclassified</string>
+
+    <!-- ===== Patient Form Tab ===== -->
+    <string name="patient_report">Patient Report</string>
+    <string name="patient_id_auto">Patient ID will be auto-generated (format: P + timestamp)</string>
+    <string name="label_location">Location</string>
+    <string name="location_hint">e.g. Building B, 3F, West Corridor</string>
+    <string name="label_breathing_rate">Breathing Rate (breaths/min)</string>
+    <string name="breathing_rate_hint">-1 = no breathing</string>
+    <string name="label_capillary_refill">Capillary Refill Time (sec)</string>
+    <string name="capillary_refill_hint">-1 = no pulse</string>
+    <string name="can_follow_commands">Can Follow Commands</string>
+    <string name="yes_text">Yes</string>
+    <string name="no_text">No</string>
+    <string name="fill_location_error">Please fill in location</string>
+    <string name="patient_submitted">Patient data submitted (ID: %s)</string>
+    <string name="submit_patient">Submit Patient Data</string>
+
+    <!-- ===== Victim Overview Tab ===== -->
+    <string name="victim_overview_title">Victim Overview</string>
+    <string name="stat_total">Total</string>
+    <string name="stat_online">Online</string>
+    <string name="stat_sos_label">SOS</string>
+    <string name="stat_critical">Critical</string>
+    <string name="search_victim_hint">Search Victim ID / Device</string>
+    <string name="filter_online_only">Online Only</string>
+    <string name="filter_sos_only">SOS Only</string>
+    <string name="sort_priority">Priority</string>
+    <string name="sort_heart_rate">Heart Rate</string>
+    <string name="sort_signal">Signal</string>
+    <string name="sort_battery">Battery</string>
+    <string name="no_victim_data">No victim data</string>
+    <string name="patient_report_badge">Patient Report</string>
+    <string name="status_online"> Online</string>
+    <string name="status_offline"> Offline</string>
+    <string name="treatment_status">Treatment Status</string>
+    <string name="report_device">Report Device: </string>
+    <string name="label_location_colon">Location: </string>
+    <string name="description_record">Injury description / Treatment record</string>
+    <string name="save_description">Save Description</string>
+    <string name="save_note">Save Note</string>
+
+    <!-- ===== Personnel Overview Tab ===== -->
+    <string name="personnel_overview">Personnel Overview</string>
+    <string name="stat_field_devices">Field Devices</string>
+    <string name="stat_team_members_label">Team Members</string>
+    <string name="stat_assignment">Assignment</string>
+    <string name="search_personnel_hint">Search Personnel/Device/Dept</string>
+    <string name="section_field_devices">Field Devices</string>
+    <string name="no_matching_devices">No matching field devices</string>
+    <string name="section_team_lora">Team Members (LoRa Nodes)</string>
+    <string name="no_matching_team">No matching team members</string>
+    <string name="section_assignment">Personnel Assignment</string>
+    <string name="no_assignment">No personnel assigned</string>
+    <string name="n_victims">%d victims</string>
+    <string name="n_team_members">%d members</string>
+
+    <!-- ===== Device Target Selector ===== -->
+    <string name="mode_broadcast">Broadcast All</string>
+    <string name="mode_selected">Select Devices</string>
+    <string name="no_connected_devices">No connected devices</string>
+    <string name="selected_count">Selected %1$d / %2$d</string>
+    <string name="select_all">Select All</string>
+    <string name="deselect_all">Deselect All</string>
+
+    <!-- ===== Enum Labels: CollapseType ===== -->
+    <string name="collapse_partial">Partial Collapse</string>
+    <string name="collapse_pancake">Pancake Collapse</string>
+    <string name="collapse_lean">Lean Collapse</string>
+    <string name="collapse_v_shape">V-Shape Collapse</string>
+    <string name="collapse_none">No Collapse</string>
+    <string name="collapse_unknown">Unknown</string>
+
+    <!-- ===== Enum Labels: FloorCondition ===== -->
+    <string name="floor_collapsed">Fully Collapsed</string>
+    <string name="floor_partial">Partially Collapsed</string>
+    <string name="floor_accessible">Accessible</string>
+    <string name="floor_cleared">Cleared</string>
+    <string name="floor_restricted">Restricted</string>
+    <string name="floor_unknown">Unknown</string>
+
+    <!-- ===== Enum Labels: ZoneStatus ===== -->
+    <string name="zone_active">Searching</string>
+    <string name="zone_standby">Standby</string>
+    <string name="zone_cleared">Cleared</string>
+    <string name="zone_dangerous">Dangerous</string>
+    <string name="zone_restricted">Restricted</string>
+
+    <!-- ===== Enum Labels: HazardType ===== -->
+    <string name="hazard_gas_leak">Gas Leak</string>
+    <string name="hazard_fire">Fire</string>
+    <string name="hazard_flooding">Flooding</string>
+    <string name="hazard_structural">Structural</string>
+    <string name="hazard_electrical">Electrical</string>
+    <string name="hazard_chemical">Chemical</string>
+
+    <!-- ===== Enum Labels: PersonnelRole ===== -->
+    <string name="role_search">Search</string>
+    <string name="role_rescue">Rescue</string>
+    <string name="role_medical">Medical</string>
+    <string name="role_logistics">Logistics</string>
+    <string name="role_safety">Safety Officer</string>
+    <string name="role_commander">Commander</string>
+    <string name="role_support">Support</string>
+
+    <!-- ===== Enum Labels: PWSAlertType ===== -->
+    <string name="pws_earthquake">Earthquake</string>
+    <string name="pws_aftershock">Aftershock</string>
+    <string name="pws_tsunami">Tsunami</string>
+    <string name="pws_typhoon">Typhoon</string>
+    <string name="pws_flood">Flood</string>
+    <string name="pws_landslide">Landslide</string>
+    <string name="pws_other">Other</string>
+
+    <!-- ===== Enum Labels: PWSSeverity ===== -->
+    <string name="severity_info">Info</string>
+    <string name="severity_minor">Minor</string>
+    <string name="severity_moderate">Moderate</string>
+    <string name="severity_severe">Severe</string>
+    <string name="severity_extreme">Extreme</string>
+
+    <!-- ===== Enum Labels: BriefingType ===== -->
+    <string name="briefing_initial">Initial Report</string>
+    <string name="briefing_progress">Progress Report</string>
+    <string name="briefing_shift">Shift Report</string>
+    <string name="briefing_final">Final Report</string>
+
+    <!-- ===== Enum Labels: CommandPriority ===== -->
+    <string name="cmd_priority_routine">Routine</string>
+    <string name="cmd_priority_urgent">Urgent</string>
+    <string name="cmd_priority_critical">Critical</string>
+
+    <!-- ===== Enum Labels: CommandType ===== -->
+    <string name="cmd_search_area">Search Area Assign</string>
+    <string name="cmd_standby">Standby</string>
+    <string name="cmd_support">Support Request</string>
+    <string name="cmd_status_report">Status Report</string>
+    <string name="cmd_evacuation">Evacuation Order</string>
+
+    <!-- ===== Enum Labels: VictimStatus ===== -->
+    <string name="vstatus_pending">Pending</string>
+    <string name="vstatus_on_scene">On Scene</string>
+    <string name="vstatus_waiting_ambulance">Waiting Ambulance</string>
+    <string name="vstatus_en_route">En Route</string>
+    <string name="vstatus_hospitalized">Hospitalized</string>
+    <string name="vstatus_rescued">Rescued</string>
+    <string name="vstatus_deceased">Deceased</string>
+
+    <!-- ===== Enum Labels: VictimPriority ===== -->
+    <string name="vpriority_unset">Unset</string>
+    <string name="vpriority_low">Low</string>
+    <string name="vpriority_medium">Medium</string>
+    <string name="vpriority_high">High</string>
+    <string name="vpriority_critical">Critical</string>
+
+    <!-- ===== Enum Labels: TaskStatus ===== -->
+    <string name="task_pending">Pending</string>
+    <string name="task_in_progress">In Progress</string>
+    <string name="task_completed">Completed</string>
+    <string name="task_cancelled">Cancelled</string>
+
+    <!-- ===== Enum Labels: RadioSourceType ===== -->
+    <string name="radio_live">Live</string>
+    <string name="radio_upload">Upload</string>
+
+    <!-- ===== Content Descriptions ===== -->
+    <string name="cd_stop">Stop</string>
+    <string name="cd_remove">Remove</string>
+    <string name="cd_send">Send</string>
+    <string name="cd_add_personnel">Add Personnel</string>
+    <string name="cd_add_alert">Add Alert</string>
+    <string name="cd_add_briefing">Add Briefing</string>
+    <string name="cd_add_zone">Add Zone</string>
+    <string name="cd_delete">Delete</string>
+
+    <!-- ===== HQ Connection ===== -->
+    <string name="hq_connection">HQ Connection</string>
+    <string name="hq_role_server">Server</string>
+    <string name="hq_role_peer">Peer</string>
+    <string name="hq_mode_server_desc">This device runs as HQ Server (field units connect here)</string>
+    <string name="hq_mode_peer_desc">Connect to another HQ Server (Mac / iPad / Android)</string>
+    <string name="hq_peer_connected">Connected to %s</string>
+    <string name="hq_peer_not_connected">Not connected to any HQ</string>
+    <string name="hq_searching_servers">Searching for HQ servers…</string>
+    <string name="hq_auto_search">Auto-discover HQ</string>
+    <string name="hq_no_servers_found">No HQ servers found on this network</string>
+    <string name="hq_disconnect_peer">Disconnect</string>
+</resources>
