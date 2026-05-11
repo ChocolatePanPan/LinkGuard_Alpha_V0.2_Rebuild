@@ -1,8 +1,8 @@
 # Core Models
 
-規劃共享資料模型。
+共享資料模型目前已先在 `../LinkGuardV03Core/Sources/LinkGuardV03Core` 建立 Swift skeleton。
 
-## 預期內容
+## Covered content
 
 - ICS section、position、assignment。
 - UCC/SCC/VO/TE/TL/EMT app profile。

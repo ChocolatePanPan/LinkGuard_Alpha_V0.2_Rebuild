@@ -4,6 +4,8 @@
 
 目前建立資料夾、README 與各版本獨立 Xcode project 殼，不建立 Xcode target 或 scheme。
 
+共享框架已先放在 `../shared/LinkGuardV03Core`。後續建立 target 時，各 app 應引用這個 package。
+
 ## 原則
 
 - 各版本未來應使用共享核心，不直接複製程式碼。

@@ -19,6 +19,7 @@ local.properties
 captures/
 
 # === Xcode / Swift ===
+.build/
 *.xcuserstate
 xcuserdata/
 DerivedData/

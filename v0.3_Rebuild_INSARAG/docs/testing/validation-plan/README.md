@@ -6,6 +6,7 @@ v0.3 驗證要分成文件、資料、同步、UI 與現場演練。
 
 - README coverage
 - project shell validation
+- shared framework `swift test`
 - shared model schema review
 - protocol payload round trip
 - offline queue ordering

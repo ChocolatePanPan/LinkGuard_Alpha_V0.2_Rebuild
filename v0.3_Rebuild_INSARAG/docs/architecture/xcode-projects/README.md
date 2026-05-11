@@ -4,7 +4,7 @@ v0.3 的 Xcode project 採分開建立。
 
 ## Current state
 
-目前每個 project 都只是空殼：沒有 target、沒有 scheme、沒有 Swift code。
+目前每個 app project 都只是空殼：沒有 target、沒有 scheme。Swift framework skeleton 先放在 `shared/LinkGuardV03Core`，供後續 target 引用。
 
 ## Projects
 
