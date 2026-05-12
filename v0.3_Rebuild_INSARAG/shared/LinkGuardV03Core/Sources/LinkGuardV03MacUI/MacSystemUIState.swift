@@ -211,22 +211,22 @@ public enum MacSystemUIFactory {
     private static func metrics(for runtime: LinkGuardAppRuntime) -> [MacMetricTile] {
         let snapshot = runtime.snapshot
         var tiles = [
-            MacMetricTile(id: "incidents", title: "Incidents", value: String(snapshot.incidents.count), systemImageName: "scope", accentName: "blue"),
-            MacMetricTile(id: "worksites", title: "Worksites", value: String(snapshot.worksites.count), systemImageName: "mappin.and.ellipse", accentName: "orange"),
-            MacMetricTile(id: "tasks", title: "Open Tasks", value: String(openTaskCount(in: snapshot)), systemImageName: "checklist", accentName: "green"),
-            MacMetricTile(id: "alerts", title: "Alerts", value: String(snapshot.alerts.count), systemImageName: "exclamationmark.triangle", accentName: "red"),
-            MacMetricTile(id: "queue", title: "Outbound", value: String(runtime.outboundQueue.entries.count), systemImageName: "arrow.up.arrow.down", accentName: "purple")
+            MacMetricTile(id: "incidents", title: "災害事件", value: String(snapshot.incidents.count), systemImageName: "building.2", accentName: "blue"),
+            MacMetricTile(id: "worksites", title: "分區工址", value: String(snapshot.worksites.count), systemImageName: "map.fill", accentName: "orange"),
+            MacMetricTile(id: "tasks", title: "進行任務", value: String(openTaskCount(in: snapshot)), systemImageName: "checklist", accentName: "green"),
+            MacMetricTile(id: "alerts", title: "緊急警報", value: String(snapshot.alerts.count), systemImageName: "exclamationmark.triangle.fill", accentName: "red"),
+            MacMetricTile(id: "queue", title: "同步佇列", value: String(runtime.outboundQueue.entries.count), systemImageName: "arrow.up.arrow.down", accentName: "purple")
         ]
 
         if runtime.profile.medicalAccess >= .summary {
-            tiles.append(MacMetricTile(id: "medical", title: "Med Ops", value: String(snapshot.evacuationRequests.count + snapshot.hospitalCapacities.count), systemImageName: "cross.case", accentName: "teal"))
+            tiles.append(MacMetricTile(id: "medical", title: "傷患預警", value: String(snapshot.evacuationRequests.count + snapshot.hospitalCapacities.count), systemImageName: "heart.text.square", accentName: "teal"))
         }
 
         if runtime.profile.allows(.manageFinance) {
-            tiles.append(MacMetricTile(id: "finance", title: "Finance", value: String(snapshot.purchaseRequests.count + snapshot.personnelHours.count), systemImageName: "creditcard", accentName: "indigo"))
+            tiles.append(MacMetricTile(id: "finance", title: "統計儀表板", value: String(snapshot.purchaseRequests.count + snapshot.personnelHours.count), systemImageName: "chart.bar.xaxis", accentName: "indigo"))
         }
 
-        tiles.append(MacMetricTile(id: "aar", title: "AAR", value: String(snapshot.auditEvents.count + snapshot.decisionRecords.count), systemImageName: "clock.arrow.circlepath", accentName: "gray"))
+        tiles.append(MacMetricTile(id: "aar", title: "事件日誌", value: String(snapshot.auditEvents.count + snapshot.decisionRecords.count), systemImageName: "clock.arrow.circlepath", accentName: "gray"))
         return tiles
     }
 
@@ -344,13 +344,13 @@ public enum MacSystemUIFactory {
     }
 
     private static let actionDefinitions: [(id: String, title: String, permission: LinkGuardPermission, messageType: SyncMessageType?, systemImageName: String)] = [
-        ("issue-command", "Issue Command", .issueCommand, .commandUpsert, "paperplane"),
-        ("publish-alert", "Publish Alert", .issueCommand, .alertUpsert, "exclamationmark.triangle"),
-        ("assign-role", "Assign Role", .assignRole, .roleAssignmentUpsert, "person.badge.plus"),
-        ("update-task", "Update Task", .updateTask, .taskUpsert, "checklist"),
-        ("map-feature", "Map Feature", .manageMap, .mapFeatureUpsert, "map"),
-        ("finance", "Finance Record", .manageFinance, .purchaseRequestUpsert, "creditcard"),
-        ("export-aar", "Export AAR", .exportAAR, .decisionRecordUpsert, "archivebox")
+        ("issue-command", "指揮決策", .issueCommand, .commandUpsert, "brain.head.profile"),
+        ("publish-alert", "PWS 警報", .issueCommand, .alertUpsert, "exclamationmark.triangle.fill"),
+        ("assign-role", "人員配置", .assignRole, .roleAssignmentUpsert, "person.badge.plus"),
+        ("update-task", "任務更新", .updateTask, .taskUpsert, "checklist"),
+        ("map-feature", "分區地圖", .manageMap, .mapFeatureUpsert, "map.fill"),
+        ("finance", "統計儀表板", .manageFinance, .purchaseRequestUpsert, "chart.bar.xaxis"),
+        ("export-aar", "事件日誌", .exportAAR, .decisionRecordUpsert, "clock.arrow.circlepath")
     ]
 }
 
