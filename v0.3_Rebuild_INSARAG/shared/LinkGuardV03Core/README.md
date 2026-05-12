@@ -64,6 +64,17 @@ Current test coverage includes all app runtime initialization, permission gates,
 
 Repo-level version files live at `VERSION` and `VERSION.json`. Use `scripts/version.sh check` before creating a release tag.
 
+## Mac UI Inheritance
+
+`LinkGuardV03MacUI` is a SwiftUI package target for the Mac command apps. It does not duplicate command, permission, snapshot, or transport logic. `MacSystemUIFactory` builds UCC/SCC UI state from `LinkGuardAppRuntime`, `AppBlueprintCatalog`, `RoleProfileCatalog`, `OperationSnapshot`, `TransportTopology`, and `LinkGuardVersionInfo`.
+
+Mac app entry points can create the initial shell with:
+
+```swift
+let state = try MacSystemUIFactory.makeState(appID: .ucc, deviceID: "DEVICE-UCC")
+MacSystemShellView(state: state)
+```
+
 ## Rule
 
 Each role-specific app should depend on this package instead of redefining model or protocol types.

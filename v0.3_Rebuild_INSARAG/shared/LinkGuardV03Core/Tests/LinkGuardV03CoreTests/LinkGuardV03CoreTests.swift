@@ -1,5 +1,6 @@
 import XCTest
 @testable import LinkGuardV03Core
+@testable import LinkGuardV03MacUI
 
 final class LinkGuardV03CoreTests: XCTestCase {
     private let fixedDate = Date(timeIntervalSince1970: 1_799_712_000)
@@ -347,5 +348,58 @@ final class LinkGuardV03CoreTests: XCTestCase {
         XCTAssertEqual(recipientApps, [.ucc, .scc, .sccIPad, .emt, .emtIPad])
         XCTAssertNotNil(hub.runtime(for: "DEVICE-LinkGuard-SCC")?.snapshot.evacuationRequests["EVAC-1"])
         XCTAssertNil(hub.runtime(for: "DEVICE-LinkGuard-TE")?.snapshot.evacuationRequests["EVAC-1"])
+    }
+
+    func testMacUCCUIInheritsRuntimeBlueprintAndSnapshot() throws {
+        var snapshot = OperationSnapshot()
+        let alert = IncidentAlert(
+            id: "ALERT-MAC",
+            incidentID: "INC-1",
+            type: .collapseRisk,
+            priority: .high,
+            title: "Collapse Risk",
+            body: "Shore before entry",
+            issuedBy: "DEVICE-UCC",
+            issuedAt: fixedDate
+        )
+        let envelope = try SyncEnvelope.make(
+            messageType: .alertUpsert,
+            sourceAppID: .ucc,
+            sourceDeviceID: "DEVICE-UCC",
+            priority: .high,
+            createdAt: fixedDate,
+            idempotencyKey: "mac-alert",
+            payload: alert
+        )
+        try snapshot.apply(envelope)
+
+        let state = try MacSystemUIFactory.makeState(appID: .ucc, deviceID: "DEVICE-UCC", snapshot: snapshot)
+        let sections = state.navigationItems.map(\.section)
+
+        XCTAssertEqual(state.runtime.device.platform, .mac)
+        XCTAssertEqual(state.runtime.blueprint.appID, .ucc)
+        XCTAssertTrue(sections.contains(.finance))
+        XCTAssertTrue(sections.contains(.afterActionReview))
+        XCTAssertEqual(state.metrics.first { $0.id == "alerts" }?.value, "1")
+        XCTAssertTrue(state.quickActions.contains { $0.id == "issue-command" && $0.isEnabled })
+        XCTAssertTrue(state.inheritedModules.first { $0.section == .command }?.inheritedFrom.contains("TransportTopology") == true)
+    }
+
+    func testMacSCCUIUsesSCCScopeInsteadOfUCCMirror() throws {
+        let state = try MacSystemUIFactory.makeState(appID: .scc, deviceID: "DEVICE-SCC")
+        let sections = state.navigationItems.map(\.section)
+
+        XCTAssertEqual(state.runtime.profile.displayName, "SCC")
+        XCTAssertTrue(sections.contains(.command))
+        XCTAssertTrue(sections.contains(.operations))
+        XCTAssertFalse(sections.contains(.finance))
+        XCTAssertFalse(state.quickActions.contains { $0.id == "finance" })
+        XCTAssertTrue(state.transportRoutes.contains { $0.messageType == .evacuationRequestUpsert && $0.receives && $0.canSend == false })
+    }
+
+    func testMacUIRejectsNonMacApps() throws {
+        XCTAssertThrowsError(try MacSystemUIFactory.makeState(appID: .teamLeader, deviceID: "DEVICE-TL")) { error in
+            XCTAssertEqual(error as? MacSystemUIError, .unsupportedApp(.teamLeader))
+        }
     }
 }

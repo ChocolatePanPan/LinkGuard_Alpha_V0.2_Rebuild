@@ -18,3 +18,7 @@
 - 向 UCC 回報彙整狀態。
 
 SCC 是現場指揮中心，不能只是 UCC 的螢幕鏡像。
+
+## UI 實作
+
+SCC Mac app 使用 `LinkGuardV03MacUI` 的 `MacSystemShellView`。畫面狀態由 `MacSystemUIFactory.makeState(appID: .scc, ...)` 產生，會繼承 shared core 的 runtime、權限、傳輸與 snapshot，但保留 SCC 的現場指揮範圍，不顯示 UCC-only Finance 操作。

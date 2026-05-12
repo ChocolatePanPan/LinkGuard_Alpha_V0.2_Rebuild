@@ -17,3 +17,7 @@
 - Finance：成本、採購、工時、耗材與任務紀錄總覽。
 
 UCC 是最高協調與資料權威，但不是唯一操作中心。
+
+## UI 實作
+
+UCC Mac app 使用 `LinkGuardV03MacUI` 的 `MacSystemShellView`。畫面狀態由 `MacSystemUIFactory.makeState(appID: .ucc, ...)` 產生，繼承 shared core 的權限、指揮層級、事件快照、離線佇列、傳輸拓撲與版本資訊。
