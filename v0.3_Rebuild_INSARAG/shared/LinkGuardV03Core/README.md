@@ -58,11 +58,15 @@ Current test coverage includes all app runtime initialization, permission gates,
 
 `LinkGuardVersionInfo.current` exposes the repo release baseline to app targets.
 
-- Version: `0.3.0-alpha.1`
-- Git tag: `v0.3.0-alpha.1`
-- Build number: `300001`
+- Version: `0.3.0-alpha.2`
+- Git tag: `v0.3.0-alpha.2`
+- Build number: `300002`
 
 Repo-level version files live at `VERSION` and `VERSION.json`. Use `scripts/version.sh check` before creating a release tag.
+
+After every implementation update, run `scripts/version.sh bump-alpha` before committing. After committing, run `scripts/version.sh tag`; before pushing, run `scripts/version.sh push-check` so the matching tag push is the final push command.
+
+`LinkGuardAppSettingsInfo` exposes the same version data for app settings screens.
 
 ## Mac UI Inheritance
 

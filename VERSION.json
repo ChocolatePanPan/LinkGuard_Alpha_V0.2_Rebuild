@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
   "product": "LinkGuard",
-  "version": "0.3.0-alpha.1",
+  "version": "0.3.0-alpha.2",
   "shortVersion": "0.3.0",
-  "buildNumber": 300001,
+  "buildNumber": 300002,
   "releaseChannel": "alpha",
-  "gitTag": "v0.3.0-alpha.1",
+  "gitTag": "v0.3.0-alpha.2",
   "series": "v0.3_Rebuild_INSARAG",
-  "notes": "First v0.3 shared app logic and transport-chain version baseline."
+  "notes": "Version workflow now requires update-after-change, app settings display, and push-tail tag check."
 }

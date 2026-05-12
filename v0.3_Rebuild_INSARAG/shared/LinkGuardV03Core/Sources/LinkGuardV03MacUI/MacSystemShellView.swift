@@ -34,6 +34,7 @@ public struct MacSystemShellView: View {
                         module: selectedModule,
                         routes: state.transportRoutes.filter { route in route.canSend || route.receives }
                     )
+                    MacSettingsPanelView(settingsInfo: state.settingsInfo)
                 }
                 .padding(24)
                 .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -159,6 +160,30 @@ private struct MacSectionDetailView: View {
                             .foregroundStyle(.secondary)
                     }
                     .padding(.vertical, 6)
+                }
+            }
+        }
+        .padding(16)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+}
+
+private struct MacSettingsPanelView: View {
+    let settingsInfo: LinkGuardAppSettingsInfo
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label("App Settings", systemImage: "gearshape")
+                .font(.headline)
+            Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 18, verticalSpacing: 8) {
+                ForEach(settingsInfo.items) { item in
+                    GridRow {
+                        Text(item.title)
+                            .foregroundStyle(.secondary)
+                        Text(item.value)
+                            .font(.body.monospacedDigit())
+                            .textSelection(.enabled)
+                    }
                 }
             }
         }

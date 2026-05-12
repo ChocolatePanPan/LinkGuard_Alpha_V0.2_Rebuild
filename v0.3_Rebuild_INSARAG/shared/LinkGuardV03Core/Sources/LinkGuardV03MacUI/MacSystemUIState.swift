@@ -113,7 +113,7 @@ public struct MacTransportRouteSummary: Identifiable, Hashable, Sendable {
 
 public struct MacSystemUIState: Sendable {
     public var runtime: LinkGuardAppRuntime
-    public var versionInfo: LinkGuardVersionInfo
+    public var settingsInfo: LinkGuardAppSettingsInfo
     public var navigationItems: [MacNavigationItem]
     public var metrics: [MacMetricTile]
     public var inheritedModules: [MacInheritedModule]
@@ -122,7 +122,7 @@ public struct MacSystemUIState: Sendable {
 
     public init(
         runtime: LinkGuardAppRuntime,
-        versionInfo: LinkGuardVersionInfo,
+        settingsInfo: LinkGuardAppSettingsInfo,
         navigationItems: [MacNavigationItem],
         metrics: [MacMetricTile],
         inheritedModules: [MacInheritedModule],
@@ -130,7 +130,7 @@ public struct MacSystemUIState: Sendable {
         transportRoutes: [MacTransportRouteSummary]
     ) {
         self.runtime = runtime
-        self.versionInfo = versionInfo
+        self.settingsInfo = settingsInfo
         self.navigationItems = navigationItems
         self.metrics = metrics
         self.inheritedModules = inheritedModules
@@ -140,6 +140,8 @@ public struct MacSystemUIState: Sendable {
 
     public var title: String { runtime.device.appID.rawValue }
     public var subtitle: String { "\(runtime.profile.displayName) / \(runtime.profile.commandAuthority.macDisplayName)" }
+    public var versionInfo: LinkGuardVersionInfo { settingsInfo.versionInfo }
+    public var settingsItems: [LinkGuardAppSettingsItem] { settingsInfo.items }
 }
 
 public enum MacSystemUIFactory {
@@ -188,7 +190,7 @@ public enum MacSystemUIFactory {
         let sections = orderedSections(for: runtime)
         return MacSystemUIState(
             runtime: runtime,
-            versionInfo: versionInfo,
+            settingsInfo: LinkGuardAppSettingsInfo(device: runtime.device, versionInfo: versionInfo),
             navigationItems: sections.map { MacNavigationItem(section: $0, title: $0.macDisplayName, systemImageName: $0.macSystemImageName) },
             metrics: metrics(for: runtime),
             inheritedModules: sections.map { module(for: $0, runtime: runtime) },

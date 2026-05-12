@@ -89,12 +89,49 @@ public struct LinkGuardVersionInfo: Codable, Hashable, Sendable {
     public static let current = LinkGuardVersionInfo(
         schemaVersion: 1,
         product: "LinkGuard",
-        version: SemanticVersion(major: 0, minor: 3, patch: 0, prereleaseIdentifiers: ["alpha", "1"]),
+        version: SemanticVersion(major: 0, minor: 3, patch: 0, prereleaseIdentifiers: ["alpha", "2"]),
         shortVersion: "0.3.0",
-        buildNumber: 300001,
+        buildNumber: 300002,
         releaseChannel: .alpha,
-        gitTag: "v0.3.0-alpha.1",
+        gitTag: "v0.3.0-alpha.2",
         series: "v0.3_Rebuild_INSARAG",
-        notes: "First v0.3 shared app logic and transport-chain version baseline."
+        notes: "Version workflow now requires update-after-change, app settings display, and push-tail tag check."
     )
+}
+
+public struct LinkGuardAppSettingsItem: Codable, Hashable, Sendable, Identifiable {
+    public var id: String { key }
+    public var key: String
+    public var title: String
+    public var value: String
+
+    public init(key: String, title: String, value: String) {
+        self.key = key
+        self.title = title
+        self.value = value
+    }
+}
+
+public struct LinkGuardAppSettingsInfo: Codable, Hashable, Sendable {
+    public var device: DeviceIdentity
+    public var versionInfo: LinkGuardVersionInfo
+
+    public init(device: DeviceIdentity, versionInfo: LinkGuardVersionInfo = .current) {
+        self.device = device
+        self.versionInfo = versionInfo
+    }
+
+    public var items: [LinkGuardAppSettingsItem] {
+        [
+            LinkGuardAppSettingsItem(key: "app", title: "App", value: device.appID.rawValue),
+            LinkGuardAppSettingsItem(key: "device", title: "Device", value: device.displayName),
+            LinkGuardAppSettingsItem(key: "version", title: "Version", value: versionInfo.version.stringValue),
+            LinkGuardAppSettingsItem(key: "build", title: "Build", value: String(versionInfo.buildNumber)),
+            LinkGuardAppSettingsItem(key: "channel", title: "Channel", value: versionInfo.releaseChannel.rawValue),
+            LinkGuardAppSettingsItem(key: "gitTag", title: "Git Tag", value: versionInfo.gitTag),
+            LinkGuardAppSettingsItem(key: "series", title: "Series", value: versionInfo.series)
+        ]
+    }
+
+    public var displayVersion: String { versionInfo.displayVersion }
 }
