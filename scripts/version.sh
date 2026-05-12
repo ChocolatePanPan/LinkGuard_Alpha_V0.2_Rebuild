@@ -5,6 +5,10 @@ repo_root=$(git rev-parse --show-toplevel)
 version_file="$repo_root/VERSION"
 manifest_file="$repo_root/VERSION.json"
 swift_version_file="$repo_root/v0.3_Rebuild_INSARAG/shared/LinkGuardV03Core/Sources/LinkGuardV03Core/Versioning.swift"
+xcode_project_files=(
+  "$repo_root/v0.3_Rebuild_INSARAG/apps/mac/LinkGuard-UCC/LinkGuard-UCC.xcodeproj/project.pbxproj"
+  "$repo_root/v0.3_Rebuild_INSARAG/apps/mac/LinkGuard-SCC/LinkGuard-SCC.xcodeproj/project.pbxproj"
+)
 
 usage() {
   printf 'Usage: scripts/version.sh [show|check|bump-alpha|tag|push-check]\n'
@@ -102,7 +106,7 @@ show_version() {
 }
 
 check_version() {
-  local version manifest_version manifest_short manifest_build manifest_channel manifest_tag expected_tag short_version channel major minor patch prerelease swift_prerelease
+  local version manifest_version manifest_short manifest_build manifest_channel manifest_tag expected_tag short_version channel major minor patch prerelease swift_prerelease project_file
   version=$(read_version)
   expected_tag="v$version"
   manifest_version=$(json_field version)
@@ -158,6 +162,17 @@ check_version() {
     abort "Swift Versioning.swift does not contain gitTag $expected_tag"
   fi
 
+  for project_file in "${xcode_project_files[@]}"; do
+    if [[ -f "$project_file" ]]; then
+      if ! grep -Fq "MARKETING_VERSION = $short_version;" "$project_file"; then
+        abort "Xcode project does not contain MARKETING_VERSION $short_version: $project_file"
+      fi
+      if ! grep -Fq "CURRENT_PROJECT_VERSION = $manifest_build;" "$project_file"; then
+        abort "Xcode project does not contain CURRENT_PROJECT_VERSION $manifest_build: $project_file"
+      fi
+    fi
+  done
+
   printf 'Version files are consistent: %s\n' "$version"
 }
 
@@ -189,6 +204,14 @@ update_version_files() {
   perl -0pi -e 's/releaseChannel: \.[A-Za-z]+/releaseChannel: .'"$new_channel"'/' "$swift_version_file"
   perl -0pi -e 's/gitTag: "[^"]+"/gitTag: "'"$new_tag"'"/' "$swift_version_file"
   perl -0pi -e 's/notes: "[^"]+"/notes: "'"$new_notes"'"/' "$swift_version_file"
+
+  local project_file
+  for project_file in "${xcode_project_files[@]}"; do
+    if [[ -f "$project_file" ]]; then
+      perl -0pi -e 's/MARKETING_VERSION = [^;]+;/MARKETING_VERSION = '"$new_short"';/g' "$project_file"
+      perl -0pi -e 's/CURRENT_PROJECT_VERSION = [0-9]+;/CURRENT_PROJECT_VERSION = '"$new_build"';/g' "$project_file"
+    fi
+  done
 }
 
 bump_alpha() {

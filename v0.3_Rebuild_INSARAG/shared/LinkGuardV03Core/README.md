@@ -58,9 +58,9 @@ Current test coverage includes all app runtime initialization, permission gates,
 
 `LinkGuardVersionInfo.current` exposes the repo release baseline to app targets.
 
-- Version: `0.3.0-alpha.2`
-- Git tag: `v0.3.0-alpha.2`
-- Build number: `300002`
+- Version: `0.3.0-alpha.3`
+- Git tag: `v0.3.0-alpha.3`
+- Build number: `300003`
 
 Repo-level version files live at `VERSION` and `VERSION.json`. Use `scripts/version.sh check` before creating a release tag.
 

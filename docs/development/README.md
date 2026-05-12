@@ -27,7 +27,7 @@ The final command in the push sequence must push the matching version tag, for e
 
 ```bash
 git push origin main
-git push origin v0.3.0-alpha.2
+git push origin v0.3.0-alpha.3
 ```
 
 Do not push commits or tags unless explicitly requested.

@@ -170,12 +170,11 @@ final class LinkGuardV03CoreTests: XCTestCase {
         let versionInfo = LinkGuardVersionInfo.current
 
         XCTAssertEqual(versionInfo.product, "LinkGuard")
-        XCTAssertEqual(versionInfo.version.stringValue, "0.3.0-alpha.2")
-        XCTAssertEqual(versionInfo.shortVersion, "0.3.0")
-        XCTAssertEqual(versionInfo.buildNumber, 300002)
+        XCTAssertEqual(versionInfo.shortVersion, "\(versionInfo.version.major).\(versionInfo.version.minor).\(versionInfo.version.patch)")
+        XCTAssertGreaterThan(versionInfo.buildNumber, 0)
         XCTAssertEqual(versionInfo.releaseChannel, .alpha)
-        XCTAssertEqual(versionInfo.gitTag, "v0.3.0-alpha.2")
-        XCTAssertEqual(versionInfo.displayVersion, "0.3.0-alpha.2 (300002)")
+        XCTAssertEqual(versionInfo.gitTag, "v\(versionInfo.version.stringValue)")
+        XCTAssertEqual(versionInfo.displayVersion, "\(versionInfo.version.stringValue) (\(versionInfo.buildNumber))")
     }
 
     func testAppSettingsInfoExposesBuildVersionForSettings() {
@@ -183,13 +182,14 @@ final class LinkGuardV03CoreTests: XCTestCase {
             device: DeviceIdentity(id: "DEVICE-UCC", appID: .ucc, platform: .mac, displayName: "UCC Console")
         )
         let itemValues = Dictionary(uniqueKeysWithValues: settingsInfo.items.map { ($0.key, $0.value) })
+        let versionInfo = LinkGuardVersionInfo.current
 
         XCTAssertEqual(itemValues["app"], "LinkGuard-UCC")
         XCTAssertEqual(itemValues["device"], "UCC Console")
-        XCTAssertEqual(itemValues["version"], "0.3.0-alpha.2")
-        XCTAssertEqual(itemValues["build"], "300002")
-        XCTAssertEqual(itemValues["gitTag"], "v0.3.0-alpha.2")
-        XCTAssertEqual(settingsInfo.displayVersion, "0.3.0-alpha.2 (300002)")
+        XCTAssertEqual(itemValues["version"], versionInfo.version.stringValue)
+        XCTAssertEqual(itemValues["build"], String(versionInfo.buildNumber))
+        XCTAssertEqual(itemValues["gitTag"], versionInfo.gitTag)
+        XCTAssertEqual(settingsInfo.displayVersion, versionInfo.displayVersion)
     }
 
     func testSemanticVersionParser() throws {
@@ -397,8 +397,8 @@ final class LinkGuardV03CoreTests: XCTestCase {
         XCTAssertEqual(state.metrics.first { $0.id == "alerts" }?.value, "1")
         XCTAssertTrue(state.quickActions.contains { $0.id == "issue-command" && $0.isEnabled })
         XCTAssertTrue(state.inheritedModules.first { $0.section == .command }?.inheritedFrom.contains("TransportTopology") == true)
-        XCTAssertEqual(state.settingsItems.first { $0.key == "version" }?.value, "0.3.0-alpha.2")
-        XCTAssertEqual(state.settingsItems.first { $0.key == "build" }?.value, "300002")
+        XCTAssertEqual(state.settingsItems.first { $0.key == "version" }?.value, LinkGuardVersionInfo.current.version.stringValue)
+        XCTAssertEqual(state.settingsItems.first { $0.key == "build" }?.value, String(LinkGuardVersionInfo.current.buildNumber))
     }
 
     func testMacSCCUIUsesSCCScopeInsteadOfUCCMirror() throws {

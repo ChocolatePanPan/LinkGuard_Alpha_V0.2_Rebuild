@@ -4,9 +4,9 @@ LinkGuard uses a repo-level version manifest and Git tag as the release source o
 
 ## Current version
 
-- Version: `0.3.0-alpha.2`
-- Git tag: `v0.3.0-alpha.2`
-- Build number: `300002`
+- Version: `0.3.0-alpha.3`
+- Git tag: `v0.3.0-alpha.3`
+- Build number: `300003`
 - Channel: `alpha`
 - Series: `v0.3_Rebuild_INSARAG`
 
