@@ -54,6 +54,16 @@ swift test
 
 Current test coverage includes all app runtime initialization, permission gates, alert broadcast, clinical medical isolation, field task routing, evacuation routing, offline queue priority and sync envelope round-trip.
 
+## Versioning
+
+`LinkGuardVersionInfo.current` exposes the repo release baseline to app targets.
+
+- Version: `0.3.0-alpha.1`
+- Git tag: `v0.3.0-alpha.1`
+- Build number: `300001`
+
+Repo-level version files live at `VERSION` and `VERSION.json`. Use `scripts/version.sh check` before creating a release tag.
+
 ## Rule
 
 Each role-specific app should depend on this package instead of redefining model or protocol types.

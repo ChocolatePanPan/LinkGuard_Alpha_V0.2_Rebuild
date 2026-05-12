@@ -52,3 +52,13 @@ v0.3 的方向是 USAR/INSARAG + ICS 架構，採用共享核心與角色分流�
 cd v0.3_Rebuild_INSARAG/shared/LinkGuardV03Core
 swift test
 ```
+
+## Versioning
+
+目前版本基準是 `0.3.0-alpha.1`，由 repo 根目錄的 `VERSION`、`VERSION.json`、shared framework 的 `LinkGuardVersionInfo.current` 與 Git tag `v0.3.0-alpha.1` 對齊。
+
+版本檢查指令：
+
+```bash
+scripts/version.sh check
+```

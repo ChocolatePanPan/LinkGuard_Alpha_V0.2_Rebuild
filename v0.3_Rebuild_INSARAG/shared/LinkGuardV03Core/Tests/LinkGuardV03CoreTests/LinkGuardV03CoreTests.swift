@@ -165,6 +165,32 @@ final class LinkGuardV03CoreTests: XCTestCase {
         XCTAssertEqual(decodedPatient.latestVitals?.heartRate, 120)
     }
 
+    func testCurrentVersionInfoMatchesReleaseBaseline() throws {
+        let versionInfo = LinkGuardVersionInfo.current
+
+        XCTAssertEqual(versionInfo.product, "LinkGuard")
+        XCTAssertEqual(versionInfo.version.stringValue, "0.3.0-alpha.1")
+        XCTAssertEqual(versionInfo.shortVersion, "0.3.0")
+        XCTAssertEqual(versionInfo.buildNumber, 300001)
+        XCTAssertEqual(versionInfo.releaseChannel, .alpha)
+        XCTAssertEqual(versionInfo.gitTag, "v0.3.0-alpha.1")
+        XCTAssertEqual(versionInfo.displayVersion, "0.3.0-alpha.1 (300001)")
+    }
+
+    func testSemanticVersionParser() throws {
+        let alpha = try XCTUnwrap(SemanticVersion(string: "0.3.0-alpha.1"))
+        let stable = try XCTUnwrap(SemanticVersion(string: "1.2.3"))
+
+        XCTAssertEqual(alpha.major, 0)
+        XCTAssertEqual(alpha.minor, 3)
+        XCTAssertEqual(alpha.patch, 0)
+        XCTAssertEqual(alpha.prereleaseIdentifiers, ["alpha", "1"])
+        XCTAssertEqual(alpha.stringValue, "0.3.0-alpha.1")
+        XCTAssertEqual(stable.prereleaseIdentifiers, [])
+        XCTAssertEqual(stable.stringValue, "1.2.3")
+        XCTAssertNil(SemanticVersion(string: "0.3"))
+    }
+
     func testAllAppsInitializeWithRuntimeAndBlueprint() {
         let runtimes = allAppRuntimes()
 

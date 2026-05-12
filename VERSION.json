@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "product": "LinkGuard",
+  "version": "0.3.0-alpha.1",
+  "shortVersion": "0.3.0",
+  "buildNumber": 300001,
+  "releaseChannel": "alpha",
+  "gitTag": "v0.3.0-alpha.1",
+  "series": "v0.3_Rebuild_INSARAG",
+  "notes": "First v0.3 shared app logic and transport-chain version baseline."
+}
