@@ -192,6 +192,35 @@ private struct MacSettingsPanelView: View {
     }
 }
 
+public struct MacSystemSettingsView: View {
+    private let settingsInfo: LinkGuardAppSettingsInfo
+
+    public init(settingsInfo: LinkGuardAppSettingsInfo) {
+        self.settingsInfo = settingsInfo
+    }
+
+    public var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Label("App Settings", systemImage: "gearshape")
+                .font(.title3.weight(.semibold))
+            Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 20, verticalSpacing: 10) {
+                ForEach(settingsInfo.items) { item in
+                    GridRow {
+                        Text(item.title)
+                            .foregroundStyle(.secondary)
+                        Text(item.value)
+                            .font(.body.monospacedDigit())
+                            .textSelection(.enabled)
+                    }
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+}
+
 private struct FlowRow: View {
     let items: [String]
 
