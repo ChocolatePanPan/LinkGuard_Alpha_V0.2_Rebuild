@@ -5,6 +5,7 @@ public enum SyncMessageType: String, Codable, CaseIterable, Sendable {
     case sectorUpsert
     case worksiteUpsert
     case roleAssignmentUpsert
+    case commandUpsert
     case taskUpsert
     case alertUpsert
     case alertAcknowledgementUpsert
