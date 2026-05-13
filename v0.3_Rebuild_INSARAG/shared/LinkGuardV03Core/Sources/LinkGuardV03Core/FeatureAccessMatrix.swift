@@ -14,31 +14,64 @@ public enum FeatureAccessLevel: Int, Codable, CaseIterable, Comparable, Sendable
     }
 }
 
-
 public enum LinkGuardFeature: String, Codable, CaseIterable, Sendable {
-    case globalIncidentOverview
+    case globalMapOverview
     case sectorCreation
     case subSectorCreation
-    case commandDispatch
-    case taskAssignment
-    case sosHandling
+    case pointMarker
+    case lineMarker
+    case areaMarker
+    case hazardZoneManagement
+    case searchProgressColoring
+    case worksiteMarkerSystem
+    case offlineMap
+
+    case personnelOverview
     case gpsTracking
-    case photoReport
-    case patientUpload
+    case personnelEntryLog
+    case teamCapabilityOverview
+    case personnelStatusUpdate
+    case safetyControlBoard
+    case taskAssignment
+    case taskReport
+
+    case patientCreation
     case startTriage
-    case evacuationManagement
+    case patientLocation
+    case patientPhoto
     case patientStatusUpdate
-    case aiDecisionAnalysis
-    case offlineCache
-    case safetyControl
-    case eventLog
-    case briefing
+    case medicalEvacuation
+    case hospitalCapacityView
+    case patientHistory
+
+    case communicationChannel
     case radioMonitoring
+    case speechTranscription
+    case voiceReport
+    case realtimeTranslation
+    case voiceTranslation
+    case photoReport
+    case multiPointPhotoReport
+    case alertPush
+    case alertRead
+    case sosSending
+    case sosDetail
+
+    case aiDecisionAnalysis
+    case aiPatientWarning
+    case aiChat
+    case quickCommand
+    case briefing
+    case commandDispatch
+    case commandAuthoritySwitch
+    case eventLog
+    case resourceManagement
+    case pwsIntegration
 }
 
 public enum LinkGuardFeatureAccessMatrix {
     public static func accessLevel(for appID: LinkGuardAppID, feature: LinkGuardFeature) -> FeatureAccessLevel {
-        matrix[canonicalAppID(for: appID)]?[feature] ?? .none
+        matrix[feature]?.level(for: canonicalAppID(for: appID)) ?? .none
     }
 
     public static func isAvailable(_ feature: LinkGuardFeature, for appID: LinkGuardAppID) -> Bool {
@@ -62,126 +95,102 @@ public enum LinkGuardFeatureAccessMatrix {
         }
     }
 
-    private static let matrix: [LinkGuardAppID: [LinkGuardFeature: FeatureAccessLevel]] = [
-        .ucc: [
-            .globalIncidentOverview: .primary,
-            .sectorCreation: .limited,
-            .subSectorCreation: .none,
-            .commandDispatch: .primary,
-            .taskAssignment: .limited,
-            .sosHandling: .limited,
-            .gpsTracking: .primary,
-            .photoReport: .limited,
-            .patientUpload: .none,
-            .startTriage: .none,
-            .evacuationManagement: .none,
-            .patientStatusUpdate: .none,
-            .aiDecisionAnalysis: .primary,
-            .offlineCache: .primary,
-            .safetyControl: .limited,
-            .eventLog: .primary,
-            .briefing: .limited,
-            .radioMonitoring: .primary
-        ],
-        .scc: [
-            .globalIncidentOverview: .primary,
-            .sectorCreation: .primary,
-            .subSectorCreation: .limited,
-            .commandDispatch: .primary,
-            .taskAssignment: .primary,
-            .sosHandling: .primary,
-            .gpsTracking: .primary,
-            .photoReport: .primary,
-            .patientUpload: .limited,
-            .startTriage: .limited,
-            .evacuationManagement: .limited,
-            .patientStatusUpdate: .limited,
-            .aiDecisionAnalysis: .primary,
-            .offlineCache: .primary,
-            .safetyControl: .primary,
-            .eventLog: .primary,
-            .briefing: .primary,
-            .radioMonitoring: .primary
-        ],
-        .teamLeader: [
-            .globalIncidentOverview: .limited,
-            .sectorCreation: .primary,
-            .subSectorCreation: .primary,
-            .commandDispatch: .limited,
-            .taskAssignment: .primary,
-            .sosHandling: .primary,
-            .gpsTracking: .primary,
-            .photoReport: .primary,
-            .patientUpload: .primary,
-            .startTriage: .primary,
-            .evacuationManagement: .none,
-            .patientStatusUpdate: .primary,
-            .aiDecisionAnalysis: .limited,
-            .offlineCache: .primary,
-            .safetyControl: .primary,
-            .eventLog: .limited,
-            .briefing: .primary,
-            .radioMonitoring: .limited
-        ],
-        .teamMember: [
-            .globalIncidentOverview: .none,
-            .sectorCreation: .none,
-            .subSectorCreation: .none,
-            .commandDispatch: .none,
-            .taskAssignment: .none,
-            .sosHandling: .primary,
-            .gpsTracking: .primary,
-            .photoReport: .primary,
-            .patientUpload: .limited,
-            .startTriage: .none,
-            .evacuationManagement: .none,
-            .patientStatusUpdate: .none,
-            .aiDecisionAnalysis: .none,
-            .offlineCache: .primary,
-            .safetyControl: .none,
-            .eventLog: .none,
-            .briefing: .none,
-            .radioMonitoring: .none
-        ],
-        .emt: [
-            .globalIncidentOverview: .limited,
-            .sectorCreation: .none,
-            .subSectorCreation: .none,
-            .commandDispatch: .none,
-            .taskAssignment: .none,
-            .sosHandling: .primary,
-            .gpsTracking: .primary,
-            .photoReport: .primary,
-            .patientUpload: .primary,
-            .startTriage: .primary,
-            .evacuationManagement: .primary,
-            .patientStatusUpdate: .primary,
-            .aiDecisionAnalysis: .none,
-            .offlineCache: .primary,
-            .safetyControl: .none,
-            .eventLog: .limited,
-            .briefing: .none,
-            .radioMonitoring: .none
-        ],
-        .volunteer: [
-            .globalIncidentOverview: .none,
-            .sectorCreation: .none,
-            .subSectorCreation: .none,
-            .commandDispatch: .none,
-            .taskAssignment: .none,
-            .sosHandling: .limited,
-            .gpsTracking: .primary,
-            .photoReport: .primary,
-            .patientUpload: .none,
-            .startTriage: .none,
-            .evacuationManagement: .none,
-            .patientStatusUpdate: .none,
-            .aiDecisionAnalysis: .none,
-            .offlineCache: .primary,
-            .safetyControl: .none,
-            .eventLog: .none,
-            .briefing: .none,
-            .radioMonitoring: .none
-        ]
+    private static let matrix: [LinkGuardFeature: RoleFeatureAccess] = [
+        .globalMapOverview: .init(.primary, .primary, .limited, .none, .limited, .none),
+        .sectorCreation: .init(.limited, .primary, .primary, .none, .none, .none),
+        .subSectorCreation: .init(.none, .limited, .primary, .none, .none, .none),
+        .pointMarker: .init(.limited, .primary, .primary, .primary, .primary, .limited),
+        .lineMarker: .init(.limited, .primary, .primary, .limited, .none, .none),
+        .areaMarker: .init(.limited, .primary, .primary, .none, .none, .none),
+        .hazardZoneManagement: .init(.limited, .primary, .primary, .none, .none, .none),
+        .searchProgressColoring: .init(.limited, .primary, .primary, .none, .none, .none),
+        .worksiteMarkerSystem: .init(.limited, .primary, .primary, .limited, .limited, .none),
+        .offlineMap: .init(.limited, .primary, .primary, .primary, .limited, .limited),
+
+        .personnelOverview: .init(.primary, .primary, .primary, .none, .limited, .none),
+        .gpsTracking: .init(.primary, .primary, .primary, .primary, .primary, .primary),
+        .personnelEntryLog: .init(.limited, .primary, .primary, .limited, .limited, .none),
+        .teamCapabilityOverview: .init(.primary, .primary, .primary, .none, .limited, .none),
+        .personnelStatusUpdate: .init(.limited, .primary, .primary, .limited, .limited, .none),
+        .safetyControlBoard: .init(.limited, .primary, .primary, .none, .none, .none),
+        .taskAssignment: .init(.limited, .primary, .primary, .none, .none, .none),
+        .taskReport: .init(.limited, .primary, .primary, .primary, .limited, .limited),
+
+        .patientCreation: .init(.none, .limited, .primary, .limited, .primary, .none),
+        .startTriage: .init(.none, .limited, .primary, .none, .primary, .none),
+        .patientLocation: .init(.limited, .primary, .primary, .limited, .primary, .none),
+        .patientPhoto: .init(.none, .limited, .primary, .limited, .primary, .none),
+        .patientStatusUpdate: .init(.none, .limited, .primary, .none, .primary, .none),
+        .medicalEvacuation: .init(.none, .limited, .none, .none, .primary, .none),
+        .hospitalCapacityView: .init(.limited, .primary, .none, .none, .primary, .none),
+        .patientHistory: .init(.none, .limited, .primary, .none, .primary, .none),
+
+        .communicationChannel: .init(.primary, .primary, .primary, .primary, .primary, .limited),
+        .radioMonitoring: .init(.primary, .primary, .limited, .none, .none, .none),
+        .speechTranscription: .init(.limited, .primary, .primary, .limited, .limited, .none),
+        .voiceReport: .init(.limited, .primary, .primary, .primary, .limited, .limited),
+        .realtimeTranslation: .init(.limited, .primary, .primary, .primary, .primary, .limited),
+        .voiceTranslation: .init(.none, .limited, .primary, .primary, .primary, .none),
+        .photoReport: .init(.limited, .primary, .primary, .primary, .primary, .primary),
+        .multiPointPhotoReport: .init(.limited, .primary, .primary, .limited, .limited, .none),
+        .alertPush: .init(.primary, .primary, .primary, .primary, .primary, .limited),
+        .alertRead: .init(.limited, .primary, .primary, .primary, .primary, .limited),
+        .sosSending: .init(.limited, .primary, .primary, .primary, .primary, .limited),
+        .sosDetail: .init(.limited, .primary, .primary, .limited, .primary, .none),
+
+        .aiDecisionAnalysis: .init(.primary, .primary, .limited, .none, .none, .none),
+        .aiPatientWarning: .init(.limited, .primary, .limited, .none, .primary, .none),
+        .aiChat: .init(.primary, .primary, .limited, .none, .none, .none),
+        .quickCommand: .init(.limited, .primary, .primary, .none, .none, .none),
+        .briefing: .init(.limited, .primary, .primary, .none, .none, .none),
+        .commandDispatch: .init(.primary, .primary, .limited, .none, .none, .none),
+        .commandAuthoritySwitch: .init(.primary, .primary, .none, .none, .none, .none),
+        .eventLog: .init(.primary, .primary, .limited, .none, .limited, .none),
+        .resourceManagement: .init(.primary, .primary, .limited, .none, .limited, .none),
+        .pwsIntegration: .init(.primary, .primary, .limited, .none, .none, .none)
     ]
+}
+
+private struct RoleFeatureAccess: Sendable {
+    var ucc: FeatureAccessLevel
+    var scc: FeatureAccessLevel
+    var teamLeader: FeatureAccessLevel
+    var teamMember: FeatureAccessLevel
+    var emt: FeatureAccessLevel
+    var volunteer: FeatureAccessLevel
+
+    init(
+        _ ucc: FeatureAccessLevel,
+        _ scc: FeatureAccessLevel,
+        _ teamLeader: FeatureAccessLevel,
+        _ teamMember: FeatureAccessLevel,
+        _ emt: FeatureAccessLevel,
+        _ volunteer: FeatureAccessLevel
+    ) {
+        self.ucc = ucc
+        self.scc = scc
+        self.teamLeader = teamLeader
+        self.teamMember = teamMember
+        self.emt = emt
+        self.volunteer = volunteer
+    }
+
+    func level(for appID: LinkGuardAppID) -> FeatureAccessLevel {
+        switch appID {
+        case .ucc:
+            return ucc
+        case .scc:
+            return scc
+        case .teamLeader:
+            return teamLeader
+        case .teamMember:
+            return teamMember
+        case .emt:
+            return emt
+        case .volunteer:
+            return volunteer
+        case .sccIPad, .teamLeaderIPad, .emtIPad:
+            preconditionFailure("Use canonical app IDs for role feature access")
+        }
+    }
 }

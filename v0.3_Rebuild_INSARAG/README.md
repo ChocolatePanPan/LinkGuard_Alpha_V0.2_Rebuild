@@ -42,7 +42,7 @@ v0.3 的方向是 USAR/INSARAG + ICS 架構，採用共享核心與角色分流�
 - app identity 與 role profile。
 - ICS section、position、role assignment。
 - app permission matrix 與 role blueprint。
-- role feature access matrix：以 UCC/SCC/TL/TE/EMT/VO 的 primary、limited、none 權限定義端上功能顯示與操作 gate。
+- role feature access matrix：以 UCC/SCC/TL/TE/EMT/VO 的 ●/○/✕ 細項矩陣定義地圖、人員、醫療、通訊與 AI/指揮功能 gate。
 - incident、sector、sub-sector、worksite、task、alert、map feature。
 - personnel overview：GPS、作業狀態、在線狀態與電量摘要。
 - photo report：照片附件 ID、GPS、時間戳記與任務/案場關聯。
@@ -57,7 +57,7 @@ v0.3 的方向是 USAR/INSARAG + ICS 架構，採用共享核心與角色分流�
 - offline map tile manifest、tile request template、download progress model。
 - field SOS one-tap action：iPhone/iPad runtime + latest GPS fix → SOS envelope。
 - AAR audit query 與 JSON/CSV export bundle。
-- `LinkGuardV03FieldUI`：iPhone/iPad field app shell + Phase 2 controller，依角色功能矩陣排隊 Sector/Sub-sector/Worksite、人員狀態、任務、照片、傷患/START/後送、安全進出、聊天、語音與 SOS envelopes。
+- `LinkGuardV03FieldUI`：iPhone/iPad field app shell + Phase 2 controller，依角色功能矩陣排隊 Sector/Sub-sector/Worksite、點線面地圖標記、人員狀態、任務回報、照片、傷患/START/後送、安全進出、聊天、語音與 SOS envelopes。
 
 驗證指令：
 
@@ -68,9 +68,9 @@ swift test
 
 ## Versioning
 
-目前版本基準是 `0.3.1-5`，由 repo 根目錄的 `VERSION`、`VERSION.json`、shared framework 的 `LinkGuardVersionInfo.current` 與 Git tag `v0.3.1-5` 對齊。
+目前版本基準是 `0.3.1-6`，由 repo 根目錄的 `VERSION`、`VERSION.json`、shared framework 的 `LinkGuardVersionInfo.current` 與 Git tag `v0.3.1-6` 對齊。
 
-每次實作更新後都必須更新版本號。v0.3 alpha 線使用 `scripts/version.sh bump-alpha`；現場指定版使用 `scripts/version.sh set <version>`，例如 `scripts/version.sh set 0.3.1-5`。提交後使用 `scripts/version.sh tag` 建立本機 annotated tag。push 前使用 `scripts/version.sh push-check`，並把 `git push origin v<version>` 放在 push 流程最後。
+每次實作更新後都必須更新版本號。v0.3 alpha 線使用 `scripts/version.sh bump-alpha`；現場指定版使用 `scripts/version.sh set <version>`，例如 `scripts/version.sh set 0.3.1-6`。提交後使用 `scripts/version.sh tag` 建立本機 annotated tag。push 前使用 `scripts/version.sh push-check`，並把 `git push origin v<version>` 放在 push 流程最後。
 
 App 設定頁要透過 `LinkGuardAppSettingsInfo` 顯示建構版本、build number、release channel 與 Git tag。
 

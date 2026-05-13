@@ -17,14 +17,14 @@ public enum AppLogicGate {
             return .assignRole
         case .commandUpsert:
             return .issueCommand
-        case .worksiteUpsert, .mapFeatureUpsert, .safetyZoneUpsert:
+        case .worksiteUpsert, .safetyZoneUpsert:
             return .manageMap
+        case .mapFeatureUpsert:
+            return .submitReport
         case .taskUpsert, .safetyEntryLogUpsert:
             return .updateTask
-        case .personnelStatusUpsert, .photoReportUpsert:
+        case .personnelStatusUpsert, .photoReportUpsert, .groupChatMessageAppend, .voiceReportAppend:
             return .submitReport
-        case .groupChatMessageAppend, .voiceReportAppend:
-            return .monitorRadio
         case .alertUpsert:
             return .issueCommand
         case .alertAcknowledgementUpsert:

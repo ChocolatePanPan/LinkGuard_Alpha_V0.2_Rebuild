@@ -68,65 +68,88 @@ final class LinkGuardV03CoreTests: XCTestCase {
     }
 
     func testFeatureAccessMatrixMatchesOperationalRoleTable() {
-        let expected: [LinkGuardAppID: [LinkGuardFeature: FeatureAccessLevel]] = [
-            .ucc: [
-                .globalIncidentOverview: .primary, .sectorCreation: .limited, .subSectorCreation: .none,
-                .commandDispatch: .primary, .taskAssignment: .limited, .sosHandling: .limited,
-                .gpsTracking: .primary, .photoReport: .limited, .patientUpload: .none,
-                .startTriage: .none, .evacuationManagement: .none, .patientStatusUpdate: .none,
-                .aiDecisionAnalysis: .primary, .offlineCache: .primary, .safetyControl: .limited,
-                .eventLog: .primary, .briefing: .limited, .radioMonitoring: .primary
-            ],
-            .scc: [
-                .globalIncidentOverview: .primary, .sectorCreation: .primary, .subSectorCreation: .limited,
-                .commandDispatch: .primary, .taskAssignment: .primary, .sosHandling: .primary,
-                .gpsTracking: .primary, .photoReport: .primary, .patientUpload: .limited,
-                .startTriage: .limited, .evacuationManagement: .limited, .patientStatusUpdate: .limited,
-                .aiDecisionAnalysis: .primary, .offlineCache: .primary, .safetyControl: .primary,
-                .eventLog: .primary, .briefing: .primary, .radioMonitoring: .primary
-            ],
-            .teamLeader: [
-                .globalIncidentOverview: .limited, .sectorCreation: .primary, .subSectorCreation: .primary,
-                .commandDispatch: .limited, .taskAssignment: .primary, .sosHandling: .primary,
-                .gpsTracking: .primary, .photoReport: .primary, .patientUpload: .primary,
-                .startTriage: .primary, .evacuationManagement: .none, .patientStatusUpdate: .primary,
-                .aiDecisionAnalysis: .limited, .offlineCache: .primary, .safetyControl: .primary,
-                .eventLog: .limited, .briefing: .primary, .radioMonitoring: .limited
-            ],
-            .teamMember: [
-                .globalIncidentOverview: .none, .sectorCreation: .none, .subSectorCreation: .none,
-                .commandDispatch: .none, .taskAssignment: .none, .sosHandling: .primary,
-                .gpsTracking: .primary, .photoReport: .primary, .patientUpload: .limited,
-                .startTriage: .none, .evacuationManagement: .none, .patientStatusUpdate: .none,
-                .aiDecisionAnalysis: .none, .offlineCache: .primary, .safetyControl: .none,
-                .eventLog: .none, .briefing: .none, .radioMonitoring: .none
-            ],
-            .emt: [
-                .globalIncidentOverview: .limited, .sectorCreation: .none, .subSectorCreation: .none,
-                .commandDispatch: .none, .taskAssignment: .none, .sosHandling: .primary,
-                .gpsTracking: .primary, .photoReport: .primary, .patientUpload: .primary,
-                .startTriage: .primary, .evacuationManagement: .primary, .patientStatusUpdate: .primary,
-                .aiDecisionAnalysis: .none, .offlineCache: .primary, .safetyControl: .none,
-                .eventLog: .limited, .briefing: .none, .radioMonitoring: .none
-            ],
-            .volunteer: [
-                .globalIncidentOverview: .none, .sectorCreation: .none, .subSectorCreation: .none,
-                .commandDispatch: .none, .taskAssignment: .none, .sosHandling: .limited,
-                .gpsTracking: .primary, .photoReport: .primary, .patientUpload: .none,
-                .startTriage: .none, .evacuationManagement: .none, .patientStatusUpdate: .none,
-                .aiDecisionAnalysis: .none, .offlineCache: .primary, .safetyControl: .none,
-                .eventLog: .none, .briefing: .none, .radioMonitoring: .none
-            ]
-        ]
+        var checkedFeatures = Set<LinkGuardFeature>()
 
-        for (appID, features) in expected {
-            for (feature, level) in features {
+        func assertAccess(
+            _ feature: LinkGuardFeature,
+            _ ucc: FeatureAccessLevel,
+            _ scc: FeatureAccessLevel,
+            _ teamLeader: FeatureAccessLevel,
+            _ teamMember: FeatureAccessLevel,
+            _ emt: FeatureAccessLevel,
+            _ volunteer: FeatureAccessLevel
+        ) {
+            checkedFeatures.insert(feature)
+            let expected: [LinkGuardAppID: FeatureAccessLevel] = [
+                .ucc: ucc,
+                .scc: scc,
+                .teamLeader: teamLeader,
+                .teamMember: teamMember,
+                .emt: emt,
+                .volunteer: volunteer
+            ]
+            for (appID, level) in expected {
                 XCTAssertEqual(LinkGuardFeatureAccessMatrix.accessLevel(for: appID, feature: feature), level, "\(appID.rawValue) \(feature.rawValue)")
             }
         }
+
+        assertAccess(.globalMapOverview, .primary, .primary, .limited, .none, .limited, .none)
+        assertAccess(.sectorCreation, .limited, .primary, .primary, .none, .none, .none)
+        assertAccess(.subSectorCreation, .none, .limited, .primary, .none, .none, .none)
+        assertAccess(.pointMarker, .limited, .primary, .primary, .primary, .primary, .limited)
+        assertAccess(.lineMarker, .limited, .primary, .primary, .limited, .none, .none)
+        assertAccess(.areaMarker, .limited, .primary, .primary, .none, .none, .none)
+        assertAccess(.hazardZoneManagement, .limited, .primary, .primary, .none, .none, .none)
+        assertAccess(.searchProgressColoring, .limited, .primary, .primary, .none, .none, .none)
+        assertAccess(.worksiteMarkerSystem, .limited, .primary, .primary, .limited, .limited, .none)
+        assertAccess(.offlineMap, .limited, .primary, .primary, .primary, .limited, .limited)
+
+        assertAccess(.personnelOverview, .primary, .primary, .primary, .none, .limited, .none)
+        assertAccess(.gpsTracking, .primary, .primary, .primary, .primary, .primary, .primary)
+        assertAccess(.personnelEntryLog, .limited, .primary, .primary, .limited, .limited, .none)
+        assertAccess(.teamCapabilityOverview, .primary, .primary, .primary, .none, .limited, .none)
+        assertAccess(.personnelStatusUpdate, .limited, .primary, .primary, .limited, .limited, .none)
+        assertAccess(.safetyControlBoard, .limited, .primary, .primary, .none, .none, .none)
+        assertAccess(.taskAssignment, .limited, .primary, .primary, .none, .none, .none)
+        assertAccess(.taskReport, .limited, .primary, .primary, .primary, .limited, .limited)
+
+        assertAccess(.patientCreation, .none, .limited, .primary, .limited, .primary, .none)
+        assertAccess(.startTriage, .none, .limited, .primary, .none, .primary, .none)
+        assertAccess(.patientLocation, .limited, .primary, .primary, .limited, .primary, .none)
+        assertAccess(.patientPhoto, .none, .limited, .primary, .limited, .primary, .none)
+        assertAccess(.patientStatusUpdate, .none, .limited, .primary, .none, .primary, .none)
+        assertAccess(.medicalEvacuation, .none, .limited, .none, .none, .primary, .none)
+        assertAccess(.hospitalCapacityView, .limited, .primary, .none, .none, .primary, .none)
+        assertAccess(.patientHistory, .none, .limited, .primary, .none, .primary, .none)
+
+        assertAccess(.communicationChannel, .primary, .primary, .primary, .primary, .primary, .limited)
+        assertAccess(.radioMonitoring, .primary, .primary, .limited, .none, .none, .none)
+        assertAccess(.speechTranscription, .limited, .primary, .primary, .limited, .limited, .none)
+        assertAccess(.voiceReport, .limited, .primary, .primary, .primary, .limited, .limited)
+        assertAccess(.realtimeTranslation, .limited, .primary, .primary, .primary, .primary, .limited)
+        assertAccess(.voiceTranslation, .none, .limited, .primary, .primary, .primary, .none)
+        assertAccess(.photoReport, .limited, .primary, .primary, .primary, .primary, .primary)
+        assertAccess(.multiPointPhotoReport, .limited, .primary, .primary, .limited, .limited, .none)
+        assertAccess(.alertPush, .primary, .primary, .primary, .primary, .primary, .limited)
+        assertAccess(.alertRead, .limited, .primary, .primary, .primary, .primary, .limited)
+        assertAccess(.sosSending, .limited, .primary, .primary, .primary, .primary, .limited)
+        assertAccess(.sosDetail, .limited, .primary, .primary, .limited, .primary, .none)
+
+        assertAccess(.aiDecisionAnalysis, .primary, .primary, .limited, .none, .none, .none)
+        assertAccess(.aiPatientWarning, .limited, .primary, .limited, .none, .primary, .none)
+        assertAccess(.aiChat, .primary, .primary, .limited, .none, .none, .none)
+        assertAccess(.quickCommand, .limited, .primary, .primary, .none, .none, .none)
+        assertAccess(.briefing, .limited, .primary, .primary, .none, .none, .none)
+        assertAccess(.commandDispatch, .primary, .primary, .limited, .none, .none, .none)
+        assertAccess(.commandAuthoritySwitch, .primary, .primary, .none, .none, .none, .none)
+        assertAccess(.eventLog, .primary, .primary, .limited, .none, .limited, .none)
+        assertAccess(.resourceManagement, .primary, .primary, .limited, .none, .limited, .none)
+        assertAccess(.pwsIntegration, .primary, .primary, .limited, .none, .none, .none)
+
+        XCTAssertEqual(checkedFeatures, Set(LinkGuardFeature.allCases))
         XCTAssertEqual(LinkGuardFeatureAccessMatrix.accessLevel(for: .teamLeaderIPad, feature: .subSectorCreation), .primary)
         XCTAssertEqual(LinkGuardFeatureAccessMatrix.accessLevel(for: .sccIPad, feature: .startTriage), .limited)
-        XCTAssertEqual(LinkGuardFeatureAccessMatrix.accessLevel(for: .emtIPad, feature: .evacuationManagement), .primary)
+        XCTAssertEqual(LinkGuardFeatureAccessMatrix.accessLevel(for: .emtIPad, feature: .medicalEvacuation), .primary)
     }
 
     func testOfflineQueuePrioritizesCriticalMessagesAndDeduplicates() throws {
@@ -771,7 +794,11 @@ final class LinkGuardV03CoreTests: XCTestCase {
             .evacuationRequestUpsert
         ])
         XCTAssertThrowsError(try teamLeader.queueEvacuationRequest(patientID: "PATIENT-A023", destinationHospitalID: nil, now: fixedDate.addingTimeInterval(5)))
-        XCTAssertFalse(emt.canUseFeature(.safetyControl))
+        XCTAssertTrue(emt.canUseFeature(.patientCreation))
+        XCTAssertTrue(emt.canUseFeature(.hospitalCapacityView))
+        XCTAssertTrue(emt.canUseFeature(.voiceTranslation))
+        XCTAssertFalse(emt.canUseFeature(.radioMonitoring))
+        XCTAssertFalse(emt.canUseFeature(.hazardZoneManagement))
         XCTAssertThrowsError(try emt.queueSafetyZone(now: fixedDate.addingTimeInterval(6)))
     }
 
@@ -864,7 +891,7 @@ final class LinkGuardV03CoreTests: XCTestCase {
         XCTAssertEqual(sccSnapshot.auditEvents.last?.targetType, "photoReport")
     }
 
-    func testFieldTEControllerQueuesOnlyAuthorizedPhotoPatientAndSOS() throws {
+    func testFieldTEControllerQueuesDetailedAuthorizedReports() throws {
         var controller = FieldAppController(
             appID: .teamMember,
             platform: .iPhone,
@@ -886,19 +913,61 @@ final class LinkGuardV03CoreTests: XCTestCase {
             now: fixedDate.addingTimeInterval(2)
         )
         let sos = try controller.queueSOS(dangerType: .trapped, note: "Pinned", now: fixedDate.addingTimeInterval(3))
+        let task = try controller.queueTaskStatus(.inProgress, now: fixedDate.addingTimeInterval(4))
+        let entry = try controller.queueSafetyEntry(.checkIn, now: fixedDate.addingTimeInterval(5))
+        let chat = try controller.queueGroupChat(body: "A1 status update", now: fixedDate.addingTimeInterval(6))
+        let voice = try controller.queueVoiceReport(transcript: "A1 voice update", durationSeconds: 5, now: fixedDate.addingTimeInterval(7))
+        let point = try controller.queueMapMarker(featureType: .victimPoint, geometryType: .point, title: "Victim point", now: fixedDate.addingTimeInterval(8))
+        let line = try controller.queueMapMarker(featureType: .evacuationRoute, geometryType: .polyline, title: "Evac line", now: fixedDate.addingTimeInterval(9))
 
-        XCTAssertEqual([photo.messageType, patient.messageType, sos.messageType], [
+        XCTAssertEqual([photo.messageType, patient.messageType, sos.messageType, task.messageType, entry.messageType, chat.messageType, voice.messageType, point.messageType, line.messageType], [
             .photoReportUpsert,
             .patientUpsert,
-            .sosReportUpsert
+            .sosReportUpsert,
+            .taskUpsert,
+            .safetyEntryLogUpsert,
+            .groupChatMessageAppend,
+            .voiceReportAppend,
+            .mapFeatureUpsert,
+            .mapFeatureUpsert
         ])
-        XCTAssertEqual(controller.pendingEnvelopeCount, 3)
+        XCTAssertEqual(controller.pendingEnvelopeCount, 9)
         XCTAssertFalse(controller.canSend(.sectorUpsert))
-        XCTAssertFalse(controller.canSend(.voiceReportAppend))
-        XCTAssertThrowsError(try controller.queueTaskStatus(.inProgress, now: fixedDate.addingTimeInterval(4)))
-        XCTAssertThrowsError(try controller.queueSafetyEntry(.checkIn, now: fixedDate.addingTimeInterval(5)))
-        XCTAssertThrowsError(try controller.queueGroupChat(body: "A1 status update", now: fixedDate.addingTimeInterval(6)))
-        XCTAssertThrowsError(try controller.queueVoiceReport(transcript: "A1 voice update", durationSeconds: 5, now: fixedDate.addingTimeInterval(7)))
+        XCTAssertTrue(controller.canSend(.voiceReportAppend))
+        XCTAssertFalse(controller.canUseFeature(.radioMonitoring))
+        XCTAssertThrowsError(try controller.queueSectorPlan(now: fixedDate.addingTimeInterval(10)))
+        XCTAssertThrowsError(try controller.queueSafetyZone(now: fixedDate.addingTimeInterval(11)))
+        XCTAssertThrowsError(try controller.queueMapMarker(featureType: .hazardPolygon, geometryType: .polygon, title: "Hazard area", now: fixedDate.addingTimeInterval(12)))
+        XCTAssertThrowsError(try controller.queueStartTriage(displayCode: "A024", category: .yellow, respiratoryRate: 24, pulseRate: 104, gcs: 15, injurySummary: "Ambulatory", now: fixedDate.addingTimeInterval(13)))
+        XCTAssertThrowsError(try controller.queuePatientStatusUpdate(patientID: "PATIENT-A023", displayCode: "A023", triageCategory: .yellow, injurySummary: "Bleeding controlled", now: fixedDate.addingTimeInterval(14)))
+    }
+
+    func testVolunteerFieldAccessUsesLimitedCommunicationAndMapRules() throws {
+        var controller = FieldAppController(
+            appID: .volunteer,
+            platform: .iPhone,
+            deviceID: "IOS-VO-TEST",
+            displayName: "VO Test",
+            now: fixedDate
+        )
+
+        let photo = try controller.queuePhotoReport(photoAttachmentID: "ATTACH-VO-1", caption: "VO photo", checksum: nil, now: fixedDate.addingTimeInterval(1))
+        let sos = try controller.queueSOS(dangerType: .trapped, note: "Lost", now: fixedDate.addingTimeInterval(2))
+        let chat = try controller.queueGroupChat(body: "VO update", now: fixedDate.addingTimeInterval(3))
+        let voice = try controller.queueVoiceReport(transcript: "VO voice", durationSeconds: 4, now: fixedDate.addingTimeInterval(4))
+        let point = try controller.queueMapMarker(featureType: .assemblyPoint, geometryType: .point, title: "VO point", now: fixedDate.addingTimeInterval(5))
+
+        XCTAssertEqual([photo.messageType, sos.messageType, chat.messageType, voice.messageType, point.messageType], [
+            .photoReportUpsert,
+            .sosReportUpsert,
+            .groupChatMessageAppend,
+            .voiceReportAppend,
+            .mapFeatureUpsert
+        ])
+        XCTAssertFalse(controller.canUseFeature(.radioMonitoring))
+        XCTAssertThrowsError(try controller.queuePatientUpload(displayCode: "A023", triageCategory: .red, injurySummary: "Leg bleed", now: fixedDate.addingTimeInterval(6)))
+        XCTAssertThrowsError(try controller.queueMapMarker(featureType: .evacuationRoute, geometryType: .polyline, title: "VO line", now: fixedDate.addingTimeInterval(7)))
+        XCTAssertThrowsError(try controller.queueMapMarker(featureType: .hazardPolygon, geometryType: .polygon, title: "VO area", now: fixedDate.addingTimeInterval(8)))
     }
 
     func testPhaseTwoSafetyControlTracksZonesAndEntryLogs() throws {
@@ -1138,7 +1207,7 @@ final class LinkGuardV03CoreTests: XCTestCase {
         XCTAssertTrue(sections.contains(.operations))
         XCTAssertFalse(sections.contains(.finance))
         XCTAssertFalse(state.quickActions.contains { $0.id == "finance" })
-        XCTAssertEqual(LinkGuardFeatureAccessMatrix.accessLevel(for: .scc, feature: .evacuationManagement), .limited)
+        XCTAssertEqual(LinkGuardFeatureAccessMatrix.accessLevel(for: .scc, feature: .medicalEvacuation), .limited)
         XCTAssertTrue(state.transportRoutes.contains { $0.messageType == .evacuationRequestUpsert && $0.receives && $0.canSend })
     }
 

@@ -129,6 +129,7 @@ public struct FieldAppController: Sendable {
     public mutating func queueSectorPlan(now: Date) throws -> [SyncEnvelope] {
         try requireFeature(.sectorCreation)
         try requireFeature(.subSectorCreation)
+        try requireFeature(.worksiteMarkerSystem)
         let coordinate = try currentCoordinate()
         let sector = Sector(
             id: context.sectorID,
@@ -172,7 +173,7 @@ public struct FieldAppController: Sendable {
         note: String? = nil,
         now: Date
     ) throws -> SyncEnvelope {
-        try requireFeature(.gpsTracking)
+        try requireFeature(.personnelStatusUpdate)
         let report = PersonnelStatusReport(
             id: LinkGuardID("STATUS-\(runtime.device.id.rawValue)"),
             incidentID: context.incidentID,
@@ -203,7 +204,7 @@ public struct FieldAppController: Sendable {
 
     @discardableResult
     public mutating func queueTaskStatus(_ status: TaskStatus, now: Date) throws -> SyncEnvelope {
-        try requireFeature(.taskAssignment)
+        try requireFeature(.taskReport)
         let task = FieldTask(
             id: context.taskID,
             incidentID: context.incidentID,
@@ -257,7 +258,7 @@ public struct FieldAppController: Sendable {
 
     @discardableResult
     public mutating func queueSafetyZone(now: Date) throws -> SyncEnvelope {
-        try requireFeature(.safetyControl)
+        try requireFeature(.hazardZoneManagement)
         let coordinate = try currentCoordinate()
         let offset = 0.00025
         let zone = SafetyZone(
@@ -286,7 +287,7 @@ public struct FieldAppController: Sendable {
 
     @discardableResult
     public mutating func queueSafetyEntry(_ action: SafetyEntryAction, now: Date) throws -> SyncEnvelope {
-        try requireFeature(.safetyControl)
+        try requireFeature(.personnelEntryLog)
         let entry = SafetyEntryLog(
             id: LinkGuardID.generated(prefix: "ENTRY"),
             incidentID: context.incidentID,
@@ -311,7 +312,7 @@ public struct FieldAppController: Sendable {
 
     @discardableResult
     public mutating func queueGroupChat(body: String, priority: PriorityLevel = .medium, now: Date) throws -> SyncEnvelope {
-        try requireFeature(.radioMonitoring)
+        try requireFeature(.communicationChannel)
         let message = GroupChatMessage(
             id: LinkGuardID.generated(prefix: "CHAT"),
             incidentID: context.incidentID,
@@ -336,7 +337,7 @@ public struct FieldAppController: Sendable {
 
     @discardableResult
     public mutating func queueVoiceReport(transcript: String?, durationSeconds: Double, now: Date) throws -> SyncEnvelope {
-        try requireFeature(.radioMonitoring)
+        try requireFeature(.voiceReport)
         let report = VoiceReport(
             id: LinkGuardID.generated(prefix: "VOICE"),
             incidentID: context.incidentID,
@@ -361,9 +362,35 @@ public struct FieldAppController: Sendable {
 
     @discardableResult
     public mutating func queueSOS(dangerType: SOSDangerType, note: String?, now: Date) throws -> SyncEnvelope {
-        try requireFeature(.sosHandling)
+        try requireFeature(.sosSending)
         let action = FieldSOSAction(incidentID: context.incidentID, dangerType: dangerType, note: note)
         let envelope = try action.makeEnvelope(runtime: runtime, latestGPSFix: latestGPSFix, createdAt: now)
+        return queue(envelope, at: now)
+    }
+
+    @discardableResult
+    public mutating func queueMapMarker(featureType: MapFeatureType, geometryType: GeometryType, title: String, now: Date) throws -> SyncEnvelope {
+        try requireFeature(featureForMapGeometry(geometryType))
+        let coordinate = try currentCoordinate()
+        let points = mapPoints(for: geometryType, from: coordinate)
+        let feature = MapFeature(
+            id: LinkGuardID.generated(prefix: "MAP"),
+            incidentID: context.incidentID,
+            featureType: featureType,
+            coordinateMode: .gps,
+            geometry: MapGeometry(type: geometryType, points: points),
+            severity: .high,
+            title: title,
+            createdBy: runtime.device.id,
+            updatedAt: now
+        )
+        let envelope = try runtime.makeEnvelope(
+            messageType: .mapFeatureUpsert,
+            payload: feature,
+            createdAt: now,
+            idempotencyKey: idempotencyKey("map-\(geometryType.rawValue)", now),
+            sourceRole: defaultRole
+        )
         return queue(envelope, at: now)
     }
 
@@ -374,7 +401,7 @@ public struct FieldAppController: Sendable {
         injurySummary: String,
         now: Date
     ) throws -> SyncEnvelope {
-        try requireFeature(.patientUpload)
+        try requireFeature(.patientCreation)
         let patient = patientRecord(
             patientID: LinkGuardID.generated(prefix: "PATIENT"),
             displayCode: displayCode,
@@ -454,7 +481,7 @@ public struct FieldAppController: Sendable {
 
     @discardableResult
     public mutating func queueEvacuationRequest(patientID: LinkGuardID, destinationHospitalID: LinkGuardID?, now: Date) throws -> SyncEnvelope {
-        try requireFeature(.evacuationManagement)
+        try requireFeature(.medicalEvacuation)
         let request = EvacuationRequest(
             id: LinkGuardID.generated(prefix: "EVAC"),
             patientID: patientID,
@@ -489,6 +516,31 @@ public struct FieldAppController: Sendable {
     private func requireFeature(_ feature: LinkGuardFeature) throws {
         guard canUseFeature(feature) else {
             throw FieldAppError.featureUnavailable(appID: runtime.device.appID, feature: feature)
+        }
+    }
+
+    private func featureForMapGeometry(_ geometryType: GeometryType) -> LinkGuardFeature {
+        switch geometryType {
+        case .point:
+            return .pointMarker
+        case .polyline:
+            return .lineMarker
+        case .polygon:
+            return .areaMarker
+        }
+    }
+
+    private func mapPoints(for geometryType: GeometryType, from coordinate: GeoCoordinate) -> [MapPoint] {
+        let base = MapPoint(x: 0, y: 0, latitude: coordinate.latitude, longitude: coordinate.longitude)
+        let second = MapPoint(x: 1, y: 0, latitude: coordinate.latitude + 0.0002, longitude: coordinate.longitude)
+        let third = MapPoint(x: 0, y: 1, latitude: coordinate.latitude, longitude: coordinate.longitude + 0.0002)
+        switch geometryType {
+        case .point:
+            return [base]
+        case .polyline:
+            return [base, second]
+        case .polygon:
+            return [base, second, third]
         }
     }
 
