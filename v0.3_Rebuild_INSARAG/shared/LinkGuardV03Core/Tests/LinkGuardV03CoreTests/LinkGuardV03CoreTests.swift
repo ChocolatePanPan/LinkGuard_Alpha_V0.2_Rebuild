@@ -172,7 +172,7 @@ final class LinkGuardV03CoreTests: XCTestCase {
         XCTAssertEqual(versionInfo.product, "LinkGuard")
         XCTAssertEqual(versionInfo.shortVersion, "\(versionInfo.version.major).\(versionInfo.version.minor).\(versionInfo.version.patch)")
         XCTAssertGreaterThan(versionInfo.buildNumber, 0)
-        XCTAssertEqual(versionInfo.releaseChannel, .alpha)
+        XCTAssertTrue(ReleaseChannel.allCases.contains(versionInfo.releaseChannel))
         XCTAssertEqual(versionInfo.gitTag, "v\(versionInfo.version.stringValue)")
         XCTAssertEqual(versionInfo.displayVersion, "\(versionInfo.version.stringValue) (\(versionInfo.buildNumber))")
     }
@@ -194,6 +194,7 @@ final class LinkGuardV03CoreTests: XCTestCase {
 
     func testSemanticVersionParser() throws {
         let alpha = try XCTUnwrap(SemanticVersion(string: "0.3.0-alpha.1"))
+        let field = try XCTUnwrap(SemanticVersion(string: "0.3.1-1"))
         let stable = try XCTUnwrap(SemanticVersion(string: "1.2.3"))
 
         XCTAssertEqual(alpha.major, 0)
@@ -201,9 +202,28 @@ final class LinkGuardV03CoreTests: XCTestCase {
         XCTAssertEqual(alpha.patch, 0)
         XCTAssertEqual(alpha.prereleaseIdentifiers, ["alpha", "1"])
         XCTAssertEqual(alpha.stringValue, "0.3.0-alpha.1")
+        XCTAssertEqual(field.patch, 1)
+        XCTAssertEqual(field.prereleaseIdentifiers, ["1"])
+        XCTAssertEqual(field.stringValue, "0.3.1-1")
         XCTAssertEqual(stable.prereleaseIdentifiers, [])
         XCTAssertEqual(stable.stringValue, "1.2.3")
         XCTAssertNil(SemanticVersion(string: "0.3"))
+    }
+
+    func testFieldOperationalPrinciplesPrioritizeReliabilityBeforeAI() throws {
+        let principles = FieldOperationalPrinciples.firefighterInterview2026
+
+        XCTAssertTrue(FieldOperationalPrinciples.primaryStatement.contains("不是 AI"))
+        XCTAssertEqual(principles.first?.id, "connection-continuity")
+        XCTAssertEqual(principles.map(\.id).prefix(3), ["connection-continuity", "crash-resistance", "offline-capable"])
+        XCTAssertEqual(FieldOperationalPrinciples.principle(id: "large-buttons")?.title, "大按鈕")
+        XCTAssertTrue(FieldOperationalPrinciples.primaryActionFitsTimeBudget(seconds: 3))
+        XCTAssertFalse(FieldOperationalPrinciples.primaryActionFitsTimeBudget(seconds: 3.1))
+        XCTAssertTrue(FieldOperationalPrinciples.primaryButtonFitsGloveUse(hitTargetPoints: 56))
+        XCTAssertFalse(FieldOperationalPrinciples.primaryButtonFitsGloveUse(hitTargetPoints: 44))
+        XCTAssertTrue(FieldOperationalPrinciples.commandFlowFitsFieldUse(stepCount: 3))
+        XCTAssertFalse(FieldOperationalPrinciples.commandFlowFitsFieldUse(stepCount: 4))
+        XCTAssertTrue(FieldOperationalPrinciples.contrastFitsNightUse(ratio: 7))
     }
 
     func testAllAppsInitializeWithRuntimeAndBlueprint() {

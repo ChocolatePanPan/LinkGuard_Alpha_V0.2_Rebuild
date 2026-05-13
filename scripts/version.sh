@@ -11,7 +11,7 @@ xcode_project_files=(
 )
 
 usage() {
-  printf 'Usage: scripts/version.sh [show|check|bump-alpha|tag|push-check]\n'
+  printf 'Usage: scripts/version.sh [show|check|bump-alpha|set <version> [build]|tag|push-check]\n'
 }
 
 read_version() {
@@ -59,9 +59,44 @@ release_channel_for() {
     printf 'beta'
   elif [[ "$prerelease" == rc.* ]]; then
     printf 'releaseCandidate'
+  elif [[ "$prerelease" == <-> ]]; then
+    printf 'field'
   else
     abort "Unsupported prerelease channel: $prerelease"
   fi
+}
+
+version_sequence() {
+  local prerelease="$1"
+  if [[ -z "$prerelease" ]]; then
+    printf '0'
+  elif [[ "$prerelease" == alpha.* ]]; then
+    printf '%s' "${prerelease#alpha.}"
+  elif [[ "$prerelease" == beta.* ]]; then
+    printf '%s' "${prerelease#beta.}"
+  elif [[ "$prerelease" == rc.* ]]; then
+    printf '%s' "${prerelease#rc.}"
+  elif [[ "$prerelease" == <-> ]]; then
+    printf '%s' "$prerelease"
+  else
+    abort "Unsupported prerelease sequence: $prerelease"
+  fi
+}
+
+build_number_for() {
+  local version="$1"
+  local major minor patch prerelease sequence
+  major=$(version_major "$version")
+  minor=$(version_minor "$version")
+  patch=$(version_patch "$version")
+  prerelease=$(version_prerelease "$version")
+  sequence=$(version_sequence "$prerelease")
+
+  if [[ -z "$major" || -z "$minor" || -z "$patch" || "$sequence" != <-> ]]; then
+    abort "Cannot derive build number for version: $version"
+  fi
+
+  printf '%d' $((major * 10000000 + minor * 100000 + patch * 1000 + sequence))
 }
 
 swift_prerelease_literal() {
@@ -244,6 +279,28 @@ bump_alpha() {
   printf 'Bumped version: %s -> %s\n' "$current" "$next_version"
 }
 
+set_version() {
+  local current next_version next_build notes
+  current=$(read_version)
+  next_version="$1"
+  if [[ -z "$next_version" ]]; then
+    abort "Missing version. Usage: scripts/version.sh set <version> [build]"
+  fi
+  if [[ -z "$(version_major "$next_version")" || -z "$(version_minor "$next_version")" || -z "$(version_patch "$next_version")" ]]; then
+    abort "Invalid semantic version: $next_version"
+  fi
+
+  release_channel_for "$next_version" >/dev/null
+  next_build="${2:-$(build_number_for "$next_version")}"
+  if [[ "$next_build" != <-> ]]; then
+    abort "Invalid build number: $next_build"
+  fi
+
+  notes="Firefighter interview baseline: reliability, offline operation, three-second actions, glove-safe large controls, night contrast, one-hand use, low false touches, short command flows; AI is secondary."
+  update_version_files "$next_version" "$next_build" "$notes"
+  printf 'Set version: %s -> %s (%s)\n' "$current" "$next_version" "$next_build"
+}
+
 create_tag() {
   local version tag
   version=$(read_version)
@@ -297,6 +354,9 @@ case "$command_name" in
     ;;
   bump-alpha)
     bump_alpha
+    ;;
+  set)
+    set_version "${2:-}" "${3:-}"
     ;;
   tag)
     create_tag

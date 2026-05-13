@@ -4,10 +4,17 @@
 
 Every implementation update must update the version before the work is complete.
 
-For the current v0.3 alpha line, use:
+For normal alpha implementation bumps, use:
 
 ```bash
 scripts/version.sh bump-alpha
+scripts/version.sh check
+```
+
+For named field builds, set the requested version explicitly:
+
+```bash
+scripts/version.sh set 0.3.1-1
 scripts/version.sh check
 ```
 
@@ -27,10 +34,16 @@ The final command in the push sequence must push the matching version tag, for e
 
 ```bash
 git push origin main
-git push origin v0.3.0-alpha.3
+git push origin v0.3.1-1
 ```
 
 Do not push commits or tags unless explicitly requested.
+
+## Field Operational Principles
+
+After the firefighter interview, the first priority is not AI. The field gates are reliability, crash resistance, offline operation, three-second actions, glove-safe large controls, night contrast, one-hand operation, low false touches, and short command flows.
+
+See [FIELD_OPERATIONAL_PRINCIPLES.md](FIELD_OPERATIONAL_PRINCIPLES.md).
 
 ## App Settings
 

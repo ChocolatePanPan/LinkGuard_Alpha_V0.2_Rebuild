@@ -252,7 +252,7 @@
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 300007;
+				CURRENT_PROJECT_VERSION = 301001;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "LinkGuard UCC";
@@ -261,7 +261,7 @@
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "LinkGuard uses the local network to discover and communicate with field devices and HQ services.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "LinkGuard uses the microphone for push-to-talk and radio voice reports.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "LinkGuard uses speech recognition to transcribe field radio and briefing audio.";
-				MARKETING_VERSION = 0.3.0;
+				MARKETING_VERSION = 0.3.1;
 				PRODUCT_BUNDLE_IDENTIFIER = tw.linkguard.v03.ucc;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
@@ -279,7 +279,7 @@
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 300007;
+				CURRENT_PROJECT_VERSION = 301001;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "LinkGuard UCC";
@@ -288,7 +288,7 @@
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "LinkGuard uses the local network to discover and communicate with field devices and HQ services.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "LinkGuard uses the microphone for push-to-talk and radio voice reports.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "LinkGuard uses speech recognition to transcribe field radio and briefing audio.";
-				MARKETING_VERSION = 0.3.0;
+				MARKETING_VERSION = 0.3.1;
 				PRODUCT_BUNDLE_IDENTIFIER = tw.linkguard.v03.ucc;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
