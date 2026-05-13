@@ -3,10 +3,17 @@ import Foundation
 public struct OperationSnapshot: Codable, Sendable {
     public private(set) var incidents: [LinkGuardID: Incident]
     public private(set) var sectors: [LinkGuardID: Sector]
+    public private(set) var subSectors: [LinkGuardID: SubSector]
     public private(set) var worksites: [LinkGuardID: Worksite]
+    public private(set) var personnelStatusReports: [LinkGuardID: PersonnelStatusReport]
     public private(set) var roleAssignments: [LinkGuardID: RoleAssignment]
     public private(set) var commands: [LinkGuardID: OperationalCommand]
     public private(set) var tasks: [LinkGuardID: FieldTask]
+    public private(set) var photoReports: [LinkGuardID: PhotoReport]
+    public private(set) var safetyZones: [LinkGuardID: SafetyZone]
+    public private(set) var safetyEntryLogs: [LinkGuardID: SafetyEntryLog]
+    public private(set) var groupChatMessages: [LinkGuardID: GroupChatMessage]
+    public private(set) var voiceReports: [LinkGuardID: VoiceReport]
     public private(set) var alerts: [LinkGuardID: IncidentAlert]
     public private(set) var alertAcknowledgements: [LinkGuardID: AlertAcknowledgement]
     public private(set) var sosReports: [LinkGuardID: SOSReport]
@@ -23,10 +30,17 @@ public struct OperationSnapshot: Codable, Sendable {
     public init() {
         self.incidents = [:]
         self.sectors = [:]
+        self.subSectors = [:]
         self.worksites = [:]
+        self.personnelStatusReports = [:]
         self.roleAssignments = [:]
         self.commands = [:]
         self.tasks = [:]
+        self.photoReports = [:]
+        self.safetyZones = [:]
+        self.safetyEntryLogs = [:]
+        self.groupChatMessages = [:]
+        self.voiceReports = [:]
         self.alerts = [:]
         self.alertAcknowledgements = [:]
         self.sosReports = [:]
@@ -51,9 +65,15 @@ public struct OperationSnapshot: Codable, Sendable {
         case .sectorUpsert:
             let sector = try envelope.decodePayload(Sector.self)
             sectors[sector.id] = sector
+        case .subSectorUpsert:
+            let subSector = try envelope.decodePayload(SubSector.self)
+            subSectors[subSector.id] = subSector
         case .worksiteUpsert:
             let worksite = try envelope.decodePayload(Worksite.self)
             worksites[worksite.id] = worksite
+        case .personnelStatusUpsert:
+            let report = try envelope.decodePayload(PersonnelStatusReport.self)
+            personnelStatusReports[report.id] = report
         case .roleAssignmentUpsert:
             let roleAssignment = try envelope.decodePayload(RoleAssignment.self)
             roleAssignments[roleAssignment.id] = roleAssignment
@@ -63,6 +83,21 @@ public struct OperationSnapshot: Codable, Sendable {
         case .taskUpsert:
             let task = try envelope.decodePayload(FieldTask.self)
             tasks[task.id] = task
+        case .photoReportUpsert:
+            let photoReport = try envelope.decodePayload(PhotoReport.self)
+            photoReports[photoReport.id] = photoReport
+        case .safetyZoneUpsert:
+            let safetyZone = try envelope.decodePayload(SafetyZone.self)
+            safetyZones[safetyZone.id] = safetyZone
+        case .safetyEntryLogUpsert:
+            let entryLog = try envelope.decodePayload(SafetyEntryLog.self)
+            safetyEntryLogs[entryLog.id] = entryLog
+        case .groupChatMessageAppend:
+            let message = try envelope.decodePayload(GroupChatMessage.self)
+            groupChatMessages[message.id] = message
+        case .voiceReportAppend:
+            let voiceReport = try envelope.decodePayload(VoiceReport.self)
+            voiceReports[voiceReport.id] = voiceReport
         case .alertUpsert:
             let alert = try envelope.decodePayload(IncidentAlert.self)
             alerts[alert.id] = alert
@@ -104,5 +139,24 @@ public struct OperationSnapshot: Codable, Sendable {
     public mutating func record(_ auditEvent: AuditEvent) {
         guard auditEvents.contains(where: { $0.id == auditEvent.id }) == false else { return }
         auditEvents.append(auditEvent)
+    }
+
+    public func worksites(inSubSector subSectorID: LinkGuardID) -> [Worksite] {
+        worksites.values.filter { $0.subSectorID == subSectorID }.sorted { $0.name < $1.name }
+    }
+
+    public func latestPersonnelStatuses(onlineWithin seconds: TimeInterval, now: Date) -> [PersonnelStatusReport] {
+        personnelStatusReports.values
+            .map { report in
+                var updatedReport = report
+                updatedReport.connectivity = report.isRecentlyOnline(within: seconds, now: now) ? report.connectivity : .offline
+                return updatedReport
+            }
+            .sorted { lhs, rhs in
+                if lhs.operationalState != rhs.operationalState {
+                    return lhs.operationalState.sortRank < rhs.operationalState.sortRank
+                }
+                return lhs.updatedAt > rhs.updatedAt
+            }
     }
 }

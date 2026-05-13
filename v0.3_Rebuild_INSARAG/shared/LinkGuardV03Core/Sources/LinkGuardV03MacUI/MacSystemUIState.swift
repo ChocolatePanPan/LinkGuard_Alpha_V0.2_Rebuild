@@ -261,6 +261,11 @@ public enum MacSystemUIFactory {
         let relevantMessageTypes: [SyncMessageType] = [
             .commandUpsert,
             .taskUpsert,
+            .personnelStatusUpsert,
+            .photoReportUpsert,
+            .safetyZoneUpsert,
+            .groupChatMessageAppend,
+            .voiceReportAppend,
             .alertUpsert,
             .sosReportUpsert,
             .evacuationRequestUpsert,
@@ -303,7 +308,7 @@ public enum MacSystemUIFactory {
         case .command:
             return snapshot.commands.count + snapshot.alerts.count + snapshot.sosReports.count + snapshot.roleAssignments.count
         case .operations:
-            return snapshot.worksites.count + snapshot.tasks.count + snapshot.mapFeatures.count
+            return snapshot.subSectors.count + snapshot.worksites.count + snapshot.tasks.count + snapshot.mapFeatures.count + snapshot.personnelStatusReports.count + snapshot.photoReports.count + snapshot.safetyZones.count + snapshot.safetyEntryLogs.count
         case .planning:
             return snapshot.incidents.count + snapshot.sectors.count
         case .logistics:
@@ -351,6 +356,8 @@ public enum MacSystemUIFactory {
         ("assign-role", "人員配置", .assignRole, .roleAssignmentUpsert, "person.badge.plus"),
         ("update-task", "任務更新", .updateTask, .taskUpsert, "checklist"),
         ("map-feature", "分區地圖", .manageMap, .mapFeatureUpsert, "map.fill"),
+        ("safety-zone", "安全管制", .manageMap, .safetyZoneUpsert, "shield.lefthalf.filled"),
+        ("voice-report", "語音回報", .submitReport, .voiceReportAppend, "waveform"),
         ("finance", "統計儀表板", .manageFinance, .purchaseRequestUpsert, "chart.bar.xaxis"),
         ("export-aar", "事件日誌", .exportAAR, .decisionRecordUpsert, "clock.arrow.circlepath")
     ]

@@ -12,6 +12,8 @@ public enum AuditAction: String, Codable, CaseIterable, Sendable {
     case sendSOS
     case submitReport
     case mapUpdate
+    case safetyControl
+    case communication
     case syncQueued
     case syncDelivered
     case syncFailed

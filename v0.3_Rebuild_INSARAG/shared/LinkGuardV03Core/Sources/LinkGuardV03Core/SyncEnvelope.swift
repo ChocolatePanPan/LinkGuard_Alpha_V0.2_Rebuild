@@ -3,10 +3,17 @@ import Foundation
 public enum SyncMessageType: String, Codable, CaseIterable, Sendable {
     case incidentUpsert
     case sectorUpsert
+    case subSectorUpsert
     case worksiteUpsert
+    case personnelStatusUpsert
     case roleAssignmentUpsert
     case commandUpsert
     case taskUpsert
+    case photoReportUpsert
+    case safetyZoneUpsert
+    case safetyEntryLogUpsert
+    case groupChatMessageAppend
+    case voiceReportAppend
     case alertUpsert
     case alertAcknowledgementUpsert
     case sosReportUpsert

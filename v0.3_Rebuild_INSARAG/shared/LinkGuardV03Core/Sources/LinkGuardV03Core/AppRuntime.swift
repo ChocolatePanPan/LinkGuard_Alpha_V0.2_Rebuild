@@ -11,16 +11,18 @@ public enum LinkGuardRuntimeError: Error, Equatable, Sendable {
 public enum AppLogicGate {
     public static func requiredPermission(for messageType: SyncMessageType) -> LinkGuardPermission? {
         switch messageType {
-        case .incidentUpsert, .sectorUpsert:
+        case .incidentUpsert, .sectorUpsert, .subSectorUpsert:
             return .manageIncident
         case .roleAssignmentUpsert:
             return .assignRole
         case .commandUpsert:
             return .issueCommand
-        case .worksiteUpsert, .mapFeatureUpsert:
+        case .worksiteUpsert, .mapFeatureUpsert, .safetyZoneUpsert:
             return .manageMap
-        case .taskUpsert:
+        case .taskUpsert, .safetyEntryLogUpsert:
             return .updateTask
+        case .personnelStatusUpsert, .photoReportUpsert, .groupChatMessageAppend, .voiceReportAppend:
+            return .submitReport
         case .alertUpsert:
             return .issueCommand
         case .alertAcknowledgementUpsert:
@@ -42,11 +44,11 @@ public enum AppLogicGate {
         switch messageType {
         case .alertUpsert, .sosReportUpsert, .patientUpsert, .evacuationRequestUpsert:
             return .critical
-        case .commandUpsert, .worksiteUpsert, .mapFeatureUpsert, .hospitalCapacityUpsert:
+        case .commandUpsert, .worksiteUpsert, .personnelStatusUpsert, .photoReportUpsert, .mapFeatureUpsert, .safetyZoneUpsert, .safetyEntryLogUpsert, .voiceReportAppend, .hospitalCapacityUpsert:
             return .high
-        case .taskUpsert, .alertAcknowledgementUpsert, .roleAssignmentUpsert:
+        case .taskUpsert, .alertAcknowledgementUpsert, .roleAssignmentUpsert, .groupChatMessageAppend:
             return .medium
-        case .incidentUpsert, .sectorUpsert, .purchaseRequestUpsert, .personnelHoursUpsert, .decisionRecordUpsert:
+        case .incidentUpsert, .sectorUpsert, .subSectorUpsert, .purchaseRequestUpsert, .personnelHoursUpsert, .decisionRecordUpsert:
             return .low
         case .auditEventAppend:
             return .routine

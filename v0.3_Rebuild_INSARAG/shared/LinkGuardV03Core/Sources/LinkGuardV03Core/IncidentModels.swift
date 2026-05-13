@@ -78,6 +78,34 @@ public struct Sector: Codable, Hashable, Sendable {
     }
 }
 
+public struct SubSector: Codable, Hashable, Sendable {
+    public var id: LinkGuardID
+    public var incidentID: LinkGuardID
+    public var sectorID: LinkGuardID
+    public var name: String
+    public var commanderID: LinkGuardID?
+    public var boundaryFeatureID: LinkGuardID?
+    public var worksiteIDs: [LinkGuardID]
+
+    public init(
+        id: LinkGuardID,
+        incidentID: LinkGuardID,
+        sectorID: LinkGuardID,
+        name: String,
+        commanderID: LinkGuardID? = nil,
+        boundaryFeatureID: LinkGuardID? = nil,
+        worksiteIDs: [LinkGuardID] = []
+    ) {
+        self.id = id
+        self.incidentID = incidentID
+        self.sectorID = sectorID
+        self.name = name
+        self.commanderID = commanderID
+        self.boundaryFeatureID = boundaryFeatureID
+        self.worksiteIDs = worksiteIDs
+    }
+}
+
 public enum ASRLevel: String, Codable, CaseIterable, Sendable {
     case asr1
     case asr2
@@ -99,6 +127,7 @@ public struct Worksite: Codable, Hashable, Sendable {
     public var id: LinkGuardID
     public var incidentID: LinkGuardID
     public var sectorID: LinkGuardID
+    public var subSectorID: LinkGuardID?
     public var name: String
     public var location: GeoCoordinate?
     public var asrLevel: ASRLevel
@@ -110,6 +139,7 @@ public struct Worksite: Codable, Hashable, Sendable {
         id: LinkGuardID,
         incidentID: LinkGuardID,
         sectorID: LinkGuardID,
+        subSectorID: LinkGuardID? = nil,
         name: String,
         location: GeoCoordinate? = nil,
         asrLevel: ASRLevel,
@@ -120,6 +150,7 @@ public struct Worksite: Codable, Hashable, Sendable {
         self.id = id
         self.incidentID = incidentID
         self.sectorID = sectorID
+        self.subSectorID = subSectorID
         self.name = name
         self.location = location
         self.asrLevel = asrLevel

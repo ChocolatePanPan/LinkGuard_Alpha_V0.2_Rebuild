@@ -452,6 +452,209 @@ final class LinkGuardV03CoreTests: XCTestCase {
         XCTAssertEqual(sccAudit?.targetID, "MAP-POINT")
     }
 
+    func testPhaseTwoSectorSubSectorWorksiteHierarchyFlowsToFieldApps() throws {
+        let scc = runtime(appID: .scc)
+        let hub = InMemoryTransportHub(runtimes: allAppRuntimes())
+        let sector = Sector(id: "SECTOR-A", incidentID: "INC-1", name: "Sector A", commanderID: scc.device.id)
+        let subSector = SubSector(
+            id: "SUB-A1",
+            incidentID: "INC-1",
+            sectorID: sector.id,
+            name: "Sub-sector A1",
+            commanderID: "DEVICE-LinkGuard-TL",
+            worksiteIDs: ["WORKSITE-A1-01"]
+        )
+        let worksite = Worksite(
+            id: "WORKSITE-A1-01",
+            incidentID: "INC-1",
+            sectorID: sector.id,
+            subSectorID: subSector.id,
+            name: "A1 North Void",
+            location: GeoCoordinate(latitude: 25.033, longitude: 121.565),
+            asrLevel: .asr2,
+            status: .assigned,
+            assignedTeamIDs: ["TEAM-1"],
+            hazardSummary: "Unstable slab"
+        )
+
+        _ = try hub.send(messageType: .sectorUpsert, payload: sector, from: scc.device.id, createdAt: fixedDate, idempotencyKey: "sector-a")
+        _ = try hub.send(messageType: .subSectorUpsert, payload: subSector, from: scc.device.id, createdAt: fixedDate, idempotencyKey: "sub-a1")
+        _ = try hub.send(messageType: .worksiteUpsert, payload: worksite, from: scc.device.id, createdAt: fixedDate, idempotencyKey: "worksite-a1")
+
+        let tlSnapshot = try XCTUnwrap(hub.runtime(for: "DEVICE-LinkGuard-TL")?.snapshot)
+        XCTAssertEqual(tlSnapshot.subSectors["SUB-A1"]?.sectorID, "SECTOR-A")
+        XCTAssertEqual(tlSnapshot.worksites["WORKSITE-A1-01"]?.subSectorID, "SUB-A1")
+        XCTAssertEqual(tlSnapshot.worksites(inSubSector: "SUB-A1").map(\.id), ["WORKSITE-A1-01"])
+    }
+
+    func testPhaseTwoPersonnelOverviewTracksGPSStateAndConnectivity() throws {
+        let teamMember = runtime(appID: .teamMember)
+        let hub = InMemoryTransportHub(runtimes: allAppRuntimes())
+        let report = PersonnelStatusReport(
+            id: "STATUS-TE-1",
+            incidentID: "INC-1",
+            personID: "PERSON-TE-1",
+            deviceID: teamMember.device.id,
+            appID: teamMember.device.appID,
+            role: .teamMember,
+            operationalState: .inWorksite,
+            connectivity: .online,
+            location: GeoCoordinate(latitude: 25.034, longitude: 121.566, accuracyMeters: 5),
+            currentSectorID: "SECTOR-A",
+            currentSubSectorID: "SUB-A1",
+            currentWorksiteID: "WORKSITE-A1-01",
+            currentTaskID: "TASK-A1",
+            batteryLevel: 0.72,
+            updatedAt: fixedDate
+        )
+
+        let receipts = try hub.send(
+            messageType: .personnelStatusUpsert,
+            payload: report,
+            from: teamMember.device.id,
+            createdAt: fixedDate,
+            idempotencyKey: "status-te-1"
+        )
+        let recipientApps = Set(receipts.map(\.recipientAppID))
+        let uccSnapshot = try XCTUnwrap(hub.runtime(for: "DEVICE-LinkGuard-UCC")?.snapshot)
+        let latest = uccSnapshot.latestPersonnelStatuses(onlineWithin: 60, now: fixedDate.addingTimeInterval(30))
+
+        XCTAssertEqual(recipientApps, [.ucc, .scc, .sccIPad, .teamLeader, .teamLeaderIPad])
+        XCTAssertEqual(latest.first?.operationalState, .inWorksite)
+        XCTAssertEqual(latest.first?.connectivity, .online)
+        XCTAssertEqual(latest.first?.location?.accuracyMeters, 5)
+        XCTAssertNil(hub.runtime(for: teamMember.device.id)?.snapshot.personnelStatusReports["STATUS-TE-1"])
+    }
+
+    func testPhaseTwoTaskDispatchStatusUpdateAndPhotoReport() throws {
+        let teamLeader = runtime(appID: .teamLeader)
+        let teamMember = runtime(appID: .teamMember)
+        let hub = InMemoryTransportHub(runtimes: allAppRuntimes())
+        let assignedTask = FieldTask(
+            id: "TASK-A1",
+            incidentID: "INC-1",
+            worksiteID: "WORKSITE-A1-01",
+            assignedTeamID: "TEAM-1",
+            type: .search,
+            status: .assigned,
+            priority: .high,
+            summary: "Search A1 void",
+            createdAt: fixedDate
+        )
+        let acceptedTask = FieldTask(
+            id: assignedTask.id,
+            incidentID: assignedTask.incidentID,
+            worksiteID: assignedTask.worksiteID,
+            assignedTeamID: assignedTask.assignedTeamID,
+            type: assignedTask.type,
+            status: .accepted,
+            priority: assignedTask.priority,
+            summary: assignedTask.summary,
+            createdAt: fixedDate
+        )
+        let photo = PhotoReport(
+            id: "PHOTO-1",
+            incidentID: "INC-1",
+            reporterDeviceID: teamMember.device.id,
+            worksiteID: "WORKSITE-A1-01",
+            taskID: assignedTask.id,
+            photoAttachmentID: "ATTACH-PHOTO-1",
+            location: GeoCoordinate(latitude: 25.0342, longitude: 121.5662, accuracyMeters: 3),
+            capturedAt: fixedDate.addingTimeInterval(45),
+            caption: "Victim voice contact marker",
+            checksum: "sha256:abc"
+        )
+
+        _ = try hub.send(messageType: .taskUpsert, payload: assignedTask, from: teamLeader.device.id, createdAt: fixedDate, idempotencyKey: "task-a1-assigned")
+        _ = try hub.send(messageType: .taskUpsert, payload: acceptedTask, from: teamMember.device.id, createdAt: fixedDate.addingTimeInterval(30), idempotencyKey: "task-a1-accepted")
+        _ = try hub.send(messageType: .photoReportUpsert, payload: photo, from: teamMember.device.id, createdAt: fixedDate.addingTimeInterval(45), idempotencyKey: "photo-1")
+
+        let sccSnapshot = try XCTUnwrap(hub.runtime(for: "DEVICE-LinkGuard-SCC")?.snapshot)
+        XCTAssertEqual(sccSnapshot.tasks["TASK-A1"]?.status, .accepted)
+        XCTAssertEqual(sccSnapshot.photoReports["PHOTO-1"]?.photoAttachmentID, "ATTACH-PHOTO-1")
+        XCTAssertEqual(sccSnapshot.photoReports["PHOTO-1"]?.location.accuracyMeters, 3)
+        XCTAssertEqual(sccSnapshot.auditEvents.last?.targetType, "photoReport")
+    }
+
+    func testPhaseTwoSafetyControlTracksZonesAndEntryLogs() throws {
+        let teamLeader = runtime(appID: .teamLeader)
+        let teamMember = runtime(appID: .teamMember)
+        let hub = InMemoryTransportHub(runtimes: allAppRuntimes())
+        let coordinates = [
+            GeoCoordinate(latitude: 25.0330, longitude: 121.5650),
+            GeoCoordinate(latitude: 25.0335, longitude: 121.5660),
+            GeoCoordinate(latitude: 25.0328, longitude: 121.5664)
+        ]
+        let zone = SafetyZone(
+            id: "ZONE-HOT-A1",
+            incidentID: "INC-1",
+            zoneType: .hotZone,
+            title: "A1 hot zone",
+            geometry: .polygon(coordinates),
+            severity: .critical,
+            updatedBy: teamLeader.device.id,
+            updatedAt: fixedDate
+        )
+        let entry = SafetyEntryLog(
+            id: "ENTRY-1",
+            incidentID: "INC-1",
+            zoneID: zone.id,
+            personID: "PERSON-TE-1",
+            deviceID: teamMember.device.id,
+            action: .checkIn,
+            location: coordinates[0],
+            recordedAt: fixedDate.addingTimeInterval(15),
+            recordedBy: teamMember.device.id,
+            note: "Entering with TL approval"
+        )
+
+        _ = try hub.send(messageType: .safetyZoneUpsert, payload: zone, from: teamLeader.device.id, createdAt: fixedDate, idempotencyKey: "zone-hot-a1")
+        _ = try hub.send(messageType: .safetyEntryLogUpsert, payload: entry, from: teamMember.device.id, createdAt: fixedDate.addingTimeInterval(15), idempotencyKey: "entry-1")
+
+        let uccSnapshot = try XCTUnwrap(hub.runtime(for: "DEVICE-LinkGuard-UCC")?.snapshot)
+        XCTAssertEqual(uccSnapshot.safetyZones["ZONE-HOT-A1"]?.severity, .critical)
+        XCTAssertTrue(uccSnapshot.safetyZones["ZONE-HOT-A1"]?.geometry.isValidForDisplay == true)
+        XCTAssertEqual(uccSnapshot.safetyEntryLogs["ENTRY-1"]?.action, .checkIn)
+        XCTAssertEqual(uccSnapshot.auditEvents.last?.action, .safetyControl)
+    }
+
+    func testPhaseTwoGroupChatAndVoiceReportsReachCommunicationRoute() throws {
+        let teamMember = runtime(appID: .teamMember)
+        let hub = InMemoryTransportHub(runtimes: allAppRuntimes())
+        let chat = GroupChatMessage(
+            id: "CHAT-1",
+            incidentID: "INC-1",
+            groupID: "GROUP-A1",
+            senderDeviceID: teamMember.device.id,
+            senderRole: .teamMember,
+            body: "Need shoring at A1 entry",
+            priority: .high,
+            sentAt: fixedDate,
+            location: GeoCoordinate(latitude: 25.034, longitude: 121.566)
+        )
+        let voice = VoiceReport(
+            id: "VOICE-1",
+            incidentID: "INC-1",
+            groupID: "GROUP-A1",
+            senderDeviceID: teamMember.device.id,
+            audioAttachmentID: "AUDIO-1",
+            transcript: "Need shoring at A1 entry",
+            durationSeconds: 8.5,
+            priority: .high,
+            recordedAt: fixedDate.addingTimeInterval(5),
+            location: GeoCoordinate(latitude: 25.034, longitude: 121.566)
+        )
+
+        let chatReceipts = try hub.send(messageType: .groupChatMessageAppend, payload: chat, from: teamMember.device.id, createdAt: fixedDate, idempotencyKey: "chat-1")
+        let voiceReceipts = try hub.send(messageType: .voiceReportAppend, payload: voice, from: teamMember.device.id, createdAt: fixedDate.addingTimeInterval(5), idempotencyKey: "voice-1")
+
+        XCTAssertEqual(Set(chatReceipts.map(\.recipientAppID)), Set(LinkGuardAppID.allCases))
+        XCTAssertEqual(Set(voiceReceipts.map(\.recipientAppID)), Set(LinkGuardAppID.allCases))
+        XCTAssertEqual(hub.runtime(for: "DEVICE-LinkGuard-EMT")?.snapshot.groupChatMessages["CHAT-1"]?.body, "Need shoring at A1 entry")
+        XCTAssertEqual(hub.runtime(for: "DEVICE-LinkGuard-UCC")?.snapshot.voiceReports["VOICE-1"]?.durationSeconds, 8.5)
+        XCTAssertEqual(hub.runtime(for: "DEVICE-LinkGuard-SCC")?.snapshot.auditEvents.last?.action, .communication)
+    }
+
     func testAlertBroadcastReachesEveryRegisteredApp() throws {
         let ucc = runtime(appID: .ucc)
         let hub = InMemoryTransportHub(runtimes: allAppRuntimes())

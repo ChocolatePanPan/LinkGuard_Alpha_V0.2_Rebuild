@@ -49,9 +49,15 @@ public enum AuditEventFactory {
         case .sectorUpsert:
             let item = try envelope.decodePayload(Sector.self)
             return AuditTargetDescriptor(incidentID: item.incidentID, targetType: "sector", targetID: item.id, action: .update)
+        case .subSectorUpsert:
+            let item = try envelope.decodePayload(SubSector.self)
+            return AuditTargetDescriptor(incidentID: item.incidentID, targetType: "subSector", targetID: item.id, action: .update)
         case .worksiteUpsert:
             let item = try envelope.decodePayload(Worksite.self)
             return AuditTargetDescriptor(incidentID: item.incidentID, targetType: "worksite", targetID: item.id, action: .update)
+        case .personnelStatusUpsert:
+            let item = try envelope.decodePayload(PersonnelStatusReport.self)
+            return AuditTargetDescriptor(incidentID: item.incidentID, targetType: "personnelStatus", targetID: item.id, action: .submitReport)
         case .roleAssignmentUpsert:
             let item = try envelope.decodePayload(RoleAssignment.self)
             return AuditTargetDescriptor(incidentID: item.scopeID, targetType: "roleAssignment", targetID: item.id, action: .assignRole)
@@ -61,6 +67,21 @@ public enum AuditEventFactory {
         case .taskUpsert:
             let item = try envelope.decodePayload(FieldTask.self)
             return AuditTargetDescriptor(incidentID: item.incidentID, targetType: "task", targetID: item.id, action: .update)
+        case .photoReportUpsert:
+            let item = try envelope.decodePayload(PhotoReport.self)
+            return AuditTargetDescriptor(incidentID: item.incidentID, targetType: "photoReport", targetID: item.id, action: .submitReport)
+        case .safetyZoneUpsert:
+            let item = try envelope.decodePayload(SafetyZone.self)
+            return AuditTargetDescriptor(incidentID: item.incidentID, targetType: "safetyZone", targetID: item.id, action: .safetyControl)
+        case .safetyEntryLogUpsert:
+            let item = try envelope.decodePayload(SafetyEntryLog.self)
+            return AuditTargetDescriptor(incidentID: item.incidentID, targetType: "safetyEntryLog", targetID: item.id, action: .safetyControl)
+        case .groupChatMessageAppend:
+            let item = try envelope.decodePayload(GroupChatMessage.self)
+            return AuditTargetDescriptor(incidentID: item.incidentID, targetType: "groupChatMessage", targetID: item.id, action: .communication)
+        case .voiceReportAppend:
+            let item = try envelope.decodePayload(VoiceReport.self)
+            return AuditTargetDescriptor(incidentID: item.incidentID, targetType: "voiceReport", targetID: item.id, action: .communication)
         case .alertUpsert:
             let item = try envelope.decodePayload(IncidentAlert.self)
             return AuditTargetDescriptor(incidentID: item.incidentID, targetType: "alert", targetID: item.id, action: .issueCommand)

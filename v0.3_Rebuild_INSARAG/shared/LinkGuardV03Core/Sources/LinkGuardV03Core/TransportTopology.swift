@@ -3,6 +3,10 @@ import Foundation
 public enum TransportPolicy: String, Codable, CaseIterable, Sendable {
     case commandSpine
     case fieldOperations
+    case personnelOverview
+    case fieldReports
+    case safetyControl
+    case communication
     case broadcast
     case medicalClinical
     case medicalOperational
@@ -35,6 +39,7 @@ public struct TransportRoute: Codable, Hashable, Sendable {
 public enum TransportTopology {
     public static let commandApps: Set<LinkGuardAppID> = [.ucc, .scc, .sccIPad, .teamLeader, .teamLeaderIPad]
     public static let fieldApps: Set<LinkGuardAppID> = [.ucc, .scc, .sccIPad, .teamLeader, .teamLeaderIPad, .teamMember, .volunteer]
+    public static let personnelOverviewApps: Set<LinkGuardAppID> = [.ucc, .scc, .sccIPad, .teamLeader, .teamLeaderIPad]
     public static let medicalClinicalApps: Set<LinkGuardAppID> = [.emt, .emtIPad]
     public static let medicalOperationalApps: Set<LinkGuardAppID> = [.ucc, .scc, .sccIPad, .emt, .emtIPad]
     public static let financeApps: Set<LinkGuardAppID> = [.ucc]
@@ -59,8 +64,16 @@ public enum TransportTopology {
         switch messageType {
         case .incidentUpsert, .sectorUpsert, .roleAssignmentUpsert, .commandUpsert, .decisionRecordUpsert:
             return .commandSpine
-        case .worksiteUpsert, .taskUpsert, .mapFeatureUpsert:
+        case .subSectorUpsert, .worksiteUpsert, .taskUpsert, .mapFeatureUpsert:
             return .fieldOperations
+        case .personnelStatusUpsert:
+            return .personnelOverview
+        case .photoReportUpsert:
+            return .fieldReports
+        case .safetyZoneUpsert, .safetyEntryLogUpsert:
+            return .safetyControl
+        case .groupChatMessageAppend, .voiceReportAppend:
+            return .communication
         case .alertUpsert, .alertAcknowledgementUpsert, .sosReportUpsert:
             return .broadcast
         case .patientUpsert:
@@ -80,6 +93,14 @@ public enum TransportTopology {
             return commandApps
         case .fieldOperations:
             return fieldApps
+        case .personnelOverview:
+            return personnelOverviewApps
+        case .fieldReports:
+            return fieldApps
+        case .safetyControl:
+            return fieldApps
+        case .communication:
+            return allApps
         case .broadcast:
             return allApps
         case .medicalClinical:
@@ -103,6 +124,17 @@ public enum TransportTopology {
             if sourceAppID == .teamMember || sourceAppID == .volunteer { return [.teamLeader, .scc, .ucc] }
             if sourceAppID == .teamLeader || sourceAppID == .teamLeaderIPad { return [.scc, .ucc] }
             return [.scc]
+        case .personnelOverview:
+            if sourceAppID == .teamMember || sourceAppID == .volunteer { return [.teamLeader, .scc, .ucc] }
+            return [.scc, .ucc]
+        case .fieldReports:
+            if sourceAppID == .teamMember || sourceAppID == .volunteer { return [.teamLeader, .scc, .ucc] }
+            return [.scc, .ucc]
+        case .safetyControl:
+            if sourceAppID == .ucc { return [.scc, .teamLeader] }
+            return [.teamLeader, .scc, .ucc]
+        case .communication:
+            return [.teamLeader, .scc, .ucc]
         case .broadcast:
             return [.ucc, .scc, .teamLeader]
         case .medicalClinical:
