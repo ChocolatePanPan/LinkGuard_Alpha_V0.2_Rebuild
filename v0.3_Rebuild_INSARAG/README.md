@@ -6,7 +6,7 @@ v0.3 的方向是 USAR/INSARAG + ICS 架構，採用共享核心與角色分流�
 
 ## Current status
 
-v0.3 目前是 shared core + app target + role field shell + Mac copied HQ UI 的產品化前階段，不是完整 INSARAG 現場系統。已完成的是核心資料模型、同步骨架、角色權限/功能矩陣、可 build 的 field app targets，以及 iOS/iPad FieldUI 的本地 Phase 2 閉環；主要缺口仍是真實 GPS/相機/語音/NFC/地圖能力、正式同步通道、Mac v0.3 指揮 UI 與 field drill 驗證。
+v0.3 目前是 shared core + app target + role field shell + Mac copied HQ UI 的產品化前階段，不是完整 INSARAG 現場系統。已完成的是核心資料模型、同步骨架、角色權限/功能矩陣、可 build 的 field app targets，以及 iOS/iPad FieldUI 的本地 Phase 2 閉環；同步底座已開始產品化，支援 offline flush planning、retry interval 與 manual retry。主要缺口仍是真實 GPS/相機/語音/NFC/地圖能力、正式同步 server/provisioning、Mac v0.3 指揮 UI 與 field drill 驗證。
 
 狀態基準詳見 `docs/implementation-status/README.md`。
 
@@ -62,7 +62,7 @@ v0.3 目前是 shared core + app target + role field shell + Mac copied HQ UI �
 - Finance purchase request 與 personnel hours。
 - AAR audit event、decision record、timeline event。
 - sync envelope、idempotency key、offline queue、operation snapshot store。
-- HTTP envelope transport、file-backed local cache store、connectivity recovery sync coordinator。
+- HTTP envelope transport、file-backed local cache store、connectivity recovery sync coordinator、offline flush planning、retry interval 與 manual retry。
 - firefighter interview field principles：可靠、離線、三秒操作、手套、大按鈕、夜間高對比、單手、低誤觸、短指令流程。
 - offline map tile manifest、tile request template、download progress model。
 - field SOS one-tap action：iPhone/iPad runtime + latest GPS fix → SOS envelope。
@@ -79,7 +79,7 @@ swift test
 
 ## Versioning
 
-目前版本基準是 `0.3.1-alpha.3`，由 repo 根目錄的 `VERSION`、`VERSION.json`、shared framework 的 `LinkGuardVersionInfo.current` 與 Git tag `v0.3.1-alpha.3` 對齊。
+目前版本基準是 `0.3.1-alpha.11`，由 repo 根目錄的 `VERSION`、`VERSION.json`、shared framework 的 `LinkGuardVersionInfo.current` 與 Git tag `v0.3.1-alpha.11` 對齊。
 
 每次實作更新後都必須更新版本號。v0.3 alpha 線使用 `scripts/version.sh bump-alpha`；現場指定版使用 `scripts/version.sh set <version>`。提交後使用 `scripts/version.sh tag` 建立本機 annotated tag。push 前使用 `scripts/version.sh push-check`，並把 `git push origin v<version>` 放在 push 流程最後。
 

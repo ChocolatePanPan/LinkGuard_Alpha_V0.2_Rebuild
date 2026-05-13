@@ -6,6 +6,10 @@ import XCTest
 final class LinkGuardV03CoreTests: XCTestCase {
     private let fixedDate = Date(timeIntervalSince1970: 1_799_712_000)
 
+    private enum TestTransportError: Error, Equatable {
+        case forcedFailure
+    }
+
     private struct AcceptingTransport: SyncTransportClient {
         func deliver(_ envelopes: [SyncEnvelope], from device: DeviceIdentity, at date: Date) async throws -> SyncTransportResponse {
             SyncTransportResponse(
@@ -13,6 +17,18 @@ final class LinkGuardV03CoreTests: XCTestCase {
                     SyncTransportReceipt(envelopeID: envelope.id, accepted: true, receivedAt: date)
                 }
             )
+        }
+    }
+
+    private struct FailingTransport: SyncTransportClient {
+        func deliver(_ envelopes: [SyncEnvelope], from device: DeviceIdentity, at date: Date) async throws -> SyncTransportResponse {
+            throw TestTransportError.forcedFailure
+        }
+    }
+
+    private struct EmptyReceiptTransport: SyncTransportClient {
+        func deliver(_ envelopes: [SyncEnvelope], from device: DeviceIdentity, at date: Date) async throws -> SyncTransportResponse {
+            SyncTransportResponse(receipts: [])
         }
     }
 
@@ -734,6 +750,149 @@ final class LinkGuardV03CoreTests: XCTestCase {
         XCTAssertEqual(reloaded.pendingCount, 0)
         XCTAssertEqual(reloaded.lastSyncAt, fixedDate.addingTimeInterval(30))
         XCTAssertEqual(reloaded.connectivity, .online)
+    }
+
+    func testOfflineSyncWaitsForRetryIntervalAfterFailure() async throws {
+        let teamLeader = runtime(appID: .teamLeader)
+        let store = FileBackedLocalOperationCacheStore(fileURL: try temporaryCacheURL())
+        let task = FieldTask(
+            id: "TASK-RETRY-1",
+            incidentID: "INC-1",
+            type: .search,
+            status: .assigned,
+            priority: .high,
+            summary: "Retry interval task",
+            createdAt: fixedDate
+        )
+        let envelope = try teamLeader.makeEnvelope(
+            messageType: .taskUpsert,
+            payload: task,
+            createdAt: fixedDate,
+            idempotencyKey: "retry-task-1"
+        )
+        var cache = LocalOperationCache(connectivity: .offline)
+        cache.queue(envelope, at: fixedDate)
+        _ = try store.save(cache, at: fixedDate)
+
+        let failingCoordinator = OfflineSyncCoordinator(
+            store: store,
+            transport: FailingTransport(),
+            device: teamLeader.device,
+            policy: BackgroundSyncPolicy(batchLimit: 10, minimumRetryInterval: 30)
+        )
+        do {
+            _ = try await failingCoordinator.flushPending(
+                connectivity: .online,
+                trigger: .connectivityRecovered,
+                now: fixedDate.addingTimeInterval(10)
+            )
+            XCTFail("Expected transport failure")
+        } catch TestTransportError.forcedFailure {
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+
+        let waitingPlan = try failingCoordinator.plan(
+            connectivity: .online,
+            trigger: .backgroundRefresh,
+            now: fixedDate.addingTimeInterval(20)
+        )
+        let waitingResult = try await failingCoordinator.flushPending(
+            connectivity: .online,
+            trigger: .backgroundRefresh,
+            now: fixedDate.addingTimeInterval(20)
+        )
+        let reloaded = try store.load()
+
+        XCTAssertFalse(waitingPlan.shouldAttemptSync)
+        XCTAssertEqual(waitingPlan.pendingEnvelopeIDs, [])
+        XCTAssertEqual(waitingPlan.reason, "waiting for retry interval")
+        XCTAssertFalse(waitingResult.attempted)
+        XCTAssertEqual(waitingResult.remainingPendingCount, 1)
+        XCTAssertEqual(reloaded.outboundQueue.entries.first?.state, .failed)
+        XCTAssertEqual(reloaded.outboundQueue.entries.first?.attempts, 1)
+    }
+
+    func testManualOfflineSyncRetryBypassesRetryInterval() async throws {
+        let teamLeader = runtime(appID: .teamLeader)
+        let store = FileBackedLocalOperationCacheStore(fileURL: try temporaryCacheURL())
+        let task = FieldTask(
+            id: "TASK-MANUAL-RETRY-1",
+            incidentID: "INC-1",
+            type: .search,
+            status: .assigned,
+            priority: .high,
+            summary: "Manual retry task",
+            createdAt: fixedDate
+        )
+        let envelope = try teamLeader.makeEnvelope(
+            messageType: .taskUpsert,
+            payload: task,
+            createdAt: fixedDate,
+            idempotencyKey: "manual-retry-task-1"
+        )
+        var cache = LocalOperationCache(connectivity: .offline)
+        cache.queue(envelope, at: fixedDate)
+        cache.markSending(envelope.id, at: fixedDate.addingTimeInterval(10))
+        cache.markFailed(envelope.id, error: "offline", at: fixedDate.addingTimeInterval(10))
+        _ = try store.save(cache, at: fixedDate.addingTimeInterval(10))
+
+        let coordinator = OfflineSyncCoordinator(
+            store: store,
+            transport: AcceptingTransport(),
+            device: teamLeader.device,
+            policy: BackgroundSyncPolicy(batchLimit: 10, minimumRetryInterval: 60)
+        )
+        let result = try await coordinator.flushPending(
+            connectivity: .degraded,
+            trigger: .manualRetry,
+            now: fixedDate.addingTimeInterval(20)
+        )
+        let reloaded = try store.load()
+
+        XCTAssertTrue(result.attempted)
+        XCTAssertEqual(result.deliveredEnvelopeIDs, [envelope.id])
+        XCTAssertEqual(result.remainingPendingCount, 0)
+        XCTAssertEqual(reloaded.pendingCount, 0)
+        XCTAssertEqual(reloaded.lastSyncAt, fixedDate.addingTimeInterval(20))
+    }
+
+    func testOfflineSyncMarksMissingTransportReceiptAsFailed() async throws {
+        let teamLeader = runtime(appID: .teamLeader)
+        let store = FileBackedLocalOperationCacheStore(fileURL: try temporaryCacheURL())
+        let task = FieldTask(
+            id: "TASK-MISSING-RECEIPT-1",
+            incidentID: "INC-1",
+            type: .search,
+            status: .assigned,
+            priority: .high,
+            summary: "Missing receipt task",
+            createdAt: fixedDate
+        )
+        let envelope = try teamLeader.makeEnvelope(
+            messageType: .taskUpsert,
+            payload: task,
+            createdAt: fixedDate,
+            idempotencyKey: "missing-receipt-task-1"
+        )
+        var cache = LocalOperationCache(connectivity: .offline)
+        cache.queue(envelope, at: fixedDate)
+        _ = try store.save(cache, at: fixedDate)
+
+        let coordinator = OfflineSyncCoordinator(store: store, transport: EmptyReceiptTransport(), device: teamLeader.device)
+        let result = try await coordinator.flushPending(
+            connectivity: .online,
+            trigger: .connectivityRecovered,
+            now: fixedDate.addingTimeInterval(30)
+        )
+        let reloaded = try store.load()
+
+        XCTAssertTrue(result.attempted)
+        XCTAssertEqual(result.deliveredEnvelopeIDs, [])
+        XCTAssertEqual(result.failedEnvelopeIDs, [envelope.id])
+        XCTAssertEqual(result.remainingPendingCount, 1)
+        XCTAssertEqual(reloaded.outboundQueue.entries.first?.state, .failed)
+        XCTAssertEqual(reloaded.outboundQueue.entries.first?.lastError, "missing transport receipt")
     }
 
     func testOperationStoreAppliesEnvelopeOnlyOnce() throws {

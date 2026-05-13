@@ -127,9 +127,26 @@ public struct OfflineSyncCoordinator<Transport: SyncTransportClient>: Sendable {
     }
 
     public func recoverAndSync(connectivity: ConnectivityState, trigger: OfflineSyncTrigger, now: Date) async throws -> OfflineSyncResult {
+        try await flushPending(connectivity: connectivity, trigger: trigger, now: now)
+    }
+
+    public func plan(connectivity: ConnectivityState, trigger: OfflineSyncTrigger, now: Date) throws -> OfflineSyncPlan {
         var cache = try store.load()
         cache.markConnectivity(connectivity)
-        let plan = cache.makeSyncPlan(limit: policy.batchLimit)
+        let retryInterval = trigger == .manualRetry ? 0 : policy.minimumRetryInterval
+        var plan = cache.makeSyncPlan(limit: policy.batchLimit, now: now, minimumRetryInterval: retryInterval)
+        if policy.allowsSync(connectivity: connectivity, trigger: trigger) == false {
+            plan.shouldAttemptSync = false
+            plan.reason = "sync not allowed for \(connectivity.rawValue) connectivity"
+        }
+        return plan
+    }
+
+    public func flushPending(connectivity: ConnectivityState, trigger: OfflineSyncTrigger, now: Date) async throws -> OfflineSyncResult {
+        var cache = try store.load()
+        cache.markConnectivity(connectivity)
+        let retryInterval = trigger == .manualRetry ? 0 : policy.minimumRetryInterval
+        let plan = cache.makeSyncPlan(limit: policy.batchLimit, now: now, minimumRetryInterval: retryInterval)
         guard plan.shouldAttemptSync, policy.allowsSync(connectivity: connectivity, trigger: trigger) else {
             _ = try store.save(cache, at: now)
             return OfflineSyncResult(
@@ -141,7 +158,7 @@ public struct OfflineSyncCoordinator<Transport: SyncTransportClient>: Sendable {
             )
         }
 
-        let envelopes = cache.pendingEnvelopes(limit: policy.batchLimit)
+        let envelopes = cache.pendingEnvelopes(limit: policy.batchLimit, now: now, minimumRetryInterval: retryInterval)
         for envelope in envelopes {
             cache.markSending(envelope.id, at: now)
         }
@@ -242,27 +259,32 @@ public struct LocalOperationCache: Codable, Sendable {
         lastSavedAt = failedAt
     }
 
-    public func pendingEnvelopes(limit: Int? = nil) -> [SyncEnvelope] {
-        let entries = outboundQueue.entries.filter { $0.state == .queued || $0.state == .failed }
+    public func pendingEnvelopes(limit: Int? = nil, now: Date? = nil, minimumRetryInterval: TimeInterval = 0) -> [SyncEnvelope] {
+        let entries = outboundQueue.entries.filter { entry in
+            isPending(entry) && isRetryEligible(entry, now: now, minimumRetryInterval: minimumRetryInterval)
+        }
         return Array(entries.prefix(limit ?? Int.max).map(\.envelope))
     }
 
-    public func makeSyncPlan(limit: Int? = nil) -> OfflineSyncPlan {
-        let pendingIDs = pendingEnvelopes(limit: limit).map(\.id)
+    public func makeSyncPlan(limit: Int? = nil, now: Date? = nil, minimumRetryInterval: TimeInterval = 0) -> OfflineSyncPlan {
+        let pendingIDs = pendingEnvelopes(limit: limit, now: now, minimumRetryInterval: minimumRetryInterval).map(\.id)
+        let hasBlockedRetry = pendingIDs.isEmpty && outboundQueue.entries.contains { entry in
+            isPending(entry) && isRetryEligible(entry, now: now, minimumRetryInterval: minimumRetryInterval) == false
+        }
         switch connectivity {
         case .online:
             return OfflineSyncPlan(
                 connectivity: connectivity,
                 shouldAttemptSync: pendingIDs.isEmpty == false,
                 pendingEnvelopeIDs: pendingIDs,
-                reason: pendingIDs.isEmpty ? "no pending envelopes" : "online with pending envelopes"
+                reason: pendingIDs.isEmpty ? (hasBlockedRetry ? "waiting for retry interval" : "no pending envelopes") : "online with pending envelopes"
             )
         case .degraded:
             return OfflineSyncPlan(
                 connectivity: connectivity,
                 shouldAttemptSync: pendingIDs.isEmpty == false,
                 pendingEnvelopeIDs: pendingIDs,
-                reason: pendingIDs.isEmpty ? "degraded network with empty queue" : "degraded network; sync critical queue first"
+                reason: pendingIDs.isEmpty ? (hasBlockedRetry ? "degraded network waiting for retry interval" : "degraded network with empty queue") : "degraded network; sync critical queue first"
             )
         case .offline:
             return OfflineSyncPlan(
@@ -280,5 +302,15 @@ public struct LocalOperationCache: Codable, Sendable {
 
     public static func decoded(from data: Data) throws -> LocalOperationCache {
         try LinkGuardJSON.decode(LocalOperationCache.self, from: data)
+    }
+
+    private func isPending(_ entry: OfflineQueueEntry) -> Bool {
+        entry.state == .queued || entry.state == .failed
+    }
+
+    private func isRetryEligible(_ entry: OfflineQueueEntry, now: Date?, minimumRetryInterval: TimeInterval) -> Bool {
+        guard entry.state == .failed, minimumRetryInterval > 0, let now else { return true }
+        guard let lastAttemptAt = entry.lastAttemptAt else { return true }
+        return now.timeIntervalSince(lastAttemptAt) >= minimumRetryInterval
     }
 }
