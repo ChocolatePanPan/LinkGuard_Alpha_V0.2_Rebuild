@@ -6,7 +6,7 @@ let package = Package(
     name: "LinkGuardV03Core",
     platforms: [
         .iOS(.v16),
-        .macOS(.v13)
+        .macOS(.v14)
     ],
     products: [
         .library(
@@ -18,11 +18,17 @@ let package = Package(
             targets: ["LinkGuardV03MacUI"]
         )
     ],
+    dependencies: [
+        .package(url: "https://github.com/argmaxinc/WhisperKit", exact: "0.18.0")
+    ],
     targets: [
         .target(name: "LinkGuardV03Core"),
         .target(
             name: "LinkGuardV03MacUI",
-            dependencies: ["LinkGuardV03Core"]
+            dependencies: [
+                "LinkGuardV03Core",
+                .product(name: "WhisperKit", package: "WhisperKit")
+            ]
         ),
         .testTarget(
             name: "LinkGuardV03CoreTests",
