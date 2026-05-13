@@ -15,6 +15,8 @@ LinkGuard-SCC 是「災區現場戰術指揮中心」，位於 UCC 與 TL 之間
 
 UCC 偏向戰略層，SCC 偏向戰術層。
 
+UCC/SCC 權限分工以 `docs/architecture/role-feature-access/README.md` 的「UCC / SCC 正式基準」為唯一來源，shared core 對應 `UCCSCCCapabilityMatrix`。
+
 ## 主要畫面
 
 - 戰術地圖

@@ -181,6 +181,47 @@ final class LinkGuardV03CoreTests: XCTestCase {
         assertAccess(.commandCenterRedundancy, .primary, .primary, .none, .none, .none, .none)
         assertAccess(.internationalCoordination, .primary, .limited, .none, .none, .none, .none)
 
+        assertAccess(.multiDisasterSwitch, .primary, .none, .none, .none, .none, .none)
+        assertAccess(.globalHeatAnalysis, .primary, .none, .none, .none, .none, .none)
+        assertAccess(.aiStrategicAnalysis, .primary, .limited, .limited, .none, .none, .none)
+        assertAccess(.aiFieldRiskAnalysis, .limited, .primary, .limited, .none, .none, .none)
+        assertAccess(.searchAreaManagement, .none, .primary, .primary, .limited, .none, .none)
+        assertAccess(.clearedAreaMarking, .limited, .primary, .primary, .limited, .none, .none)
+        assertAccess(.searchRouteManagement, .none, .primary, .primary, .limited, .none, .none)
+        assertAccess(.evacuationRouteManagement, .none, .primary, .primary, .limited, .limited, .none)
+        assertAccess(.teamMemberRealtimeLocation, .none, .primary, .primary, .primary, .none, .none)
+        assertAccess(.teamLeaderRealtimeLocation, .limited, .primary, .primary, .none, .none, .none)
+        assertAccess(.emtLocationManagement, .limited, .primary, .limited, .none, .primary, .none)
+        assertAccess(.lastLocationTracking, .none, .primary, .limited, .none, .none, .none)
+        assertAccess(.missingContactAlert, .none, .primary, .limited, .none, .none, .none)
+        assertAccess(.crossRegionResourceDispatch, .primary, .limited, .limited, .none, .limited, .none)
+        assertAccess(.heavyTeamDispatch, .primary, .none, .none, .none, .none, .none)
+        assertAccess(.emtCrossRegionDispatch, .primary, .limited, .none, .none, .limited, .none)
+        assertAccess(.droneDispatch, .primary, .limited, .limited, .none, .none, .none)
+        assertAccess(.temporaryBaseSetup, .limited, .primary, .primary, .limited, .limited, .none)
+        assertAccess(.commandPostManagement, .primary, .primary, .limited, .none, .none, .none)
+        assertAccess(.photoWall, .limited, .primary, .limited, .none, .none, .none)
+        assertAccess(.liveFieldPhoto, .none, .primary, .primary, .primary, .limited, .limited)
+        assertAccess(.aarReplay, .primary, .limited, .none, .none, .none, .none)
+        assertAccess(.globalStatisticsDashboard, .primary, .none, .none, .none, .none, .none)
+        assertAccess(.fieldSituationDashboard, .limited, .primary, .limited, .none, .none, .none)
+        assertAccess(.loraRelayManagement, .limited, .primary, .limited, .none, .none, .none)
+        assertAccess(.highPressureMode, .none, .primary, .primary, .primary, .primary, .limited)
+        assertAccess(.bigButtonMode, .none, .primary, .primary, .primary, .primary, .limited)
+        assertAccess(.nightMode, .limited, .primary, .limited, .limited, .limited, .limited)
+        assertAccess(.gloveMode, .none, .primary, .primary, .primary, .primary, .none)
+        assertAccess(.voiceOperationMode, .limited, .primary, .limited, .limited, .limited, .limited)
+        assertAccess(.multiSCCMonitoring, .primary, .none, .none, .none, .none, .none)
+        assertAccess(.sccStatusMonitoring, .primary, .none, .none, .none, .none, .none)
+        assertAccess(.fieldSafetyRealtimeManagement, .none, .primary, .limited, .none, .none, .none)
+        assertAccess(.structuralHazardMonitoring, .limited, .primary, .limited, .none, .none, .none)
+        assertAccess(.secondaryCollapseWarning, .limited, .primary, .limited, .none, .none, .none)
+        assertAccess(.rescueCompletionStatistics, .primary, .limited, .limited, .none, .none, .none)
+        assertAccess(.medicalCapacityAnalysis, .primary, .limited, .none, .none, .limited, .none)
+        assertAccess(.roadDisruptionAnalysis, .primary, .limited, .limited, .none, .none, .none)
+        assertAccess(.regionalWorkforceGapAnalysis, .primary, .none, .none, .none, .none, .none)
+        assertAccess(.fieldStaffShortageAlert, .limited, .primary, .limited, .none, .none, .none)
+
         XCTAssertEqual(checkedFeatures, Set(LinkGuardFeature.allCases))
         XCTAssertEqual(LinkGuardFeatureAccessMatrix.accessLevel(for: .teamLeaderIPad, feature: .subSectorCreation), .primary)
         XCTAssertEqual(LinkGuardFeatureAccessMatrix.accessLevel(for: .sccIPad, feature: .startTriage), .limited)
@@ -196,6 +237,10 @@ final class LinkGuardV03CoreTests: XCTestCase {
         XCTAssertEqual(UCCSCCCapabilityMatrix.scope(for: "pttMonitoring")?.scc, .primary)
         XCTAssertEqual(UCCSCCCapabilityMatrix.scope(for: "emic")?.ucc, .primary)
         XCTAssertEqual(UCCSCCCapabilityMatrix.scope(for: "emic")?.scc, .unavailable)
+        XCTAssertEqual(UCCSCCCapabilityMatrix.scope(for: "fieldSafetyRealtime")?.ucc, .unavailable)
+        XCTAssertEqual(UCCSCCCapabilityMatrix.scope(for: "fieldSafetyRealtime")?.scc, .primary)
+        XCTAssertEqual(UCCSCCCapabilityMatrix.scope(for: "multiSCCMonitoring")?.ucc, .primary)
+        XCTAssertEqual(UCCSCCCapabilityMatrix.scope(for: "multiSCCMonitoring")?.scc, .unavailable)
     }
 
     func testFeatureAccessLevelsFollowUCCSCCCapabilityContract() {
@@ -232,7 +277,47 @@ final class LinkGuardV03CoreTests: XCTestCase {
             .resourceManagement,
             .pwsIntegration,
             .emicIntegration,
-            .commandCenterRedundancy
+            .commandCenterRedundancy,
+            .multiDisasterSwitch,
+            .globalHeatAnalysis,
+            .aiStrategicAnalysis,
+            .aiFieldRiskAnalysis,
+            .searchAreaManagement,
+            .clearedAreaMarking,
+            .searchRouteManagement,
+            .evacuationRouteManagement,
+            .teamMemberRealtimeLocation,
+            .teamLeaderRealtimeLocation,
+            .emtLocationManagement,
+            .lastLocationTracking,
+            .missingContactAlert,
+            .crossRegionResourceDispatch,
+            .heavyTeamDispatch,
+            .emtCrossRegionDispatch,
+            .droneDispatch,
+            .temporaryBaseSetup,
+            .commandPostManagement,
+            .photoWall,
+            .liveFieldPhoto,
+            .aarReplay,
+            .globalStatisticsDashboard,
+            .fieldSituationDashboard,
+            .loraRelayManagement,
+            .highPressureMode,
+            .bigButtonMode,
+            .nightMode,
+            .gloveMode,
+            .voiceOperationMode,
+            .multiSCCMonitoring,
+            .sccStatusMonitoring,
+            .fieldSafetyRealtimeManagement,
+            .structuralHazardMonitoring,
+            .secondaryCollapseWarning,
+            .rescueCompletionStatistics,
+            .medicalCapacityAnalysis,
+            .roadDisruptionAnalysis,
+            .regionalWorkforceGapAnalysis,
+            .fieldStaffShortageAlert
         ]
 
         for feature in mappedFeatures {

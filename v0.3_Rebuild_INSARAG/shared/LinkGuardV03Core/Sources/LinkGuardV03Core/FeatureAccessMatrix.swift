@@ -77,6 +77,47 @@ public enum LinkGuardFeature: String, Codable, CaseIterable, Sendable {
     case emicIntegration
     case commandCenterRedundancy
     case internationalCoordination
+
+    case multiDisasterSwitch
+    case globalHeatAnalysis
+    case aiStrategicAnalysis
+    case aiFieldRiskAnalysis
+    case searchAreaManagement
+    case clearedAreaMarking
+    case searchRouteManagement
+    case evacuationRouteManagement
+    case teamMemberRealtimeLocation
+    case teamLeaderRealtimeLocation
+    case emtLocationManagement
+    case lastLocationTracking
+    case missingContactAlert
+    case crossRegionResourceDispatch
+    case heavyTeamDispatch
+    case emtCrossRegionDispatch
+    case droneDispatch
+    case temporaryBaseSetup
+    case commandPostManagement
+    case photoWall
+    case liveFieldPhoto
+    case aarReplay
+    case globalStatisticsDashboard
+    case fieldSituationDashboard
+    case loraRelayManagement
+    case highPressureMode
+    case bigButtonMode
+    case nightMode
+    case gloveMode
+    case voiceOperationMode
+    case multiSCCMonitoring
+    case sccStatusMonitoring
+    case fieldSafetyRealtimeManagement
+    case structuralHazardMonitoring
+    case secondaryCollapseWarning
+    case rescueCompletionStatistics
+    case medicalCapacityAnalysis
+    case roadDisruptionAnalysis
+    case regionalWorkforceGapAnalysis
+    case fieldStaffShortageAlert
 }
 
 public enum LinkGuardFeatureAccessMatrix {
@@ -167,7 +208,48 @@ public enum LinkGuardFeatureAccessMatrix {
         .pwsIntegration: .init(.primary, .limited, .limited, .none, .none, .none),
         .emicIntegration: .init(.primary, .none, .none, .none, .none, .none),
         .commandCenterRedundancy: .init(.primary, .primary, .none, .none, .none, .none),
-        .internationalCoordination: .init(.primary, .limited, .none, .none, .none, .none)
+        .internationalCoordination: .init(.primary, .limited, .none, .none, .none, .none),
+
+        .multiDisasterSwitch: .init(.primary, .none, .none, .none, .none, .none),
+        .globalHeatAnalysis: .init(.primary, .none, .none, .none, .none, .none),
+        .aiStrategicAnalysis: .init(.primary, .limited, .limited, .none, .none, .none),
+        .aiFieldRiskAnalysis: .init(.limited, .primary, .limited, .none, .none, .none),
+        .searchAreaManagement: .init(.none, .primary, .primary, .limited, .none, .none),
+        .clearedAreaMarking: .init(.limited, .primary, .primary, .limited, .none, .none),
+        .searchRouteManagement: .init(.none, .primary, .primary, .limited, .none, .none),
+        .evacuationRouteManagement: .init(.none, .primary, .primary, .limited, .limited, .none),
+        .teamMemberRealtimeLocation: .init(.none, .primary, .primary, .primary, .none, .none),
+        .teamLeaderRealtimeLocation: .init(.limited, .primary, .primary, .none, .none, .none),
+        .emtLocationManagement: .init(.limited, .primary, .limited, .none, .primary, .none),
+        .lastLocationTracking: .init(.none, .primary, .limited, .none, .none, .none),
+        .missingContactAlert: .init(.none, .primary, .limited, .none, .none, .none),
+        .crossRegionResourceDispatch: .init(.primary, .limited, .limited, .none, .limited, .none),
+        .heavyTeamDispatch: .init(.primary, .none, .none, .none, .none, .none),
+        .emtCrossRegionDispatch: .init(.primary, .limited, .none, .none, .limited, .none),
+        .droneDispatch: .init(.primary, .limited, .limited, .none, .none, .none),
+        .temporaryBaseSetup: .init(.limited, .primary, .primary, .limited, .limited, .none),
+        .commandPostManagement: .init(.primary, .primary, .limited, .none, .none, .none),
+        .photoWall: .init(.limited, .primary, .limited, .none, .none, .none),
+        .liveFieldPhoto: .init(.none, .primary, .primary, .primary, .limited, .limited),
+        .aarReplay: .init(.primary, .limited, .none, .none, .none, .none),
+        .globalStatisticsDashboard: .init(.primary, .none, .none, .none, .none, .none),
+        .fieldSituationDashboard: .init(.limited, .primary, .limited, .none, .none, .none),
+        .loraRelayManagement: .init(.limited, .primary, .limited, .none, .none, .none),
+        .highPressureMode: .init(.none, .primary, .primary, .primary, .primary, .limited),
+        .bigButtonMode: .init(.none, .primary, .primary, .primary, .primary, .limited),
+        .nightMode: .init(.limited, .primary, .limited, .limited, .limited, .limited),
+        .gloveMode: .init(.none, .primary, .primary, .primary, .primary, .none),
+        .voiceOperationMode: .init(.limited, .primary, .limited, .limited, .limited, .limited),
+        .multiSCCMonitoring: .init(.primary, .none, .none, .none, .none, .none),
+        .sccStatusMonitoring: .init(.primary, .none, .none, .none, .none, .none),
+        .fieldSafetyRealtimeManagement: .init(.none, .primary, .limited, .none, .none, .none),
+        .structuralHazardMonitoring: .init(.limited, .primary, .limited, .none, .none, .none),
+        .secondaryCollapseWarning: .init(.limited, .primary, .limited, .none, .none, .none),
+        .rescueCompletionStatistics: .init(.primary, .limited, .limited, .none, .none, .none),
+        .medicalCapacityAnalysis: .init(.primary, .limited, .none, .none, .limited, .none),
+        .roadDisruptionAnalysis: .init(.primary, .limited, .limited, .none, .none, .none),
+        .regionalWorkforceGapAnalysis: .init(.primary, .none, .none, .none, .none, .none),
+        .fieldStaffShortageAlert: .init(.limited, .primary, .limited, .none, .none, .none)
     ]
 }
 

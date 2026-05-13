@@ -110,7 +110,7 @@ public enum UCCSCCCapabilityMatrix {
         case .sccIPad:
             return .scc
         case .teamLeaderIPad, .emtIPad, .teamLeader, .teamMember, .emt, .volunteer:
-            return .scc
+            return appID
         case .ucc, .scc:
             return appID
         }
@@ -144,11 +144,52 @@ public enum UCCSCCCapabilityMatrix {
         .sosDetail: (.assisted, .primary),
         .aiDecisionAnalysis: (.primary, .assisted),
         .aiPatientWarning: (.assisted, .primary),
+        .aiStrategicAnalysis: (.primary, .assisted),
+        .aiFieldRiskAnalysis: (.assisted, .primary),
         .commandAuthoritySwitch: (.primary, .assisted),
         .disasterStatistics: (.primary, .assisted),
         .resourceManagement: (.primary, .assisted),
         .pwsIntegration: (.primary, .assisted),
         .emicIntegration: (.primary, .unavailable),
-        .commandCenterRedundancy: (.primary, .primary)
+        .commandCenterRedundancy: (.primary, .primary),
+
+        .multiDisasterSwitch: (.primary, .unavailable),
+        .globalHeatAnalysis: (.primary, .unavailable),
+        .searchAreaManagement: (.unavailable, .primary),
+        .clearedAreaMarking: (.assisted, .primary),
+        .searchRouteManagement: (.unavailable, .primary),
+        .evacuationRouteManagement: (.unavailable, .primary),
+        .teamMemberRealtimeLocation: (.unavailable, .primary),
+        .teamLeaderRealtimeLocation: (.assisted, .primary),
+        .emtLocationManagement: (.assisted, .primary),
+        .lastLocationTracking: (.unavailable, .primary),
+        .missingContactAlert: (.unavailable, .primary),
+        .crossRegionResourceDispatch: (.primary, .assisted),
+        .heavyTeamDispatch: (.primary, .unavailable),
+        .emtCrossRegionDispatch: (.primary, .assisted),
+        .droneDispatch: (.primary, .assisted),
+        .temporaryBaseSetup: (.assisted, .primary),
+        .commandPostManagement: (.primary, .primary),
+        .photoWall: (.assisted, .primary),
+        .liveFieldPhoto: (.unavailable, .primary),
+        .aarReplay: (.primary, .assisted),
+        .globalStatisticsDashboard: (.primary, .unavailable),
+        .fieldSituationDashboard: (.assisted, .primary),
+        .loraRelayManagement: (.assisted, .primary),
+        .highPressureMode: (.unavailable, .primary),
+        .bigButtonMode: (.unavailable, .primary),
+        .nightMode: (.assisted, .primary),
+        .gloveMode: (.unavailable, .primary),
+        .voiceOperationMode: (.assisted, .primary),
+        .multiSCCMonitoring: (.primary, .unavailable),
+        .sccStatusMonitoring: (.primary, .unavailable),
+        .fieldSafetyRealtimeManagement: (.unavailable, .primary),
+        .structuralHazardMonitoring: (.assisted, .primary),
+        .secondaryCollapseWarning: (.assisted, .primary),
+        .rescueCompletionStatistics: (.primary, .assisted),
+        .medicalCapacityAnalysis: (.primary, .assisted),
+        .roadDisruptionAnalysis: (.primary, .assisted),
+        .regionalWorkforceGapAnalysis: (.primary, .unavailable),
+        .fieldStaffShortageAlert: (.assisted, .primary)
     ]
 }

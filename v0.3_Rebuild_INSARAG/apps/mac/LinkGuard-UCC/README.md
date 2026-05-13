@@ -19,6 +19,8 @@
 
 UCC 是最高協調與資料權威，但不是唯一操作中心。
 
+UCC/SCC 權限分工以 `docs/architecture/role-feature-access/README.md` 的「UCC / SCC 正式基準」為唯一來源，shared core 對應 `UCCSCCCapabilityMatrix`。
+
 ## Phase roadmap
 
 | Phase | 功能模組 | 功能內容 | 開發目的 |
