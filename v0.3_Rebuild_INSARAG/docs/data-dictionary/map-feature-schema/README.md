@@ -2,6 +2,8 @@
 
 地圖資料需要支援點、線、面與校正後的離線圖資。
 
+地圖整體功能架構與圖層規格見 `docs/architecture/map-system/README.md`。
+
 ## Fields
 
 - feature id

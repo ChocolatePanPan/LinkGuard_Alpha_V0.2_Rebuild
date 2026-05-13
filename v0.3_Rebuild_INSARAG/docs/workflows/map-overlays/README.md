@@ -2,6 +2,8 @@
 
 v0.3 地圖需要支援 GPS 地圖與離線平面圖/航照 overlay。
 
+完整地圖產品架構（點線面、ICS 分區、搜救狀態、人員安全、離線與 AI 圖層）見 `docs/architecture/map-system/README.md`。
+
 ## Overlay types
 
 - GPS calibrated map
