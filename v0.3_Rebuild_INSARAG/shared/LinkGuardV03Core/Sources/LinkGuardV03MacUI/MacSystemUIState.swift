@@ -263,6 +263,7 @@ public enum MacSystemUIFactory {
             .taskUpsert,
             .personnelStatusUpsert,
             .photoReportUpsert,
+            .disasterReportUpsert,
             .safetyZoneUpsert,
             .groupChatMessageAppend,
             .voiceReportAppend,
@@ -308,7 +309,7 @@ public enum MacSystemUIFactory {
         case .command:
             return snapshot.commands.count + snapshot.alerts.count + snapshot.sosReports.count + snapshot.roleAssignments.count
         case .operations:
-            return snapshot.subSectors.count + snapshot.worksites.count + snapshot.tasks.count + snapshot.mapFeatures.count + snapshot.personnelStatusReports.count + snapshot.photoReports.count + snapshot.safetyZones.count + snapshot.safetyEntryLogs.count
+            return snapshot.subSectors.count + snapshot.worksites.count + snapshot.tasks.count + snapshot.mapFeatures.count + snapshot.personnelStatusReports.count + snapshot.photoReports.count + snapshot.disasterReports.count + snapshot.safetyZones.count + snapshot.safetyEntryLogs.count
         case .planning:
             return snapshot.incidents.count + snapshot.sectors.count
         case .logistics:

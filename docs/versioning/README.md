@@ -4,10 +4,10 @@ LinkGuard uses a repo-level version manifest and Git tag as the release source o
 
 ## Current version
 
-- Version: `0.3.1-7`
-- Git tag: `v0.3.1-7`
-- Build number: `301007`
-- Channel: `field`
+- Version: `0.3.1-alpha.3`
+- Git tag: `v0.3.1-alpha.3`
+- Build number: `301012`
+- Channel: `alpha`
 - Series: `v0.3_Rebuild_INSARAG`
 
 ## Files
@@ -36,7 +36,7 @@ The normal alpha flow after code changes is:
 
 Named field builds use explicit version setting:
 
-1. Run `scripts/version.sh set 0.3.1-7`.
+1. Run `scripts/version.sh set <version>`.
 2. Run tests and `scripts/version.sh check`.
 3. Commit the implementation and version update together.
 4. Run `scripts/version.sh tag`.
@@ -50,7 +50,7 @@ App settings must display the build-time version using `LinkGuardAppSettingsInfo
 scripts/version.sh show
 scripts/version.sh check
 scripts/version.sh bump-alpha
-scripts/version.sh set 0.3.1-7
+scripts/version.sh set <version>
 scripts/version.sh tag
 scripts/version.sh push-check
 ```

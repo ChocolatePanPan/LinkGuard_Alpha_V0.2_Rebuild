@@ -174,13 +174,164 @@ final class LinkGuardV03CoreTests: XCTestCase {
         assertAccess(.commandDispatch, .primary, .primary, .limited, .none, .none, .none)
         assertAccess(.commandAuthoritySwitch, .primary, .primary, .none, .none, .none, .none)
         assertAccess(.eventLog, .primary, .primary, .limited, .none, .limited, .none)
+        assertAccess(.disasterStatistics, .primary, .primary, .limited, .none, .limited, .none)
         assertAccess(.resourceManagement, .primary, .primary, .limited, .none, .limited, .none)
         assertAccess(.pwsIntegration, .primary, .primary, .limited, .none, .none, .none)
+        assertAccess(.emicIntegration, .primary, .limited, .none, .none, .none, .none)
+        assertAccess(.commandCenterRedundancy, .primary, .primary, .none, .none, .none, .none)
+        assertAccess(.internationalCoordination, .primary, .limited, .none, .none, .none, .none)
 
         XCTAssertEqual(checkedFeatures, Set(LinkGuardFeature.allCases))
         XCTAssertEqual(LinkGuardFeatureAccessMatrix.accessLevel(for: .teamLeaderIPad, feature: .subSectorCreation), .primary)
         XCTAssertEqual(LinkGuardFeatureAccessMatrix.accessLevel(for: .sccIPad, feature: .startTriage), .limited)
         XCTAssertEqual(LinkGuardFeatureAccessMatrix.accessLevel(for: .emtIPad, feature: .medicalEvacuation), .primary)
+    }
+
+    func testUCCPhaseCatalogMatchesRequestedRoadmap() {
+        let phases = UCCPhaseCatalog.phases
+
+        XCTAssertEqual(UCCPhaseCatalog.positioning, "跨區域戰略指揮平台")
+        XCTAssertEqual(UCCPhaseCatalog.audiences, [.fireDepartment, .emergencyOperationsCenter, .jointResponseCenter])
+        XCTAssertEqual(phases.map(\.id), UCCPhaseID.allCases)
+        XCTAssertEqual(phases.map(\.moduleName), [
+            "全區儀表板",
+            "ICS架構",
+            "跨區調度",
+            "AI分析",
+            "災情統計",
+            "電台監聽",
+            "事件日誌",
+            "PWS整合",
+            "EMIC整合",
+            "資源總控",
+            "安全管制",
+            "多指揮中心",
+            "國際協作"
+        ])
+        XCTAssertEqual(phases.map(\.purpose), [
+            "戰情中心",
+            "指揮體系",
+            "資源協同",
+            "高階指揮",
+            "決策依據",
+            "通訊掌握",
+            "災後檢討",
+            "提前應變",
+            "政府協同",
+            "戰略配置",
+            "全區安全",
+            "容錯能力",
+            "國際接軌"
+        ])
+        XCTAssertEqual(UCCPhaseCatalog.phase(id: .phase1).label, "UCC Phase 1")
+        XCTAssertEqual(UCCPhaseCatalog.phase(id: .phase13).capability, "INSARAG模式")
+        XCTAssertEqual(UCCPhaseCatalog.sharedCoreBackedPhases.map(\.id), [.phase1, .phase2, .phase3, .phase4, .phase5, .phase7, .phase10, .phase11])
+        XCTAssertEqual(UCCPhaseCatalog.integrationPlannedPhases.map(\.id), [.phase6, .phase8, .phase9])
+        XCTAssertEqual(UCCPhaseCatalog.strategicProductPlannedPhases.map(\.id), [.phase12, .phase13])
+    }
+
+    func testUCCPhasesMatchProfileAndFeatureGates() {
+        let profile = RoleProfileCatalog.profile(for: .ucc)
+        let phases = UCCPhaseCatalog.phases(for: .ucc)
+
+        XCTAssertEqual(UCCPhaseCatalog.phases(for: .scc), [])
+        XCTAssertEqual(phases.map(\.id), UCCPhaseID.allCases)
+        for phase in phases {
+            XCTAssertTrue(UCCPhaseCatalog.isVisibleInUCC(phase), phase.label)
+            for permission in phase.requiredPermissions {
+                XCTAssertTrue(profile.allows(permission), "\(phase.label) requires \(permission.rawValue)")
+            }
+            for section in phase.primarySections {
+                XCTAssertTrue(profile.defaultSections.contains(section), "\(phase.label) requires \(section.rawValue)")
+            }
+        }
+    }
+
+    func testSCCPhaseCatalogMatchesRequestedRoadmap() {
+        let phases = SCCPhaseCatalog.phases
+
+        XCTAssertEqual(LinkGuardSCCVersion.appID, .scc)
+        XCTAssertEqual(LinkGuardSCCVersion.appName, "LinkGuard-SCC")
+        XCTAssertEqual(LinkGuardSCCVersion.editionName, "現場指揮中心版本")
+        XCTAssertEqual(LinkGuardSCCVersion.targetUsers, ["現場指揮官", "特搜隊現場總指揮", "分區統籌官", "災區前進指揮所"])
+        XCTAssertEqual(LinkGuardSCCVersion.corePositioning, "災區現場戰術指揮中心")
+        XCTAssertEqual(phases.map(\.id), SCCPhaseID.allCases)
+        XCTAssertEqual(phases.map(\.moduleName), [
+            "現場戰情儀表板",
+            "分區管理",
+            "子區域管理",
+            "地圖點線面",
+            "嚴重度分色",
+            "搜救狀態管理",
+            "人員配置",
+            "任務派遣",
+            "隊伍能力表",
+            "SOS統整",
+            "傷患統整",
+            "START統計",
+            "臨時據點",
+            "安全管制",
+            "人員進出管理",
+            "會報系統",
+            "電台監聽",
+            "多隊伍協調",
+            "AI決策輔助",
+            "AI風險分析",
+            "離線指揮",
+            "LoRa中繼",
+            "多裝置同步",
+            "UCC同步",
+            "AAR紀錄"
+        ])
+        XCTAssertEqual(phases.map(\.purpose), [
+            "建立現場戰情中心",
+            "災區切割管理",
+            "大型倒塌管理",
+            "視覺化災區",
+            "危險程度判讀",
+            "區域管理",
+            "現場調度",
+            "戰術指揮",
+            "最佳化派遣",
+            "緊急應變",
+            "醫療協調",
+            "MCI管理",
+            "現場部署",
+            "搜救安全",
+            "人員安全",
+            "指揮同步",
+            "通訊管理",
+            "大型災害協同",
+            "降低指揮負荷",
+            "搜救安全",
+            "通訊中斷備援",
+            "基地台失效備援",
+            "現場協同",
+            "上下層協同",
+            "檢討與訓練"
+        ])
+        XCTAssertEqual(SCCPhaseCatalog.phase(id: .phase1).label, "SCC Phase 1")
+        XCTAssertEqual(SCCPhaseCatalog.phase(id: .phase25).capability, "災後回放分析")
+        XCTAssertEqual(SCCPhaseCatalog.coreBackedPhases.map(\.id), [.phase1, .phase2, .phase3, .phase4, .phase5, .phase6, .phase7, .phase8, .phase9, .phase10, .phase11, .phase12, .phase13, .phase14, .phase15, .phase16, .phase18, .phase19, .phase21, .phase25])
+        XCTAssertEqual(SCCPhaseCatalog.integrationPlannedPhases.map(\.id), [.phase17, .phase22])
+        XCTAssertEqual(SCCPhaseCatalog.productPlannedPhases.map(\.id), [.phase20, .phase23, .phase24])
+    }
+
+    func testSCCPhasesMatchProfileAndFeatureGates() {
+        let profile = RoleProfileCatalog.profile(for: .scc)
+        let phases = SCCPhaseCatalog.phases(for: .scc)
+
+        XCTAssertEqual(SCCPhaseCatalog.phases(for: .sccIPad).map(\.id), SCCPhaseID.allCases)
+        XCTAssertEqual(SCCPhaseCatalog.phases(for: .teamLeader), [])
+        for phase in phases {
+            XCTAssertTrue(SCCPhaseCatalog.isVisibleInSCC(phase), phase.label)
+            for permission in phase.requiredPermissions {
+                XCTAssertTrue(profile.allows(permission), "\(phase.label) requires \(permission.rawValue)")
+            }
+            for section in phase.primarySections {
+                XCTAssertTrue(profile.defaultSections.contains(section), "\(phase.label) requires \(section.rawValue)")
+            }
+        }
     }
 
     func testTeamMemberPhaseCatalogMatchesRequestedRoadmap() {
@@ -243,6 +394,86 @@ final class LinkGuardV03CoreTests: XCTestCase {
         XCTAssertFalse(TeamMemberPhaseCatalog.isExecutableByTeamMember(TeamMemberPhaseCatalog.phase(id: .phase11)))
         XCTAssertFalse(TeamMemberPhaseCatalog.isExecutableByTeamMember(TeamMemberPhaseCatalog.phase(id: .phase12)))
         XCTAssertEqual(FieldOperationalPrinciples.principle(id: "large-buttons")?.title, "大按鈕")
+    }
+
+    func testEMTMedicalPhaseCatalogMatchesRequestedRoadmap() {
+        let phases = EMTMedicalPhaseCatalog.phases
+
+        XCTAssertEqual(LinkGuardEMTMedicalVersion.appName, "LinkGuard-EMT")
+        XCTAssertEqual(LinkGuardEMTMedicalVersion.editionName, "醫療版本")
+        XCTAssertEqual(LinkGuardEMTMedicalVersion.targetUsers, ["EMT", "醫療後送人員", "醫療支援組"])
+        XCTAssertEqual(LinkGuardEMTMedicalVersion.corePositioning, "醫療後送與傷患管理系統")
+        XCTAssertEqual(phases.map(\.id), EMTMedicalPhaseID.allCases)
+        XCTAssertEqual(phases.map(\.moduleName), [
+            "傷患建立",
+            "START檢傷",
+            "生理監測",
+            "傷患狀態更新",
+            "後送管理",
+            "醫療照片",
+            "醫療語音紀錄",
+            "離線模式",
+            "多語翻譯",
+            "醫療AI預警",
+            "醫院資訊",
+            "手錶整合"
+        ])
+        XCTAssertEqual(phases.map(\.capability), [
+            "傷患資料",
+            "紅黃綠黑分類",
+            "心率血氧",
+            "病況更新",
+            "醫院派送",
+            "傷勢照片",
+            "語音輸入",
+            "離線病歷",
+            "外籍患者",
+            "惡化預測",
+            "可收治醫院",
+            "Apple Watch等"
+        ])
+        XCTAssertEqual(phases.map(\.purpose), [
+            "傷患管理",
+            "醫療排序",
+            "傷患監控",
+            "醫療同步",
+            "醫療調度",
+            "醫療紀錄",
+            "高壓輸入",
+            "災後運作",
+            "國際災援",
+            "緊急優先",
+            "後送決策",
+            "生理感測"
+        ])
+        XCTAssertEqual(EMTMedicalPhaseCatalog.phase(id: .phase1).label, "EMT Phase 1")
+        XCTAssertEqual(EMTMedicalPhaseCatalog.phase(id: .phase12).capability, "Apple Watch等")
+        XCTAssertEqual(EMTMedicalPhaseCatalog.plannedPhases.map(\.id), [.phase10])
+        XCTAssertEqual(EMTMedicalPhaseCatalog.deviceIntegrationPhases.map(\.id), [.phase12])
+    }
+
+    func testEMTMedicalCoreBackedPhasesMatchFeatureGates() {
+        var controller = FieldAppController(
+            appID: .emt,
+            platform: .iPhone,
+            deviceID: "IOS-EMT-PHASE-TEST",
+            displayName: "EMT Phase Test",
+            now: fixedDate
+        )
+        let coreBackedPhases = EMTMedicalPhaseCatalog.coreBackedPhases
+
+        XCTAssertEqual(EMTMedicalPhaseCatalog.phases(for: .teamLeader), [])
+        XCTAssertEqual(controller.emtMedicalPhases.map(\.id), EMTMedicalPhaseID.allCases)
+        XCTAssertEqual(coreBackedPhases.map(\.id), [.phase1, .phase2, .phase3, .phase4, .phase5, .phase6, .phase7, .phase8, .phase9, .phase11])
+        XCTAssertEqual(controller.executableEMTMedicalPhases.map(\.id), coreBackedPhases.map(\.id))
+        for phase in coreBackedPhases {
+            XCTAssertTrue(EMTMedicalPhaseCatalog.isExecutableByEMT(phase), phase.label)
+            for feature in phase.requiredFeatures {
+                XCTAssertTrue(controller.canSeeFeature(feature), "\(phase.label) requires \(feature.rawValue)")
+            }
+        }
+        XCTAssertFalse(EMTMedicalPhaseCatalog.isExecutableByEMT(EMTMedicalPhaseCatalog.phase(id: .phase10)))
+        XCTAssertFalse(EMTMedicalPhaseCatalog.isExecutableByEMT(EMTMedicalPhaseCatalog.phase(id: .phase12)))
     }
 
     func testOfflineQueuePrioritizesCriticalMessagesAndDeduplicates() throws {
@@ -879,20 +1110,25 @@ final class LinkGuardV03CoreTests: XCTestCase {
         let tlStart = try teamLeader.queueStartTriage(displayCode: "A024", category: .yellow, respiratoryRate: 24, pulseRate: 104, gcs: 15, injurySummary: "Ambulatory", now: fixedDate.addingTimeInterval(2))
         let tlStatus = try teamLeader.queuePatientStatusUpdate(patientID: "PATIENT-A023", displayCode: "A023", triageCategory: .yellow, injurySummary: "Bleeding controlled", now: fixedDate.addingTimeInterval(3))
         let emtEvac = try emt.queueEvacuationRequest(patientID: "PATIENT-A023", destinationHospitalID: "HOSPITAL-1", now: fixedDate.addingTimeInterval(4))
+        let emtHospital = try emt.queueHospitalCapacityUpdate(emergencyCapacity: 8, traumaCapacity: 3, burnCapacity: 1, pediatricCapacity: 2, now: fixedDate.addingTimeInterval(5))
+        let hospital = try emtHospital.decodePayload(HospitalCapacity.self)
 
-        XCTAssertEqual([tlPatient.messageType, tlStart.messageType, tlStatus.messageType, emtEvac.messageType], [
+        XCTAssertEqual([tlPatient.messageType, tlStart.messageType, tlStatus.messageType, emtEvac.messageType, emtHospital.messageType], [
             .patientUpsert,
             .patientUpsert,
             .patientUpsert,
-            .evacuationRequestUpsert
+            .evacuationRequestUpsert,
+            .hospitalCapacityUpsert
         ])
-        XCTAssertThrowsError(try teamLeader.queueEvacuationRequest(patientID: "PATIENT-A023", destinationHospitalID: nil, now: fixedDate.addingTimeInterval(5)))
+        XCTAssertEqual(hospital.emergencyCapacity, 8)
+        XCTAssertEqual(hospital.traumaCapacity, 3)
+        XCTAssertThrowsError(try teamLeader.queueEvacuationRequest(patientID: "PATIENT-A023", destinationHospitalID: nil, now: fixedDate.addingTimeInterval(6)))
         XCTAssertTrue(emt.canUseFeature(.patientCreation))
         XCTAssertTrue(emt.canUseFeature(.hospitalCapacityView))
         XCTAssertTrue(emt.canUseFeature(.voiceTranslation))
         XCTAssertFalse(emt.canUseFeature(.radioMonitoring))
         XCTAssertFalse(emt.canUseFeature(.hazardZoneManagement))
-        XCTAssertThrowsError(try emt.queueSafetyZone(now: fixedDate.addingTimeInterval(6)))
+        XCTAssertThrowsError(try emt.queueSafetyZone(now: fixedDate.addingTimeInterval(7)))
     }
 
     func testPhaseTwoPersonnelOverviewTracksGPSStateAndConnectivity() throws {

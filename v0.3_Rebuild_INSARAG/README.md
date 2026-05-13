@@ -49,13 +49,16 @@ v0.3 目前是 shared core + app target + role field shell + Mac copied HQ UI �
 - ICS section、position、role assignment。
 - app permission matrix 與 role blueprint。
 - role feature access matrix：以 UCC/SCC/TL/TE/EMT/VO 的 ●/○/✕ 細項矩陣定義地圖、人員、醫療、通訊與 AI/指揮功能 gate。
+- LinkGuard-UCC phase catalog：全區儀表板、ICS 架構、跨區調度、AI 分析、災情統計、電台監聽、事件日誌、PWS、EMIC、資源總控、安全管制、多指揮中心與 INSARAG 國際協作的 13 phase 產品契約。
+- LinkGuard-VO volunteer phase catalog：帳號、GPS、SOS、照片、災情回報、離線暫存、語音、多語、安全警告與超簡化模式的 10 phase 產品契約。
 - LinkGuard-TE phase catalog：任務接收、GPS、SOS、照片、危險標記、分區資訊、任務回報、離線、語音、安全管制、LoRa 與高壓模式的 12 phase 產品契約。
+- LinkGuard-EMT medical phase catalog：傷患建立、START、生命徵象、狀態更新、後送、醫療照片、語音病歷、離線病歷、多語翻譯、AI 預警、醫院資訊與手錶整合的 12 phase 產品契約。
 - incident、sector、sub-sector、worksite、task、alert、map feature。
 - personnel overview：GPS、作業狀態、在線狀態與電量摘要。
 - photo report：照片附件 ID、GPS、時間戳記與任務/案場關聯。
 - safety control：危險區、安全管制區與人員進出紀錄。
 - communication：群組聊天與語音回報 payload。
-- EMT patient、vitals、evacuation、hospital capacity。
+- EMT patient、vitals、evacuation、hospital capacity 與醫療版本 phase roadmap。
 - Finance purchase request 與 personnel hours。
 - AAR audit event、decision record、timeline event。
 - sync envelope、idempotency key、offline queue、operation snapshot store。
@@ -76,9 +79,9 @@ swift test
 
 ## Versioning
 
-目前版本基準是 `0.3.1-8`，由 repo 根目錄的 `VERSION`、`VERSION.json`、shared framework 的 `LinkGuardVersionInfo.current` 與 Git tag `v0.3.1-8` 對齊。
+目前版本基準是 `0.3.1-alpha.3`，由 repo 根目錄的 `VERSION`、`VERSION.json`、shared framework 的 `LinkGuardVersionInfo.current` 與 Git tag `v0.3.1-alpha.3` 對齊。
 
-每次實作更新後都必須更新版本號。v0.3 alpha 線使用 `scripts/version.sh bump-alpha`；現場指定版使用 `scripts/version.sh set <version>`，例如 `scripts/version.sh set 0.3.1-8`。提交後使用 `scripts/version.sh tag` 建立本機 annotated tag。push 前使用 `scripts/version.sh push-check`，並把 `git push origin v<version>` 放在 push 流程最後。
+每次實作更新後都必須更新版本號。v0.3 alpha 線使用 `scripts/version.sh bump-alpha`；現場指定版使用 `scripts/version.sh set <version>`。提交後使用 `scripts/version.sh tag` 建立本機 annotated tag。push 前使用 `scripts/version.sh push-check`，並把 `git push origin v<version>` 放在 push 流程最後。
 
 App 設定頁要透過 `LinkGuardAppSettingsInfo` 顯示建構版本、build number、release channel 與 Git tag。
 
