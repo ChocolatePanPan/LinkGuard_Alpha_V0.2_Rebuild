@@ -3,6 +3,7 @@ import SwiftUI
 
 public struct FieldAppShellView: View {
     @State private var controller: FieldAppController
+    @StateObject private var mapMarkup = MapMarkupViewModel()
     @State private var selectedTab: FieldAppTab = .overview
     @State private var statusText = "Ready"
     @State private var statusAccent = FieldTheme.green
@@ -41,7 +42,7 @@ public struct FieldAppShellView: View {
     }
 
     private var availableTabs: [FieldAppTab] {
-        var tabs: [FieldAppTab] = [.overview, .operations, .mapSafety, .comms, .queue]
+        var tabs: [FieldAppTab] = [.overview, .operations, .mapSafety, .comms, .queue, .settings]
         if controller.runtime.device.appID == .emt || controller.runtime.device.appID == .emtIPad || controller.runtime.device.appID == .teamLeader || controller.runtime.device.appID == .teamLeaderIPad {
             tabs.insert(.medical, at: tabs.firstIndex(of: .comms) ?? tabs.count)
         }
@@ -63,6 +64,8 @@ public struct FieldAppShellView: View {
             commsTab
         case .queue:
             queueTab
+        case .settings:
+            settingsTab
         }
     }
 
@@ -150,6 +153,89 @@ public struct FieldAppShellView: View {
         VStack(alignment: .leading, spacing: FieldTheme.panelSpacing) {
             outboxPanel
             eventLogPanel
+        }
+    }
+
+    private var settingsTab: some View {
+        VStack(alignment: .leading, spacing: FieldTheme.panelSpacing) {
+            appSettingsPanel
+            roleContractPanel
+            featureReadinessPanel
+        }
+    }
+
+    private var appSettingsPanel: some View {
+        let settingsInfo = LinkGuardAppSettingsInfo(device: controller.runtime.device)
+        return FieldPanel("App Settings", systemImage: "gearshape.fill", accent: FieldTheme.command) {
+            VStack(spacing: 8) {
+                ForEach(settingsInfo.items) { item in
+                    FieldTimelineRow(
+                        title: item.title,
+                        detail: item.value,
+                        systemImage: settingsIcon(for: item.key),
+                        accent: settingsAccent(for: item.key),
+                        trailing: nil
+                    )
+                }
+                FieldTimelineRow(
+                    title: "Notes",
+                    detail: settingsInfo.versionInfo.notes,
+                    systemImage: "doc.text.fill",
+                    accent: FieldTheme.info,
+                    trailing: nil
+                )
+            }
+        }
+    }
+
+    private var roleContractPanel: some View {
+        let permissions = controller.profile.permissions.sorted { $0.rawValue < $1.rawValue }
+        return FieldPanel("Role Contract", systemImage: "person.badge.key.fill", accent: roleAccent) {
+            VStack(alignment: .leading, spacing: 12) {
+                FieldAdaptiveGrid(minimum: 142) {
+                    FieldMetricTile(title: "Authority", value: controller.profile.commandAuthority.fieldDisplayName, systemImage: "person.badge.key.fill", accent: FieldTheme.command)
+                    FieldMetricTile(title: "Medical", value: controller.profile.medicalAccess.fieldDisplayName, systemImage: "cross.case.fill", accent: FieldTheme.medical)
+                    FieldMetricTile(title: "Required", value: "\(controller.blueprint.requiredPermissions.count)", systemImage: "checkmark.shield.fill", accent: FieldTheme.green)
+                    FieldMetricTile(title: "Granted", value: "\(permissions.count)", systemImage: "key.fill", accent: FieldTheme.team)
+                }
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(permissions, id: \.self) { permission in
+                            let isRequired = controller.blueprint.requiredPermissions.contains(permission)
+                            FieldStatusPill(
+                                title: permission.fieldDisplayName,
+                                systemImage: isRequired ? "checkmark.shield.fill" : "key.fill",
+                                accent: isRequired ? FieldTheme.green : FieldTheme.info
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private var featureReadinessPanel: some View {
+        let features = LinkGuardFeatureAccessMatrix.features(for: controller.runtime.device.appID)
+            .sorted { lhs, rhs in lhs.rawValue < rhs.rawValue }
+            .prefix(12)
+        return FieldPanel("Field Readiness", systemImage: "antenna.radiowaves.left.and.right", accent: FieldTheme.green) {
+            VStack(spacing: 8) {
+                FieldAdaptiveGrid(minimum: 142) {
+                    FieldMetricTile(title: "Local Queue", value: "\(controller.pendingEnvelopeCount)", systemImage: "tray.full.fill", accent: controller.pendingEnvelopeCount == 0 ? FieldTheme.green : FieldTheme.warning)
+                    FieldMetricTile(title: "GPS", value: controller.latestGPSFix == nil ? "Missing" : "Ready", systemImage: "location.fill", accent: controller.latestGPSFix == nil ? FieldTheme.warning : FieldTheme.green)
+                    FieldMetricTile(title: "Runtime", value: controller.runtime.pendingOutboundCount == 0 ? "Clear" : "Queued", systemImage: "arrow.triangle.2.circlepath", accent: controller.runtime.pendingOutboundCount == 0 ? FieldTheme.green : FieldTheme.info)
+                }
+                ForEach(Array(features), id: \.self) { feature in
+                    let access = controller.accessLevel(for: feature)
+                    FieldTimelineRow(
+                        title: feature.fieldDisplayName,
+                        detail: access.fieldDisplayName,
+                        systemImage: feature.fieldIconName,
+                        accent: access.fieldAccentColor,
+                        trailing: access.fieldShortLabel
+                    )
+                }
+            }
         }
     }
 
@@ -293,6 +379,8 @@ public struct FieldAppShellView: View {
                 } else {
                     emptyRow("No GPS fix available", systemImage: "location.slash")
                 }
+                mapMarkupCanvas
+                mapMarkupControls
                 FieldAdaptiveGrid(minimum: 158) {
                     fieldAction("Point", detail: "Victim or marker point", systemImage: "mappin.circle.fill", feature: .pointMarker, messageType: .mapFeatureUpsert, accent: FieldTheme.green) {
                         try controller.queueMapMarker(featureType: .victimPoint, geometryType: .point, title: "Field point", now: Date())
@@ -303,6 +391,70 @@ public struct FieldAppShellView: View {
                     fieldAction("Area", detail: "Polygon hazard marker", systemImage: "skew", feature: .areaMarker, messageType: .mapFeatureUpsert, accent: FieldTheme.warning) {
                         try controller.queueMapMarker(featureType: .collapsedAreaPolygon, geometryType: .polygon, title: "Hazard area", now: Date())
                     }
+                }
+                mapMarkupList
+            }
+        }
+    }
+
+    private var mapMarkupCanvas: some View {
+        FieldMapCanvasView(features: mapMarkup.visibleFeatures, draftGeometry: mapMarkup.draftGeometry) { coordinate in
+            handleMapTap(coordinate)
+        }
+        .frame(height: controller.runtime.device.platform == .iPad ? 360 : 260)
+    }
+
+    private var mapMarkupControls: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Picker("Mode", selection: $mapMarkup.drawingMode) {
+                ForEach(MapDrawingMode.allCases) { mode in
+                    Label(mode.fieldTitle, systemImage: mode.fieldIconName).tag(mode)
+                }
+            }
+            .pickerStyle(.segmented)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach([MapDrawingMode.point, .polyline, .polygon]) { mode in
+                        mapControlButton(
+                            mode.fieldTitle,
+                            systemImage: mode.fieldIconName,
+                            accent: mapMarkup.visibleLayers.contains(mode) ? mode.fieldAccent : .secondary,
+                            isEnabled: true
+                        ) {
+                            mapMarkup.toggleLayer(mode)
+                        }
+                    }
+                    mapControlButton("Undo", systemImage: "arrow.uturn.backward.circle.fill", accent: FieldTheme.info, isEnabled: mapMarkup.canUndo) {
+                        mapMarkup.undo()
+                    }
+                    mapControlButton("Redo", systemImage: "arrow.uturn.forward.circle.fill", accent: FieldTheme.info, isEnabled: mapMarkup.canRedo) {
+                        mapMarkup.redo()
+                    }
+                    mapControlButton("Cancel", systemImage: "xmark.circle.fill", accent: FieldTheme.warning, isEnabled: mapMarkup.draftGeometry != nil) {
+                        mapMarkup.cancelDraft()
+                    }
+                    mapControlButton("Commit", systemImage: "checkmark.circle.fill", accent: FieldTheme.green, isEnabled: mapMarkup.draftGeometry != nil) {
+                        commitMapDraft()
+                    }
+                }
+            }
+        }
+    }
+
+    private var mapMarkupList: some View {
+        VStack(spacing: 8) {
+            if mapMarkup.features.isEmpty {
+                emptyRow("No local map markup", systemImage: "map")
+            } else {
+                ForEach(Array(mapMarkup.features.suffix(5).reversed()), id: \.id) { feature in
+                    FieldTimelineRow(
+                        title: feature.title,
+                        detail: "\(mapGeometryLabel(feature.geometry)) / \(feature.sectionID.displayName) / \(feature.searchState.displayName)",
+                        systemImage: mapIconName(feature.geometry),
+                        accent: mapAccent(feature.geometry),
+                        trailing: shortTime(feature.updatedAt)
+                    )
                 }
             }
         }
@@ -483,6 +635,221 @@ public struct FieldAppShellView: View {
             return try controller.queueSafetyEntry(.checkIn, now: Date())
         case .chat:
             return try controller.queueGroupChat(body: chatMessageForRole, now: Date())
+        }
+    }
+
+    private func handleMapTap(_ coordinate: MapCoordinate) {
+        switch mapMarkup.drawingMode {
+        case .select:
+            mapMarkup.selectFeature(nil)
+        case .point:
+            mapMarkup.beginDraft(at: coordinate)
+        case .polyline, .polygon:
+            if mapMarkup.draftGeometry?.mode == mapMarkup.drawingMode {
+                mapMarkup.appendDraftPoint(coordinate)
+            } else {
+                mapMarkup.beginDraft(at: coordinate)
+            }
+        }
+    }
+
+    private func commitMapDraft() {
+        let mode = mapMarkup.draftGeometry?.mode ?? mapMarkup.drawingMode
+        guard let feature = mapMarkup.commitDraft(
+            incidentID: controller.context.incidentID,
+            sectionID: .sectionA,
+            searchState: defaultSearchState(for: mode),
+            title: mapTitle(for: mode),
+            createdBy: controller.runtime.device.id,
+            pointType: mapPointTypeForRole,
+            lineType: mapLineTypeForRole,
+            polygonType: mapPolygonTypeForRole,
+            now: Date()
+        ) else {
+            statusText = "Map draft incomplete"
+            statusAccent = FieldTheme.warning
+            return
+        }
+
+        do {
+            _ = try controller.queueMapMarkupFeature(
+                feature,
+                featureType: mapFeatureType(for: feature.geometry),
+                now: Date()
+            )
+            statusText = "Queued Map"
+            statusAccent = FieldTheme.green
+        } catch {
+            statusText = "Saved Map"
+            statusAccent = FieldTheme.warning
+        }
+    }
+
+    private func mapControlButton(
+        _ title: String,
+        systemImage: String,
+        accent: Color,
+        isEnabled: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Label(title, systemImage: systemImage)
+                .font(.caption.weight(.semibold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.82)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .foregroundStyle(isEnabled ? accent : .secondary)
+                .background((isEnabled ? accent : Color.secondary).opacity(0.14), in: Capsule())
+                .overlay(Capsule().stroke((isEnabled ? accent : Color.secondary).opacity(0.34), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .disabled(!isEnabled)
+        .opacity(isEnabled ? 1 : 0.62)
+    }
+
+    private func mapTitle(for mode: MapDrawingMode) -> String {
+        switch mode {
+        case .select:
+            return "Field marker"
+        case .point:
+            return mapPointTypeForRole.displayName
+        case .polyline:
+            return mapLineTypeForRole.displayName
+        case .polygon:
+            return mapPolygonTypeForRole.displayName
+        }
+    }
+
+    private var mapPointTypeForRole: MapPointType {
+        switch controller.runtime.device.appID {
+        case .emt, .emtIPad:
+            return .victim
+        case .scc, .sccIPad, .ucc:
+            return .commandPost
+        case .teamLeader, .teamLeaderIPad:
+            return .hazardPoint
+        case .teamMember:
+            return .rescueTeamMember
+        case .volunteer:
+            return .assemblyPoint
+        }
+    }
+
+    private var mapLineTypeForRole: MapLineType {
+        switch controller.runtime.device.appID {
+        case .emt, .emtIPad:
+            return .evacuationRoute
+        case .volunteer:
+            return .passageway
+        default:
+            return .searchPath
+        }
+    }
+
+    private var mapPolygonTypeForRole: MapPolygonType {
+        switch controller.runtime.device.appID {
+        case .scc, .sccIPad, .ucc:
+            return .subzone
+        case .teamLeader, .teamLeaderIPad, .teamMember:
+            return .searchArea
+        case .emt, .emtIPad:
+            return .searchArea
+        case .volunteer:
+            return .cleanedArea
+        }
+    }
+
+    private func defaultSearchState(for mode: MapDrawingMode) -> SearchState {
+        switch mode {
+        case .select:
+            return .unconfirmed
+        case .point, .polyline:
+            return .searching
+        case .polygon:
+            return mapPolygonTypeForRole == .cleanedArea ? .cleared : .highRisk
+        }
+    }
+
+    private func geometryType(for geometry: MapMarkupFeature.MarkupGeometry) -> GeometryType {
+        switch geometry {
+        case .point:
+            return .point
+        case .line:
+            return .polyline
+        case .polygon:
+            return .polygon
+        }
+    }
+
+    private func mapFeatureType(for geometry: MapMarkupFeature.MarkupGeometry) -> MapFeatureType {
+        switch geometry {
+        case .point(let type, _, _):
+            switch type {
+            case .sos, .victim, .survivor:
+                return .victimPoint
+            case .medicalStation:
+                return .medicalStation
+            case .assemblyPoint:
+                return .assemblyPoint
+            case .hazardPoint:
+                return .restrictedZone
+            case .rescueTeamMember, .commandPost:
+                return .worksiteBoundary
+            }
+        case .line(let type, _):
+            switch type {
+            case .evacuationRoute:
+                return .evacuationRoute
+            case .hazardousRoute, .cordonLine:
+                return .roadBlockLine
+            case .searchPath, .supplyRoute, .passageway:
+                return .evacuationRoute
+            }
+        case .polygon(let type, _):
+            switch type {
+            case .collapsedArea:
+                return .collapsedAreaPolygon
+            case .hazardousZone, .fireZone, .chemicalHazard:
+                return .hazardPolygon
+            case .searchArea, .subzone:
+                return .worksiteBoundary
+            case .cleanedArea:
+                return .safetyZone
+            }
+        }
+    }
+
+    private func mapGeometryLabel(_ geometry: MapMarkupFeature.MarkupGeometry) -> String {
+        switch geometry {
+        case .point(let type, _, _):
+            return type.displayName
+        case .line(let type, _):
+            return type.displayName
+        case .polygon(let type, _):
+            return type.displayName
+        }
+    }
+
+    private func mapIconName(_ geometry: MapMarkupFeature.MarkupGeometry) -> String {
+        switch geometry {
+        case .point:
+            return "mappin.circle.fill"
+        case .line:
+            return "point.topleft.down.curvedto.point.bottomright.up"
+        case .polygon:
+            return "skew"
+        }
+    }
+
+    private func mapAccent(_ geometry: MapMarkupFeature.MarkupGeometry) -> Color {
+        switch geometry {
+        case .point(let type, _, _):
+            return type == .sos || type == .hazardPoint ? FieldTheme.danger : FieldTheme.green
+        case .line(let type, _):
+            return type == .hazardousRoute || type == .cordonLine ? FieldTheme.warning : FieldTheme.info
+        case .polygon(let type, _):
+            return type == .hazardousZone || type == .collapsedArea || type == .fireZone ? FieldTheme.warning : FieldTheme.green
         }
     }
 
@@ -667,6 +1034,38 @@ public struct FieldAppShellView: View {
         }
     }
 
+    private func settingsIcon(for key: String) -> String {
+        switch key {
+        case "app":
+            return "app.badge.fill"
+        case "device":
+            return "iphone.gen3"
+        case "version":
+            return "number.circle.fill"
+        case "build":
+            return "hammer.fill"
+        case "channel":
+            return "dot.radiowaves.left.and.right"
+        case "gitTag":
+            return "tag.fill"
+        case "series":
+            return "shippingbox.fill"
+        default:
+            return "info.circle.fill"
+        }
+    }
+
+    private func settingsAccent(for key: String) -> Color {
+        switch key {
+        case "version", "build", "gitTag":
+            return FieldTheme.green
+        case "channel", "series":
+            return FieldTheme.info
+        default:
+            return roleAccent
+        }
+    }
+
     private func batteryLabel(_ level: Double?) -> String? {
         guard let level else { return nil }
         return "\(Int(level * 100))%"
@@ -690,6 +1089,7 @@ private enum FieldAppTab: String, Identifiable, Hashable {
     case medical
     case comms
     case queue
+    case settings
 
     var id: String { rawValue }
 
@@ -707,6 +1107,8 @@ private enum FieldAppTab: String, Identifiable, Hashable {
             return "Comms"
         case .queue:
             return "Queue"
+        case .settings:
+            return "Settings"
         }
     }
 
@@ -724,6 +1126,8 @@ private enum FieldAppTab: String, Identifiable, Hashable {
             return "message.fill"
         case .queue:
             return "tray.full.fill"
+        case .settings:
+            return "gearshape.fill"
         }
     }
 }
@@ -762,6 +1166,47 @@ private enum FieldRoleActionKind {
     case chat
 }
 
+private extension MapDrawingMode {
+    var fieldTitle: String {
+        switch self {
+        case .select:
+            return "Select"
+        case .point:
+            return "Point"
+        case .polyline:
+            return "Line"
+        case .polygon:
+            return "Area"
+        }
+    }
+
+    var fieldIconName: String {
+        switch self {
+        case .select:
+            return "cursorarrow.click.2"
+        case .point:
+            return "mappin.circle.fill"
+        case .polyline:
+            return "point.topleft.down.curvedto.point.bottomright.up"
+        case .polygon:
+            return "skew"
+        }
+    }
+
+    var fieldAccent: Color {
+        switch self {
+        case .select:
+            return FieldTheme.command
+        case .point:
+            return FieldTheme.green
+        case .polyline:
+            return FieldTheme.info
+        case .polygon:
+            return FieldTheme.warning
+        }
+    }
+}
+
 private extension HomeSurface {
     var fieldDisplayName: String {
         switch self {
@@ -797,5 +1242,98 @@ private extension CommandAuthorityLevel {
         case .global:
             return "Global command"
         }
+    }
+}
+
+private extension MedicalAccessLevel {
+    var fieldDisplayName: String {
+        switch self {
+        case .none:
+            return "None"
+        case .summary:
+            return "Summary"
+        case .operational:
+            return "Ops"
+        case .fullClinical:
+            return "Clinical"
+        }
+    }
+}
+
+private extension LinkGuardPermission {
+    var fieldDisplayName: String { rawValue.fieldTitle }
+}
+
+private extension LinkGuardFeature {
+    var fieldDisplayName: String { rawValue.fieldTitle }
+
+    var fieldIconName: String {
+        switch self {
+        case .gpsTracking, .teamMemberRealtimeLocation, .teamLeaderRealtimeLocation, .emtLocationManagement, .lastLocationTracking:
+            return "location.fill"
+        case .photoReport, .multiPointPhotoReport, .photoWall, .liveFieldPhoto, .patientPhoto:
+            return "camera.fill"
+        case .patientCreation, .startTriage, .patientLocation, .patientStatusUpdate, .medicalEvacuation, .hospitalCapacityView, .patientHistory, .aiPatientWarning, .medicalCapacityAnalysis:
+            return "cross.case.fill"
+        case .communicationChannel, .radioMonitoring, .speechTranscription, .voiceReport, .realtimeTranslation, .voiceTranslation, .aiChat:
+            return "message.fill"
+        case .hazardWarning, .hazardZoneManagement, .safetyControlBoard, .sosSending, .sosDetail, .fieldSafetyRealtimeManagement, .structuralHazardMonitoring, .secondaryCollapseWarning:
+            return "exclamationmark.triangle.fill"
+        case .pointMarker, .lineMarker, .areaMarker, .globalMapOverview, .offlineMap, .searchAreaManagement, .clearedAreaMarking, .searchRouteManagement, .evacuationRouteManagement:
+            return "map.fill"
+        case .taskAssignment, .taskReport, .commandDispatch, .quickCommand:
+            return "checklist.checked"
+        default:
+            return "checkmark.seal.fill"
+        }
+    }
+}
+
+private extension FeatureAccessLevel {
+    var fieldDisplayName: String {
+        switch self {
+        case .none:
+            return "Unavailable"
+        case .limited:
+            return "Limited"
+        case .primary:
+            return "Primary"
+        }
+    }
+
+    var fieldShortLabel: String {
+        switch self {
+        case .none:
+            return "NO"
+        case .limited:
+            return "LTD"
+        case .primary:
+            return "PRI"
+        }
+    }
+
+    var fieldAccentColor: Color {
+        switch self {
+        case .none:
+            return FieldTheme.warning
+        case .limited:
+            return FieldTheme.info
+        case .primary:
+            return FieldTheme.green
+        }
+    }
+}
+
+private extension String {
+    var fieldTitle: String {
+        var output = ""
+        for character in self {
+            if character.isUppercase && output.isEmpty == false {
+                output.append(" ")
+            }
+            output.append(character)
+        }
+        guard let first = output.first else { return output }
+        return first.uppercased() + String(output.dropFirst())
     }
 }

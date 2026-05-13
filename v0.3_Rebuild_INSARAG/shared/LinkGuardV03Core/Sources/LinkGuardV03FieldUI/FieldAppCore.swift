@@ -608,6 +608,36 @@ public struct FieldAppController: Sendable {
     }
 
     @discardableResult
+    public mutating func queueMapMarkupFeature(
+        _ markupFeature: MapMarkupFeature,
+        featureType: MapFeatureType,
+        now: Date
+    ) throws -> SyncEnvelope {
+        let geometryType = geometryType(for: markupFeature.geometry)
+        try requireFeature(featureForMapGeometry(geometryType))
+        let mapFeature = MapFeature(
+            id: markupFeature.id,
+            incidentID: markupFeature.incidentID,
+            featureType: featureType,
+            coordinateMode: .gps,
+            geometry: mapGeometry(from: markupFeature.geometry),
+            severity: severity(for: markupFeature.searchState),
+            title: markupFeature.title,
+            createdBy: markupFeature.createdBy,
+            updatedAt: now,
+            attachmentIDs: markupFeature.attachmentIDs
+        )
+        let envelope = try runtime.makeEnvelope(
+            messageType: .mapFeatureUpsert,
+            payload: mapFeature,
+            createdAt: now,
+            idempotencyKey: idempotencyKey("map-markup-\(geometryType.rawValue)", now),
+            sourceRole: defaultRole
+        )
+        return queue(envelope, at: now)
+    }
+
+    @discardableResult
     public mutating func queuePatientUpload(
         displayCode: String,
         triageCategory: TriageCategory,
@@ -814,6 +844,47 @@ public struct FieldAppController: Sendable {
             return [base, second]
         case .polygon:
             return [base, second, third]
+        }
+    }
+
+    private func geometryType(for markupGeometry: MapMarkupFeature.MarkupGeometry) -> GeometryType {
+        switch markupGeometry {
+        case .point:
+            return .point
+        case .line:
+            return .polyline
+        case .polygon:
+            return .polygon
+        }
+    }
+
+    private func mapGeometry(from markupGeometry: MapMarkupFeature.MarkupGeometry) -> MapGeometry {
+        switch markupGeometry {
+        case .point(_, let latitude, let longitude):
+            return MapGeometry(type: .point, points: [MapPoint(x: 0, y: 0, latitude: latitude, longitude: longitude)])
+        case .line(_, let coordinates):
+            let points = coordinates.enumerated().map { index, coordinate in
+                MapPoint(x: Double(index), y: 0, latitude: coordinate.latitude, longitude: coordinate.longitude)
+            }
+            return MapGeometry(type: .polyline, points: points)
+        case .polygon(_, let coordinates):
+            let points = coordinates.enumerated().map { index, coordinate in
+                MapPoint(x: Double(index), y: Double(index % 2), latitude: coordinate.latitude, longitude: coordinate.longitude)
+            }
+            return MapGeometry(type: .polygon, points: points)
+        }
+    }
+
+    private func severity(for searchState: SearchState) -> PriorityLevel {
+        switch searchState {
+        case .highRisk, .forbidden:
+            return .critical
+        case .searching, .secondSearch:
+            return .high
+        case .unconfirmed:
+            return .medium
+        case .cleared:
+            return .low
         }
     }
 
