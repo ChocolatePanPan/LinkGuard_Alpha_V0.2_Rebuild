@@ -124,21 +124,21 @@ final class LinkGuardV03CoreTests: XCTestCase {
         assertAccess(.hazardWarning, .limited, .primary, .primary, .primary, .primary, .primary)
         assertAccess(.simplifiedMode, .none, .none, .limited, .primary, .limited, .primary)
 
-        assertAccess(.globalMapOverview, .primary, .primary, .limited, .none, .limited, .none)
+        assertAccess(.globalMapOverview, .primary, .limited, .limited, .none, .limited, .none)
         assertAccess(.sectorCreation, .limited, .primary, .primary, .none, .none, .none)
-        assertAccess(.subSectorCreation, .none, .limited, .primary, .none, .none, .none)
+        assertAccess(.subSectorCreation, .none, .primary, .primary, .none, .none, .none)
         assertAccess(.pointMarker, .limited, .primary, .primary, .primary, .primary, .limited)
         assertAccess(.lineMarker, .limited, .primary, .primary, .limited, .none, .none)
         assertAccess(.areaMarker, .limited, .primary, .primary, .none, .none, .none)
         assertAccess(.hazardZoneManagement, .limited, .primary, .primary, .none, .none, .none)
         assertAccess(.searchProgressColoring, .limited, .primary, .primary, .none, .none, .none)
-        assertAccess(.worksiteMarkerSystem, .limited, .primary, .primary, .limited, .limited, .none)
+        assertAccess(.worksiteMarkerSystem, .none, .primary, .primary, .limited, .limited, .none)
         assertAccess(.offlineMap, .limited, .primary, .primary, .primary, .limited, .limited)
 
         assertAccess(.personnelOverview, .primary, .primary, .primary, .none, .limited, .none)
-        assertAccess(.gpsTracking, .primary, .primary, .primary, .primary, .primary, .primary)
-        assertAccess(.personnelEntryLog, .limited, .primary, .primary, .limited, .limited, .none)
-        assertAccess(.teamCapabilityOverview, .primary, .primary, .primary, .none, .limited, .none)
+        assertAccess(.gpsTracking, .limited, .primary, .primary, .primary, .primary, .primary)
+        assertAccess(.personnelEntryLog, .none, .primary, .primary, .limited, .limited, .none)
+        assertAccess(.teamCapabilityOverview, .limited, .primary, .primary, .none, .limited, .none)
         assertAccess(.personnelStatusUpdate, .limited, .primary, .primary, .limited, .limited, .none)
         assertAccess(.safetyControlBoard, .limited, .primary, .primary, .none, .none, .none)
         assertAccess(.taskAssignment, .limited, .primary, .primary, .none, .none, .none)
@@ -149,14 +149,14 @@ final class LinkGuardV03CoreTests: XCTestCase {
         assertAccess(.patientLocation, .limited, .primary, .primary, .limited, .primary, .none)
         assertAccess(.patientPhoto, .none, .limited, .primary, .limited, .primary, .none)
         assertAccess(.patientStatusUpdate, .none, .limited, .primary, .none, .primary, .none)
-        assertAccess(.medicalEvacuation, .none, .limited, .none, .none, .primary, .none)
-        assertAccess(.hospitalCapacityView, .limited, .primary, .none, .none, .primary, .none)
+        assertAccess(.medicalEvacuation, .primary, .limited, .none, .none, .primary, .none)
+        assertAccess(.hospitalCapacityView, .primary, .limited, .none, .none, .primary, .none)
         assertAccess(.patientHistory, .none, .limited, .primary, .none, .primary, .none)
 
         assertAccess(.communicationChannel, .primary, .primary, .primary, .primary, .primary, .limited)
         assertAccess(.radioMonitoring, .primary, .primary, .limited, .none, .none, .none)
-        assertAccess(.speechTranscription, .limited, .primary, .primary, .limited, .limited, .none)
-        assertAccess(.voiceReport, .limited, .primary, .primary, .primary, .limited, .primary)
+        assertAccess(.speechTranscription, .primary, .primary, .primary, .limited, .limited, .none)
+        assertAccess(.voiceReport, .primary, .primary, .primary, .primary, .limited, .primary)
         assertAccess(.realtimeTranslation, .limited, .primary, .primary, .primary, .primary, .primary)
         assertAccess(.voiceTranslation, .none, .limited, .primary, .primary, .primary, .none)
         assertAccess(.photoReport, .limited, .primary, .primary, .primary, .primary, .primary)
@@ -166,18 +166,18 @@ final class LinkGuardV03CoreTests: XCTestCase {
         assertAccess(.sosSending, .limited, .primary, .primary, .primary, .primary, .primary)
         assertAccess(.sosDetail, .limited, .primary, .primary, .limited, .primary, .none)
 
-        assertAccess(.aiDecisionAnalysis, .primary, .primary, .limited, .none, .none, .none)
+        assertAccess(.aiDecisionAnalysis, .primary, .limited, .limited, .none, .none, .none)
         assertAccess(.aiPatientWarning, .limited, .primary, .limited, .none, .primary, .none)
         assertAccess(.aiChat, .primary, .primary, .limited, .none, .none, .none)
         assertAccess(.quickCommand, .limited, .primary, .primary, .none, .none, .none)
         assertAccess(.briefing, .limited, .primary, .primary, .none, .none, .none)
         assertAccess(.commandDispatch, .primary, .primary, .limited, .none, .none, .none)
-        assertAccess(.commandAuthoritySwitch, .primary, .primary, .none, .none, .none, .none)
+        assertAccess(.commandAuthoritySwitch, .primary, .limited, .none, .none, .none, .none)
         assertAccess(.eventLog, .primary, .primary, .limited, .none, .limited, .none)
-        assertAccess(.disasterStatistics, .primary, .primary, .limited, .none, .limited, .none)
-        assertAccess(.resourceManagement, .primary, .primary, .limited, .none, .limited, .none)
-        assertAccess(.pwsIntegration, .primary, .primary, .limited, .none, .none, .none)
-        assertAccess(.emicIntegration, .primary, .limited, .none, .none, .none, .none)
+        assertAccess(.disasterStatistics, .primary, .limited, .limited, .none, .limited, .none)
+        assertAccess(.resourceManagement, .primary, .limited, .limited, .none, .limited, .none)
+        assertAccess(.pwsIntegration, .primary, .limited, .limited, .none, .none, .none)
+        assertAccess(.emicIntegration, .primary, .none, .none, .none, .none, .none)
         assertAccess(.commandCenterRedundancy, .primary, .primary, .none, .none, .none, .none)
         assertAccess(.internationalCoordination, .primary, .limited, .none, .none, .none, .none)
 
@@ -185,6 +185,65 @@ final class LinkGuardV03CoreTests: XCTestCase {
         XCTAssertEqual(LinkGuardFeatureAccessMatrix.accessLevel(for: .teamLeaderIPad, feature: .subSectorCreation), .primary)
         XCTAssertEqual(LinkGuardFeatureAccessMatrix.accessLevel(for: .sccIPad, feature: .startTriage), .limited)
         XCTAssertEqual(LinkGuardFeatureAccessMatrix.accessLevel(for: .emtIPad, feature: .medicalEvacuation), .primary)
+    }
+
+    func testUCCSCCCapabilityMatrixCapturesStrategicVsTacticalBoundaries() {
+        XCTAssertEqual(UCCSCCCapabilityMatrix.scope(for: "multiDisasterSwitch")?.ucc, .primary)
+        XCTAssertEqual(UCCSCCCapabilityMatrix.scope(for: "multiDisasterSwitch")?.scc, .unavailable)
+        XCTAssertEqual(UCCSCCCapabilityMatrix.scope(for: "subSectorCreation")?.ucc, .unavailable)
+        XCTAssertEqual(UCCSCCCapabilityMatrix.scope(for: "subSectorCreation")?.scc, .primary)
+        XCTAssertEqual(UCCSCCCapabilityMatrix.scope(for: "pttMonitoring")?.ucc, .primary)
+        XCTAssertEqual(UCCSCCCapabilityMatrix.scope(for: "pttMonitoring")?.scc, .primary)
+        XCTAssertEqual(UCCSCCCapabilityMatrix.scope(for: "emic")?.ucc, .primary)
+        XCTAssertEqual(UCCSCCCapabilityMatrix.scope(for: "emic")?.scc, .unavailable)
+    }
+
+    func testFeatureAccessLevelsFollowUCCSCCCapabilityContract() {
+        let mappedFeatures: [LinkGuardFeature] = [
+            .globalMapOverview,
+            .sectorCreation,
+            .subSectorCreation,
+            .pointMarker,
+            .lineMarker,
+            .areaMarker,
+            .searchProgressColoring,
+            .hazardZoneManagement,
+            .worksiteMarkerSystem,
+            .offlineMap,
+            .offlineDraftQueue,
+            .gpsTracking,
+            .personnelEntryLog,
+            .teamCapabilityOverview,
+            .taskAssignment,
+            .patientLocation,
+            .medicalEvacuation,
+            .hospitalCapacityView,
+            .communicationChannel,
+            .radioMonitoring,
+            .speechTranscription,
+            .voiceReport,
+            .photoReport,
+            .sosSending,
+            .sosDetail,
+            .aiDecisionAnalysis,
+            .aiPatientWarning,
+            .commandAuthoritySwitch,
+            .disasterStatistics,
+            .resourceManagement,
+            .pwsIntegration,
+            .emicIntegration,
+            .commandCenterRedundancy
+        ]
+
+        for feature in mappedFeatures {
+            guard let uccScope = UCCSCCCapabilityMatrix.expectedScope(for: feature, appID: .ucc),
+                  let sccScope = UCCSCCCapabilityMatrix.expectedScope(for: feature, appID: .scc) else {
+                XCTFail("Missing capability mapping for feature \(feature.rawValue)")
+                continue
+            }
+            XCTAssertEqual(LinkGuardFeatureAccessMatrix.accessLevel(for: .ucc, feature: feature), uccScope.accessLevel, "UCC scope mismatch for \(feature.rawValue)")
+            XCTAssertEqual(LinkGuardFeatureAccessMatrix.accessLevel(for: .scc, feature: feature), sccScope.accessLevel, "SCC scope mismatch for \(feature.rawValue)")
+        }
     }
 
     func testUCCPhaseCatalogMatchesRequestedRoadmap() {
