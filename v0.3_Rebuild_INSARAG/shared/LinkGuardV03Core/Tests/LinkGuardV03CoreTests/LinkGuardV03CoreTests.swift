@@ -373,7 +373,7 @@ final class LinkGuardV03CoreTests: XCTestCase {
     }
 
     func testTeamMemberCoreBackedPhasesMatchFeatureGates() {
-        var controller = FieldAppController(
+        let controller = FieldAppController(
             appID: .teamMember,
             platform: .iPhone,
             deviceID: "IOS-TE-PHASE-TEST",
@@ -453,7 +453,7 @@ final class LinkGuardV03CoreTests: XCTestCase {
     }
 
     func testEMTMedicalCoreBackedPhasesMatchFeatureGates() {
-        var controller = FieldAppController(
+        let controller = FieldAppController(
             appID: .emt,
             platform: .iPhone,
             deviceID: "IOS-EMT-PHASE-TEST",
@@ -1583,5 +1583,256 @@ final class LinkGuardV03CoreTests: XCTestCase {
         XCTAssertThrowsError(try MacSystemUIFactory.makeState(appID: .teamLeader, deviceID: "DEVICE-TL")) { error in
             XCTAssertEqual(error as? MacSystemUIError, .unsupportedApp(.teamLeader))
         }
+    }
+
+    // MARK: - Map System Types Tests
+
+    func testMapPointTypesComplete() {
+        let pointTypes = MapPointType.allCases
+        let expectedCount = 8
+        XCTAssertEqual(pointTypes.count, expectedCount, "地圖點類型應有 \(expectedCount) 種")
+        
+        // 驗證所有必須的點類型都存在
+        XCTAssertTrue(pointTypes.contains(.sos))
+        XCTAssertTrue(pointTypes.contains(.victim))
+        XCTAssertTrue(pointTypes.contains(.survivor))
+        XCTAssertTrue(pointTypes.contains(.rescueTeamMember))
+        XCTAssertTrue(pointTypes.contains(.hazardPoint))
+        XCTAssertTrue(pointTypes.contains(.assemblyPoint))
+        XCTAssertTrue(pointTypes.contains(.medicalStation))
+        XCTAssertTrue(pointTypes.contains(.commandPost))
+        
+        // 驗證每個點類型都有顯示名稱和顏色
+        for pointType in pointTypes {
+            XCTAssertFalse(pointType.displayName.isEmpty, "\(pointType) 應有顯示名稱")
+            XCTAssertFalse(pointType.systemColor.isEmpty, "\(pointType) 應有系統色碼")
+        }
+    }
+
+    func testMapLineTypesComplete() {
+        let lineTypes = MapLineType.allCases
+        let expectedCount = 6
+        XCTAssertEqual(lineTypes.count, expectedCount, "地圖線類型應有 \(expectedCount) 種")
+        
+        // 驗證所有必須的線類型都存在
+        XCTAssertTrue(lineTypes.contains(.evacuationRoute))
+        XCTAssertTrue(lineTypes.contains(.hazardousRoute))
+        XCTAssertTrue(lineTypes.contains(.searchPath))
+        XCTAssertTrue(lineTypes.contains(.supplyRoute))
+        XCTAssertTrue(lineTypes.contains(.cordonLine))
+        XCTAssertTrue(lineTypes.contains(.passageway))
+        
+        // 驗證每個線類型都有顯示名稱和顏色
+        for lineType in lineTypes {
+            XCTAssertFalse(lineType.displayName.isEmpty, "\(lineType) 應有顯示名稱")
+            XCTAssertFalse(lineType.systemColor.isEmpty, "\(lineType) 應有系統色碼")
+        }
+    }
+
+    func testMapPolygonTypesComplete() {
+        let polygonTypes = MapPolygonType.allCases
+        let expectedCount = 7
+        XCTAssertEqual(polygonTypes.count, expectedCount, "地圖面類型應有 \(expectedCount) 種")
+        
+        // 驗證所有必須的面類型都存在
+        XCTAssertTrue(polygonTypes.contains(.collapsedArea))
+        XCTAssertTrue(polygonTypes.contains(.searchArea))
+        XCTAssertTrue(polygonTypes.contains(.subzone))
+        XCTAssertTrue(polygonTypes.contains(.hazardousZone))
+        XCTAssertTrue(polygonTypes.contains(.cleanedArea))
+        XCTAssertTrue(polygonTypes.contains(.fireZone))
+        XCTAssertTrue(polygonTypes.contains(.chemicalHazard))
+        
+        // 驗證每個面類型都有顯示名稱和顏色
+        for polygonType in polygonTypes {
+            XCTAssertFalse(polygonType.displayName.isEmpty, "\(polygonType) 應有顯示名稱")
+            XCTAssertFalse(polygonType.systemColor.isEmpty, "\(polygonType) 應有系統色碼")
+        }
+    }
+
+    func testICSectionSystemComplete() {
+        let sections = ICSMapArea.allCases
+        XCTAssertEqual(sections.count, 6, "ICS 分區應有 6 個分區（A/B/C/D1/D2/D3）")
+        
+        // 驗證主區
+        XCTAssertTrue(sections.contains(.sectionA))
+        XCTAssertTrue(sections.contains(.sectionB))
+        XCTAssertTrue(sections.contains(.sectionC))
+        
+        // 驗證子區
+        XCTAssertTrue(sections.contains(.sectionD1))
+        XCTAssertTrue(sections.contains(.sectionD2))
+        XCTAssertTrue(sections.contains(.sectionD3))
+        
+        // 驗證主區有子區
+        XCTAssertEqual(ICSMapArea.sectionA.subsections.count, 3)
+        XCTAssertTrue(ICSMapArea.sectionA.subsections.contains(.sectionD1))
+        XCTAssertTrue(ICSMapArea.sectionA.subsections.contains(.sectionD2))
+        XCTAssertTrue(ICSMapArea.sectionA.subsections.contains(.sectionD3))
+        
+        // 驗證子區無子區
+        XCTAssertEqual(ICSMapArea.sectionD1.subsections.count, 0)
+    }
+
+    func testSearchStateComplete() {
+        let states = SearchState.allCases
+        let expectedCount = 6
+        XCTAssertEqual(states.count, expectedCount, "搜救狀態應有 \(expectedCount) 種")
+        
+        // 驗證所有必須的狀態都存在
+        XCTAssertTrue(states.contains(.unconfirmed))
+        XCTAssertTrue(states.contains(.searching))
+        XCTAssertTrue(states.contains(.cleared))
+        XCTAssertTrue(states.contains(.highRisk))
+        XCTAssertTrue(states.contains(.forbidden))
+        XCTAssertTrue(states.contains(.secondSearch))
+        
+        // 驗證每個狀態都有顯示名稱和顏色
+        for state in states {
+            XCTAssertFalse(state.displayName.isEmpty, "\(state) 應有顯示名稱")
+            XCTAssertFalse(state.systemColor.isEmpty, "\(state) 應有系統色碼")
+        }
+    }
+
+    func testMapCoreFunctionsCatalog() {
+        let functions = MapCoreFunction.allCases
+        let expectedCount = 12
+        XCTAssertEqual(functions.count, expectedCount, "地圖核心功能應有 \(expectedCount) 項")
+        
+        // 驗證所有必須的功能都存在
+        XCTAssertTrue(functions.contains(.gpsPerson))
+        XCTAssertTrue(functions.contains(.sectionManagement))
+        XCTAssertTrue(functions.contains(.markupSystem))
+        XCTAssertTrue(functions.contains(.searchState))
+        XCTAssertTrue(functions.contains(.hazardZone))
+        XCTAssertTrue(functions.contains(.victimLocation))
+        XCTAssertTrue(functions.contains(.sosAlert))
+        XCTAssertTrue(functions.contains(.personTracking))
+        XCTAssertTrue(functions.contains(.taskLayer))
+        XCTAssertTrue(functions.contains(.photoIntegration))
+        XCTAssertTrue(functions.contains(.offlineMap))
+        XCTAssertTrue(functions.contains(.aiAnalysis))
+        
+        // 驗證每個功能都有顯示名稱和用途
+        for function in functions {
+            XCTAssertFalse(function.displayName.isEmpty, "\(function) 應有顯示名稱")
+            XCTAssertFalse(function.purpose.isEmpty, "\(function) 應有用途說明")
+        }
+    }
+
+    func testMapSystemDesignPrinciplesComplete() {
+        // 驗證必要功能清單
+        XCTAssertEqual(MapSystemDesignPrinciples.requiredFeatures.count, 10, "應有 10 項必要功能")
+        XCTAssertTrue(MapSystemDesignPrinciples.requiredFeatures.contains("大按鈕"))
+        XCTAssertTrue(MapSystemDesignPrinciples.requiredFeatures.contains("少層級"))
+        XCTAssertTrue(MapSystemDesignPrinciples.requiredFeatures.contains("自動儲存"))
+        XCTAssertTrue(MapSystemDesignPrinciples.requiredFeatures.contains("一鍵SOS"))
+        XCTAssertTrue(MapSystemDesignPrinciples.requiredFeatures.contains("黑夜模式"))
+        
+        // 驗證推薦技術棧
+        XCTAssertEqual(MapSystemDesignPrinciples.recommendedTechStack.count, 8, "應有 8 項推薦技術")
+        XCTAssertEqual(MapSystemDesignPrinciples.recommendedTechStack["地圖引擎"], "Mapbox")
+        XCTAssertEqual(MapSystemDesignPrinciples.recommendedTechStack["離線地圖"], "MBTiles")
+        XCTAssertEqual(MapSystemDesignPrinciples.recommendedTechStack["GPS"], "CoreLocation")
+        
+        // 驗證頁面層級
+        XCTAssertEqual(MapSystemDesignPrinciples.pageHierarchy.count, 4)
+        XCTAssertEqual(MapSystemDesignPrinciples.pageHierarchy[0], "1. 地圖")
+    }
+
+    func testMapMarkupFeatureStructure() {
+        // 測試點標記
+        let coordinate = MapCoordinate(latitude: 25.0, longitude: 121.0)
+        let pointGeometry = MapMarkupFeature.MarkupGeometry.point(.sos, 25.0, 121.0)
+        let pointFeature = MapMarkupFeature(
+            incidentID: LinkGuardID("INC001"),
+            sectionID: .sectionA,
+            geometry: pointGeometry,
+            searchState: .unconfirmed,
+            title: "測試 SOS",
+            createdBy: LinkGuardID("USER001")
+        )
+        
+        XCTAssertEqual(pointFeature.title, "測試 SOS")
+        XCTAssertEqual(pointFeature.sectionID, .sectionA)
+        XCTAssertEqual(pointFeature.searchState, .unconfirmed)
+        
+        // 測試線標記
+        let lineGeometry = MapMarkupFeature.MarkupGeometry.line(
+            .evacuationRoute,
+            [coordinate, MapCoordinate(latitude: 25.1, longitude: 121.1)]
+        )
+        let lineFeature = MapMarkupFeature(
+            incidentID: LinkGuardID("INC001"),
+            geometry: lineGeometry,
+            title: "撤離路線",
+            createdBy: LinkGuardID("USER001")
+        )
+        
+        XCTAssertEqual(lineFeature.title, "撤離路線")
+        
+        // 測試面標記
+        let polygonGeometry = MapMarkupFeature.MarkupGeometry.polygon(
+            .collapsedArea,
+            [
+                coordinate,
+                MapCoordinate(latitude: 25.1, longitude: 121.0),
+                MapCoordinate(latitude: 25.1, longitude: 121.1),
+                MapCoordinate(latitude: 25.0, longitude: 121.1)
+            ]
+        )
+        let polygonFeature = MapMarkupFeature(
+            incidentID: LinkGuardID("INC001"),
+            geometry: polygonGeometry,
+            title: "倒塌區",
+            createdBy: LinkGuardID("USER001")
+        )
+        
+        XCTAssertEqual(polygonFeature.title, "倒塌區")
+    }
+
+    func testPersonnelSafetyMarkerTracking() {
+        let location = MapCoordinate(latitude: 25.0, longitude: 121.0)
+        let marker = PersonnelSafetyMarker(
+            memberID: LinkGuardID("MEMBER001"),
+            currentLocation: location,
+            status: .active,
+            deviceBattery: 75.0,
+            inDangerZone: false,
+            sosTriggered: false
+        )
+        
+        XCTAssertEqual(marker.status, .active)
+        XCTAssertEqual(marker.deviceBattery, 75.0)
+        XCTAssertFalse(marker.inDangerZone)
+        XCTAssertFalse(marker.sosTriggered)
+        
+        // 測試 SOS 觸發
+        let sosMarker = PersonnelSafetyMarker(
+            memberID: LinkGuardID("MEMBER002"),
+            currentLocation: location,
+            status: .sos,
+            sosTriggered: true
+        )
+        
+        XCTAssertTrue(sosMarker.sosTriggered)
+        XCTAssertEqual(sosMarker.status, .sos)
+    }
+
+    func testOfflineMapCacheManagement() {
+        let bounds = MapBounds(minLat: 25.0, minLon: 121.0, maxLat: 25.5, maxLon: 121.5)
+        let cache = OfflineMapCache(
+            tileRegionID: "taipei-region",
+            bounds: bounds,
+            minZoom: 10,
+            maxZoom: 18,
+            cacheSize: 1024 * 1024 * 256
+        )
+        
+        XCTAssertEqual(cache.tileRegionID, "taipei-region")
+        XCTAssertEqual(cache.minZoom, 10)
+        XCTAssertEqual(cache.maxZoom, 18)
+        XCTAssertEqual(cache.cacheSize, 268435456) // 256 MB
+        XCTAssertTrue(cache.isSynced)
     }
 }

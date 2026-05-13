@@ -89,9 +89,31 @@ public enum SCCPhaseCatalog {
             moduleName: "現場戰情儀表板",
             capability: "災區即時總覽",
             purpose: "建立現場戰情中心",
-            requiredFeatures: [.globalMapOverview, .personnelOverview, .disasterStatistics],
-            requiredPermissions: [.viewIncident, .manageIncident],
-            relatedMessageTypes: [.incidentUpsert, .personnelStatusUpsert, .photoReportUpsert, .sosReportUpsert],
+            requiredFeatures: [
+                .globalMapOverview,           // GPS 定位
+                .personnelOverview,           // 人員總覽
+                .disasterStatistics,          // 統計資訊
+                .sectorCreation,              // 分區管理
+                .pointMarker,                 // 點標記
+                .lineMarker,                  // 線標記
+                .areaMarker,                  // 面標記
+                .searchProgressColoring,      // 搜救狀態
+                .hazardZoneManagement,        // 危險區
+                .gpsTracking,                 // 人員追蹤
+                .patientLocation,             // 傷患定位
+                .sosSending,                  // SOS 定位
+                .photoReport,                 // 照片整合
+                .offlineMap                   // 離線地圖
+            ],
+            requiredPermissions: [.viewIncident, .manageIncident, .manageMap],
+            relatedMessageTypes: [
+                .incidentUpsert,
+                .personnelStatusUpsert,
+                .photoReportUpsert,
+                .sosReportUpsert,
+                .sectorUpsert,
+                .taskUpsert
+            ],
             primarySections: [.command, .operations, .planning],
             implementationState: .coreBacked
         ),

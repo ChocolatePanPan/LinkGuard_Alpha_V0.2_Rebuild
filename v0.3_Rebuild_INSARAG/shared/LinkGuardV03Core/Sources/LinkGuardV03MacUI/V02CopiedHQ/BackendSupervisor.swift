@@ -18,7 +18,7 @@ import AppKit
 // MARK: - Service definitions
 
 /// One Python backend service that BackendSupervisor knows how to launch.
-struct BackendServiceSpec: Identifiable, Hashable {
+struct BackendServiceSpec: Identifiable, Hashable, Sendable {
     static let aiServiceID = "gemma4_server"
     static let pythonWhisperServiceID = "whisper_server"
 
@@ -129,8 +129,8 @@ struct BackendProcessMetrics: Equatable, Sendable {
 /// Mutable per-service runtime state observed by SwiftUI.
 @MainActor
 final class BackendServiceState: ObservableObject, Identifiable {
+    nonisolated let id: String
     let spec: BackendServiceSpec
-    var id: String { spec.id }
 
     @Published var status: BackendServiceStatus = .stopped
     @Published var pid: Int32? = nil
@@ -140,7 +140,10 @@ final class BackendServiceState: ObservableObject, Identifiable {
     @Published var startedAt: Date? = nil
     @Published var lastHealthCheck: Date? = nil
 
-    init(spec: BackendServiceSpec) { self.spec = spec }
+    init(spec: BackendServiceSpec) {
+        self.id = spec.id
+        self.spec = spec
+    }
 
     fileprivate func appendLogLines(_ lines: [String]) {
         guard !lines.isEmpty else { return }
