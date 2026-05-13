@@ -89,11 +89,11 @@ public struct LinkGuardVersionInfo: Codable, Hashable, Sendable {
     public static let current = LinkGuardVersionInfo(
         schemaVersion: 1,
         product: "LinkGuard",
-        version: SemanticVersion(major: 0, minor: 3, patch: 0, prereleaseIdentifiers: ["alpha", "5"]),
+        version: SemanticVersion(major: 0, minor: 3, patch: 0, prereleaseIdentifiers: ["alpha", "6"]),
         shortVersion: "0.3.0",
-        buildNumber: 300005,
+        buildNumber: 300006,
         releaseChannel: .alpha,
-        gitTag: "v0.3.0-alpha.5",
+        gitTag: "v0.3.0-alpha.6",
         series: "v0.3_Rebuild_INSARAG",
         notes: "Version bumped after implementation update; show build info in app settings and verify tag at push tail."
     )
