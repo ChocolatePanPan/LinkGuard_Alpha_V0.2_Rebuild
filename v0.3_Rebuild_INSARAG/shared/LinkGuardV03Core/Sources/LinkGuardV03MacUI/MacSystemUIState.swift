@@ -262,6 +262,7 @@ public enum MacSystemUIFactory {
             .commandUpsert,
             .taskUpsert,
             .alertUpsert,
+            .sosReportUpsert,
             .evacuationRequestUpsert,
             .purchaseRequestUpsert,
             .decisionRecordUpsert,
@@ -300,7 +301,7 @@ public enum MacSystemUIFactory {
     private static func recordCount(for section: ICSSection, snapshot: OperationSnapshot) -> Int {
         switch section {
         case .command:
-            return snapshot.commands.count + snapshot.alerts.count + snapshot.roleAssignments.count
+            return snapshot.commands.count + snapshot.alerts.count + snapshot.sosReports.count + snapshot.roleAssignments.count
         case .operations:
             return snapshot.worksites.count + snapshot.tasks.count + snapshot.mapFeatures.count
         case .planning:
@@ -346,6 +347,7 @@ public enum MacSystemUIFactory {
     private static let actionDefinitions: [(id: String, title: String, permission: LinkGuardPermission, messageType: SyncMessageType?, systemImageName: String)] = [
         ("issue-command", "指揮決策", .issueCommand, .commandUpsert, "brain.head.profile"),
         ("publish-alert", "PWS 警報", .issueCommand, .alertUpsert, "exclamationmark.triangle.fill"),
+        ("send-sos", "SOS", .sendSOS, .sosReportUpsert, "location.fill.viewfinder"),
         ("assign-role", "人員配置", .assignRole, .roleAssignmentUpsert, "person.badge.plus"),
         ("update-task", "任務更新", .updateTask, .taskUpsert, "checklist"),
         ("map-feature", "分區地圖", .manageMap, .mapFeatureUpsert, "map.fill"),

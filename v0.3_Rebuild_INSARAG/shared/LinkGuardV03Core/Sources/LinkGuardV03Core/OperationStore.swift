@@ -9,6 +9,7 @@ public struct OperationSnapshot: Codable, Sendable {
     public private(set) var tasks: [LinkGuardID: FieldTask]
     public private(set) var alerts: [LinkGuardID: IncidentAlert]
     public private(set) var alertAcknowledgements: [LinkGuardID: AlertAcknowledgement]
+    public private(set) var sosReports: [LinkGuardID: SOSReport]
     public private(set) var mapFeatures: [LinkGuardID: MapFeature]
     public private(set) var patients: [LinkGuardID: PatientRecord]
     public private(set) var evacuationRequests: [LinkGuardID: EvacuationRequest]
@@ -28,6 +29,7 @@ public struct OperationSnapshot: Codable, Sendable {
         self.tasks = [:]
         self.alerts = [:]
         self.alertAcknowledgements = [:]
+        self.sosReports = [:]
         self.mapFeatures = [:]
         self.patients = [:]
         self.evacuationRequests = [:]
@@ -67,6 +69,9 @@ public struct OperationSnapshot: Codable, Sendable {
         case .alertAcknowledgementUpsert:
             let acknowledgement = try envelope.decodePayload(AlertAcknowledgement.self)
             alertAcknowledgements[acknowledgement.id] = acknowledgement
+        case .sosReportUpsert:
+            let sosReport = try envelope.decodePayload(SOSReport.self)
+            sosReports[sosReport.id] = sosReport
         case .mapFeatureUpsert:
             let mapFeature = try envelope.decodePayload(MapFeature.self)
             mapFeatures[mapFeature.id] = mapFeature
@@ -94,5 +99,10 @@ public struct OperationSnapshot: Codable, Sendable {
         }
 
         processedIdempotencyKeys.insert(envelope.idempotencyKey)
+    }
+
+    public mutating func record(_ auditEvent: AuditEvent) {
+        guard auditEvents.contains(where: { $0.id == auditEvent.id }) == false else { return }
+        auditEvents.append(auditEvent)
     }
 }

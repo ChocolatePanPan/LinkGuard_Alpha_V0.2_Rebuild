@@ -7,8 +7,14 @@ public enum AuditAction: String, Codable, CaseIterable, Sendable {
     case issueCommand
     case acknowledgeAlert
     case assignRole
+    case login
+    case logout
+    case sendSOS
+    case submitReport
+    case mapUpdate
     case syncQueued
     case syncDelivered
+    case syncFailed
     case conflictDetected
     case export
 }

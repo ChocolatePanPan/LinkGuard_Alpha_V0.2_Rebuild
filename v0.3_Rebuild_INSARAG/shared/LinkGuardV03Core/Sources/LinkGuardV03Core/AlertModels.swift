@@ -8,6 +8,7 @@ public enum AlertType: String, Codable, CaseIterable, Sendable {
     case medicalSurge
     case missingTeam
     case communicationsFailure
+    case sos
     case weather
 }
 

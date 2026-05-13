@@ -252,6 +252,186 @@ final class LinkGuardV03CoreTests: XCTestCase {
         )
     }
 
+    func testPhaseOneLoginAccountPermissionsFollowICSRole() throws {
+        let account = UserAccount(
+            id: "ACCOUNT-SCC",
+            personID: "PERSON-SCC",
+            displayName: "Sector Commander",
+            callSign: "SCC-1",
+            allowedAppIDs: [.scc],
+            defaultPosition: .operationsSectionChief,
+            credentialDigest: "digest-scc"
+        )
+        var directory = AccountDirectory(accounts: [account])
+        let sccDevice = DeviceIdentity(id: "DEVICE-SCC-AUTH", appID: .scc, platform: .mac, displayName: "SCC Console")
+        let teamMemberDevice = DeviceIdentity(id: "DEVICE-TE-AUTH", appID: .teamMember, platform: .iPhone, displayName: "TE Phone")
+
+        let session = try directory.login(
+            accountID: account.id,
+            credentialDigest: "digest-scc",
+            device: sccDevice,
+            issuedAt: fixedDate,
+            sessionID: "SESSION-SCC"
+        )
+
+        XCTAssertTrue(session.allows(.issueCommand, at: fixedDate))
+        XCTAssertTrue(session.allows(.assignRole, at: fixedDate))
+        XCTAssertFalse(session.allows(.manageMedicalPatient, at: fixedDate))
+        XCTAssertNoThrow(try directory.authorize(sessionID: session.id, permission: .manageMap, at: fixedDate))
+        XCTAssertThrowsError(
+            try directory.login(
+                accountID: account.id,
+                credentialDigest: "digest-scc",
+                device: teamMemberDevice,
+                issuedAt: fixedDate,
+                sessionID: "SESSION-DENIED"
+            )
+        ) { error in
+            XCTAssertEqual(error as? AccountAccessError, .appNotAllowed(accountID: account.id, appID: .teamMember))
+        }
+    }
+
+    func testPhaseOneOfflineQueuePersistsAndFlushesWhenOnline() throws {
+        let teamMember = runtime(appID: .teamMember)
+        let hub = InMemoryTransportHub(runtimes: allAppRuntimes())
+        let offlineTask = FieldTask(
+            id: "TASK-OFFLINE",
+            incidentID: "INC-1",
+            worksiteID: "WORKSITE-1",
+            assignedTeamID: "TEAM-1",
+            type: .recon,
+            status: .inProgress,
+            priority: .high,
+            summary: "Offline recon update",
+            createdAt: fixedDate
+        )
+
+        let envelope = try hub.queueOffline(
+            messageType: .taskUpsert,
+            payload: offlineTask,
+            from: teamMember.device.id,
+            createdAt: fixedDate,
+            idempotencyKey: "offline-task"
+        )
+        var cache = LocalOperationCache(connectivity: .offline)
+        cache.queue(envelope, at: fixedDate)
+        let restoredCache = try LocalOperationCache.decoded(from: cache.encoded())
+
+        XCTAssertEqual(restoredCache.pendingCount, 1)
+        XCTAssertFalse(restoredCache.makeSyncPlan().shouldAttemptSync)
+        XCTAssertEqual(hub.runtime(for: teamMember.device.id)?.pendingOutboundCount, 1)
+
+        var onlineCache = restoredCache
+        onlineCache.markConnectivity(.online)
+        XCTAssertTrue(onlineCache.makeSyncPlan().shouldAttemptSync)
+
+        let receipts = try hub.flushQueuedOutbound(for: teamMember.device.id, deliveredAt: fixedDate.addingTimeInterval(30))
+
+        XCTAssertFalse(receipts.isEmpty)
+        XCTAssertEqual(hub.runtime(for: teamMember.device.id)?.pendingOutboundCount, 0)
+        XCTAssertEqual(hub.runtime(for: "DEVICE-LinkGuard-UCC")?.snapshot.tasks["TASK-OFFLINE"]?.status, .inProgress)
+    }
+
+    func testPhaseOneMapLayerTracksGPSGeometryAndOfflinePacks() {
+        let coordinate = GeoCoordinate(latitude: 25.0330, longitude: 121.5654, accuracyMeters: 4)
+        let secondCoordinate = GeoCoordinate(latitude: 25.0340, longitude: 121.5660)
+        let thirdCoordinate = GeoCoordinate(latitude: 25.0335, longitude: 121.5670)
+        var mapLayer = MapLayerState()
+        let fix = GPSFix(coordinate: coordinate, source: .deviceGPS, capturedAt: fixedDate, headingDegrees: 90)
+        let polygon = MapGeometry.polygon([coordinate, secondCoordinate, thirdCoordinate])
+        let feature = MapFeature(
+            id: "MAP-POLYGON",
+            incidentID: "INC-1",
+            featureType: .hazardPolygon,
+            coordinateMode: .gps,
+            geometry: polygon,
+            severity: .high,
+            title: "Unsafe wall",
+            createdBy: "DEVICE-TL",
+            updatedAt: fixedDate
+        )
+        let pack = OfflineMapPack(
+            id: "PACK-1",
+            incidentID: "INC-1",
+            name: "Taipei grid",
+            bounds: MapBoundingBox(minimumLatitude: 25.0, minimumLongitude: 121.5, maximumLatitude: 25.1, maximumLongitude: 121.6),
+            minimumZoom: 12,
+            maximumZoom: 18,
+            status: .available,
+            byteSize: 2_048,
+            downloadedAt: fixedDate
+        )
+
+        mapLayer.updateGPS(deviceID: "DEVICE-TL", fix: fix)
+        mapLayer.upsertFeature(feature)
+        mapLayer.upsertOfflinePack(pack)
+
+        XCTAssertTrue(MapGeometry.point(coordinate).isValidForDisplay)
+        XCTAssertTrue(MapGeometry.polyline([coordinate, secondCoordinate]).isValidForDisplay)
+        XCTAssertTrue(polygon.isValidForDisplay)
+        XCTAssertTrue(polygon.containsGPSCoordinates)
+        XCTAssertEqual(mapLayer.gpsFixesByDeviceID["DEVICE-TL"]?.coordinate.latitude, coordinate.latitude)
+        XCTAssertEqual(mapLayer.features(for: "INC-1").first?.featureType, .hazardPolygon)
+        XCTAssertEqual(mapLayer.availableOfflinePack(containing: coordinate)?.id, "PACK-1")
+    }
+
+    func testPhaseOneSOSBroadcastsLocationAndWritesAuditLog() throws {
+        let teamMember = runtime(appID: .teamMember)
+        let hub = InMemoryTransportHub(runtimes: allAppRuntimes())
+        let sos = SOSReport(
+            id: "SOS-1",
+            incidentID: "INC-1",
+            reporterDeviceID: teamMember.device.id,
+            reporterAppID: teamMember.device.appID,
+            location: GeoCoordinate(latitude: 25.0330, longitude: 121.5654, accuracyMeters: 3),
+            dangerType: .trapped,
+            note: "Void space entry blocked",
+            createdAt: fixedDate
+        )
+
+        let receipts = try hub.send(
+            messageType: .sosReportUpsert,
+            payload: sos,
+            from: teamMember.device.id,
+            createdAt: fixedDate,
+            idempotencyKey: "sos-1"
+        )
+
+        XCTAssertEqual(Set(receipts.map(\.recipientAppID)), Set(LinkGuardAppID.allCases))
+        XCTAssertEqual(hub.runtime(for: "DEVICE-LinkGuard-UCC")?.snapshot.sosReports["SOS-1"]?.dangerType, .trapped)
+        XCTAssertEqual(hub.runtime(for: "DEVICE-LinkGuard-SCC")?.snapshot.auditEvents.last?.action, .sendSOS)
+        XCTAssertEqual(sos.asIncidentAlert().type, .sos)
+    }
+
+    func testPhaseOneMapUpdateAutoCreatesEventLog() throws {
+        let teamLeader = runtime(appID: .teamLeader)
+        let hub = InMemoryTransportHub(runtimes: allAppRuntimes())
+        let feature = MapFeature(
+            id: "MAP-POINT",
+            incidentID: "INC-1",
+            featureType: .victimPoint,
+            coordinateMode: .gps,
+            geometry: .point(GeoCoordinate(latitude: 25.0330, longitude: 121.5654)),
+            severity: .critical,
+            title: "Voice contact",
+            createdBy: teamLeader.device.id,
+            updatedAt: fixedDate
+        )
+
+        _ = try hub.send(
+            messageType: .mapFeatureUpsert,
+            payload: feature,
+            from: teamLeader.device.id,
+            createdAt: fixedDate,
+            idempotencyKey: "map-point"
+        )
+
+        let sccAudit = hub.runtime(for: "DEVICE-LinkGuard-SCC")?.snapshot.auditEvents.last
+        XCTAssertEqual(sccAudit?.action, .mapUpdate)
+        XCTAssertEqual(sccAudit?.targetType, "mapFeature")
+        XCTAssertEqual(sccAudit?.targetID, "MAP-POINT")
+    }
+
     func testAlertBroadcastReachesEveryRegisteredApp() throws {
         let ucc = runtime(appID: .ucc)
         let hub = InMemoryTransportHub(runtimes: allAppRuntimes())

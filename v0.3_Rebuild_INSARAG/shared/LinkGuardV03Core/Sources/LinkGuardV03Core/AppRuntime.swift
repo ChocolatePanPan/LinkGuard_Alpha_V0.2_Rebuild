@@ -25,6 +25,8 @@ public enum AppLogicGate {
             return .issueCommand
         case .alertAcknowledgementUpsert:
             return .acknowledgeAlert
+        case .sosReportUpsert:
+            return .sendSOS
         case .patientUpsert, .evacuationRequestUpsert, .hospitalCapacityUpsert:
             return .manageMedicalPatient
         case .purchaseRequestUpsert, .personnelHoursUpsert:
@@ -38,7 +40,7 @@ public enum AppLogicGate {
 
     public static func defaultPriority(for messageType: SyncMessageType) -> PriorityLevel {
         switch messageType {
-        case .alertUpsert, .patientUpsert, .evacuationRequestUpsert:
+        case .alertUpsert, .sosReportUpsert, .patientUpsert, .evacuationRequestUpsert:
             return .critical
         case .commandUpsert, .worksiteUpsert, .mapFeatureUpsert, .hospitalCapacityUpsert:
             return .high
@@ -102,13 +104,49 @@ public struct LinkGuardAppRuntime: Codable, Sendable {
         outboundQueue.enqueue(envelope, queuedAt: queuedAt)
     }
 
+    @discardableResult
+    public mutating func queueOffline<Payload: Encodable>(
+        messageType: SyncMessageType,
+        payload: Payload,
+        priority: PriorityLevel? = nil,
+        createdAt: Date,
+        idempotencyKey: String? = nil,
+        sourceRole: ICSPosition? = nil
+    ) throws -> SyncEnvelope {
+        let envelope = try makeEnvelope(
+            messageType: messageType,
+            payload: payload,
+            priority: priority,
+            createdAt: createdAt,
+            idempotencyKey: idempotencyKey,
+            sourceRole: sourceRole
+        )
+        queueOutbound(envelope, queuedAt: createdAt)
+        return envelope
+    }
+
+    public mutating func markOutboundSending(_ messageID: LinkGuardID, at attemptTime: Date) {
+        outboundQueue.markSending(messageID: messageID, at: attemptTime)
+    }
+
     public mutating func markOutboundDelivered(_ messageID: LinkGuardID) {
         outboundQueue.markDelivered(messageID: messageID)
         outboundQueue.removeDelivered()
     }
 
+    public mutating func markOutboundFailed(_ messageID: LinkGuardID, error: String) {
+        outboundQueue.markFailed(messageID: messageID, error: error)
+    }
+
+    public var pendingOutboundCount: Int {
+        outboundQueue.entries.filter { $0.state == .queued || $0.state == .failed }.count
+    }
+
     public mutating func receive(_ envelope: SyncEnvelope) throws {
         try snapshot.apply(envelope)
+        if let auditEvent = try AuditEventFactory.event(for: envelope, recipientDeviceID: device.id) {
+            snapshot.record(auditEvent)
+        }
         receivedEnvelopeIDs.append(envelope.id)
     }
 }

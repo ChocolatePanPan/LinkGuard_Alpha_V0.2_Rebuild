@@ -9,6 +9,7 @@ public enum SyncMessageType: String, Codable, CaseIterable, Sendable {
     case taskUpsert
     case alertUpsert
     case alertAcknowledgementUpsert
+    case sosReportUpsert
     case mapFeatureUpsert
     case patientUpsert
     case evacuationRequestUpsert

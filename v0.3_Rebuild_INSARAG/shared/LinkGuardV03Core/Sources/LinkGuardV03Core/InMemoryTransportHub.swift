@@ -69,6 +69,61 @@ public final class InMemoryTransportHub {
     }
 
     @discardableResult
+    public func queueOffline<Payload: Encodable>(
+        messageType: SyncMessageType,
+        payload: Payload,
+        from sourceDeviceID: LinkGuardID,
+        priority: PriorityLevel? = nil,
+        createdAt: Date,
+        idempotencyKey: String? = nil,
+        sourceRole: ICSPosition? = nil
+    ) throws -> SyncEnvelope {
+        guard var sourceRuntime = runtimesByDeviceID[sourceDeviceID] else {
+            throw LinkGuardRuntimeError.deviceNotRegistered(sourceDeviceID)
+        }
+
+        let envelope = try sourceRuntime.queueOffline(
+            messageType: messageType,
+            payload: payload,
+            priority: priority,
+            createdAt: createdAt,
+            idempotencyKey: idempotencyKey,
+            sourceRole: sourceRole
+        )
+        runtimesByDeviceID[sourceDeviceID] = sourceRuntime
+        return envelope
+    }
+
+    @discardableResult
+    public func flushQueuedOutbound(for sourceDeviceID: LinkGuardID, deliveredAt: Date, limit: Int? = nil) throws -> [TransportDeliveryReceipt] {
+        guard var sourceRuntime = runtimesByDeviceID[sourceDeviceID] else {
+            throw LinkGuardRuntimeError.deviceNotRegistered(sourceDeviceID)
+        }
+
+        let pendingEntries = sourceRuntime.outboundQueue.entries
+            .filter { $0.state == .queued || $0.state == .failed }
+            .prefix(limit ?? Int.max)
+        var receipts: [TransportDeliveryReceipt] = []
+
+        for entry in pendingEntries {
+            sourceRuntime.markOutboundSending(entry.envelope.id, at: deliveredAt)
+            runtimesByDeviceID[sourceDeviceID] = sourceRuntime
+            do {
+                receipts.append(contentsOf: try transmit(entry.envelope, from: sourceDeviceID, deliveredAt: deliveredAt))
+                sourceRuntime = runtimesByDeviceID[sourceDeviceID] ?? sourceRuntime
+            } catch {
+                if var failedRuntime = runtimesByDeviceID[sourceDeviceID] {
+                    failedRuntime.markOutboundFailed(entry.envelope.id, error: String(describing: error))
+                    runtimesByDeviceID[sourceDeviceID] = failedRuntime
+                }
+                throw error
+            }
+        }
+
+        return receipts
+    }
+
+    @discardableResult
     public func transmit(_ envelope: SyncEnvelope, from sourceDeviceID: LinkGuardID, deliveredAt: Date) throws -> [TransportDeliveryReceipt] {
         guard runtimesByDeviceID[sourceDeviceID] != nil else {
             throw LinkGuardRuntimeError.deviceNotRegistered(sourceDeviceID)
