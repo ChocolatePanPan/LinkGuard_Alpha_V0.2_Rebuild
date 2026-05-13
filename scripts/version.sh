@@ -8,6 +8,13 @@ swift_version_file="$repo_root/v0.3_Rebuild_INSARAG/shared/LinkGuardV03Core/Sour
 xcode_project_files=(
   "$repo_root/v0.3_Rebuild_INSARAG/apps/mac/LinkGuard-UCC/LinkGuard-UCC.xcodeproj/project.pbxproj"
   "$repo_root/v0.3_Rebuild_INSARAG/apps/mac/LinkGuard-SCC/LinkGuard-SCC.xcodeproj/project.pbxproj"
+  "$repo_root/v0.3_Rebuild_INSARAG/apps/ios/LinkGuard-TL/LinkGuard-TL.xcodeproj/project.pbxproj"
+  "$repo_root/v0.3_Rebuild_INSARAG/apps/ios/LinkGuard-TE/LinkGuard-TE.xcodeproj/project.pbxproj"
+  "$repo_root/v0.3_Rebuild_INSARAG/apps/ios/LinkGuard-VO/LinkGuard-VO.xcodeproj/project.pbxproj"
+  "$repo_root/v0.3_Rebuild_INSARAG/apps/ios/LinkGuard-EMT/LinkGuard-EMT.xcodeproj/project.pbxproj"
+  "$repo_root/v0.3_Rebuild_INSARAG/apps/ipad/LinkGuard-SCC/LinkGuard-SCC-iPad.xcodeproj/project.pbxproj"
+  "$repo_root/v0.3_Rebuild_INSARAG/apps/ipad/LinkGuard-TL/LinkGuard-TL-iPad.xcodeproj/project.pbxproj"
+  "$repo_root/v0.3_Rebuild_INSARAG/apps/ipad/LinkGuard-EMT/LinkGuard-EMT-iPad.xcodeproj/project.pbxproj"
 )
 
 usage() {

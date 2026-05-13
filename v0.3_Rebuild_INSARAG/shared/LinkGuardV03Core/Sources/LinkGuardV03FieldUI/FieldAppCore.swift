@@ -3,6 +3,7 @@ import LinkGuardV03Core
 
 public enum FieldAppError: Error, Equatable, Sendable {
     case missingGPSFix
+    case featureUnavailable(appID: LinkGuardAppID, feature: LinkGuardFeature)
 }
 
 public struct FieldOperationalContext: Codable, Hashable, Sendable {
@@ -107,6 +108,18 @@ public struct FieldAppController: Sendable {
         runtime.canSend(messageType)
     }
 
+    public func accessLevel(for feature: LinkGuardFeature) -> FeatureAccessLevel {
+        LinkGuardFeatureAccessMatrix.accessLevel(for: runtime.device.appID, feature: feature)
+    }
+
+    public func canSeeFeature(_ feature: LinkGuardFeature) -> Bool {
+        accessLevel(for: feature).isAvailable
+    }
+
+    public func canUseFeature(_ feature: LinkGuardFeature) -> Bool {
+        canSeeFeature(feature)
+    }
+
     public mutating func recordGPSFix(_ fix: GPSFix) {
         latestGPSFix = fix
         mapLayer.updateGPS(deviceID: runtime.device.id, fix: fix)
@@ -114,6 +127,8 @@ public struct FieldAppController: Sendable {
 
     @discardableResult
     public mutating func queueSectorPlan(now: Date) throws -> [SyncEnvelope] {
+        try requireFeature(.sectorCreation)
+        try requireFeature(.subSectorCreation)
         let coordinate = try currentCoordinate()
         let sector = Sector(
             id: context.sectorID,
@@ -157,6 +172,7 @@ public struct FieldAppController: Sendable {
         note: String? = nil,
         now: Date
     ) throws -> SyncEnvelope {
+        try requireFeature(.gpsTracking)
         let report = PersonnelStatusReport(
             id: LinkGuardID("STATUS-\(runtime.device.id.rawValue)"),
             incidentID: context.incidentID,
@@ -187,6 +203,7 @@ public struct FieldAppController: Sendable {
 
     @discardableResult
     public mutating func queueTaskStatus(_ status: TaskStatus, now: Date) throws -> SyncEnvelope {
+        try requireFeature(.taskAssignment)
         let task = FieldTask(
             id: context.taskID,
             incidentID: context.incidentID,
@@ -215,6 +232,7 @@ public struct FieldAppController: Sendable {
         checksum: String?,
         now: Date
     ) throws -> SyncEnvelope {
+        try requireFeature(.photoReport)
         let photo = PhotoReport(
             id: LinkGuardID.generated(prefix: "PHOTO"),
             incidentID: context.incidentID,
@@ -239,6 +257,7 @@ public struct FieldAppController: Sendable {
 
     @discardableResult
     public mutating func queueSafetyZone(now: Date) throws -> SyncEnvelope {
+        try requireFeature(.safetyControl)
         let coordinate = try currentCoordinate()
         let offset = 0.00025
         let zone = SafetyZone(
@@ -267,6 +286,7 @@ public struct FieldAppController: Sendable {
 
     @discardableResult
     public mutating func queueSafetyEntry(_ action: SafetyEntryAction, now: Date) throws -> SyncEnvelope {
+        try requireFeature(.safetyControl)
         let entry = SafetyEntryLog(
             id: LinkGuardID.generated(prefix: "ENTRY"),
             incidentID: context.incidentID,
@@ -291,6 +311,7 @@ public struct FieldAppController: Sendable {
 
     @discardableResult
     public mutating func queueGroupChat(body: String, priority: PriorityLevel = .medium, now: Date) throws -> SyncEnvelope {
+        try requireFeature(.radioMonitoring)
         let message = GroupChatMessage(
             id: LinkGuardID.generated(prefix: "CHAT"),
             incidentID: context.incidentID,
@@ -315,6 +336,7 @@ public struct FieldAppController: Sendable {
 
     @discardableResult
     public mutating func queueVoiceReport(transcript: String?, durationSeconds: Double, now: Date) throws -> SyncEnvelope {
+        try requireFeature(.radioMonitoring)
         let report = VoiceReport(
             id: LinkGuardID.generated(prefix: "VOICE"),
             incidentID: context.incidentID,
@@ -339,8 +361,115 @@ public struct FieldAppController: Sendable {
 
     @discardableResult
     public mutating func queueSOS(dangerType: SOSDangerType, note: String?, now: Date) throws -> SyncEnvelope {
+        try requireFeature(.sosHandling)
         let action = FieldSOSAction(incidentID: context.incidentID, dangerType: dangerType, note: note)
         let envelope = try action.makeEnvelope(runtime: runtime, latestGPSFix: latestGPSFix, createdAt: now)
+        return queue(envelope, at: now)
+    }
+
+    @discardableResult
+    public mutating func queuePatientUpload(
+        displayCode: String,
+        triageCategory: TriageCategory,
+        injurySummary: String,
+        now: Date
+    ) throws -> SyncEnvelope {
+        try requireFeature(.patientUpload)
+        let patient = patientRecord(
+            patientID: LinkGuardID.generated(prefix: "PATIENT"),
+            displayCode: displayCode,
+            triageCategory: triageCategory,
+            injurySummary: injurySummary,
+            now: now
+        )
+        let envelope = try runtime.makeEnvelope(
+            messageType: .patientUpsert,
+            payload: patient,
+            createdAt: now,
+            idempotencyKey: idempotencyKey("patient-upload", now),
+            sourceRole: defaultRole
+        )
+        return queue(envelope, at: now)
+    }
+
+    @discardableResult
+    public mutating func queueStartTriage(
+        displayCode: String,
+        category: TriageCategory,
+        respiratoryRate: Int?,
+        pulseRate: Int?,
+        gcs: Int?,
+        injurySummary: String,
+        now: Date
+    ) throws -> SyncEnvelope {
+        try requireFeature(.startTriage)
+        var patient = patientRecord(
+            patientID: LinkGuardID.generated(prefix: "START"),
+            displayCode: displayCode,
+            triageCategory: category,
+            injurySummary: injurySummary,
+            now: now
+        )
+        patient.latestVitals = VitalSigns(
+            heartRate: pulseRate,
+            respiratoryRate: respiratoryRate,
+            gcs: gcs,
+            recordedAt: now
+        )
+        let envelope = try runtime.makeEnvelope(
+            messageType: .patientUpsert,
+            payload: patient,
+            createdAt: now,
+            idempotencyKey: idempotencyKey("start-triage", now),
+            sourceRole: defaultRole
+        )
+        return queue(envelope, at: now)
+    }
+
+    @discardableResult
+    public mutating func queuePatientStatusUpdate(
+        patientID: LinkGuardID,
+        displayCode: String,
+        triageCategory: TriageCategory,
+        injurySummary: String,
+        now: Date
+    ) throws -> SyncEnvelope {
+        try requireFeature(.patientStatusUpdate)
+        let patient = patientRecord(
+            patientID: patientID,
+            displayCode: displayCode,
+            triageCategory: triageCategory,
+            injurySummary: injurySummary,
+            now: now
+        )
+        let envelope = try runtime.makeEnvelope(
+            messageType: .patientUpsert,
+            payload: patient,
+            createdAt: now,
+            idempotencyKey: idempotencyKey("patient-status-\(patientID.rawValue)", now),
+            sourceRole: defaultRole
+        )
+        return queue(envelope, at: now)
+    }
+
+    @discardableResult
+    public mutating func queueEvacuationRequest(patientID: LinkGuardID, destinationHospitalID: LinkGuardID?, now: Date) throws -> SyncEnvelope {
+        try requireFeature(.evacuationManagement)
+        let request = EvacuationRequest(
+            id: LinkGuardID.generated(prefix: "EVAC"),
+            patientID: patientID,
+            priority: .high,
+            destinationHospitalID: destinationHospitalID,
+            status: .pending,
+            requestedAt: now
+        )
+        let envelope = try runtime.makeEnvelope(
+            messageType: .evacuationRequestUpsert,
+            payload: request,
+            createdAt: now,
+            idempotencyKey: idempotencyKey("evac-\(patientID.rawValue)", now),
+            sourceRole: defaultRole
+        )
         return queue(envelope, at: now)
     }
 
@@ -355,6 +484,31 @@ public struct FieldAppController: Sendable {
     private func currentCoordinate() throws -> GeoCoordinate {
         guard let coordinate = latestGPSFix?.coordinate else { throw FieldAppError.missingGPSFix }
         return coordinate
+    }
+
+    private func requireFeature(_ feature: LinkGuardFeature) throws {
+        guard canUseFeature(feature) else {
+            throw FieldAppError.featureUnavailable(appID: runtime.device.appID, feature: feature)
+        }
+    }
+
+    private func patientRecord(
+        patientID: LinkGuardID,
+        displayCode: String,
+        triageCategory: TriageCategory,
+        injurySummary: String,
+        now: Date
+    ) -> PatientRecord {
+        PatientRecord(
+            id: patientID,
+            incidentID: context.incidentID,
+            displayCode: displayCode,
+            triageCategory: triageCategory,
+            injurySummary: injurySummary,
+            location: latestGPSFix?.coordinate,
+            careLocationID: context.worksiteID,
+            updatedAt: now
+        )
     }
 
     private var defaultRole: ICSPosition {

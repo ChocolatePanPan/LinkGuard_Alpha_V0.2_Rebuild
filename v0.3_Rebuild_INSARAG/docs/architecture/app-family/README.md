@@ -14,3 +14,5 @@ LinkGuard v0.3 採角色分流版本，但底層資料與同步規則必須一�
 ## Architecture rule
 
 版本可以分開，但事件、地圖、警報、醫療、AAR、Finance 的資料契約不能分裂。所有 app 都應回到同一套 shared model 與 protocol。
+
+端上功能必須依 `LinkGuardFeatureAccessMatrix` 控制顯示與操作：`✕` 不出現在角色介面，`○` 保留查看或有限操作，`●` 才是主要操作入口。

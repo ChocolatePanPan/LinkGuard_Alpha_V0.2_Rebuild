@@ -14,9 +14,12 @@ public enum LinkGuardPermission: String, Codable, CaseIterable, Sendable {
     case viewMedicalSummary
     case viewMedicalDetails
     case manageMedicalPatient
+    case managePatientReport
+    case manageEvacuation
     case manageLogistics
     case manageFinance
     case exportAAR
+    case monitorRadio
     case provisionDevice
 }
 
@@ -64,8 +67,11 @@ public enum RoleProfileCatalog {
             .submitReport,
             .sendSOS,
             .viewMedicalSummary,
+            .managePatientReport,
+            .manageEvacuation,
             .manageLogistics,
             .exportAAR,
+            .monitorRadio,
             .provisionDevice
         ])
         let teamLeaderPermissions = Set<LinkGuardPermission>([
@@ -77,14 +83,17 @@ public enum RoleProfileCatalog {
             .updateTask,
             .submitReport,
             .sendSOS,
-            .viewMedicalSummary
+            .viewMedicalSummary,
+            .managePatientReport,
+            .monitorRadio
         ])
         let teamMemberPermissions = Set<LinkGuardPermission>([
             .viewIncident,
             .acknowledgeAlert,
             .updateTask,
             .submitReport,
-            .sendSOS
+            .sendSOS,
+            .managePatientReport
         ])
         let volunteerPermissions = Set<LinkGuardPermission>([
             .viewIncident,
@@ -99,6 +108,8 @@ public enum RoleProfileCatalog {
             .viewMedicalSummary,
             .viewMedicalDetails,
             .manageMedicalPatient,
+            .managePatientReport,
+            .manageEvacuation,
             .submitReport
         ])
 
@@ -109,7 +120,7 @@ public enum RoleProfileCatalog {
                 defaultSections: [.command, .operations, .planning, .logistics, .finance, .afterActionReview],
                 commandAuthority: .global,
                 medicalAccess: .operational,
-                permissions: uccPermissions.subtracting([.viewMedicalDetails, .manageMedicalPatient])
+                permissions: uccPermissions.subtracting([.viewMedicalDetails, .manageMedicalPatient, .managePatientReport, .manageEvacuation])
             ),
             .scc: RoleProfile(
                 appID: .scc,

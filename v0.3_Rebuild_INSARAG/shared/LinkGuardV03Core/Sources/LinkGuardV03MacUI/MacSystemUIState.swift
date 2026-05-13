@@ -335,7 +335,7 @@ public enum MacSystemUIFactory {
         case .finance:
             return [.manageFinance]
         case .medical:
-            return [.viewMedicalSummary, .manageMedicalPatient]
+            return [.viewMedicalSummary, .managePatientReport, .manageEvacuation, .manageMedicalPatient]
         case .afterActionReview:
             return [.exportAAR]
         }
@@ -357,7 +357,7 @@ public enum MacSystemUIFactory {
         ("update-task", "任務更新", .updateTask, .taskUpsert, "checklist"),
         ("map-feature", "分區地圖", .manageMap, .mapFeatureUpsert, "map.fill"),
         ("safety-zone", "安全管制", .manageMap, .safetyZoneUpsert, "shield.lefthalf.filled"),
-        ("voice-report", "語音回報", .submitReport, .voiceReportAppend, "waveform"),
+        ("voice-report", "語音回報", .monitorRadio, .voiceReportAppend, "waveform"),
         ("finance", "統計儀表板", .manageFinance, .purchaseRequestUpsert, "chart.bar.xaxis"),
         ("export-aar", "事件日誌", .exportAAR, .decisionRecordUpsert, "clock.arrow.circlepath")
     ]

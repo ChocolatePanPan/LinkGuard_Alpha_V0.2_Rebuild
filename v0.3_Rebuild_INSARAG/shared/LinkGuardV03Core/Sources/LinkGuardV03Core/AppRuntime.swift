@@ -21,15 +21,21 @@ public enum AppLogicGate {
             return .manageMap
         case .taskUpsert, .safetyEntryLogUpsert:
             return .updateTask
-        case .personnelStatusUpsert, .photoReportUpsert, .groupChatMessageAppend, .voiceReportAppend:
+        case .personnelStatusUpsert, .photoReportUpsert:
             return .submitReport
+        case .groupChatMessageAppend, .voiceReportAppend:
+            return .monitorRadio
         case .alertUpsert:
             return .issueCommand
         case .alertAcknowledgementUpsert:
             return .acknowledgeAlert
         case .sosReportUpsert:
             return .sendSOS
-        case .patientUpsert, .evacuationRequestUpsert, .hospitalCapacityUpsert:
+        case .patientUpsert:
+            return .managePatientReport
+        case .evacuationRequestUpsert:
+            return .manageEvacuation
+        case .hospitalCapacityUpsert:
             return .manageMedicalPatient
         case .purchaseRequestUpsert, .personnelHoursUpsert:
             return .manageFinance

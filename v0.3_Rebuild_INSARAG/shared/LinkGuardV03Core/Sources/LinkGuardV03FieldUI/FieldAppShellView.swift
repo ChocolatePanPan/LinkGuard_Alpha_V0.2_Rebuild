@@ -16,6 +16,7 @@ public struct FieldAppShellView: View {
                     header
                     primaryActions
                     phaseTwoActions
+                    medicalActions
                     outboundQueue
                 }
                 .padding(16)
@@ -60,13 +61,13 @@ public struct FieldAppShellView: View {
             Text("Primary")
                 .font(.headline)
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 10)], spacing: 10) {
-                actionButton("Status", systemImage: "person.crop.circle.badge.checkmark", enabled: controller.canSend(.personnelStatusUpsert)) {
+                actionButton("Status", systemImage: "person.crop.circle.badge.checkmark", feature: .gpsTracking, enabled: controller.canSend(.personnelStatusUpsert)) {
                     try controller.queuePersonnelStatus(operationalState: .inWorksite, connectivity: .online, batteryLevel: 0.82, now: Date())
                 }
-                actionButton("SOS", systemImage: "sos.circle.fill", enabled: controller.canSend(.sosReportUpsert)) {
+                actionButton("SOS", systemImage: "sos.circle.fill", feature: .sosHandling, enabled: controller.canSend(.sosReportUpsert)) {
                     try controller.queueSOS(dangerType: .trapped, note: "Field SOS", now: Date())
                 }
-                actionButton("Voice", systemImage: "waveform.circle.fill", enabled: controller.canSend(.voiceReportAppend)) {
+                actionButton("Voice", systemImage: "waveform.circle.fill", feature: .radioMonitoring, enabled: controller.canSend(.voiceReportAppend)) {
                     try controller.queueVoiceReport(transcript: "Need support at A1", durationSeconds: 6, now: Date())
                 }
             }
@@ -78,23 +79,46 @@ public struct FieldAppShellView: View {
             Text("Phase 2")
                 .font(.headline)
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 10)], spacing: 10) {
-                actionButton("Sector", systemImage: "square.3.layers.3d", enabled: controller.canSend(.sectorUpsert) && controller.canSend(.worksiteUpsert)) {
+                actionButton("Sector", systemImage: "square.3.layers.3d", feature: .sectorCreation, enabled: controller.canSeeFeature(.subSectorCreation) && controller.canSend(.sectorUpsert) && controller.canSend(.subSectorUpsert) && controller.canSend(.worksiteUpsert)) {
                     try controller.queueSectorPlan(now: Date()).last
                 }
-                actionButton("Task", systemImage: "checklist.checked", enabled: controller.canSend(.taskUpsert)) {
+                actionButton("Task", systemImage: "checklist.checked", feature: .taskAssignment, enabled: controller.canSend(.taskUpsert)) {
                     try controller.queueTaskStatus(.inProgress, now: Date())
                 }
-                actionButton("Photo", systemImage: "camera.fill", enabled: controller.canSend(.photoReportUpsert)) {
+                actionButton("Photo", systemImage: "camera.fill", feature: .photoReport, enabled: controller.canSend(.photoReportUpsert)) {
                     try controller.queuePhotoReport(photoAttachmentID: LinkGuardID.generated(prefix: "ATTACH"), caption: "A1 photo", checksum: nil, now: Date())
                 }
-                actionButton("Zone", systemImage: "exclamationmark.triangle.fill", enabled: controller.canSend(.safetyZoneUpsert)) {
+                actionButton("Zone", systemImage: "exclamationmark.triangle.fill", feature: .safetyControl, enabled: controller.canSend(.safetyZoneUpsert)) {
                     try controller.queueSafetyZone(now: Date())
                 }
-                actionButton("Check In", systemImage: "figure.walk.arrival", enabled: controller.canSend(.safetyEntryLogUpsert)) {
+                actionButton("Check In", systemImage: "figure.walk.arrival", feature: .safetyControl, enabled: controller.canSend(.safetyEntryLogUpsert)) {
                     try controller.queueSafetyEntry(.checkIn, now: Date())
                 }
-                actionButton("Chat", systemImage: "message.fill", enabled: controller.canSend(.groupChatMessageAppend)) {
+                actionButton("Chat", systemImage: "message.fill", feature: .radioMonitoring, enabled: controller.canSend(.groupChatMessageAppend)) {
                     try controller.queueGroupChat(body: "A1 status update", now: Date())
+                }
+            }
+        }
+    }
+
+    private var medicalActions: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if controller.canSeeFeature(.patientUpload) || controller.canSeeFeature(.startTriage) || controller.canSeeFeature(.patientStatusUpdate) || controller.canSeeFeature(.evacuationManagement) {
+                Text("Medical")
+                    .font(.headline)
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 10)], spacing: 10) {
+                    actionButton("Patient", systemImage: "cross.case.fill", feature: .patientUpload, enabled: controller.canSend(.patientUpsert)) {
+                        try controller.queuePatientUpload(displayCode: "A023", triageCategory: .red, injurySummary: "Leg bleed", now: Date())
+                    }
+                    actionButton("START", systemImage: "waveform.path.ecg", feature: .startTriage, enabled: controller.canSend(.patientUpsert)) {
+                        try controller.queueStartTriage(displayCode: "A023", category: .red, respiratoryRate: 28, pulseRate: 120, gcs: 14, injurySummary: "Leg bleed", now: Date())
+                    }
+                    actionButton("Patient Status", systemImage: "heart.text.square.fill", feature: .patientStatusUpdate, enabled: controller.canSend(.patientUpsert)) {
+                        try controller.queuePatientStatusUpdate(patientID: "PATIENT-A023", displayCode: "A023", triageCategory: .yellow, injurySummary: "Tourniquet applied", now: Date())
+                    }
+                    actionButton("Evac", systemImage: "arrow.triangle.2.circlepath.circle.fill", feature: .evacuationManagement, enabled: controller.canSend(.evacuationRequestUpsert)) {
+                        try controller.queueEvacuationRequest(patientID: "PATIENT-A023", destinationHospitalID: nil, now: Date())
+                    }
                 }
             }
         }
@@ -131,21 +155,24 @@ public struct FieldAppShellView: View {
         }
     }
 
-    private func actionButton(_ title: String, systemImage: String, enabled: Bool, operation: @escaping () throws -> SyncEnvelope?) -> some View {
-        Button {
-            do {
-                _ = try operation()
-                statusText = "Queued"
-            } catch {
-                statusText = "Blocked"
+    @ViewBuilder
+    private func actionButton(_ title: String, systemImage: String, feature: LinkGuardFeature, enabled: Bool, operation: @escaping () throws -> SyncEnvelope?) -> some View {
+        if controller.canSeeFeature(feature) {
+            Button {
+                do {
+                    _ = try operation()
+                    statusText = "Queued"
+                } catch {
+                    statusText = "Blocked"
+                }
+            } label: {
+                Label(title, systemImage: systemImage)
+                    .font(.headline)
+                    .frame(maxWidth: .infinity, minHeight: 50)
             }
-        } label: {
-            Label(title, systemImage: systemImage)
-                .font(.headline)
-                .frame(maxWidth: .infinity, minHeight: 50)
+            .buttonStyle(.borderedProminent)
+            .disabled(enabled == false || controller.canUseFeature(feature) == false)
         }
-        .buttonStyle(.borderedProminent)
-        .disabled(enabled == false)
     }
 
     private func statusChip(title: String, systemImage: String) -> some View {

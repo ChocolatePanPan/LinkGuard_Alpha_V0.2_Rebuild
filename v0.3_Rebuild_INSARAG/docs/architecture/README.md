@@ -8,3 +8,4 @@
 - 共享核心邊界。
 - UCC/SCC/VO/TE/TL/EMT 關係。
 - Mac、iPhone、iPad 角色分流。
+- Role feature access matrix：UCC/SCC/TL/TE/EMT/VO 的 ●/○/✕ 功能權限。
