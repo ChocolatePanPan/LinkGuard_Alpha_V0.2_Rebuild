@@ -68,6 +68,62 @@ public struct FieldQueuedEnvelopeSummary: Codable, Hashable, Sendable, Identifia
     }
 }
 
+public struct FieldMissionSummary: Codable, Hashable, Sendable {
+    public var incidentName: String
+    public var worksiteName: String
+    public var openTaskCount: Int
+    public var assignedTaskCount: Int
+    public var personnelCount: Int
+    public var onlinePersonnelCount: Int
+    public var safetyZoneCount: Int
+    public var photoReportCount: Int
+    public var disasterReportCount: Int
+    public var patientCount: Int
+    public var sosCount: Int
+
+    public init(
+        incidentName: String,
+        worksiteName: String,
+        openTaskCount: Int,
+        assignedTaskCount: Int,
+        personnelCount: Int,
+        onlinePersonnelCount: Int,
+        safetyZoneCount: Int,
+        photoReportCount: Int,
+        disasterReportCount: Int,
+        patientCount: Int,
+        sosCount: Int
+    ) {
+        self.incidentName = incidentName
+        self.worksiteName = worksiteName
+        self.openTaskCount = openTaskCount
+        self.assignedTaskCount = assignedTaskCount
+        self.personnelCount = personnelCount
+        self.onlinePersonnelCount = onlinePersonnelCount
+        self.safetyZoneCount = safetyZoneCount
+        self.photoReportCount = photoReportCount
+        self.disasterReportCount = disasterReportCount
+        self.patientCount = patientCount
+        self.sosCount = sosCount
+    }
+}
+
+public struct FieldInboxItem: Codable, Hashable, Sendable, Identifiable {
+    public var id: LinkGuardID
+    public var title: String
+    public var detail: String
+    public var systemImageName: String
+    public var priority: PriorityLevel
+
+    public init(id: LinkGuardID, title: String, detail: String, systemImageName: String, priority: PriorityLevel) {
+        self.id = id
+        self.title = title
+        self.detail = detail
+        self.systemImageName = systemImageName
+        self.priority = priority
+    }
+}
+
 public struct FieldAppController: Sendable {
     public var runtime: LinkGuardAppRuntime
     public private(set) var localCache: LocalOperationCache
@@ -98,11 +154,102 @@ public struct FieldAppController: Sendable {
                 capturedAt: now
             )
         )
+        seedMissionState(now: now)
     }
 
     public var profile: RoleProfile { runtime.profile }
     public var blueprint: AppBlueprint { runtime.blueprint }
+    public var teamMemberPhases: [TeamMemberPhase] { TeamMemberPhaseCatalog.phases(for: runtime.device.appID) }
+    public var executableTeamMemberPhases: [TeamMemberPhase] { teamMemberPhases.filter(TeamMemberPhaseCatalog.isExecutableByTeamMember) }
+    public var emtMedicalPhases: [EMTMedicalPhase] { EMTMedicalPhaseCatalog.phases(for: runtime.device.appID) }
+    public var executableEMTMedicalPhases: [EMTMedicalPhase] { emtMedicalPhases.filter(EMTMedicalPhaseCatalog.isExecutableByEMT) }
     public var pendingEnvelopeCount: Int { localCache.pendingCount }
+    public var missionSummary: FieldMissionSummary {
+        let snapshot = runtime.snapshot
+        let openTasks = snapshot.tasks.values.filter { $0.status != .completed && $0.status != .cancelled }
+        let assignedTasks = snapshot.tasks.values.filter { $0.status == .assigned || $0.status == .accepted || $0.status == .inProgress }
+        let personnel = snapshot.personnelStatusReports.values
+        let onlinePersonnel = personnel.filter { $0.connectivity == .online || $0.connectivity == .degraded }
+        return FieldMissionSummary(
+            incidentName: snapshot.incidents[context.incidentID]?.displayName ?? context.incidentID.rawValue,
+            worksiteName: snapshot.worksites[context.worksiteID]?.name ?? context.worksiteID.rawValue,
+            openTaskCount: openTasks.count,
+            assignedTaskCount: assignedTasks.count,
+            personnelCount: personnel.count,
+            onlinePersonnelCount: onlinePersonnel.count,
+            safetyZoneCount: snapshot.safetyZones.count,
+            photoReportCount: snapshot.photoReports.count,
+            disasterReportCount: snapshot.disasterReports.count,
+            patientCount: snapshot.patients.count,
+            sosCount: snapshot.sosReports.count
+        )
+    }
+
+    public var inboxItems: [FieldInboxItem] {
+        let taskItems = runtime.snapshot.tasks.values
+            .filter { $0.status != .completed && $0.status != .cancelled }
+            .sorted { lhs, rhs in
+                if lhs.priority != rhs.priority { return lhs.priority > rhs.priority }
+                return lhs.createdAt > rhs.createdAt
+            }
+            .prefix(4)
+            .map { task in
+                FieldInboxItem(
+                    id: task.id,
+                    title: task.summary,
+                    detail: "\(task.type.rawValue) / \(task.status.rawValue)",
+                    systemImageName: "checklist.checked",
+                    priority: task.priority
+                )
+            }
+        let sosItems = runtime.snapshot.sosReports.values
+            .sorted { $0.createdAt > $1.createdAt }
+            .prefix(2)
+            .map { report in
+                FieldInboxItem(
+                    id: report.id,
+                    title: "SOS \(report.dangerType.rawValue)",
+                    detail: report.reporterDeviceID.rawValue,
+                    systemImageName: "sos.circle.fill",
+                    priority: .critical
+                )
+            }
+        return Array(taskItems + sosItems)
+    }
+
+    public var roleWorkflowTitle: String {
+        switch runtime.device.appID {
+        case .sccIPad:
+            return "SCC iPad / Sector Control"
+        case .teamLeader, .teamLeaderIPad:
+            return "TL / Worksite Command"
+        case .teamMember:
+            return "TE / Task Execution"
+        case .volunteer:
+            return "VO / Support Reporting"
+        case .emt, .emtIPad:
+            return "EMT / Triage Flow"
+        case .ucc, .scc:
+            return "Command Field Preview"
+        }
+    }
+
+    public var roleWorkflowSubtitle: String {
+        switch runtime.device.appID {
+        case .sccIPad:
+            return "分區管理、人員總覽、安全管制"
+        case .teamLeader, .teamLeaderIPad:
+            return "分區、Worksite、任務派遣與回報閉環"
+        case .teamMember:
+            return "任務接收、GPS、照片、SOS 與狀態回報"
+        case .volunteer:
+            return "GPS、SOS、照片、災情與語音回報"
+        case .emt, .emtIPad:
+            return LinkGuardEMTMedicalVersion.corePositioning
+        case .ucc, .scc:
+            return "shared core envelope preview"
+        }
+    }
 
     public func canSend(_ messageType: SyncMessageType) -> Bool {
         runtime.canSend(messageType)
@@ -123,6 +270,16 @@ public struct FieldAppController: Sendable {
     public mutating func recordGPSFix(_ fix: GPSFix) {
         latestGPSFix = fix
         mapLayer.updateGPS(deviceID: runtime.device.id, fix: fix)
+    }
+
+    public mutating func receive(_ envelope: SyncEnvelope) throws {
+        try runtime.receive(envelope)
+    }
+
+    @discardableResult
+    public mutating func queueGPSReport(now: Date) throws -> SyncEnvelope {
+        try requireFeature(.gpsTracking)
+        return try queuePersonnelLocation(state: .available, note: "GPS heartbeat", now: now)
     }
 
     @discardableResult
@@ -227,6 +384,30 @@ public struct FieldAppController: Sendable {
     }
 
     @discardableResult
+    public mutating func queueTaskAssignment(summary: String = "Search A1 void and report victim contact", now: Date) throws -> SyncEnvelope {
+        try requireFeature(.taskAssignment)
+        let task = FieldTask(
+            id: context.taskID,
+            incidentID: context.incidentID,
+            worksiteID: context.worksiteID,
+            assignedTeamID: context.teamID,
+            type: .search,
+            status: .assigned,
+            priority: .high,
+            summary: summary,
+            createdAt: now
+        )
+        let envelope = try runtime.makeEnvelope(
+            messageType: .taskUpsert,
+            payload: task,
+            createdAt: now,
+            idempotencyKey: idempotencyKey("task-assignment", now),
+            sourceRole: defaultRole
+        )
+        return queue(envelope, at: now)
+    }
+
+    @discardableResult
     public mutating func queuePhotoReport(
         photoAttachmentID: LinkGuardID,
         caption: String?,
@@ -251,6 +432,38 @@ public struct FieldAppController: Sendable {
             payload: photo,
             createdAt: now,
             idempotencyKey: idempotencyKey("photo", now),
+            sourceRole: defaultRole
+        )
+        return queue(envelope, at: now)
+    }
+
+    @discardableResult
+    public mutating func queueDisasterReport(
+        kind: DisasterReportKind,
+        severity: PriorityLevel = .high,
+        summary: String? = nil,
+        photoAttachmentIDs: [LinkGuardID] = [],
+        now: Date
+    ) throws -> SyncEnvelope {
+        try requireFeature(.disasterReport)
+        let report = DisasterReport(
+            id: LinkGuardID.generated(prefix: "DISASTER"),
+            incidentID: context.incidentID,
+            reporterDeviceID: runtime.device.id,
+            reporterAppID: runtime.device.appID,
+            kind: kind,
+            location: try currentCoordinate(),
+            severity: severity,
+            summary: summary,
+            photoAttachmentIDs: photoAttachmentIDs,
+            createdAt: now
+        )
+        let envelope = try runtime.makeEnvelope(
+            messageType: .disasterReportUpsert,
+            payload: report,
+            priority: severity,
+            createdAt: now,
+            idempotencyKey: idempotencyKey("disaster-\(kind.rawValue)", now),
             sourceRole: defaultRole
         )
         return queue(envelope, at: now)
@@ -500,12 +713,72 @@ public struct FieldAppController: Sendable {
         return queue(envelope, at: now)
     }
 
+    @discardableResult
+    public mutating func queueHospitalCapacityUpdate(
+        hospitalID: LinkGuardID = "HOSPITAL-FIELD-1",
+        name: String = "Receiving Hospital",
+        emergencyCapacity: Int,
+        traumaCapacity: Int,
+        burnCapacity: Int = 0,
+        pediatricCapacity: Int = 0,
+        now: Date
+    ) throws -> SyncEnvelope {
+        try requireFeature(.hospitalCapacityView)
+        let hospital = HospitalCapacity(
+            id: hospitalID,
+            name: name,
+            emergencyCapacity: emergencyCapacity,
+            traumaCapacity: traumaCapacity,
+            burnCapacity: burnCapacity,
+            pediatricCapacity: pediatricCapacity,
+            updatedAt: now
+        )
+        let envelope = try runtime.makeEnvelope(
+            messageType: .hospitalCapacityUpsert,
+            payload: hospital,
+            createdAt: now,
+            idempotencyKey: idempotencyKey("hospital-\(hospitalID.rawValue)", now),
+            sourceRole: defaultRole
+        )
+        return queue(envelope, at: now)
+    }
+
     private mutating func queue(_ envelope: SyncEnvelope, at date: Date) -> SyncEnvelope {
+        try? runtime.receive(envelope)
         localCache.queue(envelope, at: date)
         runtime.queueOutbound(envelope, queuedAt: date)
         queuedSummaries.insert(FieldQueuedEnvelopeSummary(envelope: envelope), at: 0)
         queuedSummaries = Array(queuedSummaries.prefix(8))
         return envelope
+    }
+
+    private mutating func queuePersonnelLocation(state: PersonnelOperationalState, note: String?, now: Date) throws -> SyncEnvelope {
+        let report = PersonnelStatusReport(
+            id: LinkGuardID("GPS-\(runtime.device.id.rawValue)"),
+            incidentID: context.incidentID,
+            personID: context.personID,
+            deviceID: runtime.device.id,
+            appID: runtime.device.appID,
+            role: defaultRole,
+            operationalState: state,
+            connectivity: .online,
+            location: latestGPSFix?.coordinate,
+            currentSectorID: context.sectorID,
+            currentSubSectorID: context.subSectorID,
+            currentWorksiteID: context.worksiteID,
+            currentTaskID: context.taskID,
+            batteryLevel: nil,
+            updatedAt: now,
+            note: note
+        )
+        let envelope = try runtime.makeEnvelope(
+            messageType: .personnelStatusUpsert,
+            payload: report,
+            createdAt: now,
+            idempotencyKey: idempotencyKey("gps", now),
+            sourceRole: defaultRole
+        )
+        return queue(envelope, at: now)
     }
 
     private func currentCoordinate() throws -> GeoCoordinate {
@@ -561,6 +834,129 @@ public struct FieldAppController: Sendable {
             careLocationID: context.worksiteID,
             updatedAt: now
         )
+    }
+
+    private mutating func seedMissionState(now: Date) {
+        let coordinate = latestGPSFix?.coordinate ?? GeoCoordinate(latitude: 25.033, longitude: 121.565, accuracyMeters: 8)
+        let incident = Incident(
+            id: context.incidentID,
+            displayName: "INSARAG Field Drill",
+            status: .active,
+            createdAt: now,
+            createdBy: "DEVICE-LinkGuard-SCC",
+            commandPostLocation: coordinate
+        )
+        let sector = Sector(id: context.sectorID, incidentID: context.incidentID, name: "Sector A", commanderID: "DEVICE-LinkGuard-SCC")
+        let subSector = SubSector(
+            id: context.subSectorID,
+            incidentID: context.incidentID,
+            sectorID: context.sectorID,
+            name: "Sub-sector A1",
+            commanderID: "DEVICE-LinkGuard-TL",
+            worksiteIDs: [context.worksiteID]
+        )
+        let worksite = Worksite(
+            id: context.worksiteID,
+            incidentID: context.incidentID,
+            sectorID: context.sectorID,
+            subSectorID: context.subSectorID,
+            name: "A1 North Void",
+            location: coordinate,
+            asrLevel: .asr2,
+            status: .assigned,
+            assignedTeamIDs: [context.teamID],
+            hazardSummary: "Unstable entry; maintain accountability"
+        )
+        let task = FieldTask(
+            id: context.taskID,
+            incidentID: context.incidentID,
+            worksiteID: context.worksiteID,
+            assignedTeamID: context.teamID,
+            type: .search,
+            status: .assigned,
+            priority: .high,
+            summary: "Search A1 void and report victim contact",
+            createdAt: now
+        )
+        let zone = SafetyZone(
+            id: context.zoneID,
+            incidentID: context.incidentID,
+            zoneType: .hotZone,
+            title: "A1 hot zone",
+            geometry: .polygon([
+                coordinate,
+                GeoCoordinate(latitude: coordinate.latitude + 0.00025, longitude: coordinate.longitude),
+                GeoCoordinate(latitude: coordinate.latitude, longitude: coordinate.longitude + 0.00025)
+            ]),
+            severity: .critical,
+            updatedBy: "DEVICE-LinkGuard-SCC",
+            updatedAt: now
+        )
+        let tlStatus = seededPersonnelStatus(id: "STATUS-SEED-TL", personID: "PERSON-TL-1", deviceID: "DEVICE-LinkGuard-TL", appID: .teamLeader, role: .teamLeader, state: .assigned, coordinate: coordinate, now: now)
+        let teStatus = seededPersonnelStatus(id: "STATUS-SEED-TE", personID: "PERSON-TE-1", deviceID: "DEVICE-LinkGuard-TE", appID: .teamMember, role: .teamMember, state: .inWorksite, coordinate: coordinate, now: now)
+        let emtStatus = seededPersonnelStatus(id: "STATUS-SEED-EMT", personID: "PERSON-EMT-1", deviceID: "DEVICE-LinkGuard-EMT", appID: .emt, role: .emt, state: .available, coordinate: coordinate, now: now)
+
+        receiveSeed(.incidentUpsert, payload: incident, sourceAppID: .scc, sourceDeviceID: "DEVICE-LinkGuard-SCC", sourceRole: .sectorCommander, at: now, suffix: "incident")
+        receiveSeed(.sectorUpsert, payload: sector, sourceAppID: .scc, sourceDeviceID: "DEVICE-LinkGuard-SCC", sourceRole: .sectorCommander, at: now, suffix: "sector")
+        receiveSeed(.subSectorUpsert, payload: subSector, sourceAppID: .teamLeader, sourceDeviceID: "DEVICE-LinkGuard-TL", sourceRole: .teamLeader, at: now, suffix: "subsector")
+        receiveSeed(.worksiteUpsert, payload: worksite, sourceAppID: .teamLeader, sourceDeviceID: "DEVICE-LinkGuard-TL", sourceRole: .teamLeader, at: now, suffix: "worksite")
+        receiveSeed(.taskUpsert, payload: task, sourceAppID: .teamLeader, sourceDeviceID: "DEVICE-LinkGuard-TL", sourceRole: .teamLeader, at: now, suffix: "task")
+        receiveSeed(.safetyZoneUpsert, payload: zone, sourceAppID: .scc, sourceDeviceID: "DEVICE-LinkGuard-SCC", sourceRole: .sectorCommander, at: now, suffix: "zone")
+        receiveSeed(.personnelStatusUpsert, payload: tlStatus, sourceAppID: .teamLeader, sourceDeviceID: "DEVICE-LinkGuard-TL", sourceRole: .teamLeader, at: now, suffix: "status-tl")
+        receiveSeed(.personnelStatusUpsert, payload: teStatus, sourceAppID: .teamMember, sourceDeviceID: "DEVICE-LinkGuard-TE", sourceRole: .teamMember, at: now, suffix: "status-te")
+        receiveSeed(.personnelStatusUpsert, payload: emtStatus, sourceAppID: .emt, sourceDeviceID: "DEVICE-LinkGuard-EMT", sourceRole: .emt, at: now, suffix: "status-emt")
+    }
+
+    private func seededPersonnelStatus(
+        id: LinkGuardID,
+        personID: LinkGuardID,
+        deviceID: LinkGuardID,
+        appID: LinkGuardAppID,
+        role: ICSPosition,
+        state: PersonnelOperationalState,
+        coordinate: GeoCoordinate,
+        now: Date
+    ) -> PersonnelStatusReport {
+        PersonnelStatusReport(
+            id: id,
+            incidentID: context.incidentID,
+            personID: personID,
+            deviceID: deviceID,
+            appID: appID,
+            role: role,
+            operationalState: state,
+            connectivity: .online,
+            location: coordinate,
+            currentSectorID: context.sectorID,
+            currentSubSectorID: context.subSectorID,
+            currentWorksiteID: context.worksiteID,
+            currentTaskID: context.taskID,
+            batteryLevel: 0.82,
+            updatedAt: now,
+            note: "seeded field state"
+        )
+    }
+
+    private mutating func receiveSeed<Payload: Encodable>(
+        _ messageType: SyncMessageType,
+        payload: Payload,
+        sourceAppID: LinkGuardAppID,
+        sourceDeviceID: LinkGuardID,
+        sourceRole: ICSPosition,
+        at date: Date,
+        suffix: String
+    ) {
+        guard let envelope = try? SyncEnvelope.make(
+            messageType: messageType,
+            sourceAppID: sourceAppID,
+            sourceDeviceID: sourceDeviceID,
+            sourceRole: sourceRole,
+            priority: AppLogicGate.defaultPriority(for: messageType),
+            createdAt: date,
+            idempotencyKey: "seed-\(runtime.device.id.rawValue)-\(suffix)",
+            payload: payload
+        ) else { return }
+        try? runtime.receive(envelope)
     }
 
     private var defaultRole: ICSPosition {

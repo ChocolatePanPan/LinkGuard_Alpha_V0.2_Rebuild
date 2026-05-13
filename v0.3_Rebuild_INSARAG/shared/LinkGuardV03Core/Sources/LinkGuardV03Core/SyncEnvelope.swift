@@ -10,6 +10,7 @@ public enum SyncMessageType: String, Codable, CaseIterable, Sendable {
     case commandUpsert
     case taskUpsert
     case photoReportUpsert
+    case disasterReportUpsert
     case safetyZoneUpsert
     case safetyEntryLogUpsert
     case groupChatMessageAppend

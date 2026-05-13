@@ -67,6 +67,31 @@ final class LinkGuardV03CoreTests: XCTestCase {
         }
     }
 
+    func testVolunteerCapabilityBlueprintDefinesTenLowComplexityPhases() {
+        XCTAssertEqual(LinkGuardVolunteerBlueprint.appID, .volunteer)
+        XCTAssertEqual(LinkGuardVolunteerBlueprint.positioning, "Lowest operation complexity disaster reporting tool")
+        XCTAssertEqual(LinkGuardVolunteerBlueprint.phases.map(\.phaseNumber), Array(1...10))
+        XCTAssertEqual(LinkGuardVolunteerBlueprint.supportedLanguages.map(\.rawValue), ["zh-Hant", "en", "ja", "ko", "vi"])
+        XCTAssertTrue(LinkGuardVolunteerBlueprint.audiences.contains(.civilianVolunteer))
+        XCTAssertTrue(LinkGuardVolunteerBlueprint.audiences.contains(.disasterAssistanceWorker))
+        XCTAssertTrue(LinkGuardVolunteerBlueprint.audiences.contains(.logisticsSupporter))
+
+        let phaseFive = LinkGuardVolunteerBlueprint.phase(number: 5)
+        XCTAssertEqual(phaseFive?.moduleName, "Disaster Report")
+        XCTAssertEqual(phaseFive?.requiredFeatures, [.disasterReport])
+        XCTAssertEqual(phaseFive?.primaryMessageTypes, [.disasterReportUpsert])
+
+        for phase in LinkGuardVolunteerBlueprint.phases {
+            XCTAssertFalse(phase.requiredPermissions.contains(.issueCommand), "VO phase \(phase.phaseNumber) must not require command authority")
+            for feature in phase.requiredFeatures {
+                XCTAssertTrue(LinkGuardVolunteerBlueprint.isFeatureAvailableForVolunteer(feature), "Missing VO feature gate for \(feature.rawValue)")
+            }
+            for messageType in phase.primaryMessageTypes {
+                XCTAssertTrue(runtime(appID: .volunteer).canSend(messageType), "VO cannot send \(messageType.rawValue)")
+            }
+        }
+    }
+
     func testFeatureAccessMatrixMatchesOperationalRoleTable() {
         var checkedFeatures = Set<LinkGuardFeature>()
 
@@ -92,6 +117,12 @@ final class LinkGuardV03CoreTests: XCTestCase {
                 XCTAssertEqual(LinkGuardFeatureAccessMatrix.accessLevel(for: appID, feature: feature), level, "\(appID.rawValue) \(feature.rawValue)")
             }
         }
+
+        assertAccess(.accountIdentity, .primary, .primary, .primary, .primary, .primary, .primary)
+        assertAccess(.disasterReport, .limited, .primary, .primary, .primary, .limited, .primary)
+        assertAccess(.offlineDraftQueue, .limited, .primary, .primary, .primary, .primary, .primary)
+        assertAccess(.hazardWarning, .limited, .primary, .primary, .primary, .primary, .primary)
+        assertAccess(.simplifiedMode, .none, .none, .limited, .primary, .limited, .primary)
 
         assertAccess(.globalMapOverview, .primary, .primary, .limited, .none, .limited, .none)
         assertAccess(.sectorCreation, .limited, .primary, .primary, .none, .none, .none)
@@ -125,14 +156,14 @@ final class LinkGuardV03CoreTests: XCTestCase {
         assertAccess(.communicationChannel, .primary, .primary, .primary, .primary, .primary, .limited)
         assertAccess(.radioMonitoring, .primary, .primary, .limited, .none, .none, .none)
         assertAccess(.speechTranscription, .limited, .primary, .primary, .limited, .limited, .none)
-        assertAccess(.voiceReport, .limited, .primary, .primary, .primary, .limited, .limited)
-        assertAccess(.realtimeTranslation, .limited, .primary, .primary, .primary, .primary, .limited)
+        assertAccess(.voiceReport, .limited, .primary, .primary, .primary, .limited, .primary)
+        assertAccess(.realtimeTranslation, .limited, .primary, .primary, .primary, .primary, .primary)
         assertAccess(.voiceTranslation, .none, .limited, .primary, .primary, .primary, .none)
         assertAccess(.photoReport, .limited, .primary, .primary, .primary, .primary, .primary)
         assertAccess(.multiPointPhotoReport, .limited, .primary, .primary, .limited, .limited, .none)
         assertAccess(.alertPush, .primary, .primary, .primary, .primary, .primary, .limited)
-        assertAccess(.alertRead, .limited, .primary, .primary, .primary, .primary, .limited)
-        assertAccess(.sosSending, .limited, .primary, .primary, .primary, .primary, .limited)
+        assertAccess(.alertRead, .limited, .primary, .primary, .primary, .primary, .primary)
+        assertAccess(.sosSending, .limited, .primary, .primary, .primary, .primary, .primary)
         assertAccess(.sosDetail, .limited, .primary, .primary, .limited, .primary, .none)
 
         assertAccess(.aiDecisionAnalysis, .primary, .primary, .limited, .none, .none, .none)
@@ -150,6 +181,68 @@ final class LinkGuardV03CoreTests: XCTestCase {
         XCTAssertEqual(LinkGuardFeatureAccessMatrix.accessLevel(for: .teamLeaderIPad, feature: .subSectorCreation), .primary)
         XCTAssertEqual(LinkGuardFeatureAccessMatrix.accessLevel(for: .sccIPad, feature: .startTriage), .limited)
         XCTAssertEqual(LinkGuardFeatureAccessMatrix.accessLevel(for: .emtIPad, feature: .medicalEvacuation), .primary)
+    }
+
+    func testTeamMemberPhaseCatalogMatchesRequestedRoadmap() {
+        let phases = TeamMemberPhaseCatalog.phases
+
+        XCTAssertEqual(phases.map(\.id), TeamMemberPhaseID.allCases)
+        XCTAssertEqual(phases.map(\.moduleName), [
+            "任務接收",
+            "GPS定位",
+            "SOS功能",
+            "照片回報",
+            "危險標記",
+            "分區資訊",
+            "任務回報",
+            "離線模式",
+            "語音回報",
+            "安全管制",
+            "LoRa整合",
+            "高壓模式"
+        ])
+        XCTAssertEqual(phases.map(\.purpose), [
+            "任務執行",
+            "隊伍掌握",
+            "人員安全",
+            "現場資訊",
+            "安全警示",
+            "搜救定位",
+            "指揮同步",
+            "災後穩定",
+            "高壓操作",
+            "人員管理",
+            "斷網運作",
+            "高可靠性"
+        ])
+        XCTAssertEqual(TeamMemberPhaseCatalog.phase(id: .phase1).label, "TE Phase 1")
+        XCTAssertEqual(TeamMemberPhaseCatalog.phase(id: .phase12).capability, "手套操作、大按鈕")
+        XCTAssertEqual(TeamMemberPhaseCatalog.plannedPhases.map(\.id), [.phase11])
+        XCTAssertEqual(TeamMemberPhaseCatalog.fieldPrinciplePhases.map(\.id), [.phase12])
+    }
+
+    func testTeamMemberCoreBackedPhasesMatchFeatureGates() {
+        var controller = FieldAppController(
+            appID: .teamMember,
+            platform: .iPhone,
+            deviceID: "IOS-TE-PHASE-TEST",
+            displayName: "TE Phase Test",
+            now: fixedDate
+        )
+        let coreBackedPhases = TeamMemberPhaseCatalog.coreBackedPhases
+
+        XCTAssertEqual(controller.teamMemberPhases.map(\.id), TeamMemberPhaseID.allCases)
+        XCTAssertEqual(coreBackedPhases.map(\.id), [.phase1, .phase2, .phase3, .phase4, .phase5, .phase6, .phase7, .phase8, .phase9, .phase10])
+        XCTAssertEqual(controller.executableTeamMemberPhases.map(\.id), coreBackedPhases.map(\.id))
+        for phase in coreBackedPhases {
+            XCTAssertTrue(TeamMemberPhaseCatalog.isExecutableByTeamMember(phase), phase.label)
+            for feature in phase.requiredFeatures {
+                XCTAssertTrue(controller.canSeeFeature(feature), "\(phase.label) requires \(feature.rawValue)")
+            }
+        }
+        XCTAssertFalse(TeamMemberPhaseCatalog.isExecutableByTeamMember(TeamMemberPhaseCatalog.phase(id: .phase11)))
+        XCTAssertFalse(TeamMemberPhaseCatalog.isExecutableByTeamMember(TeamMemberPhaseCatalog.phase(id: .phase12)))
+        XCTAssertEqual(FieldOperationalPrinciples.principle(id: "large-buttons")?.title, "大按鈕")
     }
 
     func testOfflineQueuePrioritizesCriticalMessagesAndDeduplicates() throws {
@@ -951,23 +1044,29 @@ final class LinkGuardV03CoreTests: XCTestCase {
             now: fixedDate
         )
 
-        let photo = try controller.queuePhotoReport(photoAttachmentID: "ATTACH-VO-1", caption: "VO photo", checksum: nil, now: fixedDate.addingTimeInterval(1))
-        let sos = try controller.queueSOS(dangerType: .trapped, note: "Lost", now: fixedDate.addingTimeInterval(2))
-        let chat = try controller.queueGroupChat(body: "VO update", now: fixedDate.addingTimeInterval(3))
-        let voice = try controller.queueVoiceReport(transcript: "VO voice", durationSeconds: 4, now: fixedDate.addingTimeInterval(4))
-        let point = try controller.queueMapMarker(featureType: .assemblyPoint, geometryType: .point, title: "VO point", now: fixedDate.addingTimeInterval(5))
+        let gps = try controller.queueGPSReport(now: fixedDate.addingTimeInterval(1))
+        let photo = try controller.queuePhotoReport(photoAttachmentID: "ATTACH-VO-1", caption: "VO photo", checksum: nil, now: fixedDate.addingTimeInterval(2))
+        let disaster = try controller.queueDisasterReport(kind: .collapse, summary: "Collapsed wall", now: fixedDate.addingTimeInterval(3))
+        let sos = try controller.queueSOS(dangerType: .trapped, note: "Lost", now: fixedDate.addingTimeInterval(4))
+        let chat = try controller.queueGroupChat(body: "VO update", now: fixedDate.addingTimeInterval(5))
+        let voice = try controller.queueVoiceReport(transcript: "VO voice", durationSeconds: 4, now: fixedDate.addingTimeInterval(6))
+        let point = try controller.queueMapMarker(featureType: .assemblyPoint, geometryType: .point, title: "VO point", now: fixedDate.addingTimeInterval(7))
 
-        XCTAssertEqual([photo.messageType, sos.messageType, chat.messageType, voice.messageType, point.messageType], [
+        XCTAssertEqual([gps.messageType, photo.messageType, disaster.messageType, sos.messageType, chat.messageType, voice.messageType, point.messageType], [
+            .personnelStatusUpsert,
             .photoReportUpsert,
+            .disasterReportUpsert,
             .sosReportUpsert,
             .groupChatMessageAppend,
             .voiceReportAppend,
             .mapFeatureUpsert
         ])
+        XCTAssertEqual(controller.missionSummary.disasterReportCount, 1)
+        XCTAssertEqual(controller.pendingEnvelopeCount, 7)
         XCTAssertFalse(controller.canUseFeature(.radioMonitoring))
-        XCTAssertThrowsError(try controller.queuePatientUpload(displayCode: "A023", triageCategory: .red, injurySummary: "Leg bleed", now: fixedDate.addingTimeInterval(6)))
-        XCTAssertThrowsError(try controller.queueMapMarker(featureType: .evacuationRoute, geometryType: .polyline, title: "VO line", now: fixedDate.addingTimeInterval(7)))
-        XCTAssertThrowsError(try controller.queueMapMarker(featureType: .hazardPolygon, geometryType: .polygon, title: "VO area", now: fixedDate.addingTimeInterval(8)))
+        XCTAssertThrowsError(try controller.queuePatientUpload(displayCode: "A023", triageCategory: .red, injurySummary: "Leg bleed", now: fixedDate.addingTimeInterval(8)))
+        XCTAssertThrowsError(try controller.queueMapMarker(featureType: .evacuationRoute, geometryType: .polyline, title: "VO line", now: fixedDate.addingTimeInterval(9)))
+        XCTAssertThrowsError(try controller.queueMapMarker(featureType: .hazardPolygon, geometryType: .polygon, title: "VO area", now: fixedDate.addingTimeInterval(10)))
     }
 
     func testPhaseTwoSafetyControlTracksZonesAndEntryLogs() throws {
@@ -1134,6 +1233,39 @@ final class LinkGuardV03CoreTests: XCTestCase {
         XCTAssertFalse(recipientApps.contains(.emt))
         XCTAssertFalse(recipientApps.contains(.emtIPad))
         XCTAssertEqual(hub.runtime(for: "DEVICE-LinkGuard-TE")?.snapshot.tasks["TASK-FIELD"]?.status, .assigned)
+    }
+
+    func testVolunteerDisasterReportFlowsThroughFieldReportsChain() throws {
+        let volunteer = runtime(appID: .volunteer)
+        let hub = InMemoryTransportHub(runtimes: allAppRuntimes())
+        let report = DisasterReport(
+            id: "DISASTER-VO-1",
+            incidentID: "INC-1",
+            reporterDeviceID: volunteer.device.id,
+            reporterAppID: .volunteer,
+            kind: .fire,
+            location: GeoCoordinate(latitude: 25.033, longitude: 121.565, accuracyMeters: 10),
+            severity: .high,
+            summary: "Smoke from collapsed storefront",
+            createdAt: fixedDate
+        )
+
+        let receipts = try hub.send(
+            messageType: .disasterReportUpsert,
+            payload: report,
+            from: volunteer.device.id,
+            createdAt: fixedDate,
+            idempotencyKey: "vo-disaster-1"
+        )
+        let recipientApps = Set(receipts.map(\.recipientAppID))
+
+        XCTAssertTrue(recipientApps.isSuperset(of: [.ucc, .scc, .sccIPad, .teamLeader, .teamLeaderIPad, .teamMember, .volunteer]))
+        XCTAssertFalse(recipientApps.contains(.emt))
+        XCTAssertFalse(recipientApps.contains(.emtIPad))
+        XCTAssertEqual(hub.runtime(for: "DEVICE-LinkGuard-SCC")?.snapshot.disasterReports["DISASTER-VO-1"]?.kind, .fire)
+        let sccAudit = hub.runtime(for: "DEVICE-LinkGuard-SCC")?.snapshot.auditEvents.last
+        XCTAssertEqual(sccAudit?.targetType, "disasterReport")
+        XCTAssertEqual(sccAudit?.action, .submitReport)
     }
 
     func testEvacuationRequestUsesMedicalOperationalRoute() throws {

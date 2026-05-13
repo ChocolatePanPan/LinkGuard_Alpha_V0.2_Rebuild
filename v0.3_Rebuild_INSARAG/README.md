@@ -6,7 +6,7 @@ v0.3 的方向是 USAR/INSARAG + ICS 架構，採用共享核心與角色分流�
 
 ## Current status
 
-v0.3 目前是 shared core + app target + Mac copied HQ UI 的產品化前階段，不是完整 INSARAG 現場系統。已完成的是核心資料模型、同步骨架、角色權限/功能矩陣、可 build 的 field app targets 與 FieldUI envelope controller；主要缺口仍是 iOS/iPad 端上正式頁面、硬體能力、真實同步通道、Mac v0.3 指揮 UI 與 field drill 驗證。
+v0.3 目前是 shared core + app target + role field shell + Mac copied HQ UI 的產品化前階段，不是完整 INSARAG 現場系統。已完成的是核心資料模型、同步骨架、角色權限/功能矩陣、可 build 的 field app targets，以及 iOS/iPad FieldUI 的本地 Phase 2 閉環；主要缺口仍是真實 GPS/相機/語音/NFC/地圖能力、正式同步通道、Mac v0.3 指揮 UI 與 field drill 驗證。
 
 狀態基準詳見 `docs/implementation-status/README.md`。
 
@@ -49,6 +49,7 @@ v0.3 目前是 shared core + app target + Mac copied HQ UI 的產品化前階段
 - ICS section、position、role assignment。
 - app permission matrix 與 role blueprint。
 - role feature access matrix：以 UCC/SCC/TL/TE/EMT/VO 的 ●/○/✕ 細項矩陣定義地圖、人員、醫療、通訊與 AI/指揮功能 gate。
+- LinkGuard-TE phase catalog：任務接收、GPS、SOS、照片、危險標記、分區資訊、任務回報、離線、語音、安全管制、LoRa 與高壓模式的 12 phase 產品契約。
 - incident、sector、sub-sector、worksite、task、alert、map feature。
 - personnel overview：GPS、作業狀態、在線狀態與電量摘要。
 - photo report：照片附件 ID、GPS、時間戳記與任務/案場關聯。
@@ -64,6 +65,7 @@ v0.3 目前是 shared core + app target + Mac copied HQ UI 的產品化前階段
 - field SOS one-tap action：iPhone/iPad runtime + latest GPS fix → SOS envelope。
 - AAR audit query 與 JSON/CSV export bundle。
 - `LinkGuardV03FieldUI`：iPhone/iPad field app shell + Phase 2 controller，依角色功能矩陣排隊 Sector/Sub-sector/Worksite、點線面地圖標記、人員狀態、任務回報、照片、傷患/START/後送、安全進出、聊天、語音與 SOS envelopes。
+- FieldUI role shell：TL 顯示分區/Worksite/任務派遣，TE/VO 顯示任務接收、GPS、照片、SOS 與回報，SCC-iPad 顯示分區管理、人員總覽與安全管制，EMT 顯示傷患、START、生命徵象與後送；所有操作會更新本地 `OperationSnapshot` 與 outbox。
 
 驗證指令：
 
@@ -74,9 +76,9 @@ swift test
 
 ## Versioning
 
-目前版本基準是 `0.3.1-7`，由 repo 根目錄的 `VERSION`、`VERSION.json`、shared framework 的 `LinkGuardVersionInfo.current` 與 Git tag `v0.3.1-7` 對齊。
+目前版本基準是 `0.3.1-8`，由 repo 根目錄的 `VERSION`、`VERSION.json`、shared framework 的 `LinkGuardVersionInfo.current` 與 Git tag `v0.3.1-8` 對齊。
 
-每次實作更新後都必須更新版本號。v0.3 alpha 線使用 `scripts/version.sh bump-alpha`；現場指定版使用 `scripts/version.sh set <version>`，例如 `scripts/version.sh set 0.3.1-7`。提交後使用 `scripts/version.sh tag` 建立本機 annotated tag。push 前使用 `scripts/version.sh push-check`，並把 `git push origin v<version>` 放在 push 流程最後。
+每次實作更新後都必須更新版本號。v0.3 alpha 線使用 `scripts/version.sh bump-alpha`；現場指定版使用 `scripts/version.sh set <version>`，例如 `scripts/version.sh set 0.3.1-8`。提交後使用 `scripts/version.sh tag` 建立本機 annotated tag。push 前使用 `scripts/version.sh push-check`，並把 `git push origin v<version>` 放在 push 流程最後。
 
 App 設定頁要透過 `LinkGuardAppSettingsInfo` 顯示建構版本、build number、release channel 與 Git tag。
 

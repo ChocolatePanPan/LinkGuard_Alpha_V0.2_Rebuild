@@ -6,6 +6,7 @@ Shared Swift framework skeleton for LinkGuard v0.3.
 
 - app role profiles
 - app runtime logic
+- LinkGuard-TE phase catalog
 - ICS and INSARAG identifiers
 - permission matrix
 - command model
@@ -53,6 +54,8 @@ swift test
 ```
 
 Current test coverage includes all app runtime initialization, permission gates, alert broadcast, clinical medical isolation, field task routing, evacuation routing, offline queue priority and sync envelope round-trip.
+
+`TeamMemberPhaseCatalog` is the shared source for the LinkGuard-TE 12 phase roadmap. Phase 1-10 are backed by current core/FieldUI envelopes, Phase 11 is reserved for LoRa hardware integration, and Phase 12 is tied to the firefighter field-operation principles.
 
 ## Versioning
 

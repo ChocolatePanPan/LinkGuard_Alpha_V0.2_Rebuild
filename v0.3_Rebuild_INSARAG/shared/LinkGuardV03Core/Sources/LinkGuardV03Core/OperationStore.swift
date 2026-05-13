@@ -10,6 +10,7 @@ public struct OperationSnapshot: Codable, Sendable {
     public private(set) var commands: [LinkGuardID: OperationalCommand]
     public private(set) var tasks: [LinkGuardID: FieldTask]
     public private(set) var photoReports: [LinkGuardID: PhotoReport]
+    public private(set) var disasterReports: [LinkGuardID: DisasterReport]
     public private(set) var safetyZones: [LinkGuardID: SafetyZone]
     public private(set) var safetyEntryLogs: [LinkGuardID: SafetyEntryLog]
     public private(set) var groupChatMessages: [LinkGuardID: GroupChatMessage]
@@ -37,6 +38,7 @@ public struct OperationSnapshot: Codable, Sendable {
         self.commands = [:]
         self.tasks = [:]
         self.photoReports = [:]
+        self.disasterReports = [:]
         self.safetyZones = [:]
         self.safetyEntryLogs = [:]
         self.groupChatMessages = [:]
@@ -86,6 +88,9 @@ public struct OperationSnapshot: Codable, Sendable {
         case .photoReportUpsert:
             let photoReport = try envelope.decodePayload(PhotoReport.self)
             photoReports[photoReport.id] = photoReport
+        case .disasterReportUpsert:
+            let disasterReport = try envelope.decodePayload(DisasterReport.self)
+            disasterReports[disasterReport.id] = disasterReport
         case .safetyZoneUpsert:
             let safetyZone = try envelope.decodePayload(SafetyZone.self)
             safetyZones[safetyZone.id] = safetyZone

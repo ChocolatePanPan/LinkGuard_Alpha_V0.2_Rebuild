@@ -23,7 +23,7 @@ public enum AppLogicGate {
             return .submitReport
         case .taskUpsert, .safetyEntryLogUpsert:
             return .updateTask
-        case .personnelStatusUpsert, .photoReportUpsert, .groupChatMessageAppend, .voiceReportAppend:
+        case .personnelStatusUpsert, .photoReportUpsert, .disasterReportUpsert, .groupChatMessageAppend, .voiceReportAppend:
             return .submitReport
         case .alertUpsert:
             return .issueCommand
@@ -50,7 +50,7 @@ public enum AppLogicGate {
         switch messageType {
         case .alertUpsert, .sosReportUpsert, .patientUpsert, .evacuationRequestUpsert:
             return .critical
-        case .commandUpsert, .worksiteUpsert, .personnelStatusUpsert, .photoReportUpsert, .mapFeatureUpsert, .safetyZoneUpsert, .safetyEntryLogUpsert, .voiceReportAppend, .hospitalCapacityUpsert:
+        case .commandUpsert, .worksiteUpsert, .personnelStatusUpsert, .photoReportUpsert, .disasterReportUpsert, .mapFeatureUpsert, .safetyZoneUpsert, .safetyEntryLogUpsert, .voiceReportAppend, .hospitalCapacityUpsert:
             return .high
         case .taskUpsert, .alertAcknowledgementUpsert, .roleAssignmentUpsert, .groupChatMessageAppend:
             return .medium

@@ -70,6 +70,9 @@ public enum AuditEventFactory {
         case .photoReportUpsert:
             let item = try envelope.decodePayload(PhotoReport.self)
             return AuditTargetDescriptor(incidentID: item.incidentID, targetType: "photoReport", targetID: item.id, action: .submitReport)
+        case .disasterReportUpsert:
+            let item = try envelope.decodePayload(DisasterReport.self)
+            return AuditTargetDescriptor(incidentID: item.incidentID, targetType: "disasterReport", targetID: item.id, action: .submitReport)
         case .safetyZoneUpsert:
             let item = try envelope.decodePayload(SafetyZone.self)
             return AuditTargetDescriptor(incidentID: item.incidentID, targetType: "safetyZone", targetID: item.id, action: .safetyControl)

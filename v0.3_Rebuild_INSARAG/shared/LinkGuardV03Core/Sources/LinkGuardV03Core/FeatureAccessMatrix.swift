@@ -15,6 +15,12 @@ public enum FeatureAccessLevel: Int, Codable, CaseIterable, Comparable, Sendable
 }
 
 public enum LinkGuardFeature: String, Codable, CaseIterable, Sendable {
+    case accountIdentity
+    case disasterReport
+    case offlineDraftQueue
+    case hazardWarning
+    case simplifiedMode
+
     case globalMapOverview
     case sectorCreation
     case subSectorCreation
@@ -65,8 +71,12 @@ public enum LinkGuardFeature: String, Codable, CaseIterable, Sendable {
     case commandDispatch
     case commandAuthoritySwitch
     case eventLog
+    case disasterStatistics
     case resourceManagement
     case pwsIntegration
+    case emicIntegration
+    case commandCenterRedundancy
+    case internationalCoordination
 }
 
 public enum LinkGuardFeatureAccessMatrix {
@@ -96,6 +106,12 @@ public enum LinkGuardFeatureAccessMatrix {
     }
 
     private static let matrix: [LinkGuardFeature: RoleFeatureAccess] = [
+        .accountIdentity: .init(.primary, .primary, .primary, .primary, .primary, .primary),
+        .disasterReport: .init(.limited, .primary, .primary, .primary, .limited, .primary),
+        .offlineDraftQueue: .init(.limited, .primary, .primary, .primary, .primary, .primary),
+        .hazardWarning: .init(.limited, .primary, .primary, .primary, .primary, .primary),
+        .simplifiedMode: .init(.none, .none, .limited, .primary, .limited, .primary),
+
         .globalMapOverview: .init(.primary, .primary, .limited, .none, .limited, .none),
         .sectorCreation: .init(.limited, .primary, .primary, .none, .none, .none),
         .subSectorCreation: .init(.none, .limited, .primary, .none, .none, .none),
@@ -128,14 +144,14 @@ public enum LinkGuardFeatureAccessMatrix {
         .communicationChannel: .init(.primary, .primary, .primary, .primary, .primary, .limited),
         .radioMonitoring: .init(.primary, .primary, .limited, .none, .none, .none),
         .speechTranscription: .init(.limited, .primary, .primary, .limited, .limited, .none),
-        .voiceReport: .init(.limited, .primary, .primary, .primary, .limited, .limited),
-        .realtimeTranslation: .init(.limited, .primary, .primary, .primary, .primary, .limited),
+        .voiceReport: .init(.limited, .primary, .primary, .primary, .limited, .primary),
+        .realtimeTranslation: .init(.limited, .primary, .primary, .primary, .primary, .primary),
         .voiceTranslation: .init(.none, .limited, .primary, .primary, .primary, .none),
         .photoReport: .init(.limited, .primary, .primary, .primary, .primary, .primary),
         .multiPointPhotoReport: .init(.limited, .primary, .primary, .limited, .limited, .none),
         .alertPush: .init(.primary, .primary, .primary, .primary, .primary, .limited),
-        .alertRead: .init(.limited, .primary, .primary, .primary, .primary, .limited),
-        .sosSending: .init(.limited, .primary, .primary, .primary, .primary, .limited),
+        .alertRead: .init(.limited, .primary, .primary, .primary, .primary, .primary),
+        .sosSending: .init(.limited, .primary, .primary, .primary, .primary, .primary),
         .sosDetail: .init(.limited, .primary, .primary, .limited, .primary, .none),
 
         .aiDecisionAnalysis: .init(.primary, .primary, .limited, .none, .none, .none),
@@ -146,8 +162,12 @@ public enum LinkGuardFeatureAccessMatrix {
         .commandDispatch: .init(.primary, .primary, .limited, .none, .none, .none),
         .commandAuthoritySwitch: .init(.primary, .primary, .none, .none, .none, .none),
         .eventLog: .init(.primary, .primary, .limited, .none, .limited, .none),
+        .disasterStatistics: .init(.primary, .primary, .limited, .none, .limited, .none),
         .resourceManagement: .init(.primary, .primary, .limited, .none, .limited, .none),
-        .pwsIntegration: .init(.primary, .primary, .limited, .none, .none, .none)
+        .pwsIntegration: .init(.primary, .primary, .limited, .none, .none, .none),
+        .emicIntegration: .init(.primary, .limited, .none, .none, .none, .none),
+        .commandCenterRedundancy: .init(.primary, .primary, .none, .none, .none, .none),
+        .internationalCoordination: .init(.primary, .limited, .none, .none, .none, .none)
     ]
 }
 
