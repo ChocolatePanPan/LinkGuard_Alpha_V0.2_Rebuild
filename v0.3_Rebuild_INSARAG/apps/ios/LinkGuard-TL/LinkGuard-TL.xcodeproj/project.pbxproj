@@ -3,64 +3,265 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 56;
+	objectVersion = 77;
 	objects = {
-		010000000000000000000001 = {
+
+/* Begin PBXBuildFile section */
+		A10000000000000000000001 /* LinkGuardV03FieldUI in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000002 /* LinkGuardV03FieldUI */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		A10000000000000000000003 /* LinkGuard-TL.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "LinkGuard-TL.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		A10000000000000000000004 /* LinkGuard-TL */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "LinkGuard-TL";
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A10000000000000000000005 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000000000000000000001 /* LinkGuardV03FieldUI in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		A10000000000000000000006 = {
 			isa = PBXGroup;
 			children = (
-				010000000000000000000002,
+				A10000000000000000000004 /* LinkGuard-TL */,
+				A10000000000000000000007 /* Products */,
 			);
 			sourceTree = "<group>";
 		};
-		010000000000000000000002 = {
+		A10000000000000000000007 /* Products */ = {
 			isa = PBXGroup;
 			children = (
+				A10000000000000000000003 /* LinkGuard-TL.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
 		};
-		010000000000000000000003 = {
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A10000000000000000000008 /* LinkGuard-TL */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A10000000000000000000009 /* Build configuration list for PBXNativeTarget "LinkGuard-TL" */;
+			buildPhases = (
+				A1000000000000000000000A /* Sources */,
+				A10000000000000000000005 /* Frameworks */,
+				A1000000000000000000000B /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				A10000000000000000000004 /* LinkGuard-TL */,
+			);
+			name = "LinkGuard-TL";
+			packageProductDependencies = (
+				A10000000000000000000002 /* LinkGuardV03FieldUI */,
+			);
+			productName = "LinkGuard-TL";
+			productReference = A10000000000000000000003 /* LinkGuard-TL.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A1000000000000000000000C /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1640;
 				LastUpgradeCheck = 1640;
+				TargetAttributes = {
+					A10000000000000000000008 = {
+						CreatedOnToolsVersion = 16.4;
+					};
+				};
 			};
-			buildConfigurationList = 010000000000000000000004;
-			compatibilityVersion = "Xcode 14.0";
+			buildConfigurationList = A1000000000000000000000D /* Build configuration list for PBXProject "LinkGuard-TL" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
+				"zh-Hant",
 				Base,
 			);
-			mainGroup = 010000000000000000000001;
-			productRefGroup = 010000000000000000000002;
+			mainGroup = A10000000000000000000006;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				A1000000000000000000000E /* XCLocalSwiftPackageReference "../../../shared/LinkGuardV03Core" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = A10000000000000000000007 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
+				A10000000000000000000008 /* LinkGuard-TL */,
 			);
 		};
-		010000000000000000000004 = {
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		A1000000000000000000000B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A1000000000000000000000A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		A1000000000000000000000F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		A10000000000000000000010 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		A10000000000000000000011 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 301003;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "LinkGuard TL";
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "LinkGuard uses Bluetooth to connect nearby field devices.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "LinkGuard uses the camera for photo reports.";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "LinkGuard uses the local network to sync field reports.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "LinkGuard uses location for GPS-tagged field reports and SOS.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "LinkGuard uses the microphone for voice reports.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "LinkGuard can attach photos from the library to field reports.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				MARKETING_VERSION = 0.3.1;
+				PRODUCT_BUNDLE_IDENTIFIER = tw.linkguard.v03.tl;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		A10000000000000000000012 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 301003;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "LinkGuard TL";
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "LinkGuard uses Bluetooth to connect nearby field devices.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "LinkGuard uses the camera for photo reports.";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "LinkGuard uses the local network to sync field reports.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "LinkGuard uses location for GPS-tagged field reports and SOS.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "LinkGuard uses the microphone for voice reports.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "LinkGuard can attach photos from the library to field reports.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				MARKETING_VERSION = 0.3.1;
+				PRODUCT_BUNDLE_IDENTIFIER = tw.linkguard.v03.tl;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A10000000000000000000009 /* Build configuration list for PBXNativeTarget "LinkGuard-TL" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				010000000000000000000005,
-				010000000000000000000006,
+				A10000000000000000000011 /* Debug */,
+				A10000000000000000000012 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		010000000000000000000005 = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-			};
-			name = Debug;
+		A1000000000000000000000D /* Build configuration list for PBXProject "LinkGuard-TL" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1000000000000000000000F /* Debug */,
+				A10000000000000000000010 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
-		010000000000000000000006 = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-			};
-			name = Release;
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		A1000000000000000000000E /* XCLocalSwiftPackageReference "../../../shared/LinkGuardV03Core" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../../../shared/LinkGuardV03Core;
 		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		A10000000000000000000002 /* LinkGuardV03FieldUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A1000000000000000000000E /* XCLocalSwiftPackageReference "../../../shared/LinkGuardV03Core" */;
+			productName = LinkGuardV03FieldUI;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
-	rootObject = 010000000000000000000003;
+	rootObject = A1000000000000000000000C /* Project object */;
 }

@@ -1,0 +1,380 @@
+import Foundation
+import LinkGuardV03Core
+
+public enum FieldAppError: Error, Equatable, Sendable {
+    case missingGPSFix
+}
+
+public struct FieldOperationalContext: Codable, Hashable, Sendable {
+    public var incidentID: LinkGuardID
+    public var sectorID: LinkGuardID
+    public var subSectorID: LinkGuardID
+    public var worksiteID: LinkGuardID
+    public var teamID: LinkGuardID
+    public var taskID: LinkGuardID
+    public var groupID: LinkGuardID
+    public var zoneID: LinkGuardID
+    public var personID: LinkGuardID
+
+    public init(
+        incidentID: LinkGuardID,
+        sectorID: LinkGuardID,
+        subSectorID: LinkGuardID,
+        worksiteID: LinkGuardID,
+        teamID: LinkGuardID,
+        taskID: LinkGuardID,
+        groupID: LinkGuardID,
+        zoneID: LinkGuardID,
+        personID: LinkGuardID
+    ) {
+        self.incidentID = incidentID
+        self.sectorID = sectorID
+        self.subSectorID = subSectorID
+        self.worksiteID = worksiteID
+        self.teamID = teamID
+        self.taskID = taskID
+        self.groupID = groupID
+        self.zoneID = zoneID
+        self.personID = personID
+    }
+
+    public static func fieldDefault(for device: DeviceIdentity) -> FieldOperationalContext {
+        FieldOperationalContext(
+            incidentID: "INC-FIELD-001",
+            sectorID: "SECTOR-A",
+            subSectorID: "SUB-A1",
+            worksiteID: "WORKSITE-A1-01",
+            teamID: "TEAM-ALPHA",
+            taskID: "TASK-A1-SEARCH",
+            groupID: "GROUP-A1",
+            zoneID: "ZONE-HOT-A1",
+            personID: LinkGuardID("PERSON-\(device.id.rawValue)")
+        )
+    }
+}
+
+public struct FieldQueuedEnvelopeSummary: Codable, Hashable, Sendable, Identifiable {
+    public var id: LinkGuardID
+    public var messageType: SyncMessageType
+    public var priority: PriorityLevel
+    public var createdAt: Date
+
+    public init(envelope: SyncEnvelope) {
+        self.id = envelope.id
+        self.messageType = envelope.messageType
+        self.priority = envelope.priority
+        self.createdAt = envelope.createdAt
+    }
+}
+
+public struct FieldAppController: Sendable {
+    public var runtime: LinkGuardAppRuntime
+    public private(set) var localCache: LocalOperationCache
+    public private(set) var mapLayer: MapLayerState
+    public var context: FieldOperationalContext
+    public private(set) var latestGPSFix: GPSFix?
+    public private(set) var queuedSummaries: [FieldQueuedEnvelopeSummary]
+
+    public init(
+        appID: LinkGuardAppID,
+        platform: AppPlatform,
+        deviceID: LinkGuardID,
+        displayName: String,
+        context: FieldOperationalContext? = nil,
+        now: Date = Date()
+    ) {
+        let device = DeviceIdentity(id: deviceID, appID: appID, platform: platform, displayName: displayName)
+        self.runtime = LinkGuardAppRuntime(device: device)
+        self.localCache = LocalOperationCache(connectivity: .offline)
+        self.mapLayer = MapLayerState()
+        self.context = context ?? .fieldDefault(for: device)
+        self.latestGPSFix = nil
+        self.queuedSummaries = []
+        recordGPSFix(
+            GPSFix(
+                coordinate: GeoCoordinate(latitude: 25.033, longitude: 121.565, accuracyMeters: 8),
+                source: .manual,
+                capturedAt: now
+            )
+        )
+    }
+
+    public var profile: RoleProfile { runtime.profile }
+    public var blueprint: AppBlueprint { runtime.blueprint }
+    public var pendingEnvelopeCount: Int { localCache.pendingCount }
+
+    public func canSend(_ messageType: SyncMessageType) -> Bool {
+        runtime.canSend(messageType)
+    }
+
+    public mutating func recordGPSFix(_ fix: GPSFix) {
+        latestGPSFix = fix
+        mapLayer.updateGPS(deviceID: runtime.device.id, fix: fix)
+    }
+
+    @discardableResult
+    public mutating func queueSectorPlan(now: Date) throws -> [SyncEnvelope] {
+        let coordinate = try currentCoordinate()
+        let sector = Sector(
+            id: context.sectorID,
+            incidentID: context.incidentID,
+            name: "Sector A",
+            commanderID: runtime.device.id
+        )
+        let subSector = SubSector(
+            id: context.subSectorID,
+            incidentID: context.incidentID,
+            sectorID: context.sectorID,
+            name: "Sub-sector A1",
+            commanderID: runtime.device.id,
+            worksiteIDs: [context.worksiteID]
+        )
+        let worksite = Worksite(
+            id: context.worksiteID,
+            incidentID: context.incidentID,
+            sectorID: context.sectorID,
+            subSectorID: context.subSectorID,
+            name: "A1 North Void",
+            location: coordinate,
+            asrLevel: .asr2,
+            status: .assigned,
+            assignedTeamIDs: [context.teamID],
+            hazardSummary: "Unstable entry; keep check-in active"
+        )
+        let envelopes = try [
+            runtime.makeEnvelope(messageType: .sectorUpsert, payload: sector, createdAt: now, idempotencyKey: idempotencyKey("sector", now), sourceRole: defaultRole),
+            runtime.makeEnvelope(messageType: .subSectorUpsert, payload: subSector, createdAt: now, idempotencyKey: idempotencyKey("subsector", now), sourceRole: defaultRole),
+            runtime.makeEnvelope(messageType: .worksiteUpsert, payload: worksite, createdAt: now, idempotencyKey: idempotencyKey("worksite", now), sourceRole: defaultRole)
+        ]
+        return envelopes.map { queue($0, at: now) }
+    }
+
+    @discardableResult
+    public mutating func queuePersonnelStatus(
+        operationalState: PersonnelOperationalState,
+        connectivity: DeviceConnectivityStatus,
+        batteryLevel: Double?,
+        note: String? = nil,
+        now: Date
+    ) throws -> SyncEnvelope {
+        let report = PersonnelStatusReport(
+            id: LinkGuardID("STATUS-\(runtime.device.id.rawValue)"),
+            incidentID: context.incidentID,
+            personID: context.personID,
+            deviceID: runtime.device.id,
+            appID: runtime.device.appID,
+            role: defaultRole,
+            operationalState: operationalState,
+            connectivity: connectivity,
+            location: latestGPSFix?.coordinate,
+            currentSectorID: context.sectorID,
+            currentSubSectorID: context.subSectorID,
+            currentWorksiteID: context.worksiteID,
+            currentTaskID: context.taskID,
+            batteryLevel: batteryLevel,
+            updatedAt: now,
+            note: note
+        )
+        let envelope = try runtime.makeEnvelope(
+            messageType: .personnelStatusUpsert,
+            payload: report,
+            createdAt: now,
+            idempotencyKey: idempotencyKey("personnel", now),
+            sourceRole: defaultRole
+        )
+        return queue(envelope, at: now)
+    }
+
+    @discardableResult
+    public mutating func queueTaskStatus(_ status: TaskStatus, now: Date) throws -> SyncEnvelope {
+        let task = FieldTask(
+            id: context.taskID,
+            incidentID: context.incidentID,
+            worksiteID: context.worksiteID,
+            assignedTeamID: context.teamID,
+            type: .search,
+            status: status,
+            priority: .high,
+            summary: "Search A1 void and report victim contact",
+            createdAt: now
+        )
+        let envelope = try runtime.makeEnvelope(
+            messageType: .taskUpsert,
+            payload: task,
+            createdAt: now,
+            idempotencyKey: idempotencyKey("task-\(status.rawValue)", now),
+            sourceRole: defaultRole
+        )
+        return queue(envelope, at: now)
+    }
+
+    @discardableResult
+    public mutating func queuePhotoReport(
+        photoAttachmentID: LinkGuardID,
+        caption: String?,
+        checksum: String?,
+        now: Date
+    ) throws -> SyncEnvelope {
+        let photo = PhotoReport(
+            id: LinkGuardID.generated(prefix: "PHOTO"),
+            incidentID: context.incidentID,
+            reporterDeviceID: runtime.device.id,
+            worksiteID: context.worksiteID,
+            taskID: context.taskID,
+            photoAttachmentID: photoAttachmentID,
+            location: try currentCoordinate(),
+            capturedAt: now,
+            caption: caption,
+            checksum: checksum
+        )
+        let envelope = try runtime.makeEnvelope(
+            messageType: .photoReportUpsert,
+            payload: photo,
+            createdAt: now,
+            idempotencyKey: idempotencyKey("photo", now),
+            sourceRole: defaultRole
+        )
+        return queue(envelope, at: now)
+    }
+
+    @discardableResult
+    public mutating func queueSafetyZone(now: Date) throws -> SyncEnvelope {
+        let coordinate = try currentCoordinate()
+        let offset = 0.00025
+        let zone = SafetyZone(
+            id: context.zoneID,
+            incidentID: context.incidentID,
+            zoneType: .hotZone,
+            title: "A1 hot zone",
+            geometry: .polygon([
+                coordinate,
+                GeoCoordinate(latitude: coordinate.latitude + offset, longitude: coordinate.longitude),
+                GeoCoordinate(latitude: coordinate.latitude, longitude: coordinate.longitude + offset)
+            ]),
+            severity: .critical,
+            updatedBy: runtime.device.id,
+            updatedAt: now
+        )
+        let envelope = try runtime.makeEnvelope(
+            messageType: .safetyZoneUpsert,
+            payload: zone,
+            createdAt: now,
+            idempotencyKey: idempotencyKey("zone", now),
+            sourceRole: defaultRole
+        )
+        return queue(envelope, at: now)
+    }
+
+    @discardableResult
+    public mutating func queueSafetyEntry(_ action: SafetyEntryAction, now: Date) throws -> SyncEnvelope {
+        let entry = SafetyEntryLog(
+            id: LinkGuardID.generated(prefix: "ENTRY"),
+            incidentID: context.incidentID,
+            zoneID: context.zoneID,
+            personID: context.personID,
+            deviceID: runtime.device.id,
+            action: action,
+            location: latestGPSFix?.coordinate,
+            recordedAt: now,
+            recordedBy: runtime.device.id,
+            note: action == .checkIn ? "Field check-in" : "Field check-out"
+        )
+        let envelope = try runtime.makeEnvelope(
+            messageType: .safetyEntryLogUpsert,
+            payload: entry,
+            createdAt: now,
+            idempotencyKey: idempotencyKey("entry-\(action.rawValue)", now),
+            sourceRole: defaultRole
+        )
+        return queue(envelope, at: now)
+    }
+
+    @discardableResult
+    public mutating func queueGroupChat(body: String, priority: PriorityLevel = .medium, now: Date) throws -> SyncEnvelope {
+        let message = GroupChatMessage(
+            id: LinkGuardID.generated(prefix: "CHAT"),
+            incidentID: context.incidentID,
+            groupID: context.groupID,
+            senderDeviceID: runtime.device.id,
+            senderRole: defaultRole,
+            body: body,
+            priority: priority,
+            sentAt: now,
+            location: latestGPSFix?.coordinate
+        )
+        let envelope = try runtime.makeEnvelope(
+            messageType: .groupChatMessageAppend,
+            payload: message,
+            priority: priority,
+            createdAt: now,
+            idempotencyKey: idempotencyKey("chat", now),
+            sourceRole: defaultRole
+        )
+        return queue(envelope, at: now)
+    }
+
+    @discardableResult
+    public mutating func queueVoiceReport(transcript: String?, durationSeconds: Double, now: Date) throws -> SyncEnvelope {
+        let report = VoiceReport(
+            id: LinkGuardID.generated(prefix: "VOICE"),
+            incidentID: context.incidentID,
+            groupID: context.groupID,
+            senderDeviceID: runtime.device.id,
+            audioAttachmentID: LinkGuardID.generated(prefix: "AUDIO"),
+            transcript: transcript,
+            durationSeconds: durationSeconds,
+            priority: .high,
+            recordedAt: now,
+            location: latestGPSFix?.coordinate
+        )
+        let envelope = try runtime.makeEnvelope(
+            messageType: .voiceReportAppend,
+            payload: report,
+            createdAt: now,
+            idempotencyKey: idempotencyKey("voice", now),
+            sourceRole: defaultRole
+        )
+        return queue(envelope, at: now)
+    }
+
+    @discardableResult
+    public mutating func queueSOS(dangerType: SOSDangerType, note: String?, now: Date) throws -> SyncEnvelope {
+        let action = FieldSOSAction(incidentID: context.incidentID, dangerType: dangerType, note: note)
+        let envelope = try action.makeEnvelope(runtime: runtime, latestGPSFix: latestGPSFix, createdAt: now)
+        return queue(envelope, at: now)
+    }
+
+    private mutating func queue(_ envelope: SyncEnvelope, at date: Date) -> SyncEnvelope {
+        localCache.queue(envelope, at: date)
+        runtime.queueOutbound(envelope, queuedAt: date)
+        queuedSummaries.insert(FieldQueuedEnvelopeSummary(envelope: envelope), at: 0)
+        queuedSummaries = Array(queuedSummaries.prefix(8))
+        return envelope
+    }
+
+    private func currentCoordinate() throws -> GeoCoordinate {
+        guard let coordinate = latestGPSFix?.coordinate else { throw FieldAppError.missingGPSFix }
+        return coordinate
+    }
+
+    private var defaultRole: ICSPosition {
+        switch runtime.device.appID {
+        case .ucc:
+            return .incidentCommander
+        case .scc, .sccIPad:
+            return .sectorCommander
+        case .teamLeader, .teamLeaderIPad:
+            return .teamLeader
+        case .teamMember:
+            return .teamMember
+        case .volunteer:
+            return .volunteer
+        case .emt, .emtIPad:
+            return .emt
+        }
+    }
+
+    private func idempotencyKey(_ suffix: String, _ date: Date) -> String {
+        "\(runtime.device.id.rawValue)-\(suffix)-\(Int(date.timeIntervalSince1970))"
+    }
+}

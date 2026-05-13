@@ -56,6 +56,7 @@ v0.3 的方向是 USAR/INSARAG + ICS 架構，採用共享核心與角色分流�
 - offline map tile manifest、tile request template、download progress model。
 - field SOS one-tap action：iPhone/iPad runtime + latest GPS fix → SOS envelope。
 - AAR audit query 與 JSON/CSV export bundle。
+- `LinkGuardV03FieldUI`：iPhone/iPad field app shell + Phase 2 controller，可排隊 Sector/Sub-sector/Worksite、人員狀態、任務、照片、安全進出、聊天、語音與 SOS envelopes。
 
 驗證指令：
 
@@ -66,9 +67,9 @@ swift test
 
 ## Versioning
 
-目前版本基準是 `0.3.1-3`，由 repo 根目錄的 `VERSION`、`VERSION.json`、shared framework 的 `LinkGuardVersionInfo.current` 與 Git tag `v0.3.1-3` 對齊。
+目前版本基準是 `0.3.1-4`，由 repo 根目錄的 `VERSION`、`VERSION.json`、shared framework 的 `LinkGuardVersionInfo.current` 與 Git tag `v0.3.1-4` 對齊。
 
-每次實作更新後都必須更新版本號。v0.3 alpha 線使用 `scripts/version.sh bump-alpha`；現場指定版使用 `scripts/version.sh set <version>`，例如 `scripts/version.sh set 0.3.1-3`。提交後使用 `scripts/version.sh tag` 建立本機 annotated tag。push 前使用 `scripts/version.sh push-check`，並把 `git push origin v<version>` 放在 push 流程最後。
+每次實作更新後都必須更新版本號。v0.3 alpha 線使用 `scripts/version.sh bump-alpha`；現場指定版使用 `scripts/version.sh set <version>`，例如 `scripts/version.sh set 0.3.1-4`。提交後使用 `scripts/version.sh tag` 建立本機 annotated tag。push 前使用 `scripts/version.sh push-check`，並把 `git push origin v<version>` 放在 push 流程最後。
 
 App 設定頁要透過 `LinkGuardAppSettingsInfo` 顯示建構版本、build number、release channel 與 Git tag。
 

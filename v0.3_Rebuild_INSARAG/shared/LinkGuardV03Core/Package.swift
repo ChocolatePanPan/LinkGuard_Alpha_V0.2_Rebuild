@@ -16,6 +16,10 @@ let package = Package(
         .library(
             name: "LinkGuardV03MacUI",
             targets: ["LinkGuardV03MacUI"]
+        ),
+        .library(
+            name: "LinkGuardV03FieldUI",
+            targets: ["LinkGuardV03FieldUI"]
         )
     ],
     dependencies: [
@@ -30,9 +34,13 @@ let package = Package(
                 .product(name: "WhisperKit", package: "WhisperKit")
             ]
         ),
+        .target(
+            name: "LinkGuardV03FieldUI",
+            dependencies: ["LinkGuardV03Core"]
+        ),
         .testTarget(
             name: "LinkGuardV03CoreTests",
-            dependencies: ["LinkGuardV03Core", "LinkGuardV03MacUI"]
+            dependencies: ["LinkGuardV03Core", "LinkGuardV03MacUI", "LinkGuardV03FieldUI"]
         )
     ]
 )

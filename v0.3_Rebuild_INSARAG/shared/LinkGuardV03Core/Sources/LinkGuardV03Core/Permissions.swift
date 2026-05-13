@@ -70,6 +70,7 @@ public enum RoleProfileCatalog {
         ])
         let teamLeaderPermissions = Set<LinkGuardPermission>([
             .viewIncident,
+            .manageIncident,
             .issueCommand,
             .acknowledgeAlert,
             .manageMap,

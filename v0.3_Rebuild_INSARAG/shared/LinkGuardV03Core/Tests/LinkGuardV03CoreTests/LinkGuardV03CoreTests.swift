@@ -1,5 +1,6 @@
 import XCTest
 @testable import LinkGuardV03Core
+@testable import LinkGuardV03FieldUI
 @testable import LinkGuardV03MacUI
 
 final class LinkGuardV03CoreTests: XCTestCase {
@@ -657,6 +658,29 @@ final class LinkGuardV03CoreTests: XCTestCase {
         XCTAssertEqual(tlSnapshot.worksites(inSubSector: "SUB-A1").map(\.id), ["WORKSITE-A1-01"])
     }
 
+    func testFieldTLControllerQueuesSectorWorksiteAndPersonnelStatus() throws {
+        var controller = FieldAppController(
+            appID: .teamLeader,
+            platform: .iPhone,
+            deviceID: "IOS-TL-TEST",
+            displayName: "TL Test",
+            now: fixedDate
+        )
+
+        let sectorEnvelopes = try controller.queueSectorPlan(now: fixedDate.addingTimeInterval(1))
+        let statusEnvelope = try controller.queuePersonnelStatus(
+            operationalState: .inWorksite,
+            connectivity: .online,
+            batteryLevel: 0.83,
+            now: fixedDate.addingTimeInterval(2)
+        )
+
+        XCTAssertEqual(sectorEnvelopes.map(\.messageType), [.sectorUpsert, .subSectorUpsert, .worksiteUpsert])
+        XCTAssertEqual(statusEnvelope.messageType, .personnelStatusUpsert)
+        XCTAssertEqual(controller.pendingEnvelopeCount, 4)
+        XCTAssertTrue(RoleProfileCatalog.profile(for: .teamLeader).allows(.manageIncident))
+    }
+
     func testPhaseTwoPersonnelOverviewTracksGPSStateAndConnectivity() throws {
         let teamMember = runtime(appID: .teamMember)
         let hub = InMemoryTransportHub(runtimes: allAppRuntimes())
@@ -744,6 +768,39 @@ final class LinkGuardV03CoreTests: XCTestCase {
         XCTAssertEqual(sccSnapshot.photoReports["PHOTO-1"]?.photoAttachmentID, "ATTACH-PHOTO-1")
         XCTAssertEqual(sccSnapshot.photoReports["PHOTO-1"]?.location.accuracyMeters, 3)
         XCTAssertEqual(sccSnapshot.auditEvents.last?.targetType, "photoReport")
+    }
+
+    func testFieldTEControllerQueuesTaskPhotoSafetyCommunicationAndSOS() throws {
+        var controller = FieldAppController(
+            appID: .teamMember,
+            platform: .iPhone,
+            deviceID: "IOS-TE-TEST",
+            displayName: "TE Test",
+            now: fixedDate
+        )
+
+        let task = try controller.queueTaskStatus(.inProgress, now: fixedDate.addingTimeInterval(1))
+        let photo = try controller.queuePhotoReport(
+            photoAttachmentID: "ATTACH-TE-1",
+            caption: "A1 entry",
+            checksum: "sha256:te",
+            now: fixedDate.addingTimeInterval(2)
+        )
+        let entry = try controller.queueSafetyEntry(.checkIn, now: fixedDate.addingTimeInterval(3))
+        let chat = try controller.queueGroupChat(body: "A1 status update", now: fixedDate.addingTimeInterval(4))
+        let voice = try controller.queueVoiceReport(transcript: "A1 voice update", durationSeconds: 5, now: fixedDate.addingTimeInterval(5))
+        let sos = try controller.queueSOS(dangerType: .trapped, note: "Pinned", now: fixedDate.addingTimeInterval(6))
+
+        XCTAssertEqual([task.messageType, photo.messageType, entry.messageType, chat.messageType, voice.messageType, sos.messageType], [
+            .taskUpsert,
+            .photoReportUpsert,
+            .safetyEntryLogUpsert,
+            .groupChatMessageAppend,
+            .voiceReportAppend,
+            .sosReportUpsert
+        ])
+        XCTAssertEqual(controller.pendingEnvelopeCount, 6)
+        XCTAssertFalse(controller.canSend(.sectorUpsert))
     }
 
     func testPhaseTwoSafetyControlTracksZonesAndEntryLogs() throws {
