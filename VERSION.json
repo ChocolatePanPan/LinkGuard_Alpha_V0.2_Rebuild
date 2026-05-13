@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
   "product": "LinkGuard",
-  "version": "0.3.1-6",
+  "version": "0.3.1-7",
   "shortVersion": "0.3.1",
-  "buildNumber": 301006,
+  "buildNumber": 301007,
   "releaseChannel": "field",
-  "gitTag": "v0.3.1-6",
+  "gitTag": "v0.3.1-7",
   "series": "v0.3_Rebuild_INSARAG",
   "notes": "Firefighter interview baseline: reliability, offline operation, three-second actions, glove-safe large controls, night contrast, one-hand use, low false touches, short command flows; AI is secondary."
 }
