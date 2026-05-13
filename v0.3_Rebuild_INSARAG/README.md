@@ -8,7 +8,7 @@ v0.3 的方向是 USAR/INSARAG + ICS 架構，採用共享核心與角色分流�
 
 v0.3 目前是 shared core + app target + role field shell + Mac copied HQ UI 的產品化前階段，不是完整 INSARAG 現場系統。已完成的是核心資料模型、同步骨架、角色權限/功能矩陣、可 build 的 field app targets，以及 iOS/iPad FieldUI 的本地 Phase 2 閉環；同步底座已開始產品化，支援 offline flush planning、retry interval 與 manual retry。主要缺口仍是真實 GPS/相機/語音/NFC/地圖能力、正式同步 server/provisioning、Mac v0.3 指揮 UI 與 field drill 驗證。
 
-狀態基準詳見 `docs/implementation-status/README.md`。
+狀態基準詳見 `docs/implementation-status/README.md`。全版本 Phase、進度與權限總表詳見 [docs/LinkGuard-E 全版本開發流程總表.md](docs/LinkGuard-E%20全版本開發流程總表.md)。
 
 ## 版本分流
 
