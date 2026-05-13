@@ -83,4 +83,29 @@ final class MapMarkupViewModelTests: XCTestCase {
         vm.toggleLayer(.polygon)
         XCTAssertTrue(vm.visibleLayers.contains(.polygon))
     }
+
+    func testVisibleFeaturesFollowLayerVisibility() {
+        let point = MapMarkupFeature(
+            incidentID: LinkGuardID("INC-3"),
+            geometry: .point(.victim, 25.0, 121.0),
+            title: "點",
+            createdBy: LinkGuardID("DEVICE-3")
+        )
+        let polygon = MapMarkupFeature(
+            incidentID: LinkGuardID("INC-3"),
+            geometry: .polygon(.hazardousZone, [
+                MapCoordinate(latitude: 25.0, longitude: 121.0),
+                MapCoordinate(latitude: 25.1, longitude: 121.0),
+                MapCoordinate(latitude: 25.1, longitude: 121.1)
+            ]),
+            title: "面",
+            createdBy: LinkGuardID("DEVICE-3")
+        )
+        let vm = MapMarkupViewModel(features: [point, polygon])
+
+        XCTAssertEqual(vm.visibleFeatures.count, 2)
+
+        vm.toggleLayer(.polygon)
+        XCTAssertEqual(vm.visibleFeatures.map(\.id), [point.id])
+    }
 }

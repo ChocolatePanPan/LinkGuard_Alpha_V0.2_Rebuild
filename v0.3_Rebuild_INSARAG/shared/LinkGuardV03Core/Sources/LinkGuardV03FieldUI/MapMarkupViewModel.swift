@@ -42,6 +42,9 @@ public final class MapMarkupViewModel: ObservableObject {
 
     public var canUndo: Bool { !undoStack.isEmpty }
     public var canRedo: Bool { !redoStack.isEmpty }
+    public var visibleFeatures: [MapMarkupFeature] {
+        features.filter { visibleLayers.contains(Self.mode(for: $0.geometry)) }
+    }
 
     public func beginDraft(at coordinate: MapCoordinate) {
         switch drawingMode {
@@ -171,5 +174,16 @@ public final class MapMarkupViewModel: ObservableObject {
     private func pushUndoSnapshot() {
         undoStack.append(features)
         redoStack.removeAll()
+    }
+
+    private static func mode(for geometry: MapMarkupFeature.MarkupGeometry) -> MapDrawingMode {
+        switch geometry {
+        case .point:
+            return .point
+        case .line:
+            return .polyline
+        case .polygon:
+            return .polygon
+        }
     }
 }
