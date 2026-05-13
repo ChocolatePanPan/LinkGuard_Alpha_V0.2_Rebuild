@@ -118,3 +118,11 @@ public enum AuditEventFactory {
         }
     }
 }
+
+public extension OperationSnapshot {
+    func auditEvents(matching query: AuditEventQuery) -> [AuditEvent] {
+        auditEvents
+            .filter(query.matches)
+            .sorted { $0.createdAt < $1.createdAt }
+    }
+}

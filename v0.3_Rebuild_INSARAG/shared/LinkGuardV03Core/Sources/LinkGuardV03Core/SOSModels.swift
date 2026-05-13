@@ -95,3 +95,59 @@ public struct SOSReport: Codable, Hashable, Sendable {
         }
     }
 }
+
+public enum FieldSOSError: Error, Equatable, Sendable {
+    case requiresMobileOrTabletApp(LinkGuardAppID)
+    case missingGPSFix
+}
+
+public struct FieldSOSAction: Codable, Hashable, Sendable {
+    public var incidentID: LinkGuardID
+    public var dangerType: SOSDangerType
+    public var note: String?
+    public var severity: PriorityLevel
+
+    public init(
+        incidentID: LinkGuardID,
+        dangerType: SOSDangerType,
+        note: String? = nil,
+        severity: PriorityLevel = .critical
+    ) {
+        self.incidentID = incidentID
+        self.dangerType = dangerType
+        self.note = note
+        self.severity = severity
+    }
+
+    public func makeReport(runtime: LinkGuardAppRuntime, latestGPSFix: GPSFix?, createdAt: Date) throws -> SOSReport {
+        guard runtime.device.platform != .mac else {
+            throw FieldSOSError.requiresMobileOrTabletApp(runtime.device.appID)
+        }
+        guard let latestGPSFix else {
+            throw FieldSOSError.missingGPSFix
+        }
+        return SOSReport(
+            id: LinkGuardID.generated(prefix: "SOS"),
+            incidentID: incidentID,
+            reporterDeviceID: runtime.device.id,
+            reporterAppID: runtime.device.appID,
+            location: latestGPSFix.coordinate,
+            dangerType: dangerType,
+            severity: severity,
+            note: note,
+            createdAt: createdAt
+        )
+    }
+
+    public func makeEnvelope(runtime: LinkGuardAppRuntime, latestGPSFix: GPSFix?, createdAt: Date) throws -> SyncEnvelope {
+        let report = try makeReport(runtime: runtime, latestGPSFix: latestGPSFix, createdAt: createdAt)
+        return try runtime.makeEnvelope(
+            messageType: .sosReportUpsert,
+            payload: report,
+            priority: severity,
+            createdAt: createdAt,
+            idempotencyKey: "\(runtime.device.id.rawValue)-sos-\(createdAt.timeIntervalSince1970)",
+            sourceRole: nil
+        )
+    }
+}

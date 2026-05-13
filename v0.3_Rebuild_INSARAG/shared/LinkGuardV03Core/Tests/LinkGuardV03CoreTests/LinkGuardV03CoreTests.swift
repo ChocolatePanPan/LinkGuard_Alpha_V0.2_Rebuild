@@ -5,6 +5,16 @@ import XCTest
 final class LinkGuardV03CoreTests: XCTestCase {
     private let fixedDate = Date(timeIntervalSince1970: 1_799_712_000)
 
+    private struct AcceptingTransport: SyncTransportClient {
+        func deliver(_ envelopes: [SyncEnvelope], from device: DeviceIdentity, at date: Date) async throws -> SyncTransportResponse {
+            SyncTransportResponse(
+                receipts: envelopes.map { envelope in
+                    SyncTransportReceipt(envelopeID: envelope.id, accepted: true, receivedAt: date)
+                }
+            )
+        }
+    }
+
     private func runtime(appID: LinkGuardAppID, id: LinkGuardID? = nil) -> LinkGuardAppRuntime {
         let platform: AppPlatform
         switch appID {
@@ -27,6 +37,14 @@ final class LinkGuardV03CoreTests: XCTestCase {
 
     private func allAppRuntimes() -> [LinkGuardAppRuntime] {
         LinkGuardAppID.allCases.map { runtime(appID: $0) }
+    }
+
+    private func temporaryCacheURL() throws -> URL {
+        let directoryURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("LinkGuardV03CoreTests")
+            .appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+        return directoryURL.appendingPathComponent("local-cache.json")
     }
 
     func testEMTProfileKeepsMedicalDataIndependent() {
@@ -94,6 +112,74 @@ final class LinkGuardV03CoreTests: XCTestCase {
 
         XCTAssertEqual(queue.entries.count, 2)
         XCTAssertEqual(queue.nextPending?.envelope.messageType, .alertUpsert)
+    }
+
+    func testHTTPEnvelopeTransportBuildsNetworkRequest() throws {
+        let teamLeader = runtime(appID: .teamLeader)
+        let task = FieldTask(
+            id: "TASK-NET-1",
+            incidentID: "INC-1",
+            type: .recon,
+            status: .assigned,
+            priority: .medium,
+            summary: "Network request check",
+            createdAt: fixedDate
+        )
+        let envelope = try teamLeader.makeEnvelope(
+            messageType: .taskUpsert,
+            payload: task,
+            createdAt: fixedDate,
+            idempotencyKey: "task-network-1"
+        )
+        let transport = HTTPEnvelopeTransport(endpointURL: URL(string: "https://sync.linkguard.local/envelopes")!, bearerToken: "token")
+        let batch = try transport.makeBatch(envelopes: [envelope], from: teamLeader.device, at: fixedDate)
+        let request = try transport.makeRequest(for: batch)
+        let body = try XCTUnwrap(request.httpBody)
+        let decodedBatch = try LinkGuardJSON.decode(SyncTransportBatch.self, from: body)
+
+        XCTAssertEqual(request.httpMethod, "POST")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Content-Type"), "application/json")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer token")
+        XCTAssertEqual(decodedBatch.device.id, teamLeader.device.id)
+        XCTAssertEqual(decodedBatch.envelopes.first?.idempotencyKey, "task-network-1")
+    }
+
+    func testFileBackedOfflineSyncPersistsAndFlushesQueuedEnvelopes() async throws {
+        let teamLeader = runtime(appID: .teamLeader)
+        let store = FileBackedLocalOperationCacheStore(fileURL: try temporaryCacheURL())
+        let task = FieldTask(
+            id: "TASK-OFFLINE-1",
+            incidentID: "INC-1",
+            type: .search,
+            status: .assigned,
+            priority: .high,
+            summary: "Persisted offline task",
+            createdAt: fixedDate
+        )
+        let envelope = try teamLeader.makeEnvelope(
+            messageType: .taskUpsert,
+            payload: task,
+            createdAt: fixedDate,
+            idempotencyKey: "offline-task-1"
+        )
+        var cache = LocalOperationCache(connectivity: .offline)
+        cache.queue(envelope, at: fixedDate)
+        _ = try store.save(cache, at: fixedDate)
+
+        let coordinator = OfflineSyncCoordinator(store: store, transport: AcceptingTransport(), device: teamLeader.device)
+        let result = try await coordinator.recoverAndSync(
+            connectivity: .online,
+            trigger: .connectivityRecovered,
+            now: fixedDate.addingTimeInterval(30)
+        )
+        let reloaded = try store.load()
+
+        XCTAssertTrue(result.attempted)
+        XCTAssertEqual(result.deliveredEnvelopeIDs, [envelope.id])
+        XCTAssertEqual(result.remainingPendingCount, 0)
+        XCTAssertEqual(reloaded.pendingCount, 0)
+        XCTAssertEqual(reloaded.lastSyncAt, fixedDate.addingTimeInterval(30))
+        XCTAssertEqual(reloaded.connectivity, .online)
     }
 
     func testOperationStoreAppliesEnvelopeOnlyOnce() throws {
@@ -395,6 +481,33 @@ final class LinkGuardV03CoreTests: XCTestCase {
         XCTAssertEqual(mapLayer.availableOfflinePack(containing: coordinate)?.id, "PACK-1")
     }
 
+    func testOfflineMapPackProducesTileManifestAndDownloadRequests() throws {
+        let pack = OfflineMapPack(
+            id: "PACK-TILES-1",
+            incidentID: "INC-1",
+            name: "A1 offline tiles",
+            bounds: MapBoundingBox(
+                minimumLatitude: 25.032,
+                minimumLongitude: 121.564,
+                maximumLatitude: 25.036,
+                maximumLongitude: 121.568
+            ),
+            minimumZoom: 15,
+            maximumZoom: 15,
+            status: .requested
+        )
+        let manifest = try pack.tileManifest(maxTileCount: 100)
+        let requests = manifest.downloadRequests(using: MapTileURLTemplate(template: "https://tiles.linkguard.local/{z}/{x}/{y}.png"))
+        var progress = OfflineMapTileDownloadProgress(packID: pack.id, totalTileCount: manifest.totalTileCount, updatedAt: fixedDate)
+
+        progress.recordDownloaded(at: fixedDate.addingTimeInterval(1))
+
+        XCTAssertFalse(manifest.tileCoordinates.isEmpty)
+        XCTAssertEqual(requests.count, manifest.totalTileCount)
+        XCTAssertTrue(requests.first?.url.absoluteString.contains("/15/") == true)
+        XCTAssertGreaterThan(progress.fractionComplete, 0)
+    }
+
     func testPhaseOneSOSBroadcastsLocationAndWritesAuditLog() throws {
         let teamMember = runtime(appID: .teamMember)
         let hub = InMemoryTransportHub(runtimes: allAppRuntimes())
@@ -421,6 +534,63 @@ final class LinkGuardV03CoreTests: XCTestCase {
         XCTAssertEqual(hub.runtime(for: "DEVICE-LinkGuard-UCC")?.snapshot.sosReports["SOS-1"]?.dangerType, .trapped)
         XCTAssertEqual(hub.runtime(for: "DEVICE-LinkGuard-SCC")?.snapshot.auditEvents.last?.action, .sendSOS)
         XCTAssertEqual(sos.asIncidentAlert().type, .sos)
+    }
+
+    func testFieldSOSActionCreatesMobileEnvelopeFromLatestGPSFix() throws {
+        let teamMember = runtime(appID: .teamMember)
+        let latestFix = GPSFix(
+            coordinate: GeoCoordinate(latitude: 25.034, longitude: 121.566, accuracyMeters: 4),
+            source: .deviceGPS,
+            capturedAt: fixedDate
+        )
+        let action = FieldSOSAction(incidentID: "INC-1", dangerType: .trapped, note: "Pinned at A1")
+        let envelope = try action.makeEnvelope(runtime: teamMember, latestGPSFix: latestFix, createdAt: fixedDate)
+        let report = try envelope.decodePayload(SOSReport.self)
+
+        XCTAssertEqual(envelope.messageType, .sosReportUpsert)
+        XCTAssertEqual(envelope.priority, .critical)
+        XCTAssertEqual(report.reporterDeviceID, teamMember.device.id)
+        XCTAssertEqual(report.location.accuracyMeters, 4)
+        XCTAssertThrowsError(try action.makeReport(runtime: runtime(appID: .ucc), latestGPSFix: latestFix, createdAt: fixedDate)) { error in
+            XCTAssertEqual(error as? FieldSOSError, .requiresMobileOrTabletApp(.ucc))
+        }
+    }
+
+    func testAARExporterFiltersAuditEventsAndCreatesCSV() throws {
+        var snapshot = OperationSnapshot()
+        snapshot.record(AuditEvent(
+            id: "AUD-1",
+            incidentID: "INC-1",
+            actorID: "DEVICE-TL",
+            actorRole: .teamLeader,
+            appID: .teamLeader,
+            deviceID: "DEVICE-TL",
+            action: .safetyControl,
+            targetType: "safetyZone",
+            targetID: "ZONE-1",
+            createdAt: fixedDate
+        ))
+        snapshot.record(AuditEvent(
+            id: "AUD-2",
+            incidentID: "INC-1",
+            actorID: "DEVICE-TE",
+            actorRole: .teamMember,
+            appID: .teamMember,
+            deviceID: "DEVICE-TE",
+            action: .communication,
+            targetType: "voiceReport",
+            targetID: "VOICE-1",
+            createdAt: fixedDate.addingTimeInterval(5)
+        ))
+
+        let query = AuditEventQuery(incidentID: "INC-1", actions: [.safetyControl])
+        let bundle = AARExporter.bundle(from: snapshot, query: query, generatedAt: fixedDate.addingTimeInterval(60))
+        let csv = try XCTUnwrap(String(data: try AARExporter.export(bundle, format: .csv), encoding: .utf8))
+        let jsonBundle = try LinkGuardJSON.decode(AARExportBundle.self, from: try AARExporter.export(bundle, format: .json))
+
+        XCTAssertEqual(bundle.auditEvents.map(\.id), ["AUD-1"])
+        XCTAssertTrue(csv.contains("safetyControl,safetyZone,ZONE-1"))
+        XCTAssertEqual(jsonBundle.auditEvents.count, 1)
     }
 
     func testPhaseOneMapUpdateAutoCreatesEventLog() throws {

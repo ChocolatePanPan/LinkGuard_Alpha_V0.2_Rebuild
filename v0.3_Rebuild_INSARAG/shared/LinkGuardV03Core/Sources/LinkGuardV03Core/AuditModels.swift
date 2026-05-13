@@ -61,6 +61,115 @@ public struct AuditEvent: Codable, Hashable, Sendable {
     }
 }
 
+public struct AuditEventQuery: Codable, Hashable, Sendable {
+    public var incidentID: LinkGuardID?
+    public var actions: Set<AuditAction>
+    public var targetTypes: Set<String>
+    public var deviceIDs: Set<LinkGuardID>
+    public var from: Date?
+    public var through: Date?
+
+    public init(
+        incidentID: LinkGuardID? = nil,
+        actions: Set<AuditAction> = [],
+        targetTypes: Set<String> = [],
+        deviceIDs: Set<LinkGuardID> = [],
+        from: Date? = nil,
+        through: Date? = nil
+    ) {
+        self.incidentID = incidentID
+        self.actions = actions
+        self.targetTypes = targetTypes
+        self.deviceIDs = deviceIDs
+        self.from = from
+        self.through = through
+    }
+
+    public func matches(_ event: AuditEvent) -> Bool {
+        if let incidentID, event.incidentID != incidentID { return false }
+        if actions.isEmpty == false, actions.contains(event.action) == false { return false }
+        if targetTypes.isEmpty == false, targetTypes.contains(event.targetType) == false { return false }
+        if deviceIDs.isEmpty == false, deviceIDs.contains(event.deviceID) == false { return false }
+        if let from, event.createdAt < from { return false }
+        if let through, event.createdAt > through { return false }
+        return true
+    }
+}
+
+public enum AARExportFormat: String, Codable, CaseIterable, Sendable {
+    case json
+    case csv
+}
+
+public struct AARExportBundle: Codable, Sendable {
+    public var incidentID: LinkGuardID?
+    public var generatedAt: Date
+    public var query: AuditEventQuery
+    public var auditEvents: [AuditEvent]
+    public var decisionRecords: [DecisionRecord]
+
+    public init(
+        incidentID: LinkGuardID?,
+        generatedAt: Date,
+        query: AuditEventQuery,
+        auditEvents: [AuditEvent],
+        decisionRecords: [DecisionRecord]
+    ) {
+        self.incidentID = incidentID
+        self.generatedAt = generatedAt
+        self.query = query
+        self.auditEvents = auditEvents
+        self.decisionRecords = decisionRecords
+    }
+}
+
+public enum AARExporter {
+    public static func bundle(from snapshot: OperationSnapshot, query: AuditEventQuery, generatedAt: Date) -> AARExportBundle {
+        let events = snapshot.auditEvents(matching: query)
+        let decisions = snapshot.decisionRecords.values
+            .filter { query.incidentID == nil || $0.incidentID == query.incidentID }
+            .sorted { $0.decidedAt < $1.decidedAt }
+        return AARExportBundle(
+            incidentID: query.incidentID,
+            generatedAt: generatedAt,
+            query: query,
+            auditEvents: events,
+            decisionRecords: decisions
+        )
+    }
+
+    public static func export(_ bundle: AARExportBundle, format: AARExportFormat) throws -> Data {
+        switch format {
+        case .json:
+            return try LinkGuardJSON.encode(bundle, prettyPrinted: true)
+        case .csv:
+            return Data(csv(for: bundle).utf8)
+        }
+    }
+
+    private static func csv(for bundle: AARExportBundle) -> String {
+        var rows = ["createdAt,incidentID,action,targetType,targetID,actorID,appID,deviceID"]
+        rows += bundle.auditEvents.map { event in
+            [
+                event.createdAt.ISO8601Format(),
+                event.incidentID.rawValue,
+                event.action.rawValue,
+                event.targetType,
+                event.targetID.rawValue,
+                event.actorID.rawValue,
+                event.appID.rawValue,
+                event.deviceID.rawValue
+            ].map(escapeCSV).joined(separator: ",")
+        }
+        return rows.joined(separator: "\n") + "\n"
+    }
+
+    private static func escapeCSV(_ value: String) -> String {
+        guard value.contains(",") || value.contains("\"") || value.contains("\n") else { return value }
+        return "\"\(value.replacingOccurrences(of: "\"", with: "\"\""))\""
+    }
+}
+
 public struct DecisionRecord: Codable, Hashable, Sendable {
     public var id: LinkGuardID
     public var incidentID: LinkGuardID
