@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
   "product": "LinkGuard",
-  "version": "0.3.1-alpha.11",
+  "version": "0.3.1-alpha.12",
   "shortVersion": "0.3.1",
-  "buildNumber": 301020,
+  "buildNumber": 301021,
   "releaseChannel": "alpha",
-  "gitTag": "v0.3.1-alpha.11",
+  "gitTag": "v0.3.1-alpha.12",
   "series": "v0.3_Rebuild_INSARAG",
   "notes": "Version bumped after implementation update; show build info in app settings and verify tag at push tail."
 }

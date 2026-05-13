@@ -116,7 +116,9 @@ public struct FieldAppShellView: View {
             missionOverview
             priorityActionPanel
             inboxPanel
-            personnelPanel
+            if controller.canUseFeature(.personnelOverview) {
+                personnelPanel
+            }
         }
     }
 
@@ -252,7 +254,9 @@ public struct FieldAppShellView: View {
                 }
                 FieldAdaptiveGrid(minimum: 142) {
                     FieldMetricTile(title: "Open Tasks", value: "\(summary.openTaskCount)", systemImage: "checklist.checked", accent: FieldTheme.green)
-                    FieldMetricTile(title: "Online", value: "\(summary.onlinePersonnelCount)/\(summary.personnelCount)", systemImage: "person.3.fill", accent: FieldTheme.team)
+                    if controller.canUseFeature(.personnelOverview) {
+                        FieldMetricTile(title: "Online", value: "\(summary.onlinePersonnelCount)/\(summary.personnelCount)", systemImage: "person.3.fill", accent: FieldTheme.team)
+                    }
                     FieldMetricTile(title: "Safety", value: "\(summary.safetyZoneCount)", systemImage: "shield.lefthalf.filled", accent: FieldTheme.warning)
                     FieldMetricTile(title: "Reports", value: "\(summary.photoReportCount + summary.disasterReportCount)", systemImage: "camera.fill", accent: FieldTheme.info)
                     FieldMetricTile(title: "Patients", value: "\(summary.patientCount)", systemImage: "cross.case.fill", accent: FieldTheme.medical)

@@ -165,7 +165,7 @@ public enum LinkGuardFeatureAccessMatrix {
         .offlineMap: .init(.limited, .primary, .primary, .primary, .limited, .limited),
 
         .personnelOverview: .init(.primary, .primary, .primary, .none, .limited, .none),
-        .gpsTracking: .init(.limited, .primary, .primary, .primary, .primary, .primary),
+        .gpsTracking: .init(.limited, .primary, .primary, .primary, .primary, .limited),
         .personnelEntryLog: .init(.none, .primary, .primary, .limited, .limited, .none),
         .teamCapabilityOverview: .init(.limited, .primary, .primary, .none, .limited, .none),
         .personnelStatusUpdate: .init(.limited, .primary, .primary, .limited, .limited, .none),
