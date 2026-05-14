@@ -1494,6 +1494,41 @@ final class LinkGuardV03CoreTests: XCTestCase {
         XCTAssertEqual(restoredController.queuedSummaries.first?.messageType, .sosReportUpsert)
     }
 
+    func testFieldControllerManualSyncFlushesPersistedOutbox() async throws {
+        let store = FileBackedLocalOperationCacheStore(fileURL: try temporaryCacheURL())
+        var controller = FieldAppController(
+            appID: .teamMember,
+            platform: .iPhone,
+            deviceID: "IOS-TE-SYNC-TEST",
+            displayName: "TE Sync Test",
+            initialGPSFix: fieldGPSFix(),
+            localCacheStore: store,
+            now: fixedDate
+        )
+
+        let envelope = try controller.queueSOS(
+            dangerType: .trapped,
+            note: "Sync me",
+            now: fixedDate.addingTimeInterval(1)
+        )
+
+        let result = try await controller.syncQueuedEnvelopes(
+            transport: AcceptingTransport(),
+            now: fixedDate.addingTimeInterval(2)
+        )
+
+        XCTAssertTrue(result.attempted)
+        XCTAssertEqual(result.deliveredEnvelopeIDs, [envelope.id])
+        XCTAssertEqual(result.failedEnvelopeIDs, [])
+        XCTAssertEqual(result.remainingPendingCount, 0)
+        XCTAssertEqual(controller.pendingEnvelopeCount, 0)
+        XCTAssertEqual(controller.runtime.pendingOutboundCount, 0)
+        XCTAssertEqual(controller.queuedSummaries, [])
+        XCTAssertEqual(controller.lastSyncResult?.deliveredEnvelopeIDs, [envelope.id])
+        XCTAssertNil(controller.lastSyncError)
+        XCTAssertEqual(try store.load().pendingCount, 0)
+    }
+
     func testFieldTLAndEMTMedicalActionsFollowFeatureMatrix() throws {
         var teamLeader = FieldAppController(
             appID: .teamLeader,

@@ -10,6 +10,8 @@ public struct FieldAppShellView: View {
     @State private var statusAccent = FieldTheme.green
     @State private var showingTeamCapabilityForm = false
     @State private var teamCapabilityDraft: USARTeamCapabilityReport?
+    @State private var syncEndpointText = "http://127.0.0.1:8080/sync"
+    @State private var isSyncing = false
 
     public init(appID: LinkGuardAppID, platform: AppPlatform, deviceID: LinkGuardID, displayName: String) {
         let localCacheStore = FieldAppController.defaultLocalCacheStore(appID: appID, deviceID: deviceID)
@@ -673,6 +675,38 @@ public struct FieldAppShellView: View {
     private var outboxPanel: some View {
         FieldPanel("Offline Queue", systemImage: "tray.full", accent: FieldTheme.green) {
             VStack(spacing: 8) {
+                HStack(spacing: 8) {
+                    TextField("Sync endpoint", text: $syncEndpointText)
+                        .font(.caption.monospaced())
+                        .textFieldStyle(.roundedBorder)
+                    Button {
+                        runSyncNow()
+                    } label: {
+                        Label(isSyncing ? "Syncing" : "Sync Now", systemImage: "arrow.triangle.2.circlepath")
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.82)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(isSyncing || controller.pendingEnvelopeCount == 0)
+                }
+                if let syncResult = controller.lastSyncResult {
+                    FieldTimelineRow(
+                        title: syncResult.attempted ? "Last Sync" : "Sync Idle",
+                        detail: "Delivered \(syncResult.deliveredEnvelopeIDs.count) / Failed \(syncResult.failedEnvelopeIDs.count) / Remaining \(syncResult.remainingPendingCount)",
+                        systemImage: syncResult.failedEnvelopeIDs.isEmpty ? "checkmark.icloud.fill" : "exclamationmark.icloud.fill",
+                        accent: syncResult.failedEnvelopeIDs.isEmpty ? FieldTheme.green : FieldTheme.warning,
+                        trailing: syncResult.attempted ? "SYNC" : "IDLE"
+                    )
+                }
+                if let syncError = controller.lastSyncError {
+                    FieldTimelineRow(
+                        title: "Sync Error",
+                        detail: syncError,
+                        systemImage: "wifi.exclamationmark",
+                        accent: FieldTheme.warning,
+                        trailing: "FAILED"
+                    )
+                }
                 if let persistenceError = controller.lastPersistenceError {
                     FieldTimelineRow(
                         title: "Outbox Storage",
@@ -771,6 +805,37 @@ public struct FieldAppShellView: View {
         } catch {
             statusText = "Blocked USAR Profile"
             statusAccent = FieldTheme.warning
+        }
+    }
+
+    private func runSyncNow() {
+        guard isSyncing == false else { return }
+        guard
+            let endpointURL = URL(string: syncEndpointText),
+            let scheme = endpointURL.scheme?.lowercased(),
+            scheme == "http" || scheme == "https"
+        else {
+            statusText = "Bad Endpoint"
+            statusAccent = FieldTheme.warning
+            return
+        }
+
+        isSyncing = true
+        statusText = "Syncing"
+        statusAccent = FieldTheme.info
+        Task { @MainActor in
+            defer { isSyncing = false }
+            var syncingController = controller
+            do {
+                let result = try await syncingController.syncQueuedEnvelopes(endpointURL: endpointURL, now: Date())
+                controller = syncingController
+                statusText = result.attempted ? "Synced \(result.deliveredEnvelopeIDs.count)" : "Sync Idle"
+                statusAccent = result.failedEnvelopeIDs.isEmpty ? FieldTheme.green : FieldTheme.warning
+            } catch {
+                controller = syncingController
+                statusText = "Sync Failed"
+                statusAccent = FieldTheme.warning
+            }
         }
     }
 

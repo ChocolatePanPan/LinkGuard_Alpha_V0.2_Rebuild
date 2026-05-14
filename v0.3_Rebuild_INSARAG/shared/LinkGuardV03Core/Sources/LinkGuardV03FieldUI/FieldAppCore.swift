@@ -4,6 +4,7 @@ import LinkGuardV03Core
 public enum FieldAppError: Error, Equatable, Sendable {
     case missingGPSFix
     case featureUnavailable(appID: LinkGuardAppID, feature: LinkGuardFeature)
+    case localCacheUnavailable
 }
 
 public struct FieldOperationalContext: Codable, Hashable, Sendable {
@@ -136,6 +137,8 @@ public struct FieldAppController: Sendable {
     public private(set) var latestGPSFix: GPSFix?
     public private(set) var queuedSummaries: [FieldQueuedEnvelopeSummary]
     public private(set) var lastPersistenceError: String?
+    public private(set) var lastSyncResult: OfflineSyncResult?
+    public private(set) var lastSyncError: String?
 
     public init(
         appID: LinkGuardAppID,
@@ -171,6 +174,8 @@ public struct FieldAppController: Sendable {
         self.latestGPSFix = nil
         self.queuedSummaries = Self.queuedSummaries(from: loadedCache)
         self.lastPersistenceError = loadError
+        self.lastSyncResult = nil
+        self.lastSyncError = nil
         if let initialGPSFix {
             recordGPSFix(initialGPSFix)
         }
@@ -199,6 +204,48 @@ public struct FieldAppController: Sendable {
             allowedScalars.contains(scalar) ? String(scalar) : "_"
         }.joined()
         return component.isEmpty ? "unknown" : component
+    }
+
+    @discardableResult
+    public mutating func syncQueuedEnvelopes(
+        endpointURL: URL,
+        bearerToken: String? = nil,
+        connectivity: ConnectivityState = .online,
+        policy: BackgroundSyncPolicy = BackgroundSyncPolicy(),
+        now: Date = Date()
+    ) async throws -> OfflineSyncResult {
+        let transport = HTTPEnvelopeTransport(endpointURL: endpointURL, bearerToken: bearerToken)
+        return try await syncQueuedEnvelopes(transport: transport, connectivity: connectivity, policy: policy, now: now)
+    }
+
+    @discardableResult
+    public mutating func syncQueuedEnvelopes<Transport: SyncTransportClient>(
+        transport: Transport,
+        connectivity: ConnectivityState = .online,
+        policy: BackgroundSyncPolicy = BackgroundSyncPolicy(),
+        now: Date = Date()
+    ) async throws -> OfflineSyncResult {
+        guard let localCacheStore else {
+            lastSyncError = "local cache unavailable"
+            throw FieldAppError.localCacheUnavailable
+        }
+        let coordinator = OfflineSyncCoordinator(
+            store: localCacheStore,
+            transport: transport,
+            device: runtime.device,
+            policy: policy
+        )
+        do {
+            let result = try await coordinator.flushPending(connectivity: connectivity, trigger: .manualRetry, now: now)
+            refreshLocalCacheFromStore()
+            lastSyncResult = result
+            lastSyncError = nil
+            return result
+        } catch {
+            refreshLocalCacheFromStore()
+            lastSyncError = String(describing: error)
+            throw error
+        }
     }
 
     public var profile: RoleProfile { runtime.profile }
@@ -903,10 +950,9 @@ public struct FieldAppController: Sendable {
     private mutating func queue(_ envelope: SyncEnvelope, at date: Date) -> SyncEnvelope {
         try? runtime.receive(envelope)
         localCache.queue(envelope, at: date)
-        persistLocalCache(at: date)
         runtime.queueOutbound(envelope, queuedAt: date)
-        queuedSummaries.insert(FieldQueuedEnvelopeSummary(envelope: envelope), at: 0)
-        queuedSummaries = Array(queuedSummaries.prefix(8))
+        persistLocalCache(at: date)
+        queuedSummaries = Self.queuedSummaries(from: localCache)
         return envelope
     }
 
@@ -914,6 +960,20 @@ public struct FieldAppController: Sendable {
         guard let localCacheStore else { return }
         do {
             localCache = try localCacheStore.save(localCache, at: date)
+            runtime.replaceOutboundQueue(localCache.outboundQueue)
+            queuedSummaries = Self.queuedSummaries(from: localCache)
+            lastPersistenceError = nil
+        } catch {
+            lastPersistenceError = String(describing: error)
+        }
+    }
+
+    private mutating func refreshLocalCacheFromStore() {
+        guard let localCacheStore else { return }
+        do {
+            localCache = try localCacheStore.load(default: localCache)
+            runtime.replaceOutboundQueue(localCache.outboundQueue)
+            queuedSummaries = Self.queuedSummaries(from: localCache)
             lastPersistenceError = nil
         } catch {
             lastPersistenceError = String(describing: error)
