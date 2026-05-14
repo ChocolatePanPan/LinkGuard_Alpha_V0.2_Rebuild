@@ -111,6 +111,28 @@ public struct MacTransportRouteSummary: Identifiable, Hashable, Sendable {
     }
 }
 
+public struct MacSOSAlertItem: Identifiable, Hashable, Sendable {
+    public var id: LinkGuardID
+    public var dangerType: SOSDangerType
+    public var reporterDeviceID: LinkGuardID
+    public var reporterAppID: LinkGuardAppID
+    public var location: GeoCoordinate
+    public var status: SOSStatus
+    public var createdAt: Date
+    public var note: String?
+
+    public init(report: SOSReport) {
+        self.id = report.id
+        self.dangerType = report.dangerType
+        self.reporterDeviceID = report.reporterDeviceID
+        self.reporterAppID = report.reporterAppID
+        self.location = report.location
+        self.status = report.status
+        self.createdAt = report.createdAt
+        self.note = report.note
+    }
+}
+
 public struct MacSystemUIState: Sendable {
     public var runtime: LinkGuardAppRuntime
     public var settingsInfo: LinkGuardAppSettingsInfo
@@ -145,6 +167,50 @@ public struct MacSystemUIState: Sendable {
     public var subtitle: String { "\(runtime.profile.displayName) / \(runtime.profile.commandAuthority.macDisplayName)" }
     public var versionInfo: LinkGuardVersionInfo { settingsInfo.versionInfo }
     public var settingsItems: [LinkGuardAppSettingsItem] { settingsInfo.items }
+    public var sosAlertItems: [MacSOSAlertItem] {
+        runtime.snapshot.sosReports.values
+            .sorted { $0.createdAt > $1.createdAt }
+            .map(MacSOSAlertItem.init(report:))
+    }
+
+    @discardableResult
+    public mutating func receive(_ batch: SyncTransportBatch, receivedAt: Date = Date()) -> SyncTransportResponse {
+        receive(batch.envelopes, receivedAt: receivedAt)
+    }
+
+    @discardableResult
+    public mutating func receive(_ envelopes: [SyncEnvelope], receivedAt: Date = Date()) -> SyncTransportResponse {
+        let receipts = envelopes.map { envelope in
+            let route = TransportTopology.route(for: envelope)
+            guard route.allowedRecipientApps.contains(runtime.device.appID) else {
+                return SyncTransportReceipt(
+                    envelopeID: envelope.id,
+                    accepted: false,
+                    receivedAt: receivedAt,
+                    error: "message is not routed to \(runtime.device.appID.rawValue)"
+                )
+            }
+
+            do {
+                try runtime.receive(envelope)
+                return SyncTransportReceipt(envelopeID: envelope.id, accepted: true, receivedAt: receivedAt)
+            } catch {
+                return SyncTransportReceipt(
+                    envelopeID: envelope.id,
+                    accepted: false,
+                    receivedAt: receivedAt,
+                    error: String(describing: error)
+                )
+            }
+        }
+        refreshDerivedState()
+        return SyncTransportResponse(receipts: receipts)
+    }
+
+    private mutating func refreshDerivedState() {
+        guard let refreshed = try? MacSystemUIFactory.makeState(for: runtime, versionInfo: versionInfo) else { return }
+        self = refreshed
+    }
 }
 
 public enum MacSystemUIFactory {
@@ -219,7 +285,7 @@ public enum MacSystemUIFactory {
             MacMetricTile(id: "worksites", title: "分區工址", value: String(snapshot.worksites.count), systemImageName: "map.fill", accentName: "orange"),
             MacMetricTile(id: "tasks", title: "進行任務", value: String(openTaskCount(in: snapshot)), systemImageName: "checklist", accentName: "green"),
             MacMetricTile(id: "team-capability", title: "隊伍概況", value: String(snapshot.teamCapabilityReports.count), systemImageName: "person.3.sequence.fill", accentName: "teal"),
-            MacMetricTile(id: "alerts", title: "緊急警報", value: String(snapshot.alerts.count), systemImageName: "exclamationmark.triangle.fill", accentName: "red"),
+            MacMetricTile(id: "alerts", title: "緊急警報", value: String(snapshot.alerts.count + snapshot.sosReports.count), systemImageName: "exclamationmark.triangle.fill", accentName: "red"),
             MacMetricTile(id: "queue", title: "同步佇列", value: String(runtime.outboundQueue.entries.count), systemImageName: "arrow.up.arrow.down", accentName: "purple")
         ]
 

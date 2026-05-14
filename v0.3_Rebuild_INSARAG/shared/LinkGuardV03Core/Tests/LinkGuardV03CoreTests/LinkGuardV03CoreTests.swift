@@ -2058,6 +2058,42 @@ final class LinkGuardV03CoreTests: XCTestCase {
         XCTAssertTrue(state.transportRoutes.contains { $0.messageType == .evacuationRequestUpsert && $0.receives && $0.canSend })
     }
 
+    func testMacSCCStateReceivesFieldSOSSyncBatch() throws {
+        var fieldController = FieldAppController(
+            appID: .teamMember,
+            platform: .iPhone,
+            deviceID: "IOS-TE-SOS-SYNC",
+            displayName: "TE SOS Sync",
+            initialGPSFix: fieldGPSFix(),
+            now: fixedDate
+        )
+        let envelope = try fieldController.queueSOS(
+            dangerType: .trapped,
+            note: "Need extraction",
+            now: fixedDate.addingTimeInterval(1)
+        )
+        let report = try envelope.decodePayload(SOSReport.self)
+        let batch = SyncTransportBatch(
+            device: fieldController.runtime.device,
+            generatedAt: fixedDate.addingTimeInterval(2),
+            envelopes: [envelope]
+        )
+        var state = try MacSystemUIFactory.makeState(appID: .scc, deviceID: "DEVICE-SCC")
+
+        let response = state.receive(batch, receivedAt: fixedDate.addingTimeInterval(3))
+
+        XCTAssertEqual(response.receipts, [
+            SyncTransportReceipt(envelopeID: envelope.id, accepted: true, receivedAt: fixedDate.addingTimeInterval(3))
+        ])
+        XCTAssertEqual(state.runtime.snapshot.sosReports.count, 1)
+        XCTAssertEqual(state.sosAlertItems.first?.id, report.id)
+        XCTAssertEqual(state.sosAlertItems.first?.reporterAppID, .teamMember)
+        XCTAssertEqual(state.sosAlertItems.first?.dangerType, .trapped)
+        XCTAssertEqual(state.sosAlertItems.first?.note, "Need extraction")
+        XCTAssertEqual(state.metrics.first { $0.id == "alerts" }?.value, "1")
+        XCTAssertEqual(state.inheritedModules.first { $0.section == .command }?.recordCount, 1)
+    }
+
     func testMacUIRejectsNonMacApps() throws {
         XCTAssertThrowsError(try MacSystemUIFactory.makeState(appID: .teamLeader, deviceID: "DEVICE-TL")) { error in
             XCTAssertEqual(error as? MacSystemUIError, .unsupportedApp(.teamLeader))
