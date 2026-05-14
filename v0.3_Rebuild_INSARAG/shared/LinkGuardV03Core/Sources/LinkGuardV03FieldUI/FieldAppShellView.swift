@@ -84,12 +84,11 @@ public struct FieldAppShellView: View {
         FieldPanel(accent: roleAccent) {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(alignment: .top, spacing: 12) {
-                    Image(systemName: roleIcon)
-                        .font(.title2.weight(.semibold))
-                        .foregroundStyle(roleAccent)
-                        .frame(width: 42, height: 42)
-                        .background(roleAccent.opacity(0.16), in: RoundedRectangle(cornerRadius: 10))
+                    brandMark
                     VStack(alignment: .leading, spacing: 4) {
+                        Text("LinkGuard")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(FieldTheme.green)
                         Text(controller.runtime.device.displayName)
                             .font(.title3.weight(.bold))
                             .lineLimit(2)
@@ -114,12 +113,36 @@ public struct FieldAppShellView: View {
                     HStack(spacing: 8) {
                         FieldStatusPill(title: statusText, systemImage: "checkmark.seal.fill", accent: statusAccent)
                         FieldStatusPill(title: controller.latestGPSFix == nil ? "No GPS" : "GPS Ready", systemImage: "location.fill", accent: controller.latestGPSFix == nil ? FieldTheme.warning : FieldTheme.green)
+                        FieldStatusPill(title: LinkGuardVersionInfo.current.displayVersion, systemImage: "tag.fill", accent: FieldTheme.info)
                         FieldStatusPill(title: controller.blueprint.homeSurface.fieldDisplayName, systemImage: "rectangle.3.group.fill", accent: FieldTheme.info)
                         FieldStatusPill(title: controller.profile.commandAuthority.fieldDisplayName, systemImage: "person.badge.key.fill", accent: FieldTheme.command)
                     }
                 }
             }
         }
+    }
+
+    private var brandMark: some View {
+        ZStack(alignment: .bottomTrailing) {
+            Image("Logo", bundle: .main)
+                .resizable()
+                .scaledToFit()
+                .padding(7)
+                .frame(width: 54, height: 54)
+                .background(FieldTheme.raisedSurface, in: RoundedRectangle(cornerRadius: 12))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(FieldTheme.green.opacity(0.34), lineWidth: 1)
+                )
+
+            Image(systemName: roleIcon)
+                .font(.caption.weight(.bold))
+                .foregroundStyle(roleAccent)
+                .frame(width: 22, height: 22)
+                .background(FieldTheme.surface, in: Circle())
+                .overlay(Circle().stroke(roleAccent.opacity(0.48), lineWidth: 1))
+        }
+        .accessibilityLabel("LinkGuard")
     }
 
     private var overviewTab: some View {
