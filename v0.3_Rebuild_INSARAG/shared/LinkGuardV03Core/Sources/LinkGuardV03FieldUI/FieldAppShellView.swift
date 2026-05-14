@@ -4,6 +4,7 @@ import SwiftUI
 public struct FieldAppShellView: View {
     @State private var controller: FieldAppController
     @StateObject private var mapMarkup = MapMarkupViewModel()
+    @StateObject private var locationService = FieldLocationService()
     @State private var selectedTab: FieldAppTab = .overview
     @State private var statusText = "Ready"
     @State private var statusAccent = FieldTheme.green
@@ -49,6 +50,17 @@ public struct FieldAppShellView: View {
                     submitTeamCapabilityReport(report)
                 }
             }
+        }
+        .onChange(of: locationService.lastFix) { fix in
+            guard let fix else { return }
+            controller.recordGPSFix(fix)
+            statusText = "GPS Updated"
+            statusAccent = FieldTheme.green
+        }
+        .onChange(of: locationService.lastErrorMessage) { message in
+            guard message != nil else { return }
+            statusText = "GPS Blocked"
+            statusAccent = FieldTheme.warning
         }
     }
 
@@ -107,6 +119,18 @@ public struct FieldAppShellView: View {
                             .foregroundStyle(.secondary)
                         Text("\(controller.pendingEnvelopeCount)")
                             .font(.title3.weight(.bold).monospacedDigit())
+                        Button {
+                            locationService.requestCurrentFix()
+                        } label: {
+                            Image(systemName: locationService.isRequestingFix ? "location.fill" : "location.viewfinder")
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(locationService.canRequestFix ? FieldTheme.green : .secondary)
+                                .frame(width: 30, height: 30)
+                                .background((locationService.canRequestFix ? FieldTheme.green : Color.secondary).opacity(0.16), in: Circle())
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(locationService.canRequestFix == false)
+                        .help("Refresh GPS")
                     }
                 }
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -143,6 +167,13 @@ public struct FieldAppShellView: View {
                 .overlay(Circle().stroke(roleAccent.opacity(0.48), lineWidth: 1))
         }
         .accessibilityLabel("LinkGuard")
+    }
+
+    private var locationAccent: Color {
+        if locationService.lastErrorMessage != nil { return FieldTheme.warning }
+        if locationService.isRequestingFix { return FieldTheme.info }
+        if controller.latestGPSFix != nil { return FieldTheme.green }
+        return FieldTheme.warning
     }
 
     private var overviewTab: some View {
@@ -417,6 +448,7 @@ public struct FieldAppShellView: View {
                 } else {
                     emptyRow("No GPS fix available", systemImage: "location.slash")
                 }
+                locationServiceRow
                 mapMarkupCanvas
                 mapMarkupControls
                 FieldAdaptiveGrid(minimum: 158) {
@@ -433,6 +465,43 @@ public struct FieldAppShellView: View {
                 mapMarkupList
             }
         }
+    }
+
+    private var locationServiceRow: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: locationService.isRequestingFix ? "location.fill" : "location.viewfinder")
+                .foregroundStyle(locationAccent)
+                .frame(width: 28, height: 28)
+                .background(locationAccent.opacity(0.14), in: Circle())
+            VStack(alignment: .leading, spacing: 3) {
+                Text(locationService.statusTitle)
+                    .font(.subheadline.weight(.semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.82)
+                Text(locationService.statusDetail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+            Spacer(minLength: 0)
+            Button {
+                locationService.requestCurrentFix()
+            } label: {
+                Label(locationService.isRequestingFix ? "Locating" : "Refresh", systemImage: "location.fill.viewfinder")
+                    .font(.caption.weight(.semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.82)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+                    .foregroundStyle(locationService.canRequestFix ? FieldTheme.green : .secondary)
+                    .background((locationService.canRequestFix ? FieldTheme.green : Color.secondary).opacity(0.14), in: Capsule())
+                    .overlay(Capsule().stroke((locationService.canRequestFix ? FieldTheme.green : Color.secondary).opacity(0.34), lineWidth: 1))
+            }
+            .buttonStyle(.plain)
+            .disabled(locationService.canRequestFix == false)
+        }
+        .padding(12)
+        .background(FieldTheme.raisedSurface, in: RoundedRectangle(cornerRadius: FieldTheme.compactRadius))
     }
 
     private var mapMarkupCanvas: some View {
