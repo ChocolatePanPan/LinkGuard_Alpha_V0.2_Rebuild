@@ -6,6 +6,14 @@ import XCTest
 final class LinkGuardV03CoreTests: XCTestCase {
     private let fixedDate = Date(timeIntervalSince1970: 1_799_712_000)
 
+    private func fieldGPSFix(capturedAt: Date? = nil) -> GPSFix {
+        GPSFix(
+            coordinate: GeoCoordinate(latitude: 25.033, longitude: 121.565, accuracyMeters: 8),
+            source: .manual,
+            capturedAt: capturedAt ?? fixedDate
+        )
+    }
+
     private enum TestTransportError: Error, Equatable {
         case forcedFailure
     }
@@ -1376,6 +1384,7 @@ final class LinkGuardV03CoreTests: XCTestCase {
             platform: .iPhone,
             deviceID: "IOS-TL-TEST",
             displayName: "TL Test",
+            initialGPSFix: fieldGPSFix(),
             now: fixedDate
         )
 
@@ -1421,6 +1430,28 @@ final class LinkGuardV03CoreTests: XCTestCase {
         try scc.receive(envelope)
         XCTAssertEqual(scc.snapshot.teamCapabilityReports[report.id]?.personnelSummary, "出隊 8 · 搜救犬 1")
         XCTAssertEqual(scc.snapshot.auditEvents.last?.targetType, "teamCapabilityReport")
+    }
+
+    func testFieldControllerStartsWithoutSyntheticGPSFix() throws {
+        var controller = FieldAppController(
+            appID: .teamMember,
+            platform: .iPhone,
+            deviceID: "IOS-TE-NO-GPS-TEST",
+            displayName: "TE No GPS Test",
+            now: fixedDate
+        )
+
+        XCTAssertNil(controller.latestGPSFix)
+        XCTAssertThrowsError(try controller.queueGPSReport(now: fixedDate.addingTimeInterval(1)))
+        XCTAssertThrowsError(try controller.queuePhotoReport(photoAttachmentID: "ATTACH-NO-GPS", caption: nil, checksum: nil, now: fixedDate.addingTimeInterval(2)))
+        XCTAssertThrowsError(try controller.queueSOS(dangerType: .trapped, note: nil, now: fixedDate.addingTimeInterval(3)))
+
+        controller.recordGPSFix(fieldGPSFix(capturedAt: fixedDate.addingTimeInterval(4)))
+        let gps = try controller.queueGPSReport(now: fixedDate.addingTimeInterval(5))
+        let report = try gps.decodePayload(PersonnelStatusReport.self)
+        let location = try XCTUnwrap(report.location)
+        XCTAssertEqual(location.latitude, 25.033, accuracy: 0.0001)
+        XCTAssertEqual(location.longitude, 121.565, accuracy: 0.0001)
     }
 
     func testFieldTLAndEMTMedicalActionsFollowFeatureMatrix() throws {
@@ -1559,6 +1590,7 @@ final class LinkGuardV03CoreTests: XCTestCase {
             platform: .iPhone,
             deviceID: "IOS-TE-TEST",
             displayName: "TE Test",
+            initialGPSFix: fieldGPSFix(),
             now: fixedDate
         )
 
@@ -1610,6 +1642,7 @@ final class LinkGuardV03CoreTests: XCTestCase {
             platform: .iPhone,
             deviceID: "IOS-VO-TEST",
             displayName: "VO Test",
+            initialGPSFix: fieldGPSFix(),
             now: fixedDate
         )
 

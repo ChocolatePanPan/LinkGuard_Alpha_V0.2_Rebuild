@@ -141,6 +141,7 @@ public struct FieldAppController: Sendable {
         deviceID: LinkGuardID,
         displayName: String,
         context: FieldOperationalContext? = nil,
+        initialGPSFix: GPSFix? = nil,
         now: Date = Date()
     ) {
         let device = DeviceIdentity(id: deviceID, appID: appID, platform: platform, displayName: displayName)
@@ -150,13 +151,9 @@ public struct FieldAppController: Sendable {
         self.context = context ?? .fieldDefault(for: device)
         self.latestGPSFix = nil
         self.queuedSummaries = []
-        recordGPSFix(
-            GPSFix(
-                coordinate: GeoCoordinate(latitude: 25.033, longitude: 121.565, accuracyMeters: 8),
-                source: .manual,
-                capturedAt: now
-            )
-        )
+        if let initialGPSFix {
+            recordGPSFix(initialGPSFix)
+        }
         seedMissionState(now: now)
     }
 
@@ -869,6 +866,7 @@ public struct FieldAppController: Sendable {
     }
 
     private mutating func queuePersonnelLocation(state: PersonnelOperationalState, note: String?, now: Date) throws -> SyncEnvelope {
+        let coordinate = try currentCoordinate()
         let report = PersonnelStatusReport(
             id: LinkGuardID("GPS-\(runtime.device.id.rawValue)"),
             incidentID: context.incidentID,
@@ -878,7 +876,7 @@ public struct FieldAppController: Sendable {
             role: defaultRole,
             operationalState: state,
             connectivity: .online,
-            location: latestGPSFix?.coordinate,
+            location: coordinate,
             currentSectorID: context.sectorID,
             currentSubSectorID: context.subSectorID,
             currentWorksiteID: context.worksiteID,
