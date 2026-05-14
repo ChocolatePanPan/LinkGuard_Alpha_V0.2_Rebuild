@@ -1454,6 +1454,46 @@ final class LinkGuardV03CoreTests: XCTestCase {
         XCTAssertEqual(location.longitude, 121.565, accuracy: 0.0001)
     }
 
+    func testFieldControllerPersistsAndRestoresQueuedOutbox() throws {
+        let store = FileBackedLocalOperationCacheStore(fileURL: try temporaryCacheURL())
+        var controller = FieldAppController(
+            appID: .teamMember,
+            platform: .iPhone,
+            deviceID: "IOS-TE-PERSIST-TEST",
+            displayName: "TE Persist Test",
+            initialGPSFix: fieldGPSFix(),
+            localCacheStore: store,
+            now: fixedDate
+        )
+
+        let envelope = try controller.queueSOS(
+            dangerType: .trapped,
+            note: "Persist me",
+            now: fixedDate.addingTimeInterval(1)
+        )
+
+        XCTAssertNil(controller.lastPersistenceError)
+        XCTAssertEqual(controller.pendingEnvelopeCount, 1)
+        let savedCache = try store.load()
+        XCTAssertEqual(savedCache.pendingCount, 1)
+        XCTAssertEqual(savedCache.outboundQueue.entries.first?.envelope.id, envelope.id)
+
+        let restoredController = FieldAppController(
+            appID: .teamMember,
+            platform: .iPhone,
+            deviceID: "IOS-TE-PERSIST-TEST",
+            displayName: "TE Persist Test",
+            localCacheStore: store,
+            now: fixedDate.addingTimeInterval(2)
+        )
+
+        XCTAssertNil(restoredController.lastPersistenceError)
+        XCTAssertEqual(restoredController.pendingEnvelopeCount, 1)
+        XCTAssertEqual(restoredController.runtime.pendingOutboundCount, 1)
+        XCTAssertEqual(restoredController.queuedSummaries.first?.id, envelope.id)
+        XCTAssertEqual(restoredController.queuedSummaries.first?.messageType, .sosReportUpsert)
+    }
+
     func testFieldTLAndEMTMedicalActionsFollowFeatureMatrix() throws {
         var teamLeader = FieldAppController(
             appID: .teamLeader,

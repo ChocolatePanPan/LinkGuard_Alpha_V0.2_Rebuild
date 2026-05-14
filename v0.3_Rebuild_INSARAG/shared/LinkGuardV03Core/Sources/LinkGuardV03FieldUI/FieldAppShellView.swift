@@ -12,7 +12,8 @@ public struct FieldAppShellView: View {
     @State private var teamCapabilityDraft: USARTeamCapabilityReport?
 
     public init(appID: LinkGuardAppID, platform: AppPlatform, deviceID: LinkGuardID, displayName: String) {
-        _controller = State(initialValue: FieldAppController(appID: appID, platform: platform, deviceID: deviceID, displayName: displayName))
+        let localCacheStore = FieldAppController.defaultLocalCacheStore(appID: appID, deviceID: deviceID)
+        _controller = State(initialValue: FieldAppController(appID: appID, platform: platform, deviceID: deviceID, displayName: displayName, localCacheStore: localCacheStore))
     }
 
     public var body: some View {
@@ -291,6 +292,7 @@ public struct FieldAppShellView: View {
                     FieldMetricTile(title: "Local Queue", value: "\(controller.pendingEnvelopeCount)", systemImage: "tray.full.fill", accent: controller.pendingEnvelopeCount == 0 ? FieldTheme.green : FieldTheme.warning)
                     FieldMetricTile(title: "GPS", value: controller.latestGPSFix == nil ? "Missing" : "Ready", systemImage: "location.fill", accent: controller.latestGPSFix == nil ? FieldTheme.warning : FieldTheme.green)
                     FieldMetricTile(title: "Runtime", value: controller.runtime.pendingOutboundCount == 0 ? "Clear" : "Queued", systemImage: "arrow.triangle.2.circlepath", accent: controller.runtime.pendingOutboundCount == 0 ? FieldTheme.green : FieldTheme.info)
+                    FieldMetricTile(title: "Storage", value: controller.localCacheStore == nil ? "Memory" : (controller.lastPersistenceError == nil ? "Saved" : "Error"), systemImage: "externaldrive.fill", accent: controller.lastPersistenceError == nil ? FieldTheme.green : FieldTheme.warning)
                 }
                 ForEach(Array(features), id: \.self) { feature in
                     let access = controller.accessLevel(for: feature)
@@ -671,6 +673,15 @@ public struct FieldAppShellView: View {
     private var outboxPanel: some View {
         FieldPanel("Offline Queue", systemImage: "tray.full", accent: FieldTheme.green) {
             VStack(spacing: 8) {
+                if let persistenceError = controller.lastPersistenceError {
+                    FieldTimelineRow(
+                        title: "Outbox Storage",
+                        detail: persistenceError,
+                        systemImage: "externaldrive.badge.exclamationmark",
+                        accent: FieldTheme.warning,
+                        trailing: "ERROR"
+                    )
+                }
                 if controller.queuedSummaries.isEmpty {
                     emptyRow("No queued envelopes", systemImage: "tray")
                 } else {
