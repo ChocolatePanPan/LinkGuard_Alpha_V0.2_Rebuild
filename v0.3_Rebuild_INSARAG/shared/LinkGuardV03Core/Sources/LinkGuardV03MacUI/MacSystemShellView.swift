@@ -5,20 +5,21 @@ import AppKit
 #endif
 
 public struct MacSystemShellView: View {
-    private let state: MacSystemUIState
+    @State private var macState: MacSystemUIState
     @StateObject private var viewModel = HQViewModel()
     @StateObject private var l10n = L10n.shared
     #if os(macOS)
     @StateObject private var externalDashboardManager = HQExternalDashboardWindowManager()
     @StateObject private var notificationCueManager = HQNotificationCueManager.shared
     @StateObject private var spacebarPTT = HQSpacebarPTTMonitor()
+    @StateObject private var syncReceiver = MacSyncReceiver()
     #endif
     @AppStorage("appColorScheme") private var appColorScheme: String = "dark"
     @AppStorage("hq.uiScale") private var uiScale: Double = 1.0
     @AppStorage("hq.externalDisplayEnabled") private var externalDisplayEnabled: Bool = true
 
     public init(state: MacSystemUIState) {
-        self.state = state
+        _macState = State(initialValue: state)
     }
 
     private var colorScheme: ColorScheme? {
@@ -37,11 +38,17 @@ public struct MacSystemShellView: View {
                         viewModel.startServer()
                     }
                     #if os(macOS)
+                    startSyncReceiverIfNeeded()
                     externalDashboardManager.start(viewModel: viewModel, l10n: l10n, colorScheme: colorScheme)
                     externalDashboardManager.setEnabled(externalDisplayEnabled)
                     spacebarPTT.attach(viewModel: viewModel)
                     #endif
                 }
+                #if os(macOS)
+                .onDisappear {
+                    syncReceiver.stop()
+                }
+                #endif
                 #if os(macOS)
                 .onChange(of: appColorScheme) { _, _ in
                     externalDashboardManager.refresh(colorScheme: colorScheme)
@@ -60,11 +67,32 @@ public struct MacSystemShellView: View {
                 .environmentObject(l10n)
         }
         #if os(macOS)
+        .overlay(alignment: .topTrailing) {
+            if macState.runtime.device.appID == .scc {
+                MacSOSAlertPanelView(
+                    items: macState.sosAlertItems,
+                    isReceiverRunning: syncReceiver.isRunning,
+                    receiverPort: syncReceiver.port,
+                    receiverError: syncReceiver.lastError
+                )
+                .padding(.top, 18)
+                .padding(.trailing, 18)
+            }
+        }
         .overlay {
             HQNotificationFlashOverlay(manager: notificationCueManager)
         }
         #endif
     }
+
+    #if os(macOS)
+    private func startSyncReceiverIfNeeded() {
+        guard macState.runtime.device.appID == .scc else { return }
+        syncReceiver.start { batch, receivedAt in
+            macState.receive(batch, receivedAt: receivedAt)
+        }
+    }
+    #endif
 
 }
 
