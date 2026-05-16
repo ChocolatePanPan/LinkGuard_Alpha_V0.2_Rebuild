@@ -69,10 +69,10 @@ private fun SquadLeaderView(viewModel: LinkGuardViewModel) {
     ) {
         // 標題
         item {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 2.dp)) {
-                Icon(Icons.Default.Groups, contentDescription = null, tint = NV.green, modifier = Modifier.size(22.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 6.dp)) {
+                Icon(Icons.Default.Groups, contentDescription = null, tint = NV.green, modifier = Modifier.size(24.dp))
                 Spacer(Modifier.width(8.dp))
-                Text("班長面板", color = NV.textPrimary, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+                Text("班長面板", color = NV.white, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.weight(1f))
                 UsarRoleBadge("SQUAD LEADER", NV.green)
             }
@@ -293,10 +293,10 @@ private fun SectorCommanderView(viewModel: LinkGuardViewModel) {
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         item {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.AccountBalance, contentDescription = null, tint = NV.command, modifier = Modifier.size(22.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 6.dp)) {
+                Icon(Icons.Default.AccountBalance, contentDescription = null, tint = NV.command, modifier = Modifier.size(24.dp))
                 Spacer(Modifier.width(8.dp))
-                Text("區段指揮官", color = NV.textPrimary, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+                Text("區段指揮官", color = NV.white, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.weight(1f))
                 UsarRoleBadge("SECTOR CDR", NV.command)
             }
@@ -367,10 +367,10 @@ private fun WorksiteManagerView(viewModel: LinkGuardViewModel) {
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         item {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Construction, contentDescription = null, tint = NV.reinforce, modifier = Modifier.size(22.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 6.dp)) {
+                Icon(Icons.Default.Construction, contentDescription = null, tint = NV.reinforce, modifier = Modifier.size(24.dp))
                 Spacer(Modifier.width(8.dp))
-                Text("現場管理員", color = NV.textPrimary, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+                Text("現場管理員", color = NV.white, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.weight(1f))
                 UsarRoleBadge("WORKSITE MGR", NV.reinforce)
             }
@@ -465,10 +465,10 @@ private fun UsarCard(title: String, content: @Composable ColumnScope.() -> Unit)
 private fun UsarRoleBadge(label: String, color: Color) {
     Box(
         modifier = Modifier
-            .clip(RoundedCornerShape(4.dp))
-            .background(color.copy(alpha = 0.15f))
-            .border(0.5.dp, color.copy(alpha = 0.5f), RoundedCornerShape(4.dp))
-            .padding(horizontal = 8.dp, vertical = 3.dp)
+            .clip(RoundedCornerShape(20.dp))
+            .background(color.copy(alpha = 0.12f))
+            .border(1.dp, color.copy(alpha = 0.5f), RoundedCornerShape(20.dp))
+            .padding(horizontal = 10.dp, vertical = 4.dp)
     ) {
         Text(label, color = color, fontSize = 10.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
     }

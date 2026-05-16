@@ -135,6 +135,10 @@ fun MainScreen(viewModel: LinkGuardViewModel, windowSizeClass: WindowSizeClass? 
         else -> SCREEN_MORE_MENU
     }
 
+    // 返回列顯示判斷（提前計算，供兩種佈局共用）
+    val showMoreBack = selectedGroup == MORE_GROUP_INDEX && moreSelection != null
+    val showDashboardBack = currentScreenIndex != 0 && cameFromDashboard && !showMoreBack
+
     // 底部分頁徽章計算（對齊 iOS badge）
     fun groupBadge(groupIndex: Int): Int = when (navGroups[groupIndex].screenIndex) {
         4 -> viewModel.unreadChatMessageCount  // 通訊
@@ -157,6 +161,33 @@ fun MainScreen(viewModel: LinkGuardViewModel, windowSizeClass: WindowSizeClass? 
             selectedGroup = MORE_GROUP_INDEX
             moreSelection = screenIndex
             cameFromDashboard = true
+        }
+    }
+
+    // 返回按鈕列（内嵌於佈局流，不再懸浮覆蓋，避免與畫面標題重疊）
+    @Composable
+    fun BackButtonRow(withStatusBarPadding: Boolean = false) {
+        val label  = if (showMoreBack) "More" else "Dashboard"
+        val color  = if (showMoreBack) NV.info else NV.green
+        val onBack: () -> Unit = if (showMoreBack) {
+            { moreSelection = null; cameFromDashboard = false }
+        } else {
+            { selectedGroup = 0; moreSelection = null; cameFromDashboard = false }
+        }
+        val baseMod = if (withStatusBarPadding) Modifier.statusBarsPadding() else Modifier
+        Row(
+            modifier = baseMod
+                .padding(start = 16.dp, top = 8.dp, bottom = 4.dp)
+                .clip(RoundedCornerShape(50))
+                .background(color.copy(alpha = 0.2f))
+                .border(1.dp, color.copy(alpha = 0.4f), RoundedCornerShape(50))
+                .clickable { onBack() }
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Icon(Icons.Default.KeyboardArrowLeft, contentDescription = "Back", tint = color, modifier = Modifier.size(20.dp))
+            Text(label, color = color, fontSize = 14.sp, fontWeight = FontWeight.Bold)
         }
     }
 
@@ -239,6 +270,9 @@ fun MainScreen(viewModel: LinkGuardViewModel, windowSizeClass: WindowSizeClass? 
                     }
                 }
                 Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                    if (showMoreBack || showDashboardBack) {
+                        BackButtonRow(withStatusBarPadding = true)
+                    }
                     ScreenContent(modifier = Modifier.weight(1f))
                 }
             }
@@ -289,6 +323,9 @@ fun MainScreen(viewModel: LinkGuardViewModel, windowSizeClass: WindowSizeClass? 
                 }
             ) { padding ->
                 Column(modifier = Modifier.padding(padding)) {
+                    if (showMoreBack || showDashboardBack) {
+                        BackButtonRow()
+                    }
                     // 螢幕內容（帶交叉淡入動畫）
                     AnimatedContent(
                         targetState = currentScreenIndex,
@@ -327,45 +364,6 @@ fun MainScreen(viewModel: LinkGuardViewModel, windowSizeClass: WindowSizeClass? 
                             }
                         }
                     }
-                }
-            }
-        }
-
-        // 返回列：More 子畫面 → 顯示「← More」；其他從 Dashboard 進入 → 「← Dashboard」
-        val showMoreBack = selectedGroup == MORE_GROUP_INDEX && moreSelection != null
-        val showDashboardBack = currentScreenIndex != 0 && cameFromDashboard && !showMoreBack
-        if (showMoreBack || showDashboardBack) {
-            val (label, color, onBack) = if (showMoreBack) {
-                Triple("More", NV.info) {
-                    moreSelection = null
-                    cameFromDashboard = false
-                }
-            } else {
-                Triple("Dashboard", NV.green) {
-                    selectedGroup = 0
-                    moreSelection = null
-                    cameFromDashboard = false
-                }
-            }
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .statusBarsPadding()
-                    .padding(top = 8.dp, start = 16.dp),
-                contentAlignment = Alignment.TopStart
-            ) {
-                Row(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(50))
-                        .background(color.copy(alpha = 0.2f))
-                        .border(1.dp, color.copy(alpha = 0.4f), RoundedCornerShape(50))
-                        .clickable { onBack() }
-                        .padding(horizontal = 14.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Icon(Icons.Default.KeyboardArrowLeft, contentDescription = "Back", tint = color, modifier = Modifier.size(20.dp))
-                    Text(label, color = color, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }

@@ -63,7 +63,8 @@ fun AIChatScreen(viewModel: LinkGuardViewModel) {
     }
 
     Column(modifier = Modifier.fillMaxSize().background(NV.bg)) {
-        // 頂部狀態列
+        // 頂部狀態列（留白間距對齊其他子畫面標題）
+        Spacer(Modifier.height(12.dp))
         AIChatStatusBar(
             isConnected = isConnected,
             isAIPaused = isAIPaused,
@@ -144,32 +145,48 @@ private fun AIChatStatusBar(
     onClear: () -> Unit,
     canClear: Boolean
 ) {
+    val accentColor = if (isAIPaused) NV.warning else NV.green
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(NV.surface.copy(alpha = 0.6f))
-            .padding(horizontal = 12.dp, vertical = 10.dp),
+            .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+            .background(NV.surface)
+            .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        // AI 狀態圖示（取代原本的裸圓點）
         Box(
             modifier = Modifier
-                .size(8.dp)
-                .clip(CircleShape)
-                .background(when {
-                    isAIPaused   -> Color.Gray
-                    isConnected  -> NV.green
-                    else         -> Color.Gray
-                })
-        )
-        Spacer(Modifier.width(8.dp))
-        Text(
-            if (isAIPaused) "AI 服務暫停" else "FIELD AI ASSISTANT",
-            color = if (isAIPaused) NV.textSecondary else NV.command,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Bold,
-            fontFamily = FontFamily.Monospace,
-            letterSpacing = 1.5.sp
-        )
+                .size(32.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(accentColor.copy(alpha = 0.12f))
+                .border(1.dp, accentColor.copy(alpha = 0.35f), RoundedCornerShape(8.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                if (isAIPaused) Icons.Default.PauseCircle else Icons.Default.AutoAwesome,
+                contentDescription = null,
+                tint = accentColor,
+                modifier = Modifier.size(16.dp)
+            )
+        }
+        Spacer(Modifier.width(10.dp))
+        Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+            Text(
+                "FIELD AI ASSISTANT",
+                color = NV.command,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                fontFamily = FontFamily.Monospace,
+                letterSpacing = 1.sp
+            )
+            Text(
+                if (isAIPaused) "由 HQ 暫停中" else if (isConnected) "HQ 已連線" else "本機模式",
+                color = accentColor.copy(alpha = 0.8f),
+                fontSize = 10.sp,
+                fontFamily = FontFamily.Monospace
+            )
+        }
         Spacer(Modifier.weight(1f))
 
         // 附帶現場資訊 toggle
@@ -181,7 +198,7 @@ private fun AIChatStatusBar(
                 onCheckedChange = onContextToggle,
                 colors = SwitchDefaults.colors(
                     checkedThumbColor = Color.White,
-                    checkedTrackColor = NV.info,
+                    checkedTrackColor = NV.green,
                     uncheckedThumbColor = NV.textSecondary,
                     uncheckedTrackColor = NV.surface
                 ),
@@ -189,7 +206,7 @@ private fun AIChatStatusBar(
             )
         }
 
-        Spacer(Modifier.width(8.dp))
+        Spacer(Modifier.width(4.dp))
         IconButton(
             onClick = onClear,
             enabled = canClear,
