@@ -907,3 +907,166 @@ data class TranslationResult(
     val detectedLang: String = "",
     val targetLang: String = ""
 )
+
+// === NFC 讀取 ===
+
+data class NfcScanResult(
+    val rawText: String,
+    val scannedAt: Long = System.currentTimeMillis()
+) {
+    /** 嘗試從掃描文字中解析出 key=value 格式欄位 */
+    val fields: Map<String, String> get() {
+        val result = mutableMapOf<String, String>()
+        rawText.lines().forEach { line ->
+            val idx = line.indexOf(':')
+            if (idx > 0) {
+                val k = line.substring(0, idx).trim()
+                val v = line.substring(idx + 1).trim()
+                if (k.isNotEmpty()) result[k] = v
+            }
+        }
+        return result
+    }
+    /** 嘗試提取 location 欄位（key: location / loc / 位置） */
+    val location: String get() = fields["location"] ?: fields["loc"] ?: fields["位置"] ?: ""
+    /** 嘗試提取 notes / 備註 */
+    val notes: String get() = fields["notes"] ?: fields["note"] ?: fields["備註"] ?: rawText
+}
+
+// === 醫院目錄 ===
+
+enum class HospitalLevel(val key: String, val label: String) {
+    REGIONAL("regional", "區域醫院"),
+    DISTRICT("district", "地區醫院"),
+    CLINIC("clinic", "診所"),
+    RESCUE_CENTER("rescue", "救援中心"),
+    FIRE("fire", "消防單位");
+}
+
+data class Hospital(
+    val id: String = java.util.UUID.randomUUID().toString(),
+    val name: String,
+    val address: String,
+    val phone: String = "",
+    val level: HospitalLevel,
+    val city: String,
+    val region: String,
+    val icuBeds: Int = 0,
+    val orRooms: Int = 0,
+    val totalBeds: Int = 0
+) {
+    val levelColor: Color get() = when (level) {
+        HospitalLevel.REGIONAL      -> Color(0xFFD13838)
+        HospitalLevel.DISTRICT      -> Color(0xFFB8941F)
+        HospitalLevel.CLINIC        -> Color(0xFF1AAD8C)
+        HospitalLevel.RESCUE_CENTER -> Color(0xFF4B8BEC)
+        HospitalLevel.FIRE          -> Color(0xFFE07D20)
+    }
+}
+
+// === AI 助理訊息 ===
+
+data class FieldAIMessage(
+    val id: String = java.util.UUID.randomUUID().toString(),
+    val role: String,        // "user" | "assistant"
+    val content: String,
+    val timestamp: Long = System.currentTimeMillis(),
+    val model: String? = null,
+    val elapsedMs: Int? = null,
+    val isError: Boolean = false
+) {
+    val timeText: String get() {
+        val sdf = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault())
+        return sdf.format(java.util.Date(timestamp))
+    }
+}
+
+// === USAR 操作狀態 ===
+
+enum class OperationalStatus(val key: String, val label: String) {
+    ARRIVED("arrived", "已到達"),
+    ASSESSING("assessing", "評估中"),
+    SEARCHING("searching", "搜索中"),
+    TREATING("treating", "處置傷患"),
+    EXTRACTING("extracting", "移出傷患"),
+    STANDBY("standby", "待命"),
+    WITHDRAWING("withdrawing", "後撤中");
+
+    val color: Color get() = when (this) {
+        ARRIVED     -> Color(0xFF1AAD8C)
+        ASSESSING   -> Color(0xFFB8941F)
+        SEARCHING   -> Color(0xFF4B8BEC)
+        TREATING    -> Color(0xFFD13838)
+        EXTRACTING  -> Color(0xFFE07D20)
+        STANDBY     -> Color.Gray
+        WITHDRAWING -> Color(0xFF8957E5)
+    }
+}
+
+// === 統一活動日誌 ===
+
+enum class ActivityKind(val label: String, val icon: String) {
+    SENT_MESSAGE("已送出訊息",    "MSG_OUT"),
+    RECEIVED_MESSAGE("收到訊息",  "MSG_IN"),
+    PERSONAL_NOTIFICATION("個人通知", "NOTIF"),
+    COMMAND("指揮命令",           "CMD"),
+    HQ_DECISION("HQ 決策",       "AI"),
+    PWS_ALERT("公共警報",         "PWS"),
+    BRIEFING("情況會報",          "BRIEF"),
+    BROADCAST("廣播",             "BCAST"),
+    SOS("SOS 警報",               "SOS"),
+    REINFORCEMENT("增援",         "RF"),
+    HAZARD("危險標記",            "HAZ"),
+    PATIENT_WARNING("傷患預警",   "PAT_W"),
+    DEVICE_ALERT("裝置警報",      "DEV"),
+    TASK("任務指派",              "TASK"),
+    PATIENT_REPORT("傷員回報",    "PAT"),
+    QUICK_STATUS("快速狀態",      "QS"),
+    PHOTO("照片回報",             "PHOTO");
+
+    val color: Color get() = when (this) {
+        SOS, HAZARD          -> Color(0xFFD13838)
+        COMMAND, BROADCAST   -> Color(0xFF4B8BEC)
+        HQ_DECISION          -> Color(0xFF8957E5)
+        PWS_ALERT            -> Color(0xFFB8941F)
+        REINFORCEMENT        -> Color(0xFFE07D20)
+        PATIENT_WARNING      -> Color(0xFFCF5B5B)
+        PATIENT_REPORT       -> Color(0xFF1AAD8C)
+        BRIEFING             -> Color(0xFF2D9CDB)
+        else                 -> Color(0xFF2EA043)
+    }
+}
+
+data class ActivityLogEntry(
+    val id: String = java.util.UUID.randomUUID().toString(),
+    val kind: ActivityKind,
+    val title: String,
+    val summary: String,
+    val timestamp: Long = System.currentTimeMillis()
+) {
+    val timeText: String get() {
+        val sdf = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault())
+        return sdf.format(java.util.Date(timestamp))
+    }
+    val dateText: String get() {
+        val sdf = java.text.SimpleDateFormat("M/d", java.util.Locale.getDefault())
+        return sdf.format(java.util.Date(timestamp))
+    }
+}
+
+// === USAR 指揮角色（由人員配置自動判定） ===
+
+enum class UsarRole(val key: String, val label: String) {
+    SECTOR_COMMANDER("sector_commander", "區段指揮官"),
+    WORKSITE_MANAGER("worksite_manager", "現場管理員"),
+    SQUAD_LEADER("squad_leader", "班長");
+
+    companion object {
+        /** 根據當前用戶在 personnelAssignments 中的角色推斷 USAR 角色 */
+        fun fromPersonnelRole(role: PersonnelRole): UsarRole = when (role) {
+            PersonnelRole.COMMANDER -> SECTOR_COMMANDER
+            PersonnelRole.RESCUE    -> WORKSITE_MANAGER
+            else                    -> SQUAD_LEADER
+        }
+    }
+}
