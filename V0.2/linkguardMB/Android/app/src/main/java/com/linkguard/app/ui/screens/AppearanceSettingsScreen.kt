@@ -10,6 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Brightness6
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.NightlightRound
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -97,8 +98,16 @@ fun AppearanceSettingsScreen(viewModel: LinkGuardViewModel) {
                 desc    = "永遠使用深色主題",
                 icon    = Icons.Default.DarkMode,
                 selected = current == ThemeMode.Dark,
-                showDivider = false,
+                showDivider = true,
                 onClick = { viewModel.setThemeMode(ThemeMode.Dark) }
+            )
+            ThemeOptionRow(
+                label   = "夜視模式",
+                desc    = "深綠黑色調，模擬前線夜視儀效果",
+                icon    = Icons.Default.NightlightRound,
+                selected = current == ThemeMode.NightVision,
+                showDivider = false,
+                onClick = { viewModel.setThemeMode(ThemeMode.NightVision) }
             )
         }
     }

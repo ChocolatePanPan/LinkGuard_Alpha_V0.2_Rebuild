@@ -428,104 +428,306 @@ fun FieldChatScreen(viewModel: LinkGuardViewModel) {
 // =====================================================
 
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
 fun FieldNotificationScreen(viewModel: LinkGuardViewModel) {
-    val pwsAlerts by viewModel.pwsAlerts.collectAsState()
-    val briefings by viewModel.briefings.collectAsState()
+    val pwsAlerts   by viewModel.pwsAlerts.collectAsState()
+    val briefings   by viewModel.briefings.collectAsState()
     val notifications by viewModel.personalNotifications.collectAsState()
     val assignments by viewModel.personnelAssignments.collectAsState()
+    val activityLog by viewModel.activityLog.collectAsState()
+    var showAddDialog by remember { mutableStateOf(false) }
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        item { Text("前線動態通知", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = NV.white,
-            modifier = Modifier.padding(top = 12.dp)) }
+    Box(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().padding(start = 16.dp, end = 16.dp, bottom = 80.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            item {
+                Text("前線動態通知", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = NV.white,
+                    modifier = Modifier.padding(top = 12.dp))
+            }
 
-        // PWS 警報
-        if (pwsAlerts.isNotEmpty()) {
-            item { Text("PWS 警報", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = NV.danger) }
-            items(pwsAlerts, key = { it.id }) { alert ->
-                InfoCard(alert.title) {
-                    Row {
-                        Text(alert.alertType.label, fontSize = 11.sp, color = NV.danger,
-                            modifier = Modifier.background(NV.danger.copy(alpha = 0.15f), RoundedCornerShape(4.dp))
-                                .padding(horizontal = 6.dp, vertical = 2.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(alert.severity.label, fontSize = 11.sp, color = NV.danger)
-                        Spacer(modifier = Modifier.weight(1f))
-                        if (alert.isActive) {
-                            Text("活躍", fontSize = 9.sp, color = NV.white, fontWeight = FontWeight.Bold,
-                                modifier = Modifier.background(NV.danger, RoundedCornerShape(4.dp))
-                                    .padding(horizontal = 4.dp, vertical = 2.dp))
+            // ── 統一活動紀錄時間軸 ──────────────────────────────
+            if (activityLog.isNotEmpty()) {
+                item {
+                    Text("活動紀錄", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = NV.green)
+                }
+                items(activityLog, key = { it.id }) { entry ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(IntrinsicSize.Min)
+                            .clip(NVShape.card)
+                            .background(NV.card)
+                            .border(1.dp, NV.cardBorder, NVShape.card)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .width(4.dp)
+                                .fillMaxHeight()
+                                .background(entry.kind.color)
+                        )
+                        Column(
+                            modifier = Modifier.weight(1f).padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    entry.kind.label,
+                                    fontSize = 11.sp,
+                                    color = entry.kind.color,
+                                    modifier = Modifier
+                                        .background(entry.kind.color.copy(alpha = 0.15f), RoundedCornerShape(4.dp))
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                                Text(
+                                    "${entry.dateText} ${entry.timeText}",
+                                    fontSize = 10.sp,
+                                    color = NV.textSecondary
+                                )
+                            }
+                            Text(entry.title, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = NV.white)
+                            if (entry.summary.isNotEmpty()) {
+                                Text(entry.summary, fontSize = 11.sp, color = NV.textSecondary, maxLines = 2)
+                            }
                         }
                     }
-                    Text(alert.content, fontSize = 12.sp, color = NV.textSecondary)
                 }
             }
-        }
 
-        // 會報
-        if (briefings.isNotEmpty()) {
-            item { Text("會報", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = NV.info) }
-            items(briefings, key = { it.id }) { report ->
-                InfoCard(report.title) {
-                    Row {
-                        Text(report.type.label, fontSize = 11.sp, color = NV.info,
-                            modifier = Modifier.background(NV.info.copy(alpha = 0.15f), RoundedCornerShape(4.dp))
-                                .padding(horizontal = 6.dp, vertical = 2.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("by ${report.author}", fontSize = 11.sp, color = NV.textSecondary)
-                    }
-                    report.sections.forEach { s ->
-                        Text(s.title, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = NV.white)
-                        Text(s.content, fontSize = 11.sp, color = NV.textSecondary)
+            // ── PWS 警報 ───────────────────────────────────────
+            if (pwsAlerts.isNotEmpty()) {
+                item { Text("PWS 警報", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = NV.danger) }
+                items(pwsAlerts, key = { it.id }) { alert ->
+                    InfoCard(alert.title) {
+                        Row {
+                            Text(alert.alertType.label, fontSize = 11.sp, color = NV.danger,
+                                modifier = Modifier.background(NV.danger.copy(alpha = 0.15f), RoundedCornerShape(4.dp))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(alert.severity.label, fontSize = 11.sp, color = NV.danger)
+                            Spacer(modifier = Modifier.weight(1f))
+                            if (alert.isActive) {
+                                Text("活躍", fontSize = 9.sp, color = NV.white, fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.background(NV.danger, RoundedCornerShape(4.dp))
+                                        .padding(horizontal = 4.dp, vertical = 2.dp))
+                            }
+                        }
+                        Text(alert.content, fontSize = 12.sp, color = NV.textSecondary)
                     }
                 }
             }
-        }
 
-        // 個人通知
-        item { Text("個人通知", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = NV.warning) }
-        if (notifications.isEmpty()) {
+            // ── 情況會報 ───────────────────────────────────────
+            if (briefings.isNotEmpty()) {
+                item { Text("會報", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = NV.info) }
+                items(briefings, key = { it.id }) { report ->
+                    InfoCard(report.title) {
+                        Row {
+                            Text(report.type.label, fontSize = 11.sp, color = NV.info,
+                                modifier = Modifier.background(NV.info.copy(alpha = 0.15f), RoundedCornerShape(4.dp))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("by ${report.author}", fontSize = 11.sp, color = NV.textSecondary)
+                        }
+                        report.sections.forEach { s ->
+                            Text(s.title, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = NV.white)
+                            Text(s.content, fontSize = 11.sp, color = NV.textSecondary)
+                        }
+                    }
+                }
+            }
+
+            // ── 個人通知 ───────────────────────────────────────
+            item { Text("個人通知", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = NV.warning) }
+            if (notifications.isEmpty()) {
+                item {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(32.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(Icons.Default.NotificationsNone, contentDescription = null,
+                            tint = NV.textSecondary.copy(alpha = 0.5f), modifier = Modifier.size(64.dp))
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text("無通知", fontSize = 16.sp, color = NV.textSecondary, fontWeight = FontWeight.SemiBold)
+                    }
+                }
+            }
+            items(notifications, key = { it.id }) { notif ->
+                InfoCard(notif.title) {
+                    Text(notif.content, fontSize = 12.sp, color = NV.textSecondary)
+                    if (!notif.isRead) {
+                        TextButton(onClick = { viewModel.markNotificationAsRead(notif.id) }) {
+                            Text("標為已讀", fontSize = 11.sp)
+                        }
+                    }
+                }
+            }
+
+            // ── 人員配置 ───────────────────────────────────────
             item {
-                Column(
-                    modifier = Modifier.fillMaxWidth().padding(32.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Default.NotificationsNone, contentDescription = null,
-                        tint = NV.textSecondary.copy(alpha = 0.5f), modifier = Modifier.size(64.dp))
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text("無通知", fontSize = 16.sp, color = NV.textSecondary, fontWeight = FontWeight.SemiBold)
+                    Text("人員配置", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = NV.info)
+                    Text("${assignments.size} 人", fontSize = 12.sp, color = NV.textSecondary)
                 }
             }
-        }
-        items(notifications, key = { it.id }) { notif ->
-            InfoCard(notif.title) {
-                Text(notif.content, fontSize = 12.sp, color = NV.textSecondary)
-                if (!notif.isRead) {
-                    TextButton(onClick = { viewModel.markNotificationAsRead(notif.id) }) {
-                        Text("標為已讀", fontSize = 11.sp)
+            if (assignments.isEmpty()) {
+                item {
+                    Text("尚無配置人員", fontSize = 13.sp, color = NV.textSecondary,
+                        modifier = Modifier.padding(start = 4.dp, bottom = 8.dp))
+                }
+            } else {
+                items(assignments, key = { it.id }) { a ->
+                    InfoCard(a.name) {
+                        Row {
+                            Text("${a.role.icon} ${a.role.label}", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = NV.info,
+                                modifier = Modifier.background(NV.info.copy(alpha = 0.15f), RoundedCornerShape(4.dp))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp))
+                            if (a.assignedZone.isNotEmpty()) {
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(a.assignedZone, fontSize = 11.sp, color = NV.textSecondary)
+                            }
+                            if (a.assignedFloor.isNotEmpty()) {
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("${a.assignedFloor}F", fontSize = 11.sp, color = NV.textSecondary)
+                            }
+                        }
                     }
                 }
             }
         }
 
-        // 人員配置
-        if (assignments.isNotEmpty()) {
-            item { Text("人員配置", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = NV.info) }
-            items(assignments, key = { it.id }) { a ->
-                InfoCard(a.name) {
-                    Row {
-                        Text("${a.role.icon} ${a.role.label}", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = NV.info,
-                            modifier = Modifier.background(NV.info.copy(alpha = 0.15f), RoundedCornerShape(4.dp))
-                                .padding(horizontal = 6.dp, vertical = 2.dp))
-                        if (a.assignedZone.isNotEmpty()) { Spacer(modifier = Modifier.width(6.dp)); Text(a.assignedZone, fontSize = 11.sp, color = NV.textSecondary) }
-                        if (a.assignedFloor.isNotEmpty()) { Spacer(modifier = Modifier.width(6.dp)); Text("${a.assignedFloor}F", fontSize = 11.sp, color = NV.textSecondary) }
-                    }
-                }
-            }
+        // ── 新增人員 FAB ───────────────────────────────────────
+        FloatingActionButton(
+            onClick = { showAddDialog = true },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 16.dp, bottom = 16.dp),
+            containerColor = NV.green,
+            contentColor = NV.white
+        ) {
+            Icon(Icons.Default.PersonAdd, contentDescription = "新增人員配置")
         }
     }
+
+    if (showAddDialog) {
+        AddPersonnelDialog(
+            onConfirm = { name, role, zone, floor ->
+                viewModel.addPersonnelAssignment(name, role, zone, floor)
+                showAddDialog = false
+            },
+            onDismiss = { showAddDialog = false }
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AddPersonnelDialog(
+    onConfirm: (String, PersonnelRole, String, String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var name     by remember { mutableStateOf("") }
+    var role     by remember { mutableStateOf(PersonnelRole.SEARCH) }
+    var zone     by remember { mutableStateOf("") }
+    var floor    by remember { mutableStateOf("") }
+    var expanded by remember { mutableStateOf(false) }
+
+    val fieldColors = OutlinedTextFieldDefaults.colors(
+        focusedBorderColor   = NV.green,
+        unfocusedBorderColor = NV.cardBorder,
+        focusedLabelColor    = NV.green,
+        unfocusedLabelColor  = NV.textSecondary,
+        cursorColor          = NV.green,
+        focusedTextColor     = NV.white,
+        unfocusedTextColor   = NV.white
+    )
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor   = NV.surface,
+        titleContentColor = NV.white,
+        title = { Text("新增人員配置", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("姓名") },
+                    singleLine = true,
+                    colors = fieldColors,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                ExposedDropdownMenuBox(
+                    expanded = expanded,
+                    onExpandedChange = { expanded = it }
+                ) {
+                    OutlinedTextField(
+                        value = "${role.icon} ${role.label}",
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("職務") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                        colors = fieldColors,
+                        modifier = Modifier.menuAnchor().fillMaxWidth()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expanded,
+                        onDismissRequest = { expanded = false },
+                        modifier = Modifier.background(NV.surface)
+                    ) {
+                        PersonnelRole.entries.forEach { r ->
+                            DropdownMenuItem(
+                                text = { Text("${r.icon} ${r.label}", color = NV.white) },
+                                onClick = { role = r; expanded = false }
+                            )
+                        }
+                    }
+                }
+
+                OutlinedTextField(
+                    value = zone,
+                    onValueChange = { zone = it },
+                    label = { Text("區域（如：A區）") },
+                    singleLine = true,
+                    colors = fieldColors,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                OutlinedTextField(
+                    value = floor,
+                    onValueChange = { floor = it },
+                    label = { Text("樓層") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    colors = fieldColors,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { if (name.isNotBlank()) onConfirm(name.trim(), role, zone.trim(), floor.trim()) },
+                enabled = name.isNotBlank()
+            ) {
+                Text("確認", color = NV.green, fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("取消", color = NV.textSecondary)
+            }
+        }
+    )
 }
 
 // =====================================================

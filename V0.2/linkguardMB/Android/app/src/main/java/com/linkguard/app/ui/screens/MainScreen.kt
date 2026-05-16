@@ -88,7 +88,11 @@ private fun buildMoreItems(
     MoreMenuItem("翻譯",       Icons.Default.Translate,     NV.info,       12),
     MoreMenuItem("照片",       Icons.Default.PhotoCamera,   NV.green,      13),
     MoreMenuItem("連線",       Icons.Default.Bluetooth,     NV.blue,       14),
-    MoreMenuItem("外觀",       Icons.Default.Palette,       NV.info,       15)
+    MoreMenuItem("外觀",       Icons.Default.Palette,       NV.info,       15),
+    MoreMenuItem("NFC 讀取",  Icons.Default.Nfc,            NV.info,       16),
+    MoreMenuItem("醫院資源",  Icons.Default.LocalHospital,  NV.heartRate,  17),
+    MoreMenuItem("USAR 指揮", Icons.Default.Groups,          NV.command,    18),
+    MoreMenuItem("AI 助理",   Icons.Default.AutoAwesome,    NV.simulation, 19)
 )
 
 // =====================================================
@@ -180,6 +184,10 @@ fun MainScreen(viewModel: LinkGuardViewModel, windowSizeClass: WindowSizeClass? 
                 13 -> PhotoReportScreen(viewModel)
                 14 -> ConnectionScreen(viewModel)
                 15 -> AppearanceSettingsScreen(viewModel)
+                16 -> NFCReaderScreen(viewModel) { moreSelection = 10 }
+                17 -> HospitalDirectoryScreen(viewModel)
+                18 -> USARRoleScreen(viewModel)
+                19 -> AIChatScreen(viewModel)
             }
         }
     }
@@ -312,6 +320,10 @@ fun MainScreen(viewModel: LinkGuardViewModel, windowSizeClass: WindowSizeClass? 
                                 13 -> PhotoReportScreen(viewModel)
                                 14 -> ConnectionScreen(viewModel)
                                 15 -> AppearanceSettingsScreen(viewModel)
+                                16 -> NFCReaderScreen(viewModel) { moreSelection = 10 }
+                                17 -> HospitalDirectoryScreen(viewModel)
+                                18 -> USARRoleScreen(viewModel)
+                                19 -> AIChatScreen(viewModel)
                             }
                         }
                     }
@@ -338,6 +350,7 @@ fun MainScreen(viewModel: LinkGuardViewModel, windowSizeClass: WindowSizeClass? 
             Box(
                 modifier = Modifier
                     .fillMaxSize()
+                    .statusBarsPadding()
                     .padding(top = 8.dp, start = 16.dp),
                 contentAlignment = Alignment.TopStart
             ) {
