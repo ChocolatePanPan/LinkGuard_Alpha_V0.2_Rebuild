@@ -19,20 +19,22 @@ import androidx.core.view.WindowCompat
  *  - Dark  : 強制深色
  */
 enum class ThemeMode {
-    System, Light, Dark;
+    System, Light, Dark, NightVision;
 
     companion object {
         fun fromPref(value: String?): ThemeMode = when (value) {
-            "light"  -> Light
-            "dark"   -> Dark
-            else     -> System
+            "light"        -> Light
+            "dark"         -> Dark
+            "night_vision" -> NightVision
+            else           -> System
         }
     }
 
     fun toPref(): String = when (this) {
-        System -> "system"
-        Light  -> "light"
-        Dark   -> "dark"
+        System      -> "system"
+        Light       -> "light"
+        Dark        -> "dark"
+        NightVision -> "night_vision"
     }
 }
 
@@ -85,16 +87,20 @@ fun LinkGuardTheme(
 ) {
     val systemDark = isSystemInDarkTheme()
     val useDark = when (mode) {
-        ThemeMode.System -> systemDark
-        ThemeMode.Light  -> false
-        ThemeMode.Dark   -> true
+        ThemeMode.System      -> systemDark
+        ThemeMode.Light       -> false
+        ThemeMode.Dark        -> true
+        ThemeMode.NightVision -> true
     }
 
-    val palette = if (useDark) DarkPalette else LightPalette
+    val palette = when (mode) {
+        ThemeMode.NightVision -> NightVisionPalette
+        else -> if (useDark) DarkPalette else LightPalette
+    }
     val colorScheme = if (useDark) DarkColorScheme else LightColorScheme
 
-    // 切換 NV 動態 palette；依 useDark 觸發 → 進入新模式時所有讀取 NV.xxx 的 Composable recompose
-    LaunchedEffect(useDark) {
+    // 切換 NV 動態 palette；依 mode 觸發 → 進入新模式時所有讀取 NV.xxx 的 Composable recompose
+    LaunchedEffect(mode) {
         applyPalette(palette)
     }
 
@@ -104,6 +110,7 @@ fun LinkGuardTheme(
         SideEffect {
             val window = (view.context as? Activity)?.window ?: return@SideEffect
             window.statusBarColor = palette.bg.toArgb()
+            // NightVision 永遠使用深色狀態列圖示
             WindowCompat.getInsetsController(window, view)
                 .isAppearanceLightStatusBars = !useDark
         }

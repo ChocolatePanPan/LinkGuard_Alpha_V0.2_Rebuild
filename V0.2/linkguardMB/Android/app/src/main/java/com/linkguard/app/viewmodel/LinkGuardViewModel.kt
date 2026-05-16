@@ -21,7 +21,12 @@ import com.linkguard.app.ui.theme.NV
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.update
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
 import kotlinx.coroutines.launch
 import java.util.*
 
@@ -210,6 +215,40 @@ class LinkGuardViewModel(application: Application) : AndroidViewModel(applicatio
     private val _readStatuses = MutableStateFlow<Map<String, Pair<Int, Int>>>(emptyMap())
     val readStatuses: StateFlow<Map<String, Pair<Int, Int>>> = _readStatuses
 
+    // === NFC 讀取 ===
+    private val _nfcScanResult = MutableStateFlow<NfcScanResult?>(null)
+    val nfcScanResult: StateFlow<NfcScanResult?> = _nfcScanResult
+
+    private val _isNfcAvailable = MutableStateFlow(false)
+    val isNfcAvailable: StateFlow<Boolean> = _isNfcAvailable
+
+    // === AI 助理 ===
+    private val _aiChatMessages = MutableStateFlow<List<FieldAIMessage>>(emptyList())
+    val aiChatMessages: StateFlow<List<FieldAIMessage>> = _aiChatMessages
+
+    private val _isAISending = MutableStateFlow(false)
+    val isAISending: StateFlow<Boolean> = _isAISending
+
+    private val _isAIServicePaused = MutableStateFlow(false)
+    val isAIServicePaused: StateFlow<Boolean> = _isAIServicePaused
+
+    // === 統一活動日誌 ===
+    private val _activityLog = MutableStateFlow<List<ActivityLogEntry>>(emptyList())
+    val activityLog: StateFlow<List<ActivityLogEntry>> = _activityLog
+
+    // === GPS 城市（醫院目錄使用） ===
+    private val _gpsCity = MutableStateFlow<String?>(null)
+    val gpsCity: StateFlow<String?> = _gpsCity
+
+    // === USAR 指揮角色（從 personnelAssignments 及 nodeStatus 中派生） ===
+    val usarRole: StateFlow<UsarRole> by lazy {
+        combine(_personnelAssignments, _nodeStatus) { assignments, node ->
+            val myAssignment = assignments.firstOrNull { it.id == node.nodeID || it.name == node.nodeID }
+            if (myAssignment != null) UsarRole.fromPersonnelRole(myAssignment.role)
+            else UsarRole.SQUAD_LEADER
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), UsarRole.SQUAD_LEADER)
+    }
+
     // BLE
     val bluetoothManager = BluetoothManager(application.applicationContext)
 
@@ -312,6 +351,7 @@ class LinkGuardViewModel(application: Application) : AndroidViewModel(applicatio
         setupWiFiClient()
         persistence.migrateFromSharedPreferences(application)
         loadLocalPatients()
+        loadAIChatHistory()
         startLocationTimer()
     }
 
@@ -1401,6 +1441,11 @@ class LinkGuardViewModel(application: Application) : AndroidViewModel(applicatio
             lastGpsLat = lat
             lastGpsLon = lon
 
+            // GPS 城市反查（首次或城市未知時）
+            if (_gpsCity.value == null) {
+                resolveGpsCityFromLocation(lat, lon)
+            }
+
             val node = _nodeStatus.value
             commandClient.sendLocation(
                 lat = lat,
@@ -1501,5 +1546,221 @@ class LinkGuardViewModel(application: Application) : AndroidViewModel(applicatio
         sb.appendLine("【計時器】${_countdownTimers.value.size} 個進行中")
         sb.appendLine("═══════════════")
         return sb.toString()
+    }
+
+    // === NFC 操作 ===
+
+    fun setNfcAvailable(available: Boolean) {
+        _isNfcAvailable.value = available
+    }
+
+    fun onNfcScanned(result: NfcScanResult) {
+        _nfcScanResult.value = result
+        addActivity(ActivityKind.DEVICE_ALERT, "NFC 掃描完成", result.rawText.take(60))
+    }
+
+    fun clearNfcScan() {
+        _nfcScanResult.value = null
+    }
+
+    fun applyNfcToPatientForm(result: NfcScanResult) {
+        // Pre-fill is done in PatientFormScreen by reading nfcScanResult StateFlow
+        // This function keeps the result available for the form screen to read
+        _nfcScanResult.value = result
+    }
+
+    // === AI 助理操作 ===
+
+    fun sendAIMessage(text: String, includeContext: Boolean = true) {
+        if (_isAISending.value) return
+        val userMsg = FieldAIMessage(role = "user", content = text)
+        _aiChatMessages.update { it + userMsg }
+        _isAISending.value = true
+
+        val hqHost = commandClient.serverHost
+        if (hqHost.isEmpty()) {
+            val errMsg = FieldAIMessage(
+                role = "assistant", content = "尚未連接到 AI 伺服器，無法處理請求。",
+                isError = true
+            )
+            _aiChatMessages.update { it + errMsg }
+            _isAISending.value = false
+            return
+        }
+
+        // Build history (last 10 pairs)
+        val history = _aiChatMessages.value.takeLast(20).map {
+            org.json.JSONObject().apply {
+                put("role", it.role)
+                put("content", it.content)
+            }
+        }
+
+        // Optional context injection
+        val systemPrompt = if (includeContext) buildContextPrompt() else ""
+
+        val body = org.json.JSONObject().apply {
+            put("message", text)
+            put("history", org.json.JSONArray(history))
+            if (systemPrompt.isNotEmpty()) put("system_prompt", systemPrompt)
+        }
+
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                val client = okhttp3.OkHttpClient.Builder()
+                    .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                    .readTimeout(120, java.util.concurrent.TimeUnit.SECONDS)
+                    .build()
+                val mediaType = "application/json; charset=utf-8".toMediaType()
+                val request = okhttp3.Request.Builder()
+                    .url("http://$hqHost:8001/chat")
+                    .post(body.toString().toRequestBody(mediaType))
+                    .build()
+                val response = client.newCall(request).execute()
+                val responseBody = response.body?.string() ?: ""
+                val json = org.json.JSONObject(responseBody)
+                val data = json.optJSONObject("data") ?: json
+                val reply = data.optString("reply", "（無回覆）")
+                val model = data.optString("model", "gemma4")
+                val elapsedMs = if (data.has("elapsed_ms")) data.getInt("elapsed_ms") else null
+
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    val aiMsg = FieldAIMessage(
+                        role = "assistant",
+                        content = reply,
+                        model = model,
+                        elapsedMs = elapsedMs
+                    )
+                    _aiChatMessages.update { it + aiMsg }
+                    _isAISending.value = false
+                    addActivity(ActivityKind.HQ_DECISION, "AI 助理回覆", reply.take(80))
+                    saveAIChatHistory()
+                }
+            } catch (e: Exception) {
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    val errMsg = FieldAIMessage(
+                        role = "assistant",
+                        content = "連線錯誤：${e.localizedMessage ?: "未知錯誤"}",
+                        isError = true
+                    )
+                    _aiChatMessages.update { it + errMsg }
+                    _isAISending.value = false
+                }
+            }
+        }
+    }
+
+    private fun buildContextPrompt(): String {
+        val site = _disasterSite.value
+        val patients = _localPatients.value
+        val hazards = _hazardReports.value
+        val sb = StringBuilder()
+        sb.appendLine("【現場狀況】")
+        if (site != null) {
+            sb.appendLine("災害地點：${site.buildingName.ifBlank { "未命名" }} ${site.address}")
+        }
+        sb.appendLine("傷患數：${patients.size}，受困者：${_victims.value.size}，SOS：$sosVictimCount")
+        if (hazards.isNotEmpty()) sb.appendLine("危險標記：${hazards.take(3).joinToString { it.hazard?.label ?: it.hazardType }}")
+        patients.take(3).forEach { p ->
+            sb.appendLine("傷患 ${p.patientId}：呼吸${p.breathingRate}次，${if (p.canFollowCommands) "意識清醒" else "意識不清"}，CRT ${p.capillaryRefill}s")
+        }
+        return sb.toString().trim()
+    }
+
+    fun clearAIChat() {
+        _aiChatMessages.value = emptyList()
+        persistence.delete("field_ai_chat_history")
+    }
+
+    private fun saveAIChatHistory() {
+        val arr = org.json.JSONArray()
+        _aiChatMessages.value.takeLast(50).forEach { msg ->
+            arr.put(org.json.JSONObject().apply {
+                put("id", msg.id)
+                put("role", msg.role)
+                put("content", msg.content)
+                put("timestamp", msg.timestamp)
+                put("model", msg.model ?: org.json.JSONObject.NULL)
+                put("elapsedMs", msg.elapsedMs ?: org.json.JSONObject.NULL)
+                put("isError", msg.isError)
+            })
+        }
+        persistence.saveArray("field_ai_chat_history", arr)
+    }
+
+    private fun loadAIChatHistory() {
+        val arr = persistence.loadArray("field_ai_chat_history") ?: return
+        try {
+            val list = mutableListOf<FieldAIMessage>()
+            for (i in 0 until arr.length()) {
+                val o = arr.getJSONObject(i)
+                list.add(FieldAIMessage(
+                    id = o.optString("id", java.util.UUID.randomUUID().toString()),
+                    role = o.getString("role"),
+                    content = o.getString("content"),
+                    timestamp = o.optLong("timestamp", System.currentTimeMillis()),
+                    model = if (o.isNull("model")) null else o.optString("model"),
+                    elapsedMs = if (o.isNull("elapsedMs")) null else o.optInt("elapsedMs"),
+                    isError = o.optBoolean("isError", false)
+                ))
+            }
+            _aiChatMessages.value = list
+        } catch (_: Exception) {}
+    }
+
+    // === 活動日誌 ===
+
+    private fun addActivity(kind: ActivityKind, title: String, summary: String) {
+        val entry = ActivityLogEntry(kind = kind, title = title, summary = summary)
+        _activityLog.update { listOf(entry) + it.take(199) }
+    }
+
+    // === 快速狀態回報（字串重載，供 USARRoleScreen 使用） ===
+
+    fun sendQuickStatus(type: String, zone: String = "", note: String = "") {
+        val status = QuickStatus(
+            type = type,
+            senderID = _nodeStatus.value.nodeID,
+            senderName = _nodeStatus.value.nodeID,
+            zone = zone,
+            note = note
+        )
+        _quickStatuses.update { listOf(status) + it }
+        if (commandClient.isConnected.value) commandClient.sendQuickStatus(status)
+        addActivity(ActivityKind.QUICK_STATUS, "狀態回報：$type", zone.ifBlank { note })
+    }
+
+    // === 任務接受（班長操作） ===
+
+    fun acceptTask(taskID: String) {
+        updateTaskStatus(taskID, TaskStatus.ACCEPTED)
+    }
+
+    // === 人員 CRUD ===
+
+    fun addPersonnelAssignment(name: String, role: PersonnelRole, zone: String, floor: String) {
+        val assignment = PersonnelAssignment(name = name, role = role, assignedZone = zone, assignedFloor = floor)
+        _personnelAssignments.update { listOf(assignment) + it }
+        addActivity(ActivityKind.TASK, "新增人員配置：$name", "${role.label} - $zone")
+    }
+
+    fun updatePersonnelAssignment(updated: PersonnelAssignment) {
+        _personnelAssignments.update { current ->
+            current.map { if (it.id == updated.id) updated else it }
+        }
+    }
+
+    // === GPS 城市反查（供醫院目錄使用） ===
+
+    private fun resolveGpsCityFromLocation(lat: Double, lon: Double) {
+        try {
+            val geocoder = android.location.Geocoder(getApplication(), java.util.Locale.getDefault())
+            @Suppress("DEPRECATION")
+            val addresses = geocoder.getFromLocation(lat, lon, 1)
+            val city = addresses?.firstOrNull()?.let {
+                it.adminArea ?: it.subAdminArea
+            }
+            if (city != null) _gpsCity.value = city
+        } catch (_: Exception) {}
     }
 }

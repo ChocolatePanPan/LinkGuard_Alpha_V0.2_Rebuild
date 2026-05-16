@@ -51,6 +51,25 @@ val DarkPalette = Palette(
 )
 
 /**
+ * 夜視模式 — 對齊 iOS NightVisionTheme 深綠黑色調。
+ * bg = RGB(0.012, 0.042, 0.032)，surface 略亮，主要文字為 NV.green。
+ */
+val NightVisionPalette = Palette(
+    bg            = Color(0xFF030A08),   // iOS: RGB(0.012, 0.042, 0.032)
+    surface       = Color(0xFF091510),   // iOS: RGB(0.035, 0.082, 0.064)
+    card          = Color(0xFF0D1A14),
+    cardBorder    = Color(0xFF153020),
+    divider       = Color(0xFF0F2018),
+    textPrimary   = Color(0xFF37DC61),   // iOS NV.green = RGB(0.20, 0.86, 0.38)
+    textSecondary = Color(0xFF1FAD46),   // iOS NV.greenMedium
+    textOnColor   = Color(0xFF000000),
+    danger        = Color(0xFFD13838),
+    warning       = Color(0xFFB89020),
+    info          = Color(0xFF1A8C7A),
+    heartRate     = Color(0xFFB84040)
+)
+
+/**
  * 淺色模式 — GitHub Light 風格。
  * 注意（依文章「Backgrounds-on-backgrounds」段）：
  *   bg = #F6F8FA、card = #FFFFFF；卡片必須有 1dp 實心 cardBorder 才看得出層次。
