@@ -140,4 +140,29 @@
     <string name="no_connection">Not connected to HQ</string>
     <string name="upload_success">Upload successful</string>
     <string name="upload_failed">Upload failed</string>
+
+    <!-- New features (V0.2) -->
+    <string name="title_nfc_reader">NFC Reader</string>
+    <string name="title_hospital">Hospital Directory</string>
+    <string name="title_usar_role">USAR Command</string>
+    <string name="title_ai_chat">AI Assistant</string>
+    <string name="title_activity_log">Activity Log</string>
+    <string name="title_personnel">Personnel</string>
+    <string name="personnel_add">Add Personnel</string>
+    <string name="personnel_name">Name</string>
+    <string name="personnel_role">Role</string>
+    <string name="personnel_zone">Zone</string>
+    <string name="personnel_floor">Floor</string>
+    <string name="nfc_ready">Ready to scan NFC tag</string>
+    <string name="nfc_success">NFC tag scanned</string>
+    <string name="nfc_unavailable">NFC not available on this device</string>
+    <string name="hospital_search">Search hospitals…</string>
+    <string name="hospital_icu">ICU</string>
+    <string name="hospital_or">OR</string>
+    <string name="hospital_beds">Beds</string>
+    <string name="ai_placeholder">Ask the AI assistant…</string>
+    <string name="ai_send">Send</string>
+    <string name="ai_clear">Clear chat</string>
+    <string name="ai_thinking">AI is thinking…</string>
+    <string name="ai_include_context">Include field context</string>
 </resources>
