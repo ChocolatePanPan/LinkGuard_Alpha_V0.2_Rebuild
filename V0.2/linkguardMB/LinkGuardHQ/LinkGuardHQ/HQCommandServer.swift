@@ -730,7 +730,7 @@ class HQCommandServer: ObservableObject {
                 self.appendTimelineEvent(TimelineEvent(
                     eventType: .statusReport,
                     title: L("隊伍能力概況：%@", report.teamName),
-                    detail: "\(report.missionStatus) · \(report.personnelSummary)",
+                    detail: "\(report.responseSummary.isEmpty ? report.missionStatus : report.responseSummary) · \(report.personnelSummary)",
                     source: report.reporterID.isEmpty ? connID : report.reporterID
                 ))
             }
