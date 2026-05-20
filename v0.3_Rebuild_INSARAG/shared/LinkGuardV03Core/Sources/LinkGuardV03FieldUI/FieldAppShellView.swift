@@ -7,6 +7,8 @@ public struct FieldAppShellView: View {
     @State private var selectedTab: FieldAppTab = .overview
     @State private var statusText = "Ready"
     @State private var statusAccent = FieldTheme.green
+    @State private var showingTeamCapabilityForm = false
+    @State private var teamCapabilityDraft: USARTeamCapabilityReport?
 
     public init(appID: LinkGuardAppID, platform: AppPlatform, deviceID: LinkGuardID, displayName: String) {
         _controller = State(initialValue: FieldAppController(appID: appID, platform: platform, deviceID: deviceID, displayName: displayName))
@@ -39,6 +41,15 @@ public struct FieldAppShellView: View {
         }
         .tint(FieldTheme.green)
         .preferredColorScheme(.dark)
+        .sheet(isPresented: $showingTeamCapabilityForm) {
+            if let teamCapabilityDraft {
+                TeamCapabilityReportFormView(initialReport: teamCapabilityDraft) {
+                    showingTeamCapabilityForm = false
+                } onSubmit: { report in
+                    submitTeamCapabilityReport(report)
+                }
+            }
+        }
     }
 
     private var availableTabs: [FieldAppTab] {
@@ -505,8 +516,26 @@ public struct FieldAppShellView: View {
                 fieldAction("Fire", detail: "Report active fire", systemImage: "flame.fill", feature: .disasterReport, messageType: .disasterReportUpsert, accent: FieldTheme.danger) {
                     try controller.queueDisasterReport(kind: .fire, severity: .critical, summary: "Active fire observed", now: Date())
                 }
-                fieldAction("USAR Profile", detail: "Queue A/B/C/D team capability profile", systemImage: "person.3.sequence.fill", feature: .teamCapabilityOverview, messageType: .teamCapabilityReportUpsert, accent: FieldTheme.green) {
-                    try controller.queueTeamCapabilityReport(now: Date())
+                teamCapabilityProfileAction
+            }
+        }
+    }
+
+    private var teamCapabilityProfileAction: some View {
+        let feature = LinkGuardFeature.teamCapabilityOverview
+        let messageType = SyncMessageType.teamCapabilityReportUpsert
+        let visible = controller.canSeeFeature(feature)
+        let enabled = visible && controller.canUseFeature(feature) && controller.canSend(messageType)
+        return Group {
+            if visible {
+                FieldActionCard(
+                    title: "USAR Profile",
+                    detail: "Fill A/B/C/D team capability profile",
+                    systemImage: "person.3.sequence.fill",
+                    accent: FieldTheme.green,
+                    isEnabled: enabled
+                ) {
+                    openTeamCapabilityForm()
                 }
             }
         }
@@ -615,6 +644,29 @@ public struct FieldAppShellView: View {
             statusAccent = FieldTheme.green
         } catch {
             statusText = "Blocked \(title)"
+            statusAccent = FieldTheme.warning
+        }
+    }
+
+    private func openTeamCapabilityForm() {
+        guard controller.canUseFeature(.teamCapabilityOverview), controller.canSend(.teamCapabilityReportUpsert) else {
+            statusText = "Blocked USAR Profile"
+            statusAccent = FieldTheme.warning
+            return
+        }
+        teamCapabilityDraft = controller.makeTeamCapabilityDraft(now: Date())
+        showingTeamCapabilityForm = true
+    }
+
+    private func submitTeamCapabilityReport(_ report: USARTeamCapabilityReport) {
+        do {
+            _ = try controller.queueTeamCapabilityReport(report, now: report.createdAt)
+            statusText = "Queued USAR Profile"
+            statusAccent = FieldTheme.green
+            showingTeamCapabilityForm = false
+            teamCapabilityDraft = nil
+        } catch {
+            statusText = "Blocked USAR Profile"
             statusAccent = FieldTheme.warning
         }
     }

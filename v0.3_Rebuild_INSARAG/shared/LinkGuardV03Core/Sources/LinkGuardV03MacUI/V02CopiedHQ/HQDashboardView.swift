@@ -12,6 +12,7 @@ enum HQSection: String, CaseIterable, Identifiable {
     case usarCommand = "USAR 指揮鏈"
     case disaster = "災害狀態"
     case personnelOverview = "人員總覽"
+    case teamCapability = "隊伍能力"
     case victimOverview = "受困者總覽"
     case nfcTags = "NFC 標籤管理"
     case personnel = "人員配置"
@@ -43,6 +44,7 @@ enum HQSection: String, CaseIterable, Identifiable {
         .usarCommand,
         .disaster,
         .personnelOverview,
+        .teamCapability,
         .victimOverview,
         .nfcTags,
         .personnel,
@@ -79,6 +81,7 @@ enum HQSection: String, CaseIterable, Identifiable {
         case .usarCommand: return "point.3.connected.trianglepath.dotted"
         case .disaster: return "building.2"
         case .personnelOverview: return "person.3.sequence.fill"
+        case .teamCapability: return "person.3.fill"
         case .victimOverview: return "person.fill.questionmark"
         case .nfcTags: return "tag.fill"
         case .personnel: return "person.badge.plus"
@@ -270,6 +273,7 @@ struct HQDashboardView: View {
         case .usarCommand: HQUSARCommandView(vm: vm)
         case .disaster: HQDisasterView(vm: vm)
         case .personnelOverview: HQPersonnelOverviewView(vm: vm)
+        case .teamCapability: HQTeamCapabilityView(vm: vm)
         case .victimOverview: HQVictimOverviewView(vm: vm)
         case .nfcTags: HQNFCTagManagementView(vm: vm)
         case .personnel: HQPersonnelView(vm: vm)
@@ -474,6 +478,7 @@ struct HQDashboardView: View {
             case .usarCommand: HQUSARCommandView(vm: vm)
             case .disaster: HQDisasterView(vm: vm)
             case .personnelOverview: HQPersonnelOverviewView(vm: vm)
+            case .teamCapability: HQTeamCapabilityView(vm: vm)
             case .victimOverview: HQVictimOverviewView(vm: vm)
             case .nfcTags: HQNFCTagManagementView(vm: vm)
             case .personnel: HQPersonnelView(vm: vm)
@@ -976,6 +981,14 @@ struct HQDashboardView: View {
                     .background(vm.sosCount > 0 ? NV.danger : NV.warning.opacity(NV.tagOpacity))
                     .cornerRadius(NV.tagRadius)
             }
+        case .teamCapability:
+            if !vm.teamCapabilityReports.isEmpty {
+                Text("\(vm.teamCapabilityReports.count)")
+                    .font(.caption2).bold()
+                    .padding(.horizontal, 6).padding(.vertical, 2)
+                    .background(NV.green.opacity(NV.tagOpacity))
+                    .cornerRadius(NV.tagRadius)
+            }
         case .nfcTags:
             if !vm.nfcTagWrites.isEmpty {
                 Text("\(vm.nfcTagWrites.count)")
@@ -1038,6 +1051,7 @@ struct HQDashboardView: View {
         case .usarCommand: return NV.command
         case .disaster: return NV.warning
         case .personnelOverview: return NV.team
+        case .teamCapability: return NV.green
         case .victimOverview: return NV.warning
         case .nfcTags: return NV.info
         case .personnel: return NV.info

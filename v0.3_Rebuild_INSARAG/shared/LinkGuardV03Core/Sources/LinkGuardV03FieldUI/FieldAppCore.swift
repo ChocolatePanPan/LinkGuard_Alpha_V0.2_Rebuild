@@ -473,11 +473,9 @@ public struct FieldAppController: Sendable {
         return queue(envelope, at: now)
     }
 
-    @discardableResult
-    public mutating func queueTeamCapabilityReport(now: Date) throws -> SyncEnvelope {
-        try requireFeature(.teamCapabilityOverview)
+    public func makeTeamCapabilityDraft(now: Date) -> USARTeamCapabilityReport {
         let coordinate = latestGPSFix?.coordinate
-        let report = USARTeamCapabilityReport(
+        return USARTeamCapabilityReport(
             id: LinkGuardID("USAR-PROFILE-\(context.teamID.rawValue)"),
             incidentID: context.incidentID,
             reporterDeviceID: runtime.device.id,
@@ -537,6 +535,16 @@ public struct FieldAppController: Sendable {
             ),
             createdAt: now
         )
+    }
+
+    @discardableResult
+    public mutating func queueTeamCapabilityReport(now: Date) throws -> SyncEnvelope {
+        try queueTeamCapabilityReport(makeTeamCapabilityDraft(now: now), now: now)
+    }
+
+    @discardableResult
+    public mutating func queueTeamCapabilityReport(_ report: USARTeamCapabilityReport, now: Date) throws -> SyncEnvelope {
+        try requireFeature(.teamCapabilityOverview)
         let envelope = try runtime.makeEnvelope(
             messageType: .teamCapabilityReportUpsert,
             payload: report,

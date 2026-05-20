@@ -23,4 +23,4 @@ Message type 決定跨 app 同步的語意。
 
 ## Added in v0.3
 
-- `teamCapabilityReportUpsert`：正式 USAR「城市搜索與救援隊隊伍概況表」A/B/C/D 欄位，包含隊伍資訊、支援需求、聯絡方式與撤離資訊。此訊息走 personnel overview chain，Field 端可離線排隊，UCC/SCC/TL 端可彙整隊伍能力與後勤需求。
+- `teamCapabilityReportUpsert`：正式 USAR「城市搜索與救援隊隊伍概況表」A/B/C/D 欄位，包含隊伍資訊、支援需求、聯絡方式與撤離資訊。此訊息走 personnel overview chain，Field 端以 A/B/C/D 表單填寫並可離線排隊，UCC/SCC/TL 端可彙整隊伍能力與後勤需求，Mac HQ copied shell 也保留相容的 `team_capability_report` 接收與顯示。

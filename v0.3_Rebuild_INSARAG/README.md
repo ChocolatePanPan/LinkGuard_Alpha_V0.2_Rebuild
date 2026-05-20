@@ -69,7 +69,7 @@ v0.3 目前是 shared core + app target + role field shell + Mac copied HQ UI �
 - AAR audit query 與 JSON/CSV export bundle。
 - `LinkGuardV03FieldUI`：iPhone/iPad field app shell + Phase 2 controller，依角色功能矩陣排隊 Sector/Sub-sector/Worksite、點線面地圖標記、人員狀態、任務回報、照片、傷患/START/後送、安全進出、聊天、語音與 SOS envelopes。
 - FieldUI role shell：TL 顯示分區/Worksite/任務派遣，TE/VO 顯示任務接收、GPS、照片、SOS 與回報，SCC-iPad 顯示分區管理、人員總覽與安全管制，EMT 顯示傷患、START、生命徵象與後送；所有操作會更新本地 `OperationSnapshot` 與 outbox。
-- USAR team capability profile：v3 shared core 已加入正式「城市搜索與救援隊隊伍概況表」A/B/C/D 資料模型、`teamCapabilityReportUpsert` sync message、FieldUI queue action、snapshot 儲存與 audit event；完整 v0.2 可執行專案也同步保留於 `legacy/V0.2_complete_snapshot/`。
+- USAR team capability profile：v3 shared core 已加入正式「城市搜索與救援隊隊伍概況表」A/B/C/D 資料模型、`teamCapabilityReportUpsert` sync message、FieldUI A/B/C/D 填寫表單、snapshot 儲存、audit event、Mac UCC/SCC summary state，以及 active copied-HQ 的接收與顯示頁；完整 v0.2 可執行專案也同步保留於 `legacy/V0.2_complete_snapshot/`。
 
 驗證指令：
 
@@ -80,7 +80,7 @@ swift test
 
 ## Versioning
 
-目前版本基準是 `0.3.1-alpha.12`，由 repo 根目錄的 `VERSION`、`VERSION.json`、shared framework 的 `LinkGuardVersionInfo.current` 與 Git tag `v0.3.1-alpha.12` 對齊。
+目前版本基準是 `0.3.1-alpha.13`，由 shared framework 的 `LinkGuardVersionInfo.current` 與各 Xcode app target build number 對齊；若正式發版，再建立 Git tag `v0.3.1-alpha.13`。
 
 每次實作更新後都必須更新版本號。v0.3 alpha 線使用 `scripts/version.sh bump-alpha`；現場指定版使用 `scripts/version.sh set <version>`。提交後使用 `scripts/version.sh tag` 建立本機 annotated tag。push 前使用 `scripts/version.sh push-check`，並把 `git push origin v<version>` 放在 push 流程最後。
 

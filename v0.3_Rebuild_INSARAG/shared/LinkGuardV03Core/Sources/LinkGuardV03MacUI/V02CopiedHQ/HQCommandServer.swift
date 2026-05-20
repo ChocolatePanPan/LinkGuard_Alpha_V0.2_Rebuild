@@ -24,6 +24,7 @@ class HQCommandServer: ObservableObject {
     @Published var countdownTimers: [CountdownTimerModel] = []
     @Published var hazardReports: [HazardReport] = []
     @Published var reinforcementRequests: [ReinforcementRequest] = []
+    @Published var teamCapabilityReports: [TeamCapabilityReport] = []
     @Published var patientReports: [PatientReport] = []
     @Published var nfcTagWrites: [NFCTagWriteRecord] = []
     @Published var patientIDConfig = PatientIDConfig()
@@ -705,6 +706,32 @@ class HQCommandServer: ObservableObject {
             }
             // 中繼廣播到其他前線裝置
             guard let data = encodeWiFiMessage(msgType: "hazard_report", payload: report) else { return }
+            relayBroadcast(data, fromConnID: connID)
+
+        case "team_capability_report", "team_capability", "capability_report":
+            guard let payloadData = msg.payload.data(using: .utf8),
+                  let report = try? JSONDecoder().decode(TeamCapabilityReport.self, from: payloadData) else {
+                print("[HQ-Server] Failed to decode team capability payload from \(connID)")
+                return
+            }
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                if let index = self.teamCapabilityReports.firstIndex(where: { $0.id == report.id }) {
+                    self.teamCapabilityReports[index] = report
+                } else {
+                    self.teamCapabilityReports.insert(report, at: 0)
+                }
+                if self.teamCapabilityReports.count > 200 {
+                    self.teamCapabilityReports = Array(self.teamCapabilityReports.prefix(200))
+                }
+                self.appendTimelineEvent(TimelineEvent(
+                    eventType: .personnel,
+                    title: L("隊伍能力概況：%@", report.teamName),
+                    detail: "\(report.responseSummary.isEmpty ? report.missionStatus : report.responseSummary) · \(report.personnelSummary)",
+                    source: report.reporterName.isEmpty ? report.reporterID : report.reporterName
+                ))
+            }
+            guard let data = encodeWiFiMessage(msgType: "team_capability_report", payload: report) else { return }
             relayBroadcast(data, fromConnID: connID)
 
         case "reinforcement_request":

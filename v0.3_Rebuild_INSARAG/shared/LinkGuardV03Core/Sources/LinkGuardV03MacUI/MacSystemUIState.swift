@@ -119,6 +119,7 @@ public struct MacSystemUIState: Sendable {
     public var inheritedModules: [MacInheritedModule]
     public var quickActions: [MacQuickAction]
     public var transportRoutes: [MacTransportRouteSummary]
+    public var teamCapabilityReports: [USARTeamCapabilityReport]
 
     public init(
         runtime: LinkGuardAppRuntime,
@@ -127,7 +128,8 @@ public struct MacSystemUIState: Sendable {
         metrics: [MacMetricTile],
         inheritedModules: [MacInheritedModule],
         quickActions: [MacQuickAction],
-        transportRoutes: [MacTransportRouteSummary]
+        transportRoutes: [MacTransportRouteSummary],
+        teamCapabilityReports: [USARTeamCapabilityReport]
     ) {
         self.runtime = runtime
         self.settingsInfo = settingsInfo
@@ -136,6 +138,7 @@ public struct MacSystemUIState: Sendable {
         self.inheritedModules = inheritedModules
         self.quickActions = quickActions
         self.transportRoutes = transportRoutes
+        self.teamCapabilityReports = teamCapabilityReports
     }
 
     public var title: String { runtime.device.appID.rawValue }
@@ -195,7 +198,8 @@ public enum MacSystemUIFactory {
             metrics: metrics(for: runtime),
             inheritedModules: sections.map { module(for: $0, runtime: runtime) },
             quickActions: quickActions(for: runtime),
-            transportRoutes: transportRoutes(for: runtime)
+            transportRoutes: transportRoutes(for: runtime),
+            teamCapabilityReports: teamCapabilityReports(for: runtime.snapshot)
         )
     }
 
@@ -214,6 +218,7 @@ public enum MacSystemUIFactory {
             MacMetricTile(id: "incidents", title: "災害事件", value: String(snapshot.incidents.count), systemImageName: "building.2", accentName: "blue"),
             MacMetricTile(id: "worksites", title: "分區工址", value: String(snapshot.worksites.count), systemImageName: "map.fill", accentName: "orange"),
             MacMetricTile(id: "tasks", title: "進行任務", value: String(openTaskCount(in: snapshot)), systemImageName: "checklist", accentName: "green"),
+            MacMetricTile(id: "team-capability", title: "隊伍概況", value: String(snapshot.teamCapabilityReports.count), systemImageName: "person.3.sequence.fill", accentName: "teal"),
             MacMetricTile(id: "alerts", title: "緊急警報", value: String(snapshot.alerts.count), systemImageName: "exclamationmark.triangle.fill", accentName: "red"),
             MacMetricTile(id: "queue", title: "同步佇列", value: String(runtime.outboundQueue.entries.count), systemImageName: "arrow.up.arrow.down", accentName: "purple")
         ]
@@ -262,6 +267,7 @@ public enum MacSystemUIFactory {
             .commandUpsert,
             .taskUpsert,
             .personnelStatusUpsert,
+            .teamCapabilityReportUpsert,
             .photoReportUpsert,
             .disasterReportUpsert,
             .safetyZoneUpsert,
@@ -304,12 +310,16 @@ public enum MacSystemUIFactory {
         }.count
     }
 
+    private static func teamCapabilityReports(for snapshot: OperationSnapshot) -> [USARTeamCapabilityReport] {
+        snapshot.teamCapabilityReports.values.sorted { $0.createdAt > $1.createdAt }
+    }
+
     private static func recordCount(for section: ICSSection, snapshot: OperationSnapshot) -> Int {
         switch section {
         case .command:
             return snapshot.commands.count + snapshot.alerts.count + snapshot.sosReports.count + snapshot.roleAssignments.count
         case .operations:
-            return snapshot.subSectors.count + snapshot.worksites.count + snapshot.tasks.count + snapshot.mapFeatures.count + snapshot.personnelStatusReports.count + snapshot.photoReports.count + snapshot.disasterReports.count + snapshot.safetyZones.count + snapshot.safetyEntryLogs.count
+            return snapshot.subSectors.count + snapshot.worksites.count + snapshot.tasks.count + snapshot.mapFeatures.count + snapshot.personnelStatusReports.count + snapshot.teamCapabilityReports.count + snapshot.photoReports.count + snapshot.disasterReports.count + snapshot.safetyZones.count + snapshot.safetyEntryLogs.count
         case .planning:
             return snapshot.incidents.count + snapshot.sectors.count
         case .logistics:

@@ -176,7 +176,7 @@
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 301021;
+				CURRENT_PROJECT_VERSION = 301022;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "LinkGuard TL iPad";
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "LinkGuard uses Bluetooth to connect nearby field devices.";
@@ -204,7 +204,7 @@
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 301021;
+				CURRENT_PROJECT_VERSION = 301022;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "LinkGuard TL iPad";
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "LinkGuard uses Bluetooth to connect nearby field devices.";

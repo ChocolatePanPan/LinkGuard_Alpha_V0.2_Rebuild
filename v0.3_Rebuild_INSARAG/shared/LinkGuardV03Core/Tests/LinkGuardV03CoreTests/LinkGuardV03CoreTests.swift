@@ -1891,6 +1891,34 @@ final class LinkGuardV03CoreTests: XCTestCase {
             payload: alert
         )
         try snapshot.apply(envelope)
+        let teamReport = USARTeamCapabilityReport(
+            id: "USAR-MAC-PROFILE",
+            incidentID: "INC-1",
+            reporterDeviceID: "DEVICE-TL",
+            reporterName: "TL Profile",
+            team: USARTeamInformationSection(
+                teamCode: "TW-TL-01",
+                country: "TWN",
+                teamName: "Mac Visible USAR Team",
+                totalMembers: 12,
+                searchDogCount: 2,
+                responseType: .heavy,
+                classificationStatus: .classified
+            ),
+            supportNeeds: USARTeamSupportNeedsSection(needsGroundTransport: true, equipmentWeightTons: 4.5),
+            contacts: USARTeamContactsSection(teamContactNameOrRole: "TL Profile"),
+            createdAt: fixedDate.addingTimeInterval(1)
+        )
+        let teamEnvelope = try SyncEnvelope.make(
+            messageType: .teamCapabilityReportUpsert,
+            sourceAppID: .teamLeader,
+            sourceDeviceID: "DEVICE-TL",
+            priority: .high,
+            createdAt: fixedDate.addingTimeInterval(1),
+            idempotencyKey: "mac-team-profile",
+            payload: teamReport
+        )
+        try snapshot.apply(teamEnvelope)
 
         let state = try MacSystemUIFactory.makeState(appID: .ucc, deviceID: "DEVICE-UCC", snapshot: snapshot)
         let sections = state.navigationItems.map(\.section)
@@ -1900,8 +1928,11 @@ final class LinkGuardV03CoreTests: XCTestCase {
         XCTAssertTrue(sections.contains(.finance))
         XCTAssertTrue(sections.contains(.afterActionReview))
         XCTAssertEqual(state.metrics.first { $0.id == "alerts" }?.value, "1")
+        XCTAssertEqual(state.metrics.first { $0.id == "team-capability" }?.value, "1")
+        XCTAssertEqual(state.teamCapabilityReports.first?.team.teamName, "Mac Visible USAR Team")
         XCTAssertTrue(state.quickActions.contains { $0.id == "issue-command" && $0.isEnabled })
         XCTAssertTrue(state.inheritedModules.first { $0.section == .command }?.inheritedFrom.contains("TransportTopology") == true)
+        XCTAssertTrue(state.transportRoutes.contains { $0.messageType == .teamCapabilityReportUpsert && $0.receives })
         XCTAssertEqual(state.settingsItems.first { $0.key == "version" }?.value, LinkGuardVersionInfo.current.version.stringValue)
         XCTAssertEqual(state.settingsItems.first { $0.key == "build" }?.value, String(LinkGuardVersionInfo.current.buildNumber))
     }
