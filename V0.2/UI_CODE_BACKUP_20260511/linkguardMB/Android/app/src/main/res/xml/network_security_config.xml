@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!--
+        允許區域網路 HTTP 明文連線（連接 LinkGuard 後端伺服器）。
+        注意：Android <domain> 標籤不支援 CIDR 表示法，
+        因此使用 base-config 允許所有明文連線（本 app 僅與 LAN 伺服器通訊）。
+    -->
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

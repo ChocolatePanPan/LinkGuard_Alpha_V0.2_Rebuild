@@ -1,0 +1,221 @@
+import SwiftUI
+
+struct HQBriefingView: View {
+    @ObservedObject var vm: HQViewModel
+    @State private var showAddSheet = false
+
+    private let columns = [
+        GridItem(.flexible(minimum: 360), spacing: NV.panelSpacing, alignment: .top),
+        GridItem(.flexible(minimum: 360), spacing: NV.panelSpacing, alignment: .top)
+    ]
+
+    var body: some View {
+        HQPage {
+            HQPageTitleBar(L("會報系統"), icon: "doc.text.fill", accent: NV.team) {
+                HStack(spacing: 8) {
+                    if let broadcaster = vm.currentBroadcaster {
+                        Label(L("廣播中：%@", broadcaster), systemImage: "dot.radiowaves.left.and.right")
+                            .font(.caption.bold())
+                            .foregroundColor(NV.danger)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
+                            .background(NV.danger.opacity(0.1))
+                            .cornerRadius(8)
+                    }
+                    briefingCountChip(L("%lld 份會報", vm.briefings.count), color: NV.team)
+                    briefingCountChip(L("%lld 筆報告", vm.radioReports.count), color: NV.command)
+                }
+            }
+
+            if vm.briefings.isEmpty && vm.radioReports.isEmpty {
+                HQEmptyStateView(
+                    icon: "doc.text",
+                    title: L("尚未建立會報"),
+                    subtitle: L("前線裝置錄製的會報將顯示在此")
+                )
+                .hqPanelChrome(accent: NV.team)
+            } else {
+                LazyVGrid(columns: columns, spacing: NV.panelSpacing) {
+                    HQPanel(title: L("已發布會報"), icon: "doc.text.fill", accent: NV.team) {
+                        if vm.briefings.isEmpty {
+                            HQEmptyStateView(icon: "doc.text", title: L("尚未建立會報"))
+                                .frame(maxWidth: .infinity, minHeight: 220)
+                        } else {
+                            LazyVStack(spacing: NV.panelSpacing) {
+                                ForEach(vm.briefings) { report in
+                                    BriefingCard(report: report)
+                                }
+                            }
+                        }
+                    }
+
+                    HQPanel(title: L("前線會報紀錄"), icon: "doc.richtext", accent: NV.command) {
+                        if vm.radioReports.isEmpty {
+                            HQEmptyStateView(
+                                icon: "doc.text",
+                                title: L("尚無會報紀錄"),
+                                subtitle: L("前線裝置錄製的會報將顯示在此")
+                            )
+                            .frame(maxWidth: .infinity, minHeight: 220)
+                        } else {
+                            LazyVStack(spacing: NV.panelSpacing) {
+                                ForEach(vm.radioReports) { report in
+                                    HQReportCard(report: report)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .overlay(alignment: .bottomLeading) {
+            Button {
+                showAddSheet = true
+            } label: {
+                Image(systemName: "plus")
+                    .font(.title2.weight(.medium))
+                    .foregroundColor(.white)
+                    .frame(width: 48, height: 48)
+                    .background(vm.server.isRunning ? NV.team : Color.gray)
+                    .clipShape(Circle())
+                    .shadow(color: .black.opacity(0.15), radius: 4, x: 0, y: 2)
+            }
+            .buttonStyle(.plain)
+            .padding(24)
+            .disabled(!vm.server.isRunning)
+            .help(L("新增會報"))
+        }
+        .sheet(isPresented: $showAddSheet) {
+            AddBriefingSheet(vm: vm)
+        }
+    }
+
+    private func briefingCountChip(_ text: String, color: Color) -> some View {
+        Text(text)
+            .font(.caption.monospacedDigit())
+            .foregroundColor(.secondary)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
+            .background(color.opacity(0.1))
+            .cornerRadius(8)
+    }
+}
+
+struct BriefingCard: View {
+    let report: BriefingReport
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Image(systemName: report.type.icon)
+                    .foregroundColor(NV.info)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(report.title)
+                        .font(.headline)
+                    HStack(spacing: 6) {
+                        Text(report.type.label)
+                            .font(.caption2).bold()
+                            .padding(.horizontal, 6).padding(.vertical, 2)
+                            .background(NV.info.opacity(0.15))
+                            .cornerRadius(4)
+                        Text("by \(report.author)")
+                            .font(.caption2).foregroundColor(.secondary)
+                    }
+                }
+                Spacer()
+                Text(timeText)
+                    .font(.caption2).foregroundColor(.secondary)
+            }
+
+            ForEach(report.sections.indices, id: \.self) { i in
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(report.sections[i].title)
+                        .font(.subheadline).bold()
+                    Text(report.sections[i].content)
+                        .font(.caption).foregroundColor(.secondary)
+                }
+                .padding(.leading, 8)
+            }
+        }
+        .padding()
+        .hqThemedSurfaceBackground()
+        .cornerRadius(12)
+    }
+
+    private var timeText: String {
+        let date = Date(timeIntervalSince1970: report.timestamp)
+        let fmt = DateFormatter()
+        fmt.dateFormat = "yyyy/MM/dd HH:mm"
+        return fmt.string(from: date)
+    }
+}
+
+// MARK: - 新增會報
+
+struct AddBriefingSheet: View {
+    @ObservedObject var vm: HQViewModel
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var briefingType: BriefingType = .initial
+    @State private var title = ""
+    @State private var author = "指揮官"
+    @State private var sections: [BriefingSection] = [BriefingSection(title: "", content: "")]
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section(L("會報資訊")) {
+                    Picker(L("類型"), selection: $briefingType) {
+                        ForEach(BriefingType.allCases, id: \.self) { t in
+                            Label(t.label, systemImage: t.icon).tag(t)
+                        }
+                    }
+                    TextField(L("標題"), text: $title)
+                    TextField(L("作者"), text: $author)
+                }
+                Section(L("內容段落")) {
+                    ForEach(sections.indices, id: \.self) { i in
+                        VStack(spacing: 6) {
+                            TextField(L("段落標題"), text: $sections[i].title)
+                            TextField(L("段落內容"), text: $sections[i].content, axis: .vertical)
+                                .lineLimit(2...5)
+                        }
+                    }
+                    Button {
+                        sections.append(BriefingSection(title: "", content: ""))
+                    } label: {
+                        Label(L("新增段落"), systemImage: "plus.circle")
+                    }
+                }
+                Section(L("傳送目標")) {
+                    HStack {
+                        Image(systemName: vm.targetMode == .broadcast ? "antenna.radiowaves.left.and.right" : "person.2.circle")
+                            .foregroundColor(NV.command)
+                        Text(vm.targetMode == .broadcast ? L("全體廣播") : L("指定 %lld 台裝置", vm.selectedTargetDeviceIDs.count))
+                            .font(.subheadline)
+                    }
+                }
+            }
+            .formStyle(.grouped)
+            .navigationTitle(L("新增會報"))
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(L("取消")) { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(L("發布")) {
+                        let report = BriefingReport(
+                            title: title,
+                            type: briefingType,
+                            author: author,
+                            sections: sections.filter { !$0.title.isEmpty || !$0.content.isEmpty }
+                        )
+                        vm.addBriefing(report)
+                        dismiss()
+                    }
+                    .disabled(title.isEmpty)
+                }
+            }
+        }
+    }
+}

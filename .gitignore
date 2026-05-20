@@ -19,6 +19,7 @@ local.properties
 captures/
 
 # === Xcode / Swift ===
+.build/
 *.xcuserstate
 xcuserdata/
 DerivedData/
@@ -63,9 +64,14 @@ ehthumbs.db
 # === Reports / logs ===
 LINKGUARD/linkguardMB/Android/build/reports/
 *.log
+log*.txt
 
 # Runtime database (auto-generated)
 win11/data/linkguard.db
+win11/data/*.db
+win11/data/*.db-shm
+win11/data/*.db-wal
+win11/memory.db
 macos/data/
 
 win11/logs/
