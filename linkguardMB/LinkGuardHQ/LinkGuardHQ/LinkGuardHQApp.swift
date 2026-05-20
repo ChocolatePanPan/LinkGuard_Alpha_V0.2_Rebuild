@@ -52,6 +52,11 @@ struct LinkGuardHQApp: App {
                 }
                 #endif
                 .preferredColorScheme(colorScheme)
+                .task(id: viewModel.hqRole) {
+                    await Task.yield()
+                    guard viewModel.hqRole == .server else { return }
+                    viewModel.startServer()
+                }
                 .environment(\.locale, Locale(identifier: l10n.language))
                 .tint(NV.green)
                 .environmentObject(viewModel.udpAudioServer)

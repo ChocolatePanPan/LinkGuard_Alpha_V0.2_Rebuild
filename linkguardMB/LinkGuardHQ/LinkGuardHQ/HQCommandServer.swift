@@ -1609,16 +1609,12 @@ class HQCommandServer: ObservableObject {
     func sendPersonalNotification(_ notif: PersonalNotification) {
         DispatchQueue.main.async { [weak self] in self?.personalNotifications.append(notif) }
         guard let data = encodeWiFiMessage(msgType: "personal_notification", payload: notif) else { return }
-
-        queue.async { [weak self] in
-            guard let self else { return }
-            if let targetConnID = self.connDeviceMap.first(where: { $0.value == notif.targetDeviceID })?.key,
-               let conn = self.connections.first(where: {
-                   self.connectionIDMap[ObjectIdentifier($0)] == targetConnID
-               }) {
-                conn.send(content: data, completion: .contentProcessed { _ in })
-            }
-        }
+        sendToDevices(
+            data,
+            targetDeviceIDs: [notif.targetDeviceID],
+            fallbackToBroadcastOnNoMatch: true,
+            context: "personal_notification:\(notif.id)"
+        )
     }
 
     /// 從 HQ 發送聊天訊息（HQ 自己作為發送者）

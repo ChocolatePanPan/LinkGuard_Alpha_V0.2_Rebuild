@@ -485,6 +485,7 @@ class LinkGuardViewModel: ObservableObject {
         commandClient.onPersonalNotification = { [weak self] notification in
             DispatchQueue.main.async {
                 guard let self else { return }
+                guard self.isPersonalNotificationTargetedToThisDevice(notification) else { return }
                 var isNewNotification = false
                 if let index = self.personalNotifications.firstIndex(where: { $0.id == notification.id }) {
                     self.personalNotifications[index] = notification
@@ -1585,6 +1586,17 @@ class LinkGuardViewModel: ObservableObject {
     }
 
     // MARK: - 通知管理
+
+    private func isPersonalNotificationTargetedToThisDevice(_ notification: PersonalNotification) -> Bool {
+        let target = notification.targetDeviceID.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !target.isEmpty else { return true }
+        let nodeID = nodeStatus.nodeID.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let acceptedIDs: Set<String> = [
+            nodeID,
+            "field-\(nodeID)",
+        ]
+        return acceptedIDs.contains(target)
+    }
 
     func markNotificationAsRead(_ id: String) {
         if let idx = personalNotifications.firstIndex(where: { $0.id == id }) {
