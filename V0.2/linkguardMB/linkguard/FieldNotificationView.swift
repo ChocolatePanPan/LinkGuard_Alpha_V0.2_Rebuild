@@ -145,7 +145,7 @@ struct FieldNotificationView: View {
 
     private func notificationSource(_ kind: ActivityKind) -> NotificationSource {
         switch kind {
-        case .sentMessage, .sos, .hazard, .patientReport, .quickStatus, .reinforcement:
+        case .sentMessage, .sos, .hazard, .patientReport, .capabilityReport, .quickStatus, .reinforcement:
             return .field
         default:
             return .hq
@@ -545,6 +545,7 @@ struct FieldNotificationView: View {
         case .task:                 return NV.command
         case .timer:                return NV.danger
         case .patientReport:        return NV.info
+        case .capabilityReport:     return NV.team
         case .quickStatus:          return NV.command
         }
     }

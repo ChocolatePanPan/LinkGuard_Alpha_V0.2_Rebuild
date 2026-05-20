@@ -116,6 +116,7 @@ class HQViewModel: ObservableObject {
 
     // 傷員回報
     @Published var patientReports: [PatientReport] = []
+    @Published var teamCapabilityReports: [TeamCapabilityReport] = []
     @Published var nfcTagWrites: [NFCTagWriteRecord] = []
     @Published var patientIDConfig = PatientIDConfig()
 
@@ -482,6 +483,10 @@ class HQViewModel: ObservableObject {
             }
             .store(in: &cancellables)
 
+        server.$teamCapabilityReports
+            .receive(on: DispatchQueue.main)
+            .assign(to: &$teamCapabilityReports)
+
         server.$nfcTagWrites
             .receive(on: DispatchQueue.main)
             .assign(to: &$nfcTagWrites)
@@ -593,6 +598,7 @@ class HQViewModel: ObservableObject {
         bindIncomingEventCue($hazardReports.map(\.count).eraseToAnyPublisher())
         bindIncomingEventCue($reinforcementRequests.map(\.count).eraseToAnyPublisher())
         bindIncomingEventCue($patientReports.map(\.count).eraseToAnyPublisher())
+        bindIncomingEventCue($teamCapabilityReports.map(\.count).eraseToAnyPublisher())
         bindIncomingEventCue($patientWarnings.map(\.count).eraseToAnyPublisher())
         bindIncomingEventCue($activeSOSAlerts.map(\.count).eraseToAnyPublisher())
     }

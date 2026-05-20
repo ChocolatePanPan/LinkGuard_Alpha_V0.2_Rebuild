@@ -146,6 +146,9 @@ class LinkGuardViewModel: ObservableObject {
     // 快速狀態回報
     @Published var quickStatuses: [QuickStatus] = []
 
+    // 隊伍能力概況回報
+    @Published var teamCapabilityReports: [TeamCapabilityReport] = []
+
     // 省電：靜止偵測（GPS 動態降頻）
     private var lastReportedLocation: CLLocation?
     private var stationaryCount: Int = 0
@@ -2165,6 +2168,17 @@ class LinkGuardViewModel: ObservableObject {
         localPatients.append(report)
         PersistenceManager.shared.save(key: "localPatients", value: localPatients)
         appendActivity(kind: .patientReport, title: L("已送出傷患回報"), detail: report.name.isEmpty ? report.patientId : report.name)
+    }
+
+    func sendTeamCapabilityReport(_ report: TeamCapabilityReport) {
+        if let index = teamCapabilityReports.firstIndex(where: { $0.id == report.id }) {
+            teamCapabilityReports[index] = report
+        } else {
+            teamCapabilityReports.insert(report, at: 0)
+        }
+        if teamCapabilityReports.count > 50 { teamCapabilityReports = Array(teamCapabilityReports.prefix(50)) }
+        commandClient.sendTeamCapabilityReport(report)
+        appendActivity(kind: .capabilityReport, title: L("已送出隊伍能力概況"), detail: report.teamName)
     }
 
     var previewPatientID: String {

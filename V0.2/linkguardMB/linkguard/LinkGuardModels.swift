@@ -43,6 +43,7 @@ enum ActivityKind: String, Codable {
     case task
     case timer
     case patientReport
+    case capabilityReport
     case quickStatus
 
     var icon: String {
@@ -63,6 +64,7 @@ enum ActivityKind: String, Codable {
         case .task:                 return "checklist.checked"
         case .timer:                return "timer"
         case .patientReport:        return "cross.case.fill"
+        case .capabilityReport:     return "person.3.fill"
         case .quickStatus:          return "paperplane.fill"
         }
     }
@@ -1334,6 +1336,115 @@ let presetMessages: [PresetMessage] = [
     PresetMessage(text: L("情況緊急"), icon: "exclamationmark.triangle.fill"),
     PresetMessage(text: L("安全撤離完成"), icon: "arrow.uturn.backward.circle.fill"),
 ]
+
+// MARK: - 隊伍能力概況
+
+struct TeamCapabilityReport: Codable, Identifiable, Equatable {
+    let id: String
+    var teamName: String
+    var unitCode: String
+    var leaderName: String
+    var contactPhone: String
+    var currentLocation: String
+    var stagingArea: String
+    var missionStatus: String
+    var totalMembers: Int
+    var rescueMembers: Int
+    var medicalMembers: Int
+    var logisticsMembers: Int
+    var availableInMinutes: Int
+    var operationalHours: Int
+    var selfSufficiencyHours: Int
+    var ambulances: Int
+    var rescueVehicles: Int
+    var heavyEquipment: Int
+    var boats: Int
+    var drones: Int
+    var radios: Int
+    var capabilities: [String]
+    var equipmentNotes: String
+    var supportNeeds: String
+    var remarks: String
+    var reporterID: String
+    var reporterName: String
+    var timestamp: Double
+
+    init(id: String = UUID().uuidString,
+         teamName: String,
+         unitCode: String,
+         leaderName: String,
+         contactPhone: String,
+         currentLocation: String,
+         stagingArea: String,
+         missionStatus: String,
+         totalMembers: Int,
+         rescueMembers: Int,
+         medicalMembers: Int,
+         logisticsMembers: Int,
+         availableInMinutes: Int,
+         operationalHours: Int,
+         selfSufficiencyHours: Int,
+         ambulances: Int,
+         rescueVehicles: Int,
+         heavyEquipment: Int,
+         boats: Int,
+         drones: Int,
+         radios: Int,
+         capabilities: [String],
+         equipmentNotes: String,
+         supportNeeds: String,
+         remarks: String,
+         reporterID: String,
+         reporterName: String,
+         timestamp: Double = Date().timeIntervalSince1970) {
+        self.id = id
+        self.teamName = teamName
+        self.unitCode = unitCode
+        self.leaderName = leaderName
+        self.contactPhone = contactPhone
+        self.currentLocation = currentLocation
+        self.stagingArea = stagingArea
+        self.missionStatus = missionStatus
+        self.totalMembers = totalMembers
+        self.rescueMembers = rescueMembers
+        self.medicalMembers = medicalMembers
+        self.logisticsMembers = logisticsMembers
+        self.availableInMinutes = availableInMinutes
+        self.operationalHours = operationalHours
+        self.selfSufficiencyHours = selfSufficiencyHours
+        self.ambulances = ambulances
+        self.rescueVehicles = rescueVehicles
+        self.heavyEquipment = heavyEquipment
+        self.boats = boats
+        self.drones = drones
+        self.radios = radios
+        self.capabilities = capabilities
+        self.equipmentNotes = equipmentNotes
+        self.supportNeeds = supportNeeds
+        self.remarks = remarks
+        self.reporterID = reporterID
+        self.reporterName = reporterName
+        self.timestamp = timestamp
+    }
+
+    var personnelSummary: String {
+        "\(L("總員額")) \(totalMembers) · \(L("救援")) \(rescueMembers) · \(L("醫療")) \(medicalMembers) · \(L("後勤")) \(logisticsMembers)"
+    }
+
+    var vehicleSummary: String {
+        "\(L("救援車")) \(rescueVehicles) · \(L("救護車")) \(ambulances) · \(L("重機具")) \(heavyEquipment) · \(L("無人機")) \(drones)"
+    }
+
+    var capabilitySummary: String {
+        capabilities.isEmpty ? L("未填寫能力項目") : capabilities.joined(separator: "、")
+    }
+
+    var timeText: String {
+        let date = Date(timeIntervalSince1970: timestamp)
+        let fmt = Calendar.current.isDateInToday(date) ? LGDateFormat.hm : LGDateFormat.mdHmShort
+        return fmt.string(from: date)
+    }
+}
 
 // MARK: - 傷員回報
 

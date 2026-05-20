@@ -25,6 +25,7 @@ class HQCommandServer: ObservableObject {
     @Published var hazardReports: [HazardReport] = []
     @Published var reinforcementRequests: [ReinforcementRequest] = []
     @Published var patientReports: [PatientReport] = []
+    @Published var teamCapabilityReports: [TeamCapabilityReport] = []
     @Published var nfcTagWrites: [NFCTagWriteRecord] = []
     @Published var patientIDConfig = PatientIDConfig()
     @Published var radioReports: [HQRadioReport] = []
@@ -47,6 +48,8 @@ class HQCommandServer: ObservableObject {
     var onChatReceived: ((ChatMessage) -> Void)?
     /// 收到傷員回報的回呼
     var onPatientReport: ((PatientReport) -> Void)?
+    /// 收到 USAR 指揮鏈訊息的回呼
+    var onUSARMessage: ((USARWirePayload) -> Void)?
     /// 後台橋接器（收到前線資料時自動轉發）
     var backendBridge: HQBackendBridge?
     /// 狀態快照提供者（由 ViewModel 設定，定期發送給 HQ peer）
@@ -392,6 +395,17 @@ class HQCommandServer: ObservableObject {
             }
         }
 
+        if let usarType = USARMessageType(rawValue: msg.msgType) {
+            guard let payloadData = msg.payload.data(using: .utf8),
+                  let wirePayload = try? JSONDecoder().decode(USARWirePayload.self, from: payloadData),
+                  wirePayload.messageType == usarType.rawValue else {
+                print("[HQ-Server] Failed to decode USAR payload \(msg.msgType) from \(connID)")
+                return
+            }
+            onUSARMessage?(wirePayload)
+            return
+        }
+
         switch msg.msgType {
 
         case "hello":
@@ -694,6 +708,30 @@ class HQCommandServer: ObservableObject {
             // 中繼廣播到其他前線裝置
             guard let data = encodeWiFiMessage(msgType: "hazard_report", payload: report) else { return }
             relayBroadcast(data, fromConnID: connID)
+
+        case "team_capability_report":
+            guard let payloadData = msg.payload.data(using: .utf8),
+                  let report = try? JSONDecoder().decode(TeamCapabilityReport.self, from: payloadData) else {
+                print("[HQ-Server] Failed to decode team_capability_report payload from \(connID)")
+                return
+            }
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                if let index = self.teamCapabilityReports.firstIndex(where: { $0.id == report.id }) {
+                    self.teamCapabilityReports[index] = report
+                } else {
+                    self.teamCapabilityReports.insert(report, at: 0)
+                }
+                if self.teamCapabilityReports.count > 200 {
+                    self.teamCapabilityReports = Array(self.teamCapabilityReports.prefix(200))
+                }
+                self.appendTimelineEvent(TimelineEvent(
+                    eventType: .statusReport,
+                    title: L("隊伍能力概況：%@", report.teamName),
+                    detail: "\(report.missionStatus) · \(report.personnelSummary)",
+                    source: report.reporterID.isEmpty ? connID : report.reporterID
+                ))
+            }
 
         case "reinforcement_request":
             guard let payloadData = msg.payload.data(using: .utf8),
@@ -1579,6 +1617,13 @@ class HQCommandServer: ObservableObject {
     func broadcastDecision(_ payload: HQDecisionPayload, targetDeviceIDs: [String]? = nil) {
         guard let data = encodeWiFiMessage(msgType: "decision", payload: payload) else { return }
         sendToDevices(data, targetDeviceIDs: targetDeviceIDs)
+    }
+
+    func sendUSARMessage<Payload: Codable>(_ envelope: USARProtocolEnvelope<Payload>, targetDeviceIDs: [String]? = nil) {
+        guard let wirePayload = try? envelope.wirePayload() else { return }
+        let targets = targetDeviceIDs ?? (wirePayload.targetIDs.isEmpty ? nil : wirePayload.targetIDs)
+        guard let data = encodeWiFiMessage(msgType: envelope.messageType.rawValue, payload: wirePayload) else { return }
+        sendToDevices(data, targetDeviceIDs: targets)
     }
 
     /// 廣播會報摘要到所有前線裝置（語音辨識完成後呼叫）

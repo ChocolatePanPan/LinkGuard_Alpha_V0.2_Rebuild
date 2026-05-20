@@ -917,6 +917,10 @@ class CommandClient: ObservableObject {
         sendWiFiMessage(msgType: "hazard_report", payload: report)
     }
 
+    func sendTeamCapabilityReport(_ report: TeamCapabilityReport) {
+        sendWiFiMessage(msgType: "team_capability_report", payload: report)
+    }
+
     func sendReinforcementRequest(_ request: ReinforcementRequest) {
         let payload = ReinforcementWirePayload(
             id: request.id.uuidString, fromTeam: request.fromTeam,
