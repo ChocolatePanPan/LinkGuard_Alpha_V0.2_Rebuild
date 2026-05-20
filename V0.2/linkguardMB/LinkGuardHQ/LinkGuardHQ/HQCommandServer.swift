@@ -709,10 +709,10 @@ class HQCommandServer: ObservableObject {
             guard let data = encodeWiFiMessage(msgType: "hazard_report", payload: report) else { return }
             relayBroadcast(data, fromConnID: connID)
 
-        case "team_capability_report":
+        case "team_capability_report", "team_capability", "capability_report":
             guard let payloadData = msg.payload.data(using: .utf8),
                   let report = try? JSONDecoder().decode(TeamCapabilityReport.self, from: payloadData) else {
-                print("[HQ-Server] Failed to decode team_capability_report payload from \(connID)")
+                print("[HQ-Server] Failed to decode \(msg.msgType) payload from \(connID)")
                 return
             }
             DispatchQueue.main.async { [weak self] in
@@ -725,6 +725,8 @@ class HQCommandServer: ObservableObject {
                 if self.teamCapabilityReports.count > 200 {
                     self.teamCapabilityReports = Array(self.teamCapabilityReports.prefix(200))
                 }
+                self.statusUpdateSequence += 1
+                print("[HQ-Server] Received team capability report from \(report.reporterID): \(report.teamName)")
                 self.appendTimelineEvent(TimelineEvent(
                     eventType: .statusReport,
                     title: L("隊伍能力概況：%@", report.teamName),

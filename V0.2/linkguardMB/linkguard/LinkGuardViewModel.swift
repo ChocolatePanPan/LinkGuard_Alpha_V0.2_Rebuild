@@ -148,6 +148,7 @@ class LinkGuardViewModel: ObservableObject {
 
     // 隊伍能力概況回報
     @Published var teamCapabilityReports: [TeamCapabilityReport] = []
+    @Published var pendingTeamCapabilityReportIDs: Set<String> = []
 
     // 省電：靜止偵測（GPS 動態降頻）
     private var lastReportedLocation: CLLocation?
@@ -342,6 +343,7 @@ class LinkGuardViewModel: ObservableObject {
                 // 短暫延遲讓 resolvedIP 先完成填入
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                     self?.sendStatusReport()
+                    self?.flushPendingTeamCapabilityReports()
                 }
             }
             .store(in: &cancellables)
@@ -2170,15 +2172,38 @@ class LinkGuardViewModel: ObservableObject {
         appendActivity(kind: .patientReport, title: L("已送出傷患回報"), detail: report.name.isEmpty ? report.patientId : report.name)
     }
 
-    func sendTeamCapabilityReport(_ report: TeamCapabilityReport) {
+    @discardableResult
+    func sendTeamCapabilityReport(_ report: TeamCapabilityReport) -> Bool {
         if let index = teamCapabilityReports.firstIndex(where: { $0.id == report.id }) {
             teamCapabilityReports[index] = report
         } else {
             teamCapabilityReports.insert(report, at: 0)
         }
         if teamCapabilityReports.count > 50 { teamCapabilityReports = Array(teamCapabilityReports.prefix(50)) }
-        commandClient.sendTeamCapabilityReport(report)
-        appendActivity(kind: .capabilityReport, title: L("已送出隊伍能力概況"), detail: report.teamName)
+        let queuedForSend = commandClient.sendTeamCapabilityReport(report)
+        if queuedForSend {
+            pendingTeamCapabilityReportIDs.remove(report.id)
+            appendActivity(kind: .capabilityReport, title: L("已送出隊伍能力概況"), detail: report.teamName)
+        } else {
+            pendingTeamCapabilityReportIDs.insert(report.id)
+            commandClient.startBrowsing()
+            appendActivity(kind: .capabilityReport, title: L("隊伍能力概況已暫存"), detail: L("HQ 未連線，將自動補送：%@", report.teamName))
+        }
+        return queuedForSend
+    }
+
+    private func flushPendingTeamCapabilityReports() {
+        guard commandClient.isConnected, !pendingTeamCapabilityReportIDs.isEmpty else { return }
+        for reportID in Array(pendingTeamCapabilityReportIDs) {
+            guard let report = teamCapabilityReports.first(where: { $0.id == reportID }) else {
+                pendingTeamCapabilityReportIDs.remove(reportID)
+                continue
+            }
+            if commandClient.sendTeamCapabilityReport(report) {
+                pendingTeamCapabilityReportIDs.remove(reportID)
+                appendActivity(kind: .capabilityReport, title: L("已補送隊伍能力概況"), detail: report.teamName)
+            }
+        }
     }
 
     var previewPatientID: String {

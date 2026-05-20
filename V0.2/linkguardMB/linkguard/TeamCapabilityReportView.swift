@@ -27,13 +27,47 @@ struct TeamCapabilityReportView: View {
     @State private var equipmentNotes = ""
     @State private var supportNeeds = ""
     @State private var remarks = ""
-    @State private var showSubmitted = false
+    @State private var submissionTitle = ""
+    @State private var submissionDetail = ""
+    @State private var showSubmissionAlert = false
 
     private let missionStatuses = ["可派遣", "集結中", "出勤中", "整補中", "不可派遣"]
     private let capabilityOptions = ["搜索", "破壞救援", "緊急醫療", "繩索救援", "水域救援", "化災處置", "無人機偵搜", "通訊中繼", "後勤補給", "重機具操作"]
 
     var body: some View {
         Form {
+            Section {
+                HStack(spacing: 10) {
+                    Image(systemName: vm.commandClient.isConnected ? "wifi" : "wifi.slash")
+                        .foregroundStyle(vm.commandClient.isConnected ? NV.green : NV.warning)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(vm.commandClient.isConnected ? L("HQ 已連線") : L("HQ 未連線"))
+                            .font(.subheadline.bold())
+                        Text(vm.commandClient.isConnected ? L("送出後會立即同步到 HQ") : L("送出後會暫存，連線恢復後自動補送"))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    if !vm.pendingTeamCapabilityReportIDs.isEmpty {
+                        Text(L("待送 %lld", vm.pendingTeamCapabilityReportIDs.count))
+                            .font(.caption.bold())
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(NV.warning.opacity(0.18))
+                            .foregroundStyle(NV.warning)
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                    }
+                    if !vm.commandClient.isConnected {
+                        Button {
+                            vm.commandClient.startBrowsing()
+                        } label: {
+                            Image(systemName: "arrow.clockwise")
+                        }
+                        .buttonStyle(.borderless)
+                    }
+                }
+            }
+
             Section(L("隊伍識別")) {
                 TextField(L("隊伍名稱"), text: $teamName)
                 TextField(L("單位代碼"), text: $unitCode)
@@ -94,6 +128,15 @@ struct TeamCapabilityReportView: View {
                             HStack {
                                 Text(report.teamName).bold()
                                 Spacer()
+                                if vm.pendingTeamCapabilityReportIDs.contains(report.id) {
+                                    Text(L("待送"))
+                                        .font(.caption2.bold())
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 2)
+                                        .background(NV.warning.opacity(0.18))
+                                        .foregroundStyle(NV.warning)
+                                        .clipShape(RoundedRectangle(cornerRadius: 5))
+                                }
                                 Text(report.timeText).foregroundStyle(.secondary)
                             }
                             Text(report.personnelSummary).font(.caption).foregroundStyle(.secondary)
@@ -114,8 +157,12 @@ struct TeamCapabilityReportView: View {
             .padding()
             .background(.bar)
         }
-        .alert(L("已送出隊伍能力概況"), isPresented: $showSubmitted) {
+        .alert(submissionTitle, isPresented: $showSubmissionAlert) {
             Button(L("完成"), role: .cancel) { }
+        } message: {
+            if !submissionDetail.isEmpty {
+                Text(submissionDetail)
+            }
         }
     }
 
@@ -178,7 +225,9 @@ struct TeamCapabilityReportView: View {
             reporterID: vm.nodeStatus.nodeID,
             reporterName: "\(vm.nodeStatus.deptCode)-\(vm.nodeStatus.nodeID)"
         )
-        vm.sendTeamCapabilityReport(report)
-        showSubmitted = true
+        let queuedForSend = vm.sendTeamCapabilityReport(report)
+        submissionTitle = queuedForSend ? L("已送出隊伍能力概況") : L("已暫存隊伍能力概況")
+        submissionDetail = queuedForSend ? L("封包已送往 HQ。") : L("目前未連線 HQ，系統會在連線恢復後自動補送。")
+        showSubmissionAlert = true
     }
 }

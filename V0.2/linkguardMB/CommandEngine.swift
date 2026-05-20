@@ -917,7 +917,8 @@ class CommandClient: ObservableObject {
         sendWiFiMessage(msgType: "hazard_report", payload: report)
     }
 
-    func sendTeamCapabilityReport(_ report: TeamCapabilityReport) {
+    @discardableResult
+    func sendTeamCapabilityReport(_ report: TeamCapabilityReport) -> Bool {
         sendWiFiMessage(msgType: "team_capability_report", payload: report)
     }
 
@@ -1021,18 +1022,29 @@ class CommandClient: ObservableObject {
         sendWiFiMessage(msgType: "location", payload: payload)
     }
 
-    private func sendWiFiMessage<T: Encodable>(msgType: String, payload: T) {
-        guard let conn = connection, conn.state == .ready else { return }
+    @discardableResult
+    private func sendWiFiMessage<T: Encodable>(msgType: String, payload: T) -> Bool {
+        guard let conn = connection, conn.state == .ready else {
+            print("[CMD-Client] Skip send \(msgType): HQ connection is not ready")
+            return false
+        }
         guard let payloadData = try? JSONEncoder().encode(payload),
-              let payloadJSON = String(data: payloadData, encoding: .utf8) else { return }
+              let payloadJSON = String(data: payloadData, encoding: .utf8) else {
+            print("[CMD-Client] Encode payload failed for \(msgType)")
+            return false
+        }
 
         let msg = WiFiMessage(msgType: msgType, deviceID: currentDeviceID, payload: payloadJSON)
-        guard let data = try? JSONEncoder().encode(msg) else { return }
+        guard let data = try? JSONEncoder().encode(msg) else {
+            print("[CMD-Client] Encode WiFiMessage failed for \(msgType)")
+            return false
+        }
         let message = data + Data([0x0A])
 
         conn.send(content: message, completion: .contentProcessed { error in
             if let error { print("[CMD-Client] Send \(msgType) failed: \(error)") }
         })
+        return true
     }
 
     // MARK: - 原始 JSON 發送（SOS / 照片等 — 包裝為 WiFiMessage）

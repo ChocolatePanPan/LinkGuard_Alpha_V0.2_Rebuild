@@ -15,6 +15,7 @@ struct LinkGuardHQApp: App {
     @AppStorage("appColorScheme") private var appColorScheme: String = "dark"
     @AppStorage("hq.uiScale") private var uiScale: Double = 1.0
     @AppStorage("hq.externalDisplayEnabled") private var externalDisplayEnabled: Bool = true
+    @Environment(\.scenePhase) private var scenePhase
 
     private var colorScheme: ColorScheme? {
         switch appColorScheme {
@@ -41,6 +42,11 @@ struct LinkGuardHQApp: App {
                     #endif
                 }
                 #if os(macOS)
+                .onChange(of: scenePhase) { _, phase in
+                    if phase == .active, viewModel.hqRole == .server, !viewModel.server.isRunning {
+                        viewModel.startServer()
+                    }
+                }
                 .onChange(of: appColorScheme) { _, _ in
                     externalDashboardManager.refresh(colorScheme: colorScheme)
                 }
