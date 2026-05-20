@@ -66,7 +66,7 @@ public enum TransportTopology {
             return .commandSpine
         case .subSectorUpsert, .worksiteUpsert, .taskUpsert, .mapFeatureUpsert:
             return .fieldOperations
-        case .personnelStatusUpsert:
+        case .personnelStatusUpsert, .teamCapabilityReportUpsert:
             return .personnelOverview
         case .photoReportUpsert, .disasterReportUpsert:
             return .fieldReports

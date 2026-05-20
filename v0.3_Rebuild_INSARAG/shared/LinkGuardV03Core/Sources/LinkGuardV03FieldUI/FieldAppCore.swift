@@ -78,6 +78,7 @@ public struct FieldMissionSummary: Codable, Hashable, Sendable {
     public var safetyZoneCount: Int
     public var photoReportCount: Int
     public var disasterReportCount: Int
+    public var teamCapabilityReportCount: Int
     public var patientCount: Int
     public var sosCount: Int
 
@@ -91,6 +92,7 @@ public struct FieldMissionSummary: Codable, Hashable, Sendable {
         safetyZoneCount: Int,
         photoReportCount: Int,
         disasterReportCount: Int,
+        teamCapabilityReportCount: Int,
         patientCount: Int,
         sosCount: Int
     ) {
@@ -103,6 +105,7 @@ public struct FieldMissionSummary: Codable, Hashable, Sendable {
         self.safetyZoneCount = safetyZoneCount
         self.photoReportCount = photoReportCount
         self.disasterReportCount = disasterReportCount
+        self.teamCapabilityReportCount = teamCapabilityReportCount
         self.patientCount = patientCount
         self.sosCount = sosCount
     }
@@ -180,6 +183,7 @@ public struct FieldAppController: Sendable {
             safetyZoneCount: snapshot.safetyZones.count,
             photoReportCount: snapshot.photoReports.count,
             disasterReportCount: snapshot.disasterReports.count,
+            teamCapabilityReportCount: snapshot.teamCapabilityReports.count,
             patientCount: snapshot.patients.count,
             sosCount: snapshot.sosReports.count
         )
@@ -464,6 +468,80 @@ public struct FieldAppController: Sendable {
             priority: severity,
             createdAt: now,
             idempotencyKey: idempotencyKey("disaster-\(kind.rawValue)", now),
+            sourceRole: defaultRole
+        )
+        return queue(envelope, at: now)
+    }
+
+    @discardableResult
+    public mutating func queueTeamCapabilityReport(now: Date) throws -> SyncEnvelope {
+        try requireFeature(.teamCapabilityOverview)
+        let coordinate = latestGPSFix?.coordinate
+        let report = USARTeamCapabilityReport(
+            id: LinkGuardID("USAR-PROFILE-\(context.teamID.rawValue)"),
+            incidentID: context.incidentID,
+            reporterDeviceID: runtime.device.id,
+            reporterName: runtime.device.displayName,
+            team: USARTeamInformationSection(
+                teamCode: context.teamID.rawValue,
+                country: "TWN",
+                teamName: "\(runtime.device.displayName) USAR Team",
+                totalMembers: defaultTeamMemberCount,
+                searchDogCount: defaultSearchDogCount,
+                responseType: .medium,
+                classificationStatus: .classified,
+                hasTechnicalSearch: true,
+                hasDogSearch: defaultSearchDogCount > 0,
+                hasRescueCapability: true,
+                hasMedicalCapability: runtime.device.appID == .emt || runtime.device.appID == .emtIPad,
+                hasHazmatDetection: false,
+                structuralEngineerCount: runtime.device.appID == .teamLeader || runtime.device.appID == .teamLeaderIPad ? 1 : 0,
+                canEstablishOSOCCRDC: runtime.device.appID == .scc || runtime.device.appID == .sccIPad,
+                canSupportUSARCoordination: runtime.device.appID == .scc || runtime.device.appID == .sccIPad || runtime.device.appID == .teamLeader || runtime.device.appID == .teamLeaderIPad,
+                otherCapabilities: teamCapabilityOtherText,
+                arrivalDate: formattedDate(now, "dd/MM/yyyy"),
+                arrivalTime: formattedDate(now, "HH:mm"),
+                arrivalPoint: context.worksiteID.rawValue,
+                aircraftType: ""
+            ),
+            supportNeeds: USARTeamSupportNeedsSection(
+                waterDays: 3,
+                foodDays: 3,
+                needsGroundTransport: true,
+                needsLogisticsSupport: true,
+                transportPersonnelCount: defaultTeamMemberCount,
+                transportDogCount: defaultSearchDogCount,
+                equipmentWeightTons: defaultEquipmentWeightTons,
+                equipmentVolumeCubicMeters: defaultEquipmentVolumeCubicMeters,
+                dailyGasolineLiters: 40,
+                dailyDieselLiters: 60,
+                needsCuttingOxygen: true,
+                needsCuttingPropane: true,
+                needsMedicalOxygen: runtime.device.appID == .emt || runtime.device.appID == .emtIPad,
+                baseAreaSquareMeters: 120,
+                otherLogisticsNeeds: "Ground transport, fuel, base setup, and resupply support"
+            ),
+            contacts: USARTeamContactsSection(
+                teamContactNameOrRole: runtime.device.displayName,
+                operationsContactNameOrTitle: defaultRole.rawValue,
+                baseLocationAddress: context.worksiteID.rawValue,
+                baseGPSCoordinates: coordinate.map { "\($0.latitude), \($0.longitude)" } ?? ""
+            ),
+            evacuation: USARTeamEvacuationSection(
+                needsGroundTransport: true,
+                needsLogisticsSupport: true,
+                transportPersonnelCount: defaultTeamMemberCount,
+                transportDogCount: defaultSearchDogCount,
+                equipmentWeightTons: defaultEquipmentWeightTons,
+                equipmentVolumeCubicMeters: defaultEquipmentVolumeCubicMeters
+            ),
+            createdAt: now
+        )
+        let envelope = try runtime.makeEnvelope(
+            messageType: .teamCapabilityReportUpsert,
+            payload: report,
+            createdAt: now,
+            idempotencyKey: idempotencyKey("team-capability", now),
             sourceRole: defaultRole
         )
         return queue(envelope, at: now)
@@ -1049,5 +1127,72 @@ public struct FieldAppController: Sendable {
 
     private func idempotencyKey(_ suffix: String, _ date: Date) -> String {
         "\(runtime.device.id.rawValue)-\(suffix)-\(Int(date.timeIntervalSince1970))"
+    }
+
+    private var defaultTeamMemberCount: Int {
+        switch runtime.device.appID {
+        case .scc, .sccIPad:
+            return 12
+        case .teamLeader, .teamLeaderIPad:
+            return 8
+        case .emt, .emtIPad:
+            return 4
+        default:
+            return 6
+        }
+    }
+
+    private var defaultSearchDogCount: Int {
+        switch runtime.device.appID {
+        case .teamLeader, .teamLeaderIPad:
+            return 1
+        default:
+            return 0
+        }
+    }
+
+    private var defaultEquipmentWeightTons: Double {
+        switch runtime.device.appID {
+        case .scc, .sccIPad:
+            return 4
+        case .teamLeader, .teamLeaderIPad:
+            return 2.5
+        case .emt, .emtIPad:
+            return 0.8
+        default:
+            return 1.2
+        }
+    }
+
+    private var defaultEquipmentVolumeCubicMeters: Double {
+        switch runtime.device.appID {
+        case .scc, .sccIPad:
+            return 18
+        case .teamLeader, .teamLeaderIPad:
+            return 11
+        case .emt, .emtIPad:
+            return 4
+        default:
+            return 6
+        }
+    }
+
+    private var teamCapabilityOtherText: String {
+        switch runtime.device.appID {
+        case .emt, .emtIPad:
+            return "Medical triage and patient evacuation support"
+        case .scc, .sccIPad:
+            return "Sector coordination and base setup"
+        case .teamLeader, .teamLeaderIPad:
+            return "Worksite command and rescue coordination"
+        default:
+            return "Field reporting support"
+        }
+    }
+
+    private func formattedDate(_ date: Date, _ dateFormat: String) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = dateFormat
+        return formatter.string(from: date)
     }
 }

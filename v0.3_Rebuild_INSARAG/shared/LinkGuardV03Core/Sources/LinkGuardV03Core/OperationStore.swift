@@ -6,6 +6,7 @@ public struct OperationSnapshot: Codable, Sendable {
     public private(set) var subSectors: [LinkGuardID: SubSector]
     public private(set) var worksites: [LinkGuardID: Worksite]
     public private(set) var personnelStatusReports: [LinkGuardID: PersonnelStatusReport]
+    public private(set) var teamCapabilityReports: [LinkGuardID: USARTeamCapabilityReport]
     public private(set) var roleAssignments: [LinkGuardID: RoleAssignment]
     public private(set) var commands: [LinkGuardID: OperationalCommand]
     public private(set) var tasks: [LinkGuardID: FieldTask]
@@ -34,6 +35,7 @@ public struct OperationSnapshot: Codable, Sendable {
         self.subSectors = [:]
         self.worksites = [:]
         self.personnelStatusReports = [:]
+        self.teamCapabilityReports = [:]
         self.roleAssignments = [:]
         self.commands = [:]
         self.tasks = [:]
@@ -76,6 +78,9 @@ public struct OperationSnapshot: Codable, Sendable {
         case .personnelStatusUpsert:
             let report = try envelope.decodePayload(PersonnelStatusReport.self)
             personnelStatusReports[report.id] = report
+        case .teamCapabilityReportUpsert:
+            let report = try envelope.decodePayload(USARTeamCapabilityReport.self)
+            teamCapabilityReports[report.id] = report
         case .roleAssignmentUpsert:
             let roleAssignment = try envelope.decodePayload(RoleAssignment.self)
             roleAssignments[roleAssignment.id] = roleAssignment

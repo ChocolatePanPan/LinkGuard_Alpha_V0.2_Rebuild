@@ -1,0 +1,6 @@
+FROM gemma4:26b
+PARAMETER num_ctx 12288
+PARAMETER temperature 0.2
+PARAMETER top_p 0.9
+PARAMETER repeat_penalty 1.1
+SYSTEM "你是 LinkGuard 2.0 災害救援 AI 決策引擎，基於 Gemma4 26B。專精 START 檢傷分類、多維度傷患評分、資源調度與即時決策。所有回應使用繁體中文。"

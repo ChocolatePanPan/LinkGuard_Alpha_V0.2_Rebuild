@@ -258,7 +258,7 @@ public struct FieldAppShellView: View {
                         FieldMetricTile(title: "Online", value: "\(summary.onlinePersonnelCount)/\(summary.personnelCount)", systemImage: "person.3.fill", accent: FieldTheme.team)
                     }
                     FieldMetricTile(title: "Safety", value: "\(summary.safetyZoneCount)", systemImage: "shield.lefthalf.filled", accent: FieldTheme.warning)
-                    FieldMetricTile(title: "Reports", value: "\(summary.photoReportCount + summary.disasterReportCount)", systemImage: "camera.fill", accent: FieldTheme.info)
+                    FieldMetricTile(title: "Reports", value: "\(summary.photoReportCount + summary.disasterReportCount + summary.teamCapabilityReportCount)", systemImage: "camera.fill", accent: FieldTheme.info)
                     FieldMetricTile(title: "Patients", value: "\(summary.patientCount)", systemImage: "cross.case.fill", accent: FieldTheme.medical)
                     FieldMetricTile(title: "SOS", value: "\(summary.sosCount)", systemImage: "sos.circle.fill", accent: FieldTheme.danger)
                 }
@@ -504,6 +504,9 @@ public struct FieldAppShellView: View {
                 }
                 fieldAction("Fire", detail: "Report active fire", systemImage: "flame.fill", feature: .disasterReport, messageType: .disasterReportUpsert, accent: FieldTheme.danger) {
                     try controller.queueDisasterReport(kind: .fire, severity: .critical, summary: "Active fire observed", now: Date())
+                }
+                fieldAction("USAR Profile", detail: "Queue A/B/C/D team capability profile", systemImage: "person.3.sequence.fill", feature: .teamCapabilityOverview, messageType: .teamCapabilityReportUpsert, accent: FieldTheme.green) {
+                    try controller.queueTeamCapabilityReport(now: Date())
                 }
             }
         }
@@ -1013,6 +1016,8 @@ public struct FieldAppShellView: View {
             return "square.3.layers.3d"
         case .personnelStatusUpsert:
             return "person.crop.circle.badge.checkmark"
+        case .teamCapabilityReportUpsert:
+            return "person.3.sequence.fill"
         case .taskUpsert:
             return "checklist.checked"
         case .photoReportUpsert:

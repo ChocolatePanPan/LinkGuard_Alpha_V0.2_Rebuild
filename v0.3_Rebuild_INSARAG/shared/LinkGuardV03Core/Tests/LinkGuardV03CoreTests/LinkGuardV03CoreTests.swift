@@ -1393,6 +1393,36 @@ final class LinkGuardV03CoreTests: XCTestCase {
         XCTAssertTrue(RoleProfileCatalog.profile(for: .teamLeader).allows(.manageIncident))
     }
 
+    func testFieldTLQueuesFormalUSARTeamCapabilityReport() throws {
+        var controller = FieldAppController(
+            appID: .teamLeader,
+            platform: .iPhone,
+            deviceID: "IOS-TL-USAR-PROFILE",
+            displayName: "TL USAR Profile",
+            now: fixedDate
+        )
+
+        let envelope = try controller.queueTeamCapabilityReport(now: fixedDate.addingTimeInterval(1))
+        let report = try envelope.decodePayload(USARTeamCapabilityReport.self)
+
+        XCTAssertEqual(envelope.messageType, .teamCapabilityReportUpsert)
+        XCTAssertEqual(report.team.teamCode, "TEAM-ALPHA")
+        XCTAssertEqual(report.team.country, "TWN")
+        XCTAssertEqual(report.team.responseType, .medium)
+        XCTAssertEqual(report.team.classificationStatus, .classified)
+        XCTAssertTrue(report.team.hasTechnicalSearch)
+        XCTAssertTrue(report.team.hasRescueCapability)
+        XCTAssertTrue(report.supportNeeds.needsGroundTransport)
+        XCTAssertEqual(controller.missionSummary.teamCapabilityReportCount, 1)
+        XCTAssertEqual(controller.runtime.snapshot.teamCapabilityReports[report.id]?.contacts.teamContactNameOrRole, "TL USAR Profile")
+        XCTAssertEqual(controller.pendingEnvelopeCount, 1)
+
+        var scc = runtime(appID: .scc)
+        try scc.receive(envelope)
+        XCTAssertEqual(scc.snapshot.teamCapabilityReports[report.id]?.personnelSummary, "出隊 8 · 搜救犬 1")
+        XCTAssertEqual(scc.snapshot.auditEvents.last?.targetType, "teamCapabilityReport")
+    }
+
     func testFieldTLAndEMTMedicalActionsFollowFeatureMatrix() throws {
         var teamLeader = FieldAppController(
             appID: .teamLeader,
@@ -1605,6 +1635,7 @@ final class LinkGuardV03CoreTests: XCTestCase {
         XCTAssertEqual(controller.accessLevel(for: .gpsTracking), .limited)
         XCTAssertTrue(controller.canUseFeature(.gpsTracking))
         XCTAssertFalse(controller.canUseFeature(.personnelOverview))
+        XCTAssertFalse(controller.canUseFeature(.teamCapabilityOverview))
         XCTAssertFalse(controller.canUseFeature(.teamMemberRealtimeLocation))
         XCTAssertFalse(controller.canUseFeature(.teamLeaderRealtimeLocation))
         XCTAssertFalse(controller.canUseFeature(.emtLocationManagement))

@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">LinkGuard</string>
+
+    <!-- Navigation Groups -->
+    <string name="nav_ops">行動</string>
+    <string name="nav_comms">通訊</string>
+    <string name="nav_support">支援</string>
+    <string name="nav_tools">工具</string>
+
+    <!-- Screen Titles -->
+    <string name="title_dashboard">儀表板</string>
+    <string name="title_victims">傷患</string>
+    <string name="title_sos">SOS</string>
+    <string name="title_disaster">災情</string>
+    <string name="title_chat">聊天</string>
+    <string name="title_radio">電台</string>
+    <string name="title_commands">命令</string>
+    <string name="title_notifications">通知</string>
+    <string name="title_team">團隊</string>
+    <string name="title_reinforcement">增援</string>
+    <string name="title_patient">傷患表單</string>
+    <string name="title_decision">指揮決策</string>
+    <string name="title_translator">翻譯</string>
+    <string name="title_photo_report">照片回報</string>
+    <string name="title_connection">連線</string>
+
+    <!-- Dashboard -->
+    <string name="dashboard_victims">傷患</string>
+    <string name="dashboard_sos">SOS</string>
+    <string name="dashboard_team">團隊</string>
+    <string name="dashboard_uptime">運行時間</string>
+    <string name="dashboard_battery">電量</string>
+    <string name="dashboard_ble">藍牙</string>
+    <string name="dashboard_wifi">WiFi</string>
+    <string name="dashboard_connected">已連線</string>
+    <string name="dashboard_disconnected">未連線</string>
+    <string name="dashboard_no_data">尚無資料</string>
+
+    <!-- SOS -->
+    <string name="sos_send">發送 SOS</string>
+    <string name="sos_cancel">取消 SOS</string>
+    <string name="sos_emergency">緊急 SOS</string>
+    <string name="sos_confirm_title">確認 SOS</string>
+    <string name="sos_confirm_msg">向所有節點與指揮中心發送緊急 SOS？</string>
+    <string name="sos_no_records">尚無 SOS 紀錄</string>
+
+    <!-- Disaster -->
+    <string name="disaster_no_reports">尚無災情回報</string>
+    <string name="disaster_report">回報災害</string>
+    <string name="disaster_subtitle">啟動回報功能以記錄災害</string>
+
+    <!-- Chat -->
+    <string name="chat_title">現場通訊</string>
+    <string name="chat_send">發送</string>
+    <string name="chat_placeholder">輸入訊息…</string>
+    <string name="chat_no_messages">尚無訊息</string>
+
+    <!-- Radio -->
+    <string name="radio_live">即時廣播</string>
+    <string name="radio_briefing">固定會報</string>
+    <string name="radio_text">文字廣播</string>
+    <string name="radio_priority">優先級</string>
+    <string name="radio_normal">一般</string>
+    <string name="radio_urgent">緊急</string>
+    <string name="radio_placeholder">輸入廣播訊息…</string>
+    <string name="radio_send">發送廣播</string>
+    <string name="radio_no_broadcasts">尚無文字廣播</string>
+
+    <!-- Notifications -->
+    <string name="notif_title">通知</string>
+    <string name="notif_empty">尚無通知</string>
+    <string name="notif_empty_subtitle">新的警報將顯示在這裡</string>
+
+    <!-- Patient Form -->
+    <string name="patient_title">傷患表單</string>
+    <string name="patient_submit">提交評估</string>
+
+    <!-- Decision -->
+    <string name="decision_title">指揮決策</string>
+    <string name="decision_empty">尚無決策</string>
+    <string name="decision_empty_subtitle">指揮中心指令將顯示在這裡</string>
+
+    <!-- Translator -->
+    <string name="translator_detect">自動偵測</string>
+    <string name="translator_swap">交換</string>
+    <string name="translator_translate">翻譯</string>
+    <string name="translator_placeholder">輸入要翻譯的文字…</string>
+    <string name="translator_quick">快速醫療用語</string>
+    <string name="translator_original">原文</string>
+    <string name="translator_result">譯文</string>
+    <string name="translator_copy">複製</string>
+    <string name="translator_speak">朗讀</string>
+
+    <!-- Photo Report -->
+    <string name="photo_title">照片回報</string>
+    <string name="photo_select">選擇或拍攝照片</string>
+    <string name="photo_camera">拍照</string>
+    <string name="photo_gallery">相簿</string>
+    <string name="photo_location">位置描述（如：B區3F走廊）</string>
+    <string name="photo_caption">照片說明</string>
+    <string name="photo_upload">上傳照片回報</string>
+    <string name="photo_uploading">上傳中…</string>
+    <string name="photo_reported">已回報照片（%1$d）</string>
+
+    <!-- Voice Input -->
+    <string name="voice_input">語音輸入</string>
+    <string name="voice_recording">錄音中⋯ 點擊停止</string>
+    <string name="voice_transcribing">轉錄中⋯</string>
+    <string name="voice_done">已轉錄</string>
+
+    <!-- Connection -->
+    <string name="conn_ble">藍牙</string>
+    <string name="conn_wifi">WiFi</string>
+    <string name="conn_gps">GPS</string>
+    <string name="conn_retry">重試</string>
+
+    <!-- Onboarding -->
+    <string name="onboarding_welcome">歡迎使用 LinkGuard</string>
+    <string name="onboarding_welcome_desc">現場救災通訊與管理平台</string>
+    <string name="onboarding_role">選擇你的角色</string>
+    <string name="onboarding_role_search">搜索</string>
+    <string name="onboarding_role_rescue">救援</string>
+    <string name="onboarding_role_medical">醫療</string>
+    <string name="onboarding_role_logistics">後勤</string>
+    <string name="onboarding_role_commander">指揮官</string>
+    <string name="onboarding_dept">部門代號</string>
+    <string name="onboarding_tour">功能導覽</string>
+    <string name="onboarding_ready">準備就緒</string>
+    <string name="onboarding_skip">跳過</string>
+    <string name="onboarding_next">下一步</string>
+    <string name="onboarding_start">開始使用</string>
+
+    <!-- Common -->
+    <string name="confirm">確認</string>
+    <string name="cancel">取消</string>
+    <string name="send">發送</string>
+    <string name="retry">重試</string>
+    <string name="back_to_dashboard">回到儀表板</string>
+    <string name="no_connection">未連線指揮中心</string>
+    <string name="upload_success">上傳成功</string>
+    <string name="upload_failed">上傳失敗</string>
+</resources>

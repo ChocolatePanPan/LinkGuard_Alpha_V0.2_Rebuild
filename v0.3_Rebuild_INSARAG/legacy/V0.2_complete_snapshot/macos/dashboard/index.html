@@ -1,0 +1,1012 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title id="pageTitle">LinkGuard 指揮儀表板</title>
+<style>
+/* === NV Night Vision Theme === */
+:root {
+  --nv-bg: #f4f7fb;
+  --nv-card: #ffffff;
+  --nv-border: #d9e2ef;
+  --nv-green: #0e9f6e;
+  --nv-green-faint: #e8f7f1;
+  --nv-danger: #dc2626;
+  --nv-warning: #d97706;
+  --nv-info: #0ea5a6;
+  --nv-blue: #2563eb;
+  --nv-text: #0f172a;
+  --nv-text2: #64748b;
+  --nv-reinforce: #7c3aed;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background:
+    radial-gradient(circle at 20% -10%, #dbeafe 0%, transparent 45%),
+    radial-gradient(circle at 100% 0%, #e2fbe8 0%, transparent 40%),
+    var(--nv-bg);
+  color: var(--nv-text);
+  font-family: 'Microsoft JhengHei UI', 'Microsoft JhengHei', 'Segoe UI', sans-serif;
+  min-height: 100vh;
+}
+
+/* Header */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 24px;
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--nv-border);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+.header h1 {
+  font-size: 20px;
+  color: var(--nv-blue);
+  letter-spacing: 0.5px;
+  font-weight: 800;
+}
+.header .status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--nv-text2);
+}
+.header .dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: var(--nv-green);
+  animation: pulse 2s infinite;
+  box-shadow: 0 0 0 4px rgba(14, 159, 110, 0.15);
+}
+.header .dot.offline { background: #555; animation: none; }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* Navigation Tabs */
+.nav-tabs {
+  display: flex;
+  gap: 8px;
+  padding: 10px 16px;
+  background: transparent;
+  border-bottom: 1px solid var(--nv-border);
+  overflow-x: auto;
+}
+.nav-tabs button {
+  background: var(--nv-card);
+  border: 1px solid var(--nv-border);
+  color: var(--nv-text2);
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  border-radius: 999px;
+  transition: all 0.22s ease;
+}
+.nav-tabs button:hover {
+  color: var(--nv-blue);
+  border-color: #b8cdfd;
+}
+.nav-tabs button.active {
+  color: #ffffff;
+  background: linear-gradient(135deg, #2563eb, #3b82f6);
+  border-color: transparent;
+  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.28);
+}
+
+/* Main Content */
+.main {
+  padding: 18px;
+  max-width: 1480px;
+  margin: 0 auto;
+}
+
+/* Panel */
+.panel-title {
+  font-size: 14px;
+  color: var(--nv-text2);
+  margin-bottom: 14px;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  font-weight: 700;
+}
+
+/* Stat Cards Grid */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.stat-card {
+  background: var(--nv-card);
+  border: 1px solid var(--nv-border);
+  border-radius: 14px;
+  padding: 16px;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06);
+}
+.stat-card .label {
+  font-size: 11px;
+  color: var(--nv-text2);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.stat-card .value {
+  font-size: 30px;
+  font-weight: 800;
+}
+.stat-card .sub {
+  font-size: 11px;
+  color: var(--nv-text2);
+  margin-top: 2px;
+}
+
+/* Triage colors */
+.triage-red { color: var(--nv-danger); }
+.triage-yellow { color: var(--nv-warning); }
+.triage-green { color: var(--nv-green); }
+.triage-black { color: #888; }
+
+/* Tab Pages (hidden by default) */
+.tab-page { display: none; }
+.tab-page.active { display: block; }
+
+.tab-page.active {
+  animation: fadeSlide 0.22s ease-out;
+}
+
+@keyframes fadeSlide {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Table */
+.data-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin-bottom: 24px;
+  background: var(--nv-card);
+  border: 1px solid var(--nv-border);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.05);
+}
+.data-table th, .data-table td {
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--nv-border);
+  font-size: 13px;
+}
+.data-table th {
+  color: var(--nv-text2);
+  font-weight: normal;
+  text-transform: uppercase;
+  font-size: 11px;
+  background: #f8fbff;
+}
+.data-table tr:hover { background: var(--nv-green-faint); }
+
+/* Resource Badges */
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: bold;
+}
+.badge-ok { background: var(--nv-green); color: #000; }
+.badge-low { background: var(--nv-warning); color: #000; }
+.badge-out { background: var(--nv-danger); color: #fff; }
+.badge-deployed { background: var(--nv-blue); color: #fff; }
+
+/* Photo Grid */
+.photo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.photo-card {
+  background: var(--nv-card);
+  border: 1px solid var(--nv-border);
+  border-radius: 12px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+.photo-card:hover {
+  border-color: #b7f0d4;
+  transform: translateY(-2px);
+  box-shadow: 0 10px 18px rgba(15, 23, 42, 0.11);
+}
+.photo-card img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  display: block;
+}
+.photo-card .photo-info {
+  padding: 8px;
+  font-size: 11px;
+  color: var(--nv-text2);
+}
+
+/* Timeline */
+.timeline-item {
+  display: flex;
+  gap: 12px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  border: 1px solid var(--nv-border);
+  border-radius: 10px;
+  background: var(--nv-card);
+  font-size: 13px;
+}
+.timeline-item .time {
+  color: var(--nv-text2);
+  white-space: nowrap;
+  min-width: 80px;
+  font-family: monospace;
+}
+.timeline-item .event-type {
+  font-weight: bold;
+  min-width: 100px;
+}
+
+/* Buttons */
+.btn {
+  background: linear-gradient(135deg, #0e9f6e, #10b981);
+  color: #ffffff;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s ease, opacity 0.2s ease;
+}
+.btn:hover { opacity: 0.92; transform: translateY(-1px); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-danger { background: var(--nv-danger); color: #fff; }
+.btn-blue { background: linear-gradient(135deg, #2563eb, #3b82f6); color: #fff; }
+
+/* Resource Actions */
+.resource-actions {
+  display: flex;
+  gap: 6px;
+}
+.resource-actions button {
+  font-size: 11px;
+  padding: 4px 8px;
+}
+
+/* Toast */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: #ffffff;
+  border: 1px solid var(--nv-green);
+  color: #065f46;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-size: 13px;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: all 0.3s;
+  z-index: 1000;
+}
+.toast.show { opacity: 1; transform: translateY(0); }
+
+/* Modal Overlay */
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+}
+.modal-overlay img { max-width: 90%; max-height: 90%; border-radius: 8px; }
+
+/* Loading Spinner */
+.spinner {
+  display: inline-block;
+  width: 16px; height: 16px;
+  border: 2px solid var(--nv-border);
+  border-top-color: var(--nv-green);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+  margin-right: 8px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Connection Input */
+.connection-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 14px auto 16px;
+  max-width: 1480px;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid var(--nv-border);
+  border-radius: 12px;
+  backdrop-filter: blur(4px);
+}
+.connection-bar label { font-size: 13px; color: var(--nv-text2); }
+.connection-bar input {
+  background: #ffffff;
+  border: 1px solid var(--nv-border);
+  color: var(--nv-text);
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  width: 240px;
+}
+.connection-bar input:focus {
+  outline: none;
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+@media (max-width: 860px) {
+  .header {
+    padding: 12px 14px;
+  }
+  .header h1 {
+    font-size: 16px;
+  }
+  .stat-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  }
+  .main {
+    padding: 12px;
+  }
+}
+
+/* Auto-refresh indicator */
+.refresh-indicator {
+  font-size: 11px;
+  color: var(--nv-text2);
+}
+
+/* Dual-model status panel */
+.dual-panel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 24px;
+  padding: 14px;
+  background: var(--nv-card);
+  border: 1px solid var(--nv-border);
+  border-radius: 14px;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06);
+  align-items: center;
+}
+.dual-panel .dual-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.dual-panel .dual-dot.alive { background: var(--nv-green); }
+.dual-panel .dual-dot.dead  { background: var(--nv-danger); }
+.dual-label {
+  font-size: 12px;
+  color: var(--nv-text2);
+  font-weight: 600;
+}
+.dual-value {
+  font-size: 13px;
+  color: var(--nv-text);
+  font-weight: 700;
+}
+.model-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: bold;
+}
+.model-badge.small { background: var(--nv-info); color: #fff; }
+.model-badge.large { background: var(--nv-reinforce); color: #fff; }
+.model-badge.escalated { background: var(--nv-warning); color: #000; }
+
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <h1>⚡ LINKGUARD <span data-i18n="header.title">指揮儀表板</span></h1>
+  <div class="status">
+    <button class="btn" style="padding:4px 10px;font-size:12px;background:#64748b" onclick="toggleLang()" id="langBtn">EN</button>
+    <div class="dot" id="statusDot"></div>
+    <span id="statusText">連線中…</span>
+    <span class="refresh-indicator" id="refreshTimer"></span>
+  </div>
+</div>
+
+<!-- Connection Bar -->
+<div class="connection-bar">
+  <label data-i18n="conn.label">後台 IP:</label>
+  <input type="text" id="hostInput" placeholder="localhost" value="localhost">
+  <button class="btn" onclick="applyHost()" data-i18n="conn.connect">連線</button>
+  <span id="connStatus" style="font-size:12px; color:var(--nv-text2)"></span>
+</div>
+
+<!-- Tabs -->
+<div class="nav-tabs" id="navTabs">
+  <button class="active" onclick="switchTab(0)" data-i18n="tab.stats">📊 即時統計</button>
+  <button onclick="switchTab(1)" data-i18n="tab.resources">📦 資源管理</button>
+  <button onclick="switchTab(2)" data-i18n="tab.photos">📸 照片牆</button>
+  <button onclick="switchTab(3)" data-i18n="tab.reports">📋 會報紀錄</button>
+  <button onclick="switchTab(4)" data-i18n="tab.timeline">📅 事件歷史</button>
+</div>
+
+<!-- Tab: Stats -->
+<div class="main">
+<div class="tab-page active" id="tabStats">
+  <div id="dualStatusPanel" style="display:none"></div>
+
+  <div class="panel-title" data-i18n="panel.patients">傷患統計</div>
+  <div class="stat-grid" id="patientStats"></div>
+
+  <div class="panel-title" data-i18n="panel.personnel">人員狀態</div>
+  <div class="stat-grid" id="personnelStats"></div>
+
+  <div class="panel-title" data-i18n="panel.resources">資源概況</div>
+  <div class="stat-grid" id="resourceStats"></div>
+
+  <div class="panel-title" data-i18n="panel.comms">通訊狀態</div>
+  <div class="stat-grid" id="commStats"></div>
+</div>
+
+<!-- Tab: Resources -->
+<div class="tab-page" id="tabResources">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px">
+    <div class="panel-title" style="margin-bottom:0" data-i18n="panel.resource_mgmt">資源管理</div>
+    <button class="btn" onclick="refreshResources()" data-i18n="btn.refresh">🔄 重新整理</button>
+  </div>
+  <table class="data-table" id="resourceTable">
+    <thead><tr>
+      <th data-i18n="th.res_id">資源 ID</th><th data-i18n="th.type">類型</th><th data-i18n="th.name">名稱</th><th data-i18n="th.status">狀態</th>
+      <th data-i18n="th.total">總數</th><th data-i18n="th.available">可用</th><th data-i18n="th.actions">操作</th>
+    </tr></thead>
+    <tbody id="resourceBody"></tbody>
+  </table>
+</div>
+
+<!-- Tab: Photos -->
+<div class="tab-page" id="tabPhotos">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px">
+    <div class="panel-title" style="margin-bottom:0" data-i18n="panel.photos">現場照片</div>
+    <button class="btn" onclick="refreshPhotos()" data-i18n="btn.refresh">🔄 重新整理</button>
+  </div>
+  <div class="photo-grid" id="photoGrid"></div>
+</div>
+
+<!-- Tab: Reports -->
+<div class="tab-page" id="tabReports">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px">
+    <div class="panel-title" style="margin-bottom:0" data-i18n="panel.reports">會報紀錄</div>
+    <div style="display:flex; gap:8px">
+      <button class="btn btn-blue" onclick="generateReport()" id="btnGenReport" data-i18n="btn.gen_pdf">📄 生成 PDF 報告</button>
+      <button class="btn" onclick="refreshReports()" data-i18n="btn.refresh">🔄 重新整理</button>
+    </div>
+  </div>
+  <table class="data-table">
+    <thead><tr>
+      <th data-i18n="th.report_id">報告 ID</th><th data-i18n="th.reporter">回報者</th><th data-i18n="th.transcription">轉錄內容</th><th data-i18n="th.location">地點</th><th data-i18n="th.time">時間</th><th data-i18n="th.audio">音訊</th>
+    </tr></thead>
+    <tbody id="reportBody"></tbody>
+  </table>
+</div>
+
+<!-- Tab: Timeline -->
+<div class="tab-page" id="tabTimeline">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px">
+    <div class="panel-title" style="margin-bottom:0" data-i18n="panel.timeline">事件歷史</div>
+    <div style="display:flex; gap:8px; align-items:center">
+      <label style="font-size:13px; color:var(--nv-text2)" data-i18n="label.past">過去</label>
+      <select id="historyHours" style="background:var(--nv-bg);color:var(--nv-text);border:1px solid var(--nv-border);padding:4px 8px;border-radius:4px" onchange="refreshTimeline()">
+        <option value="1">1 h</option>
+        <option value="3">3 h</option>
+        <option value="6" selected>6 h</option>
+        <option value="12">12 h</option>
+        <option value="24">24 h</option>
+      </select>
+      <button class="btn" onclick="refreshTimeline()">🔄 重新整理</button>
+    </div>
+  </div>
+  <div id="timelineList"></div>
+</div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Photo Modal -->
+<div class="modal-overlay" id="photoModal" style="display:none" onclick="closePhotoModal()">
+  <img id="modalImg" src="" alt="">
+</div>
+
+<script>
+// === i18n ===
+let _lang = localStorage.getItem('lg_lang') || 'zh';
+const I18N = {
+  'header.title':     { zh: '指揮儀表板', en: 'Command Dashboard' },
+  'conn.label':       { zh: '後台 IP:', en: 'Server IP:' },
+  'conn.connect':     { zh: '連線', en: 'Connect' },
+  'tab.stats':        { zh: '📊 即時統計', en: '📊 Live Stats' },
+  'tab.resources':    { zh: '📦 資源管理', en: '📦 Resources' },
+  'tab.photos':       { zh: '📸 照片牆', en: '📸 Photos' },
+  'tab.reports':      { zh: '📋 會報紀錄', en: '📋 Reports' },
+  'tab.timeline':     { zh: '📅 事件歷史', en: '📅 Timeline' },
+  'panel.patients':   { zh: '傷患統計', en: 'PATIENT STATISTICS' },
+  'panel.personnel':  { zh: '人員狀態', en: 'PERSONNEL STATUS' },
+  'panel.resources':  { zh: '資源概況', en: 'RESOURCE OVERVIEW' },
+  'panel.comms':      { zh: '通訊狀態', en: 'COMMUNICATIONS' },
+  'panel.resource_mgmt': { zh: '資源管理', en: 'RESOURCE MANAGEMENT' },
+  'panel.photos':     { zh: '現場照片', en: 'FIELD PHOTOS' },
+  'panel.reports':    { zh: '會報紀錄', en: 'BRIEFING RECORDS' },
+  'panel.timeline':   { zh: '事件歷史', en: 'EVENT HISTORY' },
+  'btn.refresh':      { zh: '🔄 重新整理', en: '🔄 Refresh' },
+  'btn.gen_pdf':      { zh: '📄 生成 PDF 報告', en: '📄 Generate PDF Report' },
+  'btn.deploy':       { zh: '部署', en: 'Deploy' },
+  'btn.return':       { zh: '回收', en: 'Return' },
+  'label.past':       { zh: '過去', en: 'Past' },
+  'th.res_id':        { zh: '資源 ID', en: 'Resource ID' },
+  'th.type':          { zh: '類型', en: 'Type' },
+  'th.name':          { zh: '名稱', en: 'Name' },
+  'th.status':        { zh: '狀態', en: 'Status' },
+  'th.total':         { zh: '總數', en: 'Total' },
+  'th.available':     { zh: '可用', en: 'Available' },
+  'th.actions':       { zh: '操作', en: 'Actions' },
+  'th.report_id':     { zh: '報告 ID', en: 'Report ID' },
+  'th.reporter':      { zh: '回報者', en: 'Reporter' },
+  'th.transcription': { zh: '轉錄內容', en: 'Transcription' },
+  'th.location':      { zh: '地點', en: 'Location' },
+  'th.time':          { zh: '時間', en: 'Time' },
+  'th.audio':         { zh: '音訊', en: 'Audio' },
+  // Stats card labels
+  'stat.red':         { zh: '紅 (即刻)', en: 'Red (Immediate)' },
+  'stat.yellow':      { zh: '黃 (延遲)', en: 'Yellow (Delayed)' },
+  'stat.green':       { zh: '綠 (輕傷)', en: 'Green (Minor)' },
+  'stat.black':       { zh: '黑 (死亡)', en: 'Black (Expectant)' },
+  'stat.total_patients': { zh: '傷患總計', en: 'Total Patients' },
+  'stat.personnel_total': { zh: '人員總數', en: 'Total Personnel' },
+  'stat.rescuer':     { zh: '搜救員', en: 'Rescuers' },
+  'stat.medical':     { zh: '醫護', en: 'Medics' },
+  'stat.commander':   { zh: '指揮官', en: 'Commanders' },
+  'stat.ambulance':   { zh: '救護車', en: 'Ambulances' },
+  'stat.medkit':      { zh: '醫療包', en: 'Medical Kits' },
+  'stat.used':        { zh: '已使用', en: 'Used' },
+  'stat.lora':        { zh: 'LoRa 節點', en: 'LoRa Nodes' },
+  'stat.wifi':        { zh: 'WiFi 裝置', en: 'WiFi Devices' },
+  'stat.reports':     { zh: '會報數', en: 'Reports' },
+  'stat.decisions':   { zh: '決策數', en: 'Decisions' },
+  'stat.photos':      { zh: '照片數', en: 'Photos' },
+  'stat.duration':    { zh: '事件時長', en: 'Event Duration' },
+  'stat.minutes':     { zh: ' 分鐘', en: ' min' },
+  // Status text
+  'status.connecting': { zh: '連線中…', en: 'Connecting…' },
+  'status.connected':  { zh: '已連線', en: 'Connected' },
+  'status.offline':    { zh: '離線', en: 'Offline' },
+  'status.switched':   { zh: '已切換至', en: 'Switched to' },
+  // Resource status badges
+  'res.ok':           { zh: '正常', en: 'OK' },
+  'res.low':          { zh: '不足', en: 'Low' },
+  'res.out':          { zh: '耗盡', en: 'Depleted' },
+  // Empty states
+  'empty.resources':  { zh: '尚無資源紀錄', en: 'No resource records' },
+  'empty.load_res':   { zh: '無法載入資源', en: 'Cannot load resources' },
+  'empty.photos':     { zh: '尚無照片', en: 'No photos' },
+  'empty.load_photos':{ zh: '無法載入照片', en: 'Cannot load photos' },
+  'empty.reports':    { zh: '尚無會報', en: 'No reports' },
+  'empty.load_reports':{ zh: '無法載入會報', en: 'Cannot load reports' },
+  'empty.no_transcript':{ zh: '(無轉錄)', en: '(No transcription)' },
+  'empty.timeline':   { zh: '此時段無事件', en: 'No events in this period' },
+  'empty.load_events':{ zh: '無法載入事件', en: 'Cannot load events' },
+  'toast.pdf_ok':     { zh: 'PDF 報告已生成', en: 'PDF report generated' },
+  'toast.pdf_fail':   { zh: '報告生成失敗', en: 'Report generation failed' },
+  'toast.deployed':   { zh: '已部署', en: 'Deployed' },
+  'toast.returned':   { zh: '已回收', en: 'Returned' },
+  'toast.deploy_fail':{ zh: '部署失敗', en: 'Deploy failed' },
+  'toast.return_fail':{ zh: '回收失敗', en: 'Return failed' },
+  'report.generating':{ zh: '生成中…', en: 'Generating…' },
+  // Dual-model
+  'dual.title':       { zh: '🤖 雙模型狀態', en: '🤖 Dual-Model Status' },
+  'dual.role':        { zh: '本機角色', en: 'Local Role' },
+  'dual.model':       { zh: '模型', en: 'Model' },
+  'dual.peer':        { zh: '對端', en: 'Peer' },
+  'dual.alive':       { zh: '在線', en: 'Online' },
+  'dual.dead':        { zh: '離線', en: 'Offline' },
+  'dual.threshold':   { zh: '升級閾值', en: 'Threshold' },
+  'dual.small':       { zh: '小模型', en: 'Small' },
+  'dual.large':       { zh: '大模型', en: 'Large' },
+  'dual.standalone':  { zh: '獨立', en: 'Standalone' },
+  'dual.escalated':   { zh: '⬆ 已升級', en: '⬆ Escalated' },
+};
+function i(key) { return (I18N[key] || {})[_lang] || key; }
+function applyI18n() {
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    el.textContent = i(el.dataset.i18n);
+  });
+  document.getElementById('pageTitle').textContent = 'LinkGuard ' + i('header.title');
+  document.getElementById('langBtn').textContent = _lang === 'zh' ? 'EN' : '中文';
+  document.documentElement.lang = _lang === 'zh' ? 'zh-TW' : 'en';
+}
+function toggleLang() {
+  _lang = _lang === 'zh' ? 'en' : 'zh';
+  localStorage.setItem('lg_lang', _lang);
+  applyI18n();
+  refreshAll();
+}
+
+// === Config ===
+let HOST = 'localhost';
+const PORTS = { stats: 8005, resources: 8006, photos: 8004, reports: 8003, gemma4: 8001 };
+let refreshInterval = null;
+let countdown = 5;
+
+function baseURL(service) {
+  return `http://${HOST}:${PORTS[service]}`;
+}
+
+// === Host Connection ===
+function applyHost() {
+  HOST = document.getElementById('hostInput').value.trim() || 'localhost';
+  document.getElementById('connStatus').textContent = `${i('status.switched')} ${HOST}`;
+  refreshAll();
+  showToast(`✅ ${i('status.connected')} ${HOST}`);
+}
+
+// === Tab Navigation ===
+const tabIds = ['tabStats', 'tabResources', 'tabPhotos', 'tabReports', 'tabTimeline'];
+function switchTab(idx) {
+  tabIds.forEach((id, i) => {
+    document.getElementById(id).classList.toggle('active', i === idx);
+  });
+  document.querySelectorAll('.nav-tabs button').forEach((btn, i) => {
+    btn.classList.toggle('active', i === idx);
+  });
+  // Load data for tab
+  if (idx === 1) refreshResources();
+  if (idx === 2) refreshPhotos();
+  if (idx === 3) refreshReports();
+  if (idx === 4) refreshTimeline();
+}
+
+// === Stats ===
+async function refreshStats() {
+  try {
+    const resp = await fetch(`${baseURL('stats')}/stats`);
+    if (!resp.ok) throw new Error(resp.statusText);
+    const data = await resp.json();
+    renderStats(data);
+    setOnline(true);
+  } catch (e) {
+    console.error('Stats error:', e);
+    setOnline(false);
+  }
+}
+
+function renderStats(d) {
+  const p = d.patients || {};
+  document.getElementById('patientStats').innerHTML = `
+    <div class="stat-card"><div class="label">${esc(i('stat.red'))}</div><div class="value triage-red">${p.immediate || 0}</div></div>
+    <div class="stat-card"><div class="label">${esc(i('stat.yellow'))}</div><div class="value triage-yellow">${p.delayed || 0}</div></div>
+    <div class="stat-card"><div class="label">${esc(i('stat.green'))}</div><div class="value triage-green">${p.minor || 0}</div></div>
+    <div class="stat-card"><div class="label">${esc(i('stat.black'))}</div><div class="value triage-black">${p.expectant || 0}</div></div>
+    <div class="stat-card"><div class="label">${esc(i('stat.total_patients'))}</div><div class="value">${p.total || 0}</div></div>
+  `;
+
+  const per = d.personnel || {};
+  document.getElementById('personnelStats').innerHTML = `
+    <div class="stat-card"><div class="label">${esc(i('stat.personnel_total'))}</div><div class="value">${per.total || 0}</div></div>
+    <div class="stat-card"><div class="label">${esc(i('stat.rescuer'))}</div><div class="value" style="color:var(--nv-green)">${per.rescuer || 0}</div></div>
+    <div class="stat-card"><div class="label">${esc(i('stat.medical'))}</div><div class="value" style="color:var(--nv-info)">${per.medical || 0}</div></div>
+    <div class="stat-card"><div class="label">${esc(i('stat.commander'))}</div><div class="value" style="color:var(--nv-blue)">${per.commander || 0}</div></div>
+  `;
+
+  const res = d.resources || {};
+  document.getElementById('resourceStats').innerHTML = `
+    <div class="stat-card"><div class="label">${esc(i('stat.ambulance'))}</div><div class="value">${res.ambulance_available || 0}<span class="sub">/${res.ambulance_total || 0}</span></div></div>
+    <div class="stat-card"><div class="label">${esc(i('stat.medkit'))}</div><div class="value">${res.medical_kit_total - res.medical_kit_used || 0}<span class="sub">/${res.medical_kit_total || 0}</span></div><div class="sub">${esc(i('stat.used'))} ${res.medical_kit_used || 0}</div></div>
+  `;
+
+  const com = d.communications || {};
+  document.getElementById('commStats').innerHTML = `
+    <div class="stat-card"><div class="label">${esc(i('stat.lora'))}</div><div class="value" style="color:var(--nv-green)">${com.lora_nodes_online || 0}<span class="sub">/${com.lora_nodes_total || 0}</span></div></div>
+    <div class="stat-card"><div class="label">${esc(i('stat.wifi'))}</div><div class="value">${com.wifi_devices || 0}</div></div>
+    <div class="stat-card"><div class="label">${esc(i('stat.reports'))}</div><div class="value">${com.reports_count || 0}</div></div>
+    <div class="stat-card"><div class="label">${esc(i('stat.decisions'))}</div><div class="value" style="color:var(--nv-blue)">${d.decisions_count || 0}</div></div>
+    <div class="stat-card"><div class="label">${esc(i('stat.photos'))}</div><div class="value">${d.photos_count || 0}</div></div>
+    <div class="stat-card"><div class="label">${esc(i('stat.duration'))}</div><div class="value">${d.event_duration_minutes || 0}<span class="sub">${i('stat.minutes')}</span></div></div>
+  `;
+}
+
+// === Resources ===
+async function refreshResources() {
+  try {
+    const resp = await fetch(`${baseURL('resources')}/resources`);
+    const data = await resp.json();
+    renderResources(data.resources || []);
+  } catch (e) {
+    console.error('Resources error:', e);
+    document.getElementById('resourceBody').innerHTML = '<tr><td colspan="7" style="color:var(--nv-text2)">' + esc(i('empty.load_res')) + '</td></tr>';
+  }
+}
+
+function renderResources(resources) {
+  const tb = document.getElementById('resourceBody');
+  if (resources.length === 0) {
+    tb.innerHTML = '<tr><td colspan="7" style="color:var(--nv-text2)">' + esc(i('empty.resources')) + '</td></tr>';
+    return;
+  }
+  tb.innerHTML = resources.map(r => {
+    const avail = r.available ?? 0;
+    const total = r.total ?? 0;
+    const statusBadge = avail === 0 ? 'badge-out' : avail <= total * 0.3 ? 'badge-low' : 'badge-ok';
+    const statusText = avail === 0 ? i('res.out') : avail <= total * 0.3 ? i('res.low') : i('res.ok');
+    return `<tr>
+      <td style="font-family:monospace">${esc(r.resource_id)}</td>
+      <td>${esc(r.resource_type || '')}</td>
+      <td>${esc(r.name || '')}</td>
+      <td><span class="badge ${statusBadge}">${statusText}</span></td>
+      <td>${total}</td>
+      <td>${avail}</td>
+      <td class="resource-actions">
+        <button class="btn" style="font-size:11px;padding:4px 8px" onclick="deployResource('${esc(r.resource_id)}')">${i('btn.deploy')}</button>
+        <button class="btn btn-blue" style="font-size:11px;padding:4px 8px" onclick="returnResource('${esc(r.resource_id)}')">${i('btn.return')}</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+async function deployResource(id) {
+  try {
+    await fetch(`${baseURL('resources')}/resources/${encodeURIComponent(id)}/deploy`, { method: 'POST' });
+    showToast(`✅ ${i('toast.deployed')} ${id}`);
+    refreshResources();
+  } catch (e) { showToast(`❌ ${i('toast.deploy_fail')}: ${e.message}`); }
+}
+
+async function returnResource(id) {
+  try {
+    await fetch(`${baseURL('resources')}/resources/${encodeURIComponent(id)}/return`, { method: 'POST' });
+    showToast(`✅ ${i('toast.returned')} ${id}`);
+    refreshResources();
+  } catch (e) { showToast(`❌ ${i('toast.return_fail')}: ${e.message}`); }
+}
+
+// === Photos ===
+async function refreshPhotos() {
+  try {
+    const resp = await fetch(`${baseURL('photos')}/photos?limit=50`);
+    const data = await resp.json();
+    renderPhotos(data.photos || []);
+  } catch (e) {
+    console.error('Photos error:', e);
+    document.getElementById('photoGrid').innerHTML = '<div style="color:var(--nv-text2)">' + esc(i('empty.load_photos')) + '</div>';
+  }
+}
+
+function renderPhotos(photos) {
+  const grid = document.getElementById('photoGrid');
+  if (photos.length === 0) {
+    grid.innerHTML = '<div style="color:var(--nv-text2)">' + esc(i('empty.photos')) + '</div>';
+    return;
+  }
+  grid.innerHTML = photos.map(p => {
+    const thumbUrl = p.thumbnail_url || `${baseURL('photos')}/thumb/${p.photo_id}`;
+    const fullUrl = p.full_url || `${baseURL('photos')}/photo/${p.photo_id}`;
+    return `<div class="photo-card" onclick="openPhoto('${esc(fullUrl)}')">
+      <img src="${esc(thumbUrl)}" alt="${esc(p.photo_id)}" loading="lazy"
+           onerror="this.style.display='none'">
+      <div class="photo-info">
+        <div>${esc(p.caption || p.photo_id)}</div>
+        <div>${esc(p.sender_name || '')} · ${esc(p.location_desc || '')}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openPhoto(url) {
+  document.getElementById('modalImg').src = url;
+  document.getElementById('photoModal').style.display = 'flex';
+}
+function closePhotoModal() {
+  document.getElementById('photoModal').style.display = 'none';
+  document.getElementById('modalImg').src = '';
+}
+
+// === Reports ===
+async function refreshReports() {
+  try {
+    const resp = await fetch(`${baseURL('reports')}/reports`);
+    const data = await resp.json();
+    renderReports(data.reports || []);
+  } catch (e) {
+    console.error('Reports error:', e);
+    document.getElementById('reportBody').innerHTML = '<tr><td colspan="6" style="color:var(--nv-text2)">' + esc(i('empty.load_reports')) + '</td></tr>';
+  }
+}
+
+function renderReports(reports) {
+  const tb = document.getElementById('reportBody');
+  if (reports.length === 0) {
+    tb.innerHTML = '<tr><td colspan="6" style="color:var(--nv-text2)">' + esc(i('empty.reports')) + '</td></tr>';
+    return;
+  }
+  tb.innerHTML = reports.map(r => {
+    const time = r.timestamp ? new Date(r.timestamp).toLocaleString('zh-TW') : '';
+    const audioUrl = r.audio_path ? `${baseURL('reports')}/audio/${r.report_id}` : '';
+    return `<tr>
+      <td style="font-family:monospace">${esc(r.report_id)}</td>
+      <td>${esc(r.sender_name || r.sender_id || '')}</td>
+      <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.transcription || i('empty.no_transcript'))}</td>
+      <td>${esc(r.location_desc || '')}</td>
+      <td style="white-space:nowrap">${time}</td>
+      <td>${audioUrl ? `<a href="${esc(audioUrl)}" target="_blank" style="color:var(--nv-green)">▶ 播放</a>` : '-'}</td>
+    </tr>`;
+  }).join('');
+}
+
+async function generateReport() {
+  const btn = document.getElementById('btnGenReport');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>' + i('report.generating');
+  try {
+    const formData = new FormData();
+    formData.append('event_name', 'LinkGuard Event Report');
+    const resp = await fetch(`${baseURL('reports')}/generate_report`, { method: 'POST', body: formData });
+    const data = await resp.json();
+    if (data.download_url) {
+      window.open(data.download_url, '_blank');
+      showToast(`✅ ${i('toast.pdf_ok')}`);
+    }
+  } catch (e) {
+    showToast(`❌ ${i('toast.pdf_fail')}: ${e.message}`);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = i('btn.gen_pdf');
+  }
+}
+
+// === Timeline ===
+async function refreshTimeline() {
+  const hours = document.getElementById('historyHours').value;
+  try {
+    const resp = await fetch(`${baseURL('stats')}/stats/history?hours=${hours}`);
+    const data = await resp.json();
+    renderTimeline(data.events || []);
+  } catch (e) {
+    console.error('Timeline error:', e);
+    document.getElementById('timelineList').innerHTML = '<div style="color:var(--nv-text2)">' + esc(i('empty.load_events')) + '</div>';
+  }
+}
+
+function renderTimeline(events) {
+  const list = document.getElementById('timelineList');
+  if (events.length === 0) {
+    list.innerHTML = '<div style="color:var(--nv-text2)">' + esc(i('empty.timeline')) + '</div>';
+    return;
+  }
+  const typeColors = {
+    'patient': 'var(--nv-danger)', 'decision': 'var(--nv-blue)',
+    'sos': 'var(--nv-danger)', 'photo': 'var(--nv-green)',
+    'report': 'var(--nv-info)', 'weather': 'var(--nv-warning)',
+    'resource': 'var(--nv-reinforce)',
+  };
+  list.innerHTML = events.map(ev => {
+    const time = ev.timestamp ? new Date(ev.timestamp).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
+    const color = typeColors[ev.event_type] || 'var(--nv-text2)';
+    let extra = '';
+    if (ev.event_type === 'decision' && ev.model) {
+      const cls = ev.escalated ? 'escalated' : (ev.model.includes('e4b') ? 'small' : 'large');
+      extra = ` <span class="model-badge ${cls}">${esc(ev.model)}</span>`;
+      if (ev.escalated) extra += ` <span class="model-badge escalated">${i('dual.escalated')}</span>`;
+    }
+    return `<div class="timeline-item">
+      <span class="time">${time}</span>
+      <span class="event-type" style="color:${color}">${esc(ev.event_type || '')}${extra}</span>
+      <span>${esc(ev.description || ev.data || '')}</span>
+    </div>`;
+  }).join('');
+}
+
+// === Utilities ===
+function esc(s) {
+  if (s == null) return '';
+  const div = document.createElement('div');
+  div.textContent = String(s);
+  return div.innerHTML;
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+function setOnline(ok) {
+  const dot = document.getElementById('statusDot');
+  const txt = document.getElementById('statusText');
+  dot.classList.toggle('offline', !ok);
+  txt.textContent = ok ? `${i('status.connected')} · ${HOST}` : i('status.offline');
+}
+
+// === Dual-Model Status ===
+async function refreshDualStatus() {
+  const panel = document.getElementById('dualStatusPanel');
+  try {
+    const resp = await fetch(`${baseURL('gemma4')}/dual/status`);
+    if (!resp.ok) throw new Error(resp.statusText);
+    const d = await resp.json();
+    if (!d.enabled) { panel.style.display = 'none'; return; }
+    panel.style.display = 'block';
+    const roleLabel = d.local_role === 'small' ? i('dual.small') : d.local_role === 'large' ? i('dual.large') : i('dual.standalone');
+    const roleBadge = d.local_role === 'small' ? 'small' : 'large';
+    const peerOk = d.peer_alive === true;
+    panel.innerHTML = `
+      <div class="dual-panel">
+        <span class="dual-label">${esc(i('dual.title'))}</span>
+        <span class="dual-label">${esc(i('dual.role'))}:</span>
+        <span class="model-badge ${roleBadge}">${esc(roleLabel)}</span>
+        <span class="dual-label">${esc(i('dual.model'))}:</span>
+        <span class="dual-value">${esc(d.local_model || '')}</span>
+        <span class="dual-label">${esc(i('dual.peer'))}:</span>
+        <span class="dual-dot ${peerOk ? 'alive' : 'dead'}"></span>
+        <span class="dual-value">${peerOk ? esc(i('dual.alive')) : esc(i('dual.dead'))}</span>
+        <span class="dual-label">${esc(i('dual.threshold'))}:</span>
+        <span class="dual-value">${d.confidence_threshold ?? '-'}</span>
+      </div>`;
+  } catch (e) {
+    panel.style.display = 'none';
+  }
+}
+
+// === Auto-Refresh ===
+function refreshAll() {
+  refreshStats();
+  refreshDualStatus();
+}
+
+function startAutoRefresh() {
+  countdown = 5;
+  if (refreshInterval) clearInterval(refreshInterval);
+  refreshAll();
+  refreshInterval = setInterval(() => {
+    countdown--;
+    if (countdown <= 0) {
+      refreshAll();
+      countdown = 5;
+    }
+    document.getElementById('refreshTimer').textContent = `${countdown}s`;
+  }, 1000);
+}
+
+// === Init ===
+window.addEventListener('DOMContentLoaded', () => {
+  applyI18n();
+  startAutoRefresh();
+});
+</script>
+</body>
+</html>

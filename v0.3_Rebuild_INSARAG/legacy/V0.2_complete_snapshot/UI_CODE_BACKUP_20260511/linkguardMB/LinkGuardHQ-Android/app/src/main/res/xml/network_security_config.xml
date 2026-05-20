@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!--
+        允許區域網路 HTTP 明文連線（連接 LinkGuard 後端伺服器）。
+        HQ app 透過 HTTP 連線 Whisper (8002)、Speech (8003) 等 LAN 服務。
+    -->
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

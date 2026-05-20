@@ -1,0 +1,1009 @@
+//
+//  HQSettingsView.swift
+//  LinkGuardHQ
+//
+//  Consolidated settings panel — first one in the app.
+//  Sections: General · Backend · AI · Voice · Storage.
+//
+
+import SwiftUI
+#if os(macOS)
+import AppKit
+
+struct HQSettingsView: View {
+    @ObservedObject var vm: HQViewModel
+    @ObservedObject var supervisor: BackendSupervisor
+    var onOpenBackendServices: (() -> Void)? = nil
+    @EnvironmentObject var l10n: L10n
+
+    @AppStorage("appColorScheme") private var appColorScheme: String = "dark"
+    @AppStorage("hq.uiScale") private var uiScale: Double = 1.0
+    @AppStorage("hq.navigationPlacement") private var navigationPlacementRaw: String = HQNavigationPlacement.left.rawValue
+    @AppStorage("hq.backendMode") private var backendModeRaw: String = BackendMode.embedded.rawValue
+    @AppStorage("hq.remoteHost") private var remoteHost: String = ""
+    @AppStorage("backendHost") private var legacyBackendHost: String = ""
+    @AppStorage("ai.modeOverride.global") private var aiModeGlobal: String = "auto"
+    @AppStorage("ai.modelProfile") private var aiModelProfileRaw: String = LocalAIModelProfile.singleE4B.rawValue
+    @AppStorage("voice.engine") private var voiceEngine: String = "whisperkit"
+    @AppStorage("voice.modelSize") private var voiceModelSize: String = "large-v3"
+    @AppStorage(HQNotificationCueManager.Keys.statusUpdatesEnabled) private var statusUpdateNotificationsEnabled = true
+    @AppStorage(HQNotificationCueManager.Keys.statusSoundEnabled) private var statusSoundEnabled = true
+    @AppStorage(HQNotificationCueManager.Keys.statusFlashEnabled) private var statusFlashEnabled = true
+    @AppStorage("hq.splitEnabled") private var splitEnabled = false
+    @AppStorage("hq.splitSecondSection") private var splitSecondSectionRaw: String = HQSection.chat.rawValue
+    @AppStorage("hq.externalDisplayEnabled") private var externalDisplayEnabled: Bool = true
+    @AppStorage("hq.externalDisplayScale") private var externalDisplayScale: Double = 1.0
+
+    @State private var setupAssistantPresented = false
+    @State private var storageLocationMessage: String? = nil
+    @State private var storageLocationMessageIsError = false
+    @State private var resetConfirmationPresented = false
+
+    private var backendMode: BackendMode {
+        BackendMode(rawValue: backendModeRaw) ?? .embedded
+    }
+
+    private var aiModelProfile: LocalAIModelProfile {
+        LocalAIModelProfile(rawValue: aiModelProfileRaw) ?? .singleE4B
+    }
+
+    var body: some View {
+        HQPage(maxWidth: NV.pageMaxWidth, spacing: NV.pageSpacing) {
+            HQPageTitleBar(L("設定"), icon: "gearshape.fill", accent: NV.info)
+            generalSection
+            nfcManualSection
+            notificationSection
+            externalDisplaySection
+            backendSection
+            aiSection
+            voiceSection
+            storageSection
+        }
+        .sheet(isPresented: $setupAssistantPresented) {
+            #if os(macOS)
+            SetupAssistantView(supervisor: supervisor,
+                               isPresented: $setupAssistantPresented)
+                .frame(minWidth: 560, minHeight: 480)
+            #else
+            EmptyView()
+            #endif
+        }
+        .alert(L("完全重置 LinkGuardHQ？"), isPresented: $resetConfirmationPresented) {
+            Button(L("取消"), role: .cancel) {}
+            Button(L("完全重置"), role: .destructive) {
+                performCompleteReset()
+            }
+        } message: {
+            Text(L("這會停止本機服務，清除所有本機設定、任務狀態、資料庫、照片、音訊與報告檔案。此操作無法復原。"))
+        }
+    }
+
+    // MARK: - Sections
+
+    private var nfcManualSection: some View {
+        let identityRows: [(String, String, Bool)] = [
+            ("顯示 ID", "LG-260506-TAO-ZL-E01-S03-B02-F02-A-P023-K", true),
+            ("資料庫 Key", "LG260506TAOZLE01S03B02F02AP023K", true),
+            ("NFC URL", "https://linkguard.tw/p/LG260506TAOZLE01S03B02F02AP023K", true),
+            ("隱私規則", "姓名、身分證、電話與完整病歷不寫入 NFC；傷患 ID 不可變動。", false)
+        ]
+
+        let hqWorkflowRows: [(String, String)] = [
+            ("1. 先確認 ID 規則", "HQ 發出的 patientIDConfig 會決定前線裝置的顯示 ID、資料庫 Key 與 NFC URL。"),
+            ("2. 前線寫卡", "iOS 在傷員回報頁寫入 NFC，成功後送 nfc_tag_written 到 HQ。"),
+            ("3. HQ 稽核", "在「NFC 標籤管理」搜尋傷患 ID，檢查格式、容量、寫入裝置、時間與 payload。"),
+            ("4. 交接確認", "同一名傷患只保留一張主要卡；若換卡，保留新的 HQ 寫卡紀錄並確認舊卡不再使用。")
+        ]
+
+        let checklistRows: [(String, String)] = [
+            ("容量", "LG1 payload 應落在 NTAG215 容量內；LG2 僅給 NTAG216。容量不足時改 LG1 或縮短 NOTE。"),
+            ("同步", "前線 App 顯示寫入完成，但 HQ 沒紀錄時，先查 WiFi/Bonjour/手動 IP 連線。"),
+            ("重複", "同一 ID 多筆寫卡紀錄代表曾覆寫或換卡；以最新時間與現場回讀結果為準。"),
+            ("權限", "iOS 真機 CoreNFC 需要 NFC capability；免費 Apple Developer 帳號通常無法測 App 內 NFC。"),
+            ("備援", "Android/USB NFC 可先寫 URL；同時列印 QR Code，讓 iPhone 用背景 NFC 或相機開資料頁。")
+        ]
+
+        return section(L("NFC 標籤操作手冊")) {
+            Text(L("此手冊定義 LinkGuard 紀錄格式、寫卡同步與 HQ 稽核流程，不取代現場醫療處置 SOP。"))
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            DisclosureGroup(L("身分與資料規則")) {
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(identityRows, id: \.0) { row in
+                        manualDetailRow(row.0, row.1, monospaced: row.2)
+                    }
+                }
+                .padding(.top, 8)
+            }
+
+            VStack(alignment: .leading, spacing: 10) {
+                manualFormatRow(title: "LG1", subtitle: "NTAG215", example: "LG1|ID|T|S|I|V|TX|TM")
+                manualFormatRow(title: "LG2", subtitle: "NTAG216", example: "LG2|ID:...|T:...|S:...|LOC:...|I:...|V:...|TX:...|ALG:...|NOTE:...|TM:...|UPD:...")
+            }
+
+            Text(L("容量規則：NTAG215 固定使用 LG1；NTAG216 固定使用 LG2；若現場不確定標籤容量，先寫 LG1。"))
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            DisclosureGroup(L("HQ 操作流程")) {
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(hqWorkflowRows, id: \.0) { row in
+                        manualDetailRow(row.0, row.1)
+                    }
+                }
+                .padding(.top, 8)
+            }
+
+            DisclosureGroup(L("同步與排除檢查表")) {
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(checklistRows, id: \.0) { row in
+                        manualDetailRow(row.0, row.1)
+                    }
+                }
+                .padding(.top, 8)
+            }
+
+            DisclosureGroup(L("LG1 / LG2 代碼表")) {
+                VStack(alignment: .leading, spacing: 8) {
+                    manualCodeRow("檢傷 T", "R=紅/立即; Y=黃/延遲; G=綠/輕傷; B=黑/死亡或無生命跡象; U=未分類")
+                    manualCodeRow("性別年齡 S", "M45=男性約45歲; F30=女性約30歲; C08=兒童約8歲; U=不明")
+                    manualCodeRow("傷勢 I", "HEAD=頭部外傷; CHEST=胸部外傷; ABD=腹部外傷; ARM_BLEED=手臂出血; LEG_BLEED=腿部出血; LEFT_LEG_BLEED=左腿出血; RIGHT_LEG_BLEED=右腿出血; FX=骨折; BURN=燒燙傷; CRUSH=壓砸傷; UNCON=意識不清; CPA=無呼吸心跳")
+                    manualCodeRow("處置 TX", "TQL=左側止血帶; TQR=右側止血帶; BAND=包紮; SPL=固定; O2=給氧; CPR=CPR; AED=AED 使用; IV=靜脈路徑; NONE=尚未處置")
+                    manualCodeRow("過敏 ALG", "PCN=青黴素; U=不明; 空白=未記錄")
+                }
+                .padding(.top, 8)
+            }
+        }
+    }
+
+    private var externalDisplaySection: some View {
+        let screens = NSScreen.screens
+        let externalScreens = screens.filter { $0 !== NSScreen.main }
+        return section(L("外接螢幕")) {
+            Toggle(isOn: $externalDisplayEnabled) {
+                Label(L("在外接螢幕顯示分儀表板"), systemImage: "rectangle.on.rectangle")
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Label(L("分螢幕頁面大小"), systemImage: "textformat.size")
+                    Spacer()
+                    Text("\(Int((externalDisplayScale * 100).rounded()))%")
+                        .font(.caption.monospacedDigit())
+                        .foregroundColor(.secondary)
+                }
+                HStack(spacing: 8) {
+                    Button {
+                        externalDisplayScale = max(0.8, ((externalDisplayScale - 0.1) * 10).rounded() / 10)
+                    } label: {
+                        Image(systemName: "minus.magnifyingglass")
+                    }
+                    .help(L("縮小"))
+
+                    Slider(value: $externalDisplayScale, in: 0.8...1.6, step: 0.1)
+
+                    Button {
+                        externalDisplayScale = min(1.6, ((externalDisplayScale + 0.1) * 10).rounded() / 10)
+                    } label: {
+                        Image(systemName: "plus.magnifyingglass")
+                    }
+                    .help(L("放大"))
+
+                    Button(L("重設")) {
+                        externalDisplayScale = 1.0
+                    }
+                    .buttonStyle(.bordered)
+                }
+                Text(L("調整外接分螢幕的大儀表板與受困者地圖顯示大小。"))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            .disabled(!externalDisplayEnabled)
+
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 6) {
+                    Image(systemName: externalScreens.isEmpty ? "display.slash" : "display.2")
+                        .foregroundColor(externalScreens.isEmpty ? .secondary : NV.green)
+                    Text(externalScreens.isEmpty
+                         ? L("目前沒有偵測到外接螢幕")
+                         : L("偵測到 %lld 張外接螢幕", externalScreens.count))
+                        .font(.caption)
+                        .foregroundColor(externalScreens.isEmpty ? .secondary : NV.green)
+                }
+                if !externalScreens.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        ForEach(Array(zip(externalScreens.indices, externalScreens)), id: \.0) { idx, screen in
+                            let roles = [L("大儀表板"), L("受困者地圖")]
+                            HStack(spacing: 8) {
+                                Text(idx < roles.count ? roles[idx] : L("螢幕 %lld", idx + 1))
+                                    .font(.caption.bold())
+                                    .foregroundColor(.secondary)
+                                Text("\(Int(screen.frame.width))\u{00D7}\(Int(screen.frame.height))")
+                                    .font(.caption.monospaced())
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    }
+                    .padding(.leading, 20)
+                }
+                Text(L("開啟後，第一張外接螢幕顯示「大儀表板」，第二張顯示「受困者地圖」，插拔螢幕自動更新。"))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            .disabled(!externalDisplayEnabled)
+        }
+    }
+
+    private var generalSection: some View {
+        section(L("一般")) {
+            Picker(L("外觀"), selection: $appColorScheme) {
+                Text(L("跟隨系統")).tag("system")
+                Text(L("淺色")).tag("light")
+                Text(L("夜視")).tag("dark")
+                Text(L("極致黑")).tag("black")
+            }
+            .pickerStyle(.segmented)
+
+            Picker(L("語言"), selection: Binding(
+                get: { l10n.language },
+                set: { l10n.language = $0 }
+            )) {
+                Text(L("繁體中文")).tag("zh-Hant")
+                Text("English").tag("en")
+            }
+
+            Picker(L("導航列位置"), selection: $navigationPlacementRaw) {
+                ForEach(HQNavigationPlacement.allCases) { placement in
+                    Label(placement.localizedName, systemImage: placement.icon)
+                        .tag(placement.rawValue)
+                }
+            }
+            .pickerStyle(.segmented)
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: 8) {
+                Toggle(isOn: $splitEnabled) {
+                    Label(L("分屏模式"), systemImage: "rectangle.split.2x1")
+                }
+                if splitEnabled {
+                    HStack {
+                        Text(L("右側面板"))
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Picker("", selection: $splitSecondSectionRaw) {
+                            ForEach(HQSection.navigationOrder.filter { $0 != .settings }) { sec in
+                                Label(sec.localizedName, systemImage: sec.icon)
+                                    .tag(sec.rawValue)
+                            }
+                        }
+                        .labelsHidden()
+                        .frame(width: 200)
+                    }
+                    Text(L("主內容區分為左右兩欄，左欄為目前選擇的頁面，右欄固定顯示所選項目。"))
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Label(L("介面縮放"), systemImage: "textformat.size")
+                    Spacer()
+                    Text("\(Int((uiScale * 100).rounded()))%")
+                        .font(.caption.monospacedDigit())
+                        .foregroundColor(.secondary)
+                }
+                HStack(spacing: 8) {
+                    Button {
+                        uiScale = max(0.8, ((uiScale - 0.1) * 10).rounded() / 10)
+                    } label: {
+                        Image(systemName: "minus.magnifyingglass")
+                    }
+                    .help(L("縮小"))
+
+                    Slider(value: $uiScale, in: 0.8...1.4, step: 0.1)
+
+                    Button {
+                        uiScale = min(1.4, ((uiScale + 0.1) * 10).rounded() / 10)
+                    } label: {
+                        Image(systemName: "plus.magnifyingglass")
+                    }
+                    .help(L("放大"))
+
+                    Button(L("重設")) {
+                        uiScale = 1.0
+                    }
+                    .buttonStyle(.bordered)
+                }
+                Text(L("也可以使用 Command + + / Command + - 調整。"))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        }
+    }
+
+    private var notificationSection: some View {
+        section(L("通知")) {
+            Toggle(isOn: $statusUpdateNotificationsEnabled) {
+                Label(L("所有現場事件通知"), systemImage: "bell.badge.fill")
+            }
+
+            VStack(alignment: .leading, spacing: 10) {
+                Toggle(isOn: $statusSoundEnabled) {
+                    Label(L("音效通知"), systemImage: "speaker.wave.2.fill")
+                }
+                HStack(spacing: 8) {
+                    Label("f1_team_radio.mp3", systemImage: "music.note")
+                        .font(.caption.monospaced())
+                        .foregroundColor(.secondary)
+                    Spacer()
+                    Button {
+                        HQNotificationCueManager.shared.previewFieldEventCue()
+                    } label: {
+                        Label(L("測試通知"), systemImage: "play.fill")
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(!statusSoundEnabled && !statusFlashEnabled)
+                }
+
+                Toggle(isOn: $statusFlashEnabled) {
+                    Label(L("周邊閃光"), systemImage: "rectangle.dashed.badge.record")
+                }
+            }
+            .disabled(!statusUpdateNotificationsEnabled)
+
+            Text(L("照片上傳、語音/電台回報、通訊、SOS、PWS、傷員、增援與狀態更新都會觸發提示。"))
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+    }
+
+    private var backendSection: some View {
+        section(L("後端")) {
+            Picker(L("後端模式"), selection: Binding(
+                get: { backendModeRaw },
+                set: { newValue in
+                    backendModeRaw = newValue
+                    applyBackendMode()
+                }
+            )) {
+                ForEach(BackendMode.allCases) { mode in
+                    Label(mode.displayName, systemImage: mode.systemImage)
+                        .tag(mode.rawValue)
+                }
+            }
+            .pickerStyle(.inline)
+
+            Text(backendMode.helpText)
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            #if os(macOS)
+            if backendMode == .embedded {
+                HStack {
+                    Button {
+                        setupAssistantPresented = true
+                    } label: {
+                        Label(L("執行設定精靈"), systemImage: "wand.and.stars")
+                    }
+                    Spacer()
+                    Text(L("Python: %@",
+                          supervisor.pythonExecutable?.path ?? L("未偵測到")))
+                        .font(.caption.monospaced())
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+            }
+            #endif
+
+            Divider()
+            serverRuntimeStatus
+        }
+    }
+
+    private var serverRuntimeStatus: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            statusSubsectionHeader(L("語音辨識 (Apple Speech)"), icon: "waveform")
+            speechServerStatus
+            Divider()
+            statusSubsectionHeader(L("照片伺服器 (HTTP)"), icon: "photo")
+            photoServerStatus
+            Divider()
+            statusSubsectionHeader(L("後台伺服器"), icon: "server.rack")
+            backendConnectionStatus
+        }
+    }
+
+    @ViewBuilder
+    private var speechServerStatus: some View {
+        if vm.hqRole == .peer {
+            if let status = vm.peerClient.serverStatus {
+                statusRow(isRunning: status.speechServerRunning,
+                          runningText: L("運行中 (port 8003)"),
+                          stoppedText: L("已停止"),
+                          trailingText: L("已處理 %lld 筆", status.speechProcessedCount))
+            } else {
+                statusRow(isRunning: false,
+                          runningText: L("已同步"),
+                          stoppedText: L("尚未收到主 HQ 狀態"))
+            }
+        } else {
+            statusRow(isRunning: vm.speechServer.isRunning,
+                      runningText: L("運行中 (port 8003)"),
+                      stoppedText: L("已停止"),
+                      trailingText: L("已處理 %lld 筆", vm.speechServer.processedCount))
+            if !vm.speechServer.lastTranscription.isEmpty {
+                Text(vm.speechServer.lastTranscription)
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                    .lineLimit(2)
+            }
+            if let error = vm.speechServer.lastError {
+                errorText(error)
+            }
+            HStack {
+                if vm.speechServer.isRunning {
+                    Button(L("停止辨識伺服器")) { vm.speechServer.stop() }
+                        .font(.caption)
+                        .foregroundColor(NV.danger)
+                } else {
+                    Button(L("啟動辨識伺服器")) { vm.speechServer.start() }
+                        .font(.caption)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var photoServerStatus: some View {
+        if vm.hqRole == .peer {
+            if let status = vm.peerClient.serverStatus {
+                statusRow(isRunning: status.photoServerRunning,
+                          runningText: L("運行中 (port 8014)"),
+                          stoppedText: L("已停止"),
+                          trailingText: L("已收 %lld 張", status.photoReceivedCount))
+            } else {
+                statusRow(isRunning: false,
+                          runningText: L("已同步"),
+                          stoppedText: L("尚未收到主 HQ 狀態"))
+            }
+        } else {
+            statusRow(isRunning: vm.photoServer.isRunning,
+                      runningText: L("運行中 (port 8014)"),
+                      stoppedText: L("已停止"),
+                      trailingText: L("已收 %lld 張", vm.photoServer.receivedCount))
+            if let error = vm.photoServer.lastError {
+                errorText(error)
+            }
+            HStack {
+                if vm.photoServer.isRunning {
+                    Button(L("停止照片伺服器")) { vm.photoServer.stop() }
+                        .font(.caption)
+                        .foregroundColor(NV.danger)
+                } else {
+                    Button(L("啟動照片伺服器")) { vm.photoServer.start() }
+                        .font(.caption)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var backendConnectionStatus: some View {
+        if vm.hqRole == .peer {
+            if let status = vm.peerClient.serverStatus {
+                statusRow(isRunning: status.backendConnected,
+                          runningText: L("已連線 %@", status.backendHost),
+                          stoppedText: L("未連線"))
+            } else {
+                statusRow(isRunning: false,
+                          runningText: L("已同步"),
+                          stoppedText: L("尚未收到主 HQ 狀態"))
+            }
+        } else if backendMode == .embedded {
+            embeddedBackendStatus
+        } else if backendMode == .remote {
+            remoteBackendStatus
+        } else {
+            bonjourBackendStatus
+        }
+    }
+
+    private var embeddedBackendStatus: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            statusRow(isRunning: vm.isBackendConnected,
+                      runningText: L("此 Mac 內建後端 127.0.0.1"),
+                      stoppedText: L("此 Mac 後端啟動中"))
+            HStack(spacing: 8) {
+                Button(L("啟動本機後端")) {
+                    vm.ensureMacLocalBackend()
+                }
+                .font(.caption)
+                if let onOpenBackendServices {
+                    Button(L("查看服務")) {
+                        onOpenBackendServices()
+                    }
+                    .font(.caption)
+                }
+            }
+            if let error = vm.backendBridge.lastError {
+                errorText(error)
+            }
+        }
+    }
+
+    private var remoteBackendStatus: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            backendBridgeStatusRow
+            HStack {
+                Text(L("遠端主機:"))
+                TextField("192.168.1.10", text: $remoteHost)
+                    .textFieldStyle(.roundedBorder)
+                if vm.backendBridge.isConnected {
+                    Button(L("斷開連線")) {
+                        vm.backendBridge.disconnect()
+                    }
+                    .font(.caption)
+                    .foregroundColor(NV.danger)
+                } else {
+                    Button(L("連接")) { applyBackendMode() }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(remoteHost.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+            if let error = vm.backendBridge.lastError {
+                errorText(error)
+            }
+        }
+    }
+
+    private var bonjourBackendStatus: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            backendBridgeStatusRow
+            if !vm.backendBridge.isDiscovering {
+                TextField(L("後台 IP（手動）"), text: $legacyBackendHost)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.caption)
+            }
+            HStack(spacing: 8) {
+                if vm.backendBridge.isConnected {
+                    Button(L("斷開連線")) {
+                        vm.backendBridge.disconnect()
+                    }
+                    .font(.caption)
+                    .foregroundColor(NV.danger)
+                } else {
+                    Button(L("自動搜尋")) {
+                        vm.backendBridge.startAutoDiscovery()
+                    }
+                    .font(.caption)
+                    .disabled(vm.backendBridge.isDiscovering)
+                    if !legacyBackendHost.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        Button(L("手動連線")) {
+                            let host = legacyBackendHost.trimmingCharacters(in: .whitespacesAndNewlines)
+                            vm.backendBridge.connect(host: host)
+                        }
+                        .font(.caption)
+                    }
+                }
+            }
+            if let error = vm.backendBridge.lastError {
+                errorText(error)
+            }
+        }
+    }
+
+    private var backendBridgeStatusRow: some View {
+        HStack(spacing: 6) {
+            if vm.backendBridge.isDiscovering {
+                ProgressView().scaleEffect(0.7)
+            } else {
+                Circle()
+                    .fill(vm.backendBridge.isConnected ? NV.green : Color.gray)
+                    .frame(width: 8, height: 8)
+            }
+            Text(vm.backendBridge.isDiscovering ? L("Bonjour 搜尋中...") :
+                 vm.backendBridge.isConnected ? L("已連線 %@", vm.backendBridge.backendHost) : L("未連線"))
+                .font(.caption)
+                .foregroundColor(vm.backendBridge.isDiscovering ? .orange :
+                                 vm.backendBridge.isConnected ? NV.green : .secondary)
+            Spacer()
+        }
+    }
+
+    private var aiSection: some View {
+        section(L("AI 決策")) {
+            Picker(L("全域決策模式"), selection: $aiModeGlobal) {
+                Text(L("自動 (Auto)")).tag("auto")
+                Text(L("手動 (Manual)")).tag("manual")
+                Text(L("鎖定 (Locked)")).tag("locked")
+            }
+            .pickerStyle(.segmented)
+
+            Picker(L("模型大小"), selection: $aiModelProfileRaw) {
+                ForEach(LocalAIModelProfile.allCases) { profile in
+                    Text(profile.displayName).tag(profile.rawValue)
+                }
+            }
+            .pickerStyle(.menu)
+
+            Text(aiModelProfile.summary)
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            #if os(macOS)
+            HStack {
+                Button {
+                    supervisor.applyStoredAIModelProfile(restartIfRunning: true)
+                } label: {
+                    Label(L("套用並重啟 AI"), systemImage: "arrow.triangle.2.circlepath")
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(backendMode != .embedded || supervisor.isAIServicePaused)
+
+                Spacer()
+
+                Text("\(aiModelProfile.runtimeModel) · \(aiModelProfile.parallelWorkers) worker")
+                    .font(.caption.monospaced())
+                    .foregroundColor(.secondary)
+            }
+
+            aiPowerSavingControl
+            #endif
+
+            Text(L("Auto = AI 直接派發 / Manual = AI 提案、需人員核可 / Locked = 不允許 AI 介入。"))
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+    }
+
+    private var aiPowerSavingControl: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: "leaf.fill")
+                    .foregroundColor(supervisor.isAIServicePaused ? .secondary : NV.warning)
+                    .frame(width: 18)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(L("省電模式"))
+                        .font(.subheadline.bold())
+                    Text(supervisor.isAIServicePaused ? L("AI服務暫停") : L("AI 服務運行中"))
+                        .font(.caption)
+                        .foregroundColor(supervisor.isAIServicePaused ? .secondary : NV.green)
+                }
+                Spacer()
+                Button {
+                    supervisor.setManualAIPowerSavingMode(!supervisor.isManualAIPowerSavingModeEnabled)
+                } label: {
+                    Label(supervisor.isManualAIPowerSavingModeEnabled ? L("關閉省電模式") : L("啟用省電模式"),
+                          systemImage: supervisor.isManualAIPowerSavingModeEnabled ? "play.fill" : "pause.fill")
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(backendMode != .embedded && !supervisor.isManualAIPowerSavingModeEnabled)
+            }
+            Text(L("啟用後會停止 Gemma4 AI，手機 AI 頁面會灰階顯示。"))
+                .font(.caption)
+                .foregroundColor(.secondary)
+            if let reason = supervisor.aiServicePauseReason, !reason.isEmpty {
+                Text(L(reason))
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .padding(.top, 4)
+    }
+
+    private var voiceSection: some View {
+        section(L("語音轉錄")) {
+            Picker(L("辨識引擎"), selection: $voiceEngine) {
+                Text(L("WhisperKit (此 Mac)")).tag("whisperkit")
+                Text(L("Python whisper_server")).tag("python")
+            }
+            .pickerStyle(.segmented)
+            Picker(L("模型大小"), selection: $voiceModelSize) {
+                Text("large-v3").tag("large-v3")
+                Text("medium").tag("medium")
+                Text("base").tag("base")
+            }
+            Text(L("WhisperKit 在 Apple Silicon 上有 Metal 加速;Python 引擎使用 CPU + int8。"))
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+    }
+
+    private var storageSection: some View {
+        section(L("儲存")) {
+            #if os(macOS)
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 10) {
+                    Text(L("資料夾:"))
+                    Text(supervisor.backendDir.path)
+                        .font(.caption.monospaced())
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    if supervisor.isUsingCustomBackendDir {
+                        Text(L("自訂位置"))
+                            .font(.caption2.bold())
+                            .foregroundColor(NV.info)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(NV.info.opacity(0.12))
+                            .clipShape(Capsule())
+                    }
+                    Spacer()
+                }
+
+                HStack(spacing: 10) {
+                    Button {
+                        chooseBackendDirectory()
+                    } label: {
+                        Label(L("更改位置"), systemImage: "folder.badge.gearshape")
+                    }
+                    .buttonStyle(.borderedProminent)
+
+                    Button {
+                        supervisor.resetBackendDirOverride()
+                        setStorageLocationMessage(L("已重設為預設位置"))
+                    } label: {
+                        Label(L("重設預設"), systemImage: "arrow.counterclockwise")
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(!supervisor.isUsingCustomBackendDir)
+
+                    Button {
+                        NSWorkspace.shared.open(supervisor.backendDir)
+                    } label: {
+                        Label(L("在 Finder 開啟"), systemImage: "folder")
+                    }
+                    .buttonStyle(.bordered)
+                }
+
+                if let storageLocationMessage {
+                    Text(storageLocationMessage)
+                        .font(.caption)
+                        .foregroundColor(storageLocationMessageIsError ? NV.danger : .secondary)
+                        .lineLimit(2)
+                }
+
+                Divider()
+
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 10) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundColor(NV.danger)
+                            .frame(width: 20)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(L("完全重置"))
+                                .font(.subheadline.bold())
+                            Text(L("清除本機持久化資料與設定，回到首次啟動狀態。"))
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        Spacer()
+                        Button(role: .destructive) {
+                            resetConfirmationPresented = true
+                        } label: {
+                            Label(L("完全重置"), systemImage: "trash.slash.fill")
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
+                }
+            }
+            #else
+            Text(L("此區塊僅於 macOS 主機可用。"))
+                .foregroundColor(.secondary)
+            #endif
+        }
+    }
+
+    // MARK: - Helpers
+
+    private func section<Content: View>(_ title: String,
+                                         @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(title)
+                .font(.headline)
+                .foregroundColor(NV.green)
+            VStack(alignment: .leading, spacing: 12) {
+                content()
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .hqPanelChrome(accent: NV.green)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func statusSubsectionHeader(_ title: String, icon: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .foregroundColor(NV.green)
+                .frame(width: 18)
+            Text(title)
+                .font(.subheadline.bold())
+            Spacer()
+        }
+    }
+
+    private func manualFormatRow(title: String, subtitle: String, example: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 8) {
+                Text(title)
+                    .font(.subheadline.bold())
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                Spacer()
+            }
+            Text(example)
+                .font(.caption.monospaced())
+                .foregroundColor(.secondary)
+                .textSelection(.enabled)
+        }
+    }
+
+    private func manualCodeRow(_ title: String, _ codes: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(.caption.bold())
+            Text(codes)
+                .font(.caption2.monospaced())
+                .foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .textSelection(.enabled)
+        }
+    }
+
+    private func manualDetailRow(_ title: String, _ detail: String, monospaced: Bool = false) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(L(title))
+                .font(.caption.bold())
+            Text(L(detail))
+                .font(monospaced ? .caption2.monospaced() : .caption)
+                .foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .textSelection(.enabled)
+        }
+    }
+
+    private func statusRow(isRunning: Bool,
+                           runningText: String,
+                           stoppedText: String,
+                           trailingText: String? = nil) -> some View {
+        HStack(spacing: 6) {
+            Circle()
+                .fill(isRunning ? NV.green : Color.gray)
+                .frame(width: 8, height: 8)
+            Text(isRunning ? runningText : stoppedText)
+                .font(.caption)
+                .foregroundColor(isRunning ? NV.green : .secondary)
+            Spacer()
+            if let trailingText {
+                Text(trailingText)
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
+        }
+    }
+
+    private func errorText(_ message: String) -> some View {
+        Text(message)
+            .font(.caption2)
+            .foregroundColor(NV.danger)
+            .lineLimit(2)
+    }
+
+    private func chooseBackendDirectory() {
+        let panel = NSOpenPanel()
+        panel.title = L("選擇後端資料夾")
+        panel.message = L("請選擇包含 LinkGuard 後端 Python 腳本的資料夾。")
+        panel.prompt = L("選擇")
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.canCreateDirectories = true
+        panel.directoryURL = supervisor.backendDir
+
+        guard panel.runModal() == .OK, let selectedURL = panel.url else { return }
+        guard BackendSupervisor.isUsableBackendDir(selectedURL) else {
+            setStorageLocationMessage(L("選擇的資料夾缺少必要後端檔案。"), isError: true)
+            return
+        }
+
+        supervisor.setBackendDirOverride(selectedURL)
+        setStorageLocationMessage(L("位置已更新。"))
+    }
+
+    private func setStorageLocationMessage(_ message: String, isError: Bool = false) {
+        storageLocationMessage = message
+        storageLocationMessageIsError = isError
+    }
+
+    private func performCompleteReset() {
+        #if os(macOS)
+        supervisor.stopAll()
+        vm.resetAllLocalData()
+
+        let fm = FileManager.default
+        let backendDataNames = ["data", "logs", "photos", "reports", "replay"]
+        for name in backendDataNames {
+            let url = supervisor.backendDir.appendingPathComponent(name, isDirectory: true)
+            if fm.fileExists(atPath: url.path) {
+                try? fm.removeItem(at: url)
+            }
+        }
+
+        if let docs = fm.urls(for: .documentDirectory, in: .userDomainMask).first {
+            let linkGuardData = docs.appendingPathComponent("LinkGuardData", isDirectory: true)
+            if fm.fileExists(atPath: linkGuardData.path) {
+                try? fm.removeItem(at: linkGuardData)
+            }
+        }
+
+        if let bundleID = Bundle.main.bundleIdentifier {
+            UserDefaults.standard.removePersistentDomain(forName: bundleID)
+        }
+        UserDefaults.standard.synchronize()
+
+        appColorScheme = "dark"
+        uiScale = 1.0
+        navigationPlacementRaw = HQNavigationPlacement.left.rawValue
+        backendModeRaw = BackendMode.embedded.rawValue
+        remoteHost = ""
+        legacyBackendHost = "127.0.0.1"
+        aiModeGlobal = "auto"
+        aiModelProfileRaw = LocalAIModelProfile.singleE4B.rawValue
+        voiceEngine = "whisperkit"
+        voiceModelSize = "large-v3"
+        statusUpdateNotificationsEnabled = true
+        statusSoundEnabled = true
+        statusFlashEnabled = true
+        splitEnabled = false
+        splitSecondSectionRaw = HQSection.chat.rawValue
+        externalDisplayEnabled = true
+        externalDisplayScale = 1.0
+        l10n.language = "zh-Hant"
+        supervisor.resetBackendDirOverride()
+        setStorageLocationMessage(L("已完成完全重置。"))
+        #endif
+    }
+
+    /// React to backend-mode change: tell HQBackendBridge where to connect.
+    private func applyBackendMode() {
+        switch backendMode {
+        case .embedded:
+            #if os(macOS)
+            vm.ensureMacLocalBackend()
+            legacyBackendHost = "127.0.0.1"
+            #endif
+        case .remote:
+            let host = remoteHost.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !host.isEmpty else { return }
+            #if os(macOS)
+            supervisor.stopAll()
+            #endif
+            vm.backendBridge.connect(host: host, port: 9000)
+            legacyBackendHost = host
+        case .bonjour:
+            #if os(macOS)
+            supervisor.stopAll()
+            #endif
+            // Existing NWBrowser logic in HQBackendBridge will be triggered by
+            // HQViewModel during `startServer()`. Nothing else to do here.
+            legacyBackendHost = ""
+        }
+    }
+}
+
+#else
+
+struct HQSettingsView: View {
+    @ObservedObject var vm: HQViewModel
+    var body: some View {
+        Text(L("設定僅 macOS 支援")).foregroundColor(.secondary)
+    }
+}
+
+#endif
+
