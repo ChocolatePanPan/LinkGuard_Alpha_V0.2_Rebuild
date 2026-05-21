@@ -4,6 +4,7 @@ import LinkGuardV03Core
 public enum FieldAppError: Error, Equatable, Sendable {
     case missingGPSFix
     case featureUnavailable(appID: LinkGuardAppID, feature: LinkGuardFeature)
+    case localCacheUnavailable
 }
 
 public struct FieldOperationalContext: Codable, Hashable, Sendable {
@@ -130,10 +131,14 @@ public struct FieldInboxItem: Codable, Hashable, Sendable, Identifiable {
 public struct FieldAppController: Sendable {
     public var runtime: LinkGuardAppRuntime
     public private(set) var localCache: LocalOperationCache
+    public private(set) var localCacheStore: FileBackedLocalOperationCacheStore?
     public private(set) var mapLayer: MapLayerState
     public var context: FieldOperationalContext
     public private(set) var latestGPSFix: GPSFix?
     public private(set) var queuedSummaries: [FieldQueuedEnvelopeSummary]
+    public private(set) var lastPersistenceError: String?
+    public private(set) var lastSyncResult: OfflineSyncResult?
+    public private(set) var lastSyncError: String?
 
     public init(
         appID: LinkGuardAppID,
@@ -141,23 +146,106 @@ public struct FieldAppController: Sendable {
         deviceID: LinkGuardID,
         displayName: String,
         context: FieldOperationalContext? = nil,
+        initialGPSFix: GPSFix? = nil,
+        localCacheStore: FileBackedLocalOperationCacheStore? = nil,
         now: Date = Date()
     ) {
         let device = DeviceIdentity(id: deviceID, appID: appID, platform: platform, displayName: displayName)
-        self.runtime = LinkGuardAppRuntime(device: device)
-        self.localCache = LocalOperationCache(connectivity: .offline)
+        let loadedCache: LocalOperationCache
+        let loadError: String?
+        if let localCacheStore {
+            do {
+                loadedCache = try localCacheStore.load(default: LocalOperationCache(connectivity: .offline))
+                loadError = nil
+            } catch {
+                loadedCache = LocalOperationCache(connectivity: .offline)
+                loadError = String(describing: error)
+            }
+        } else {
+            loadedCache = LocalOperationCache(connectivity: .offline)
+            loadError = nil
+        }
+
+        self.runtime = LinkGuardAppRuntime(device: device, outboundQueue: loadedCache.outboundQueue)
+        self.localCache = loadedCache
+        self.localCacheStore = localCacheStore
         self.mapLayer = MapLayerState()
         self.context = context ?? .fieldDefault(for: device)
         self.latestGPSFix = nil
-        self.queuedSummaries = []
-        recordGPSFix(
-            GPSFix(
-                coordinate: GeoCoordinate(latitude: 25.033, longitude: 121.565, accuracyMeters: 8),
-                source: .manual,
-                capturedAt: now
-            )
-        )
+        self.queuedSummaries = Self.queuedSummaries(from: loadedCache)
+        self.lastPersistenceError = loadError
+        self.lastSyncResult = nil
+        self.lastSyncError = nil
+        if let initialGPSFix {
+            recordGPSFix(initialGPSFix)
+        }
         seedMissionState(now: now)
+    }
+
+    public static func defaultLocalCacheStore(appID: LinkGuardAppID, deviceID: LinkGuardID) -> FileBackedLocalOperationCacheStore? {
+        guard let cacheURL = defaultLocalCacheURL(appID: appID, deviceID: deviceID) else { return nil }
+        return FileBackedLocalOperationCacheStore(fileURL: cacheURL)
+    }
+
+    public static func defaultLocalCacheURL(appID: LinkGuardAppID, deviceID: LinkGuardID) -> URL? {
+        guard let supportURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
+            return nil
+        }
+        return supportURL
+            .appendingPathComponent("LinkGuardV03", isDirectory: true)
+            .appendingPathComponent(safePathComponent(appID.rawValue), isDirectory: true)
+            .appendingPathComponent(safePathComponent(deviceID.rawValue), isDirectory: true)
+            .appendingPathComponent("local-cache.json")
+    }
+
+    private static func safePathComponent(_ rawValue: String) -> String {
+        let allowedScalars = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_."))
+        let component = rawValue.unicodeScalars.map { scalar in
+            allowedScalars.contains(scalar) ? String(scalar) : "_"
+        }.joined()
+        return component.isEmpty ? "unknown" : component
+    }
+
+    @discardableResult
+    public mutating func syncQueuedEnvelopes(
+        endpointURL: URL,
+        bearerToken: String? = nil,
+        connectivity: ConnectivityState = .online,
+        policy: BackgroundSyncPolicy = BackgroundSyncPolicy(),
+        now: Date = Date()
+    ) async throws -> OfflineSyncResult {
+        let transport = HTTPEnvelopeTransport(endpointURL: endpointURL, bearerToken: bearerToken)
+        return try await syncQueuedEnvelopes(transport: transport, connectivity: connectivity, policy: policy, now: now)
+    }
+
+    @discardableResult
+    public mutating func syncQueuedEnvelopes<Transport: SyncTransportClient>(
+        transport: Transport,
+        connectivity: ConnectivityState = .online,
+        policy: BackgroundSyncPolicy = BackgroundSyncPolicy(),
+        now: Date = Date()
+    ) async throws -> OfflineSyncResult {
+        guard let localCacheStore else {
+            lastSyncError = "local cache unavailable"
+            throw FieldAppError.localCacheUnavailable
+        }
+        let coordinator = OfflineSyncCoordinator(
+            store: localCacheStore,
+            transport: transport,
+            device: runtime.device,
+            policy: policy
+        )
+        do {
+            let result = try await coordinator.flushPending(connectivity: connectivity, trigger: .manualRetry, now: now)
+            refreshLocalCacheFromStore()
+            lastSyncResult = result
+            lastSyncError = nil
+            return result
+        } catch {
+            refreshLocalCacheFromStore()
+            lastSyncError = String(describing: error)
+            throw error
+        }
     }
 
     public var profile: RoleProfile { runtime.profile }
@@ -863,12 +951,46 @@ public struct FieldAppController: Sendable {
         try? runtime.receive(envelope)
         localCache.queue(envelope, at: date)
         runtime.queueOutbound(envelope, queuedAt: date)
-        queuedSummaries.insert(FieldQueuedEnvelopeSummary(envelope: envelope), at: 0)
-        queuedSummaries = Array(queuedSummaries.prefix(8))
+        persistLocalCache(at: date)
+        queuedSummaries = Self.queuedSummaries(from: localCache)
         return envelope
     }
 
+    private mutating func persistLocalCache(at date: Date) {
+        guard let localCacheStore else { return }
+        do {
+            localCache = try localCacheStore.save(localCache, at: date)
+            runtime.replaceOutboundQueue(localCache.outboundQueue)
+            queuedSummaries = Self.queuedSummaries(from: localCache)
+            lastPersistenceError = nil
+        } catch {
+            lastPersistenceError = String(describing: error)
+        }
+    }
+
+    private mutating func refreshLocalCacheFromStore() {
+        guard let localCacheStore else { return }
+        do {
+            localCache = try localCacheStore.load(default: localCache)
+            runtime.replaceOutboundQueue(localCache.outboundQueue)
+            queuedSummaries = Self.queuedSummaries(from: localCache)
+            lastPersistenceError = nil
+        } catch {
+            lastPersistenceError = String(describing: error)
+        }
+    }
+
+    private static func queuedSummaries(from cache: LocalOperationCache) -> [FieldQueuedEnvelopeSummary] {
+        cache.outboundQueue.entries
+            .filter { entry in
+                entry.state == .queued || entry.state == .failed || entry.state == .sending
+            }
+            .prefix(8)
+            .map { FieldQueuedEnvelopeSummary(envelope: $0.envelope) }
+    }
+
     private mutating func queuePersonnelLocation(state: PersonnelOperationalState, note: String?, now: Date) throws -> SyncEnvelope {
+        let coordinate = try currentCoordinate()
         let report = PersonnelStatusReport(
             id: LinkGuardID("GPS-\(runtime.device.id.rawValue)"),
             incidentID: context.incidentID,
@@ -878,7 +1000,7 @@ public struct FieldAppController: Sendable {
             role: defaultRole,
             operationalState: state,
             connectivity: .online,
-            location: latestGPSFix?.coordinate,
+            location: coordinate,
             currentSectorID: context.sectorID,
             currentSubSectorID: context.subSectorID,
             currentWorksiteID: context.worksiteID,

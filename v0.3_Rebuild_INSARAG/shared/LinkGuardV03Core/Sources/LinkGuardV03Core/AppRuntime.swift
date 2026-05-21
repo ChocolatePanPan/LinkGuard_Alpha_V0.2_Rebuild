@@ -146,6 +146,10 @@ public struct LinkGuardAppRuntime: Codable, Sendable {
         outboundQueue.markFailed(messageID: messageID, error: error)
     }
 
+    public mutating func replaceOutboundQueue(_ outboundQueue: OfflineQueue) {
+        self.outboundQueue = outboundQueue
+    }
+
     public var pendingOutboundCount: Int {
         outboundQueue.entries.filter { $0.state == .queued || $0.state == .failed }.count
     }

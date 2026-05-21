@@ -2,6 +2,23 @@
 
 此表是 `LinkGuardFeatureAccessMatrix` 的產品規則來源。`●` 代表主要操作權限，`○` 代表部分權限或查看權限，`✕` 代表不提供該功能，以降低端上介面複雜度與誤操作風險。
 
+## ICS 組織對照（LinkGuard-E）
+
+| ICS 部門 | 中文說法 | 主要工作 | 對 LinkGuard-E 的對應 |
+| --- | --- | --- | --- |
+| Incident Commander | 事故指揮官 | 統一指揮、設定目標、核准行動計畫 | 消防指揮官／現場總指揮 |
+| Command Staff | 指揮幕僚 | 安全、媒體、跨單位聯絡 | 系統管理、對外通報、安全提醒 |
+| Operations Section | 作業組 | 執行現場搜救與戰術任務 | 搜救員終端、任務分派、受困者救援 |
+| Planning Section | 計畫組 | 蒐集資料、判斷災情、建立行動計畫 | AI 分析、受困者排序、災情地圖 |
+| Logistics Section | 後勤組 | 通訊、設備、補給、交通、醫療支援 | LoRa 節點、NFC 傷票、設備電量、通訊維護 |
+| Finance/Admin Section | 財務／行政組 | 成本、採購、工時、文件紀錄 | 系統紀錄、任務歷程、災後報告 |
+
+這份 ICS 對照是角色與功能矩陣的上位原則：
+
+- UCC 主要承接 Incident Commander、Command Staff、Planning 與跨區 Logistics 決策。
+- SCC 主要承接 Operations 與現場 Logistics 執行。
+- 任務、紀錄、AAR 報告需可回溯到對應 ICS 部門，避免責任與資料斷鏈。
+
 ## UCC / SCC 正式基準
 
 以下矩陣是 UCC/SCC 的正式基準（source of truth），對應 shared core 的 `UCCSCCCapabilityMatrix` 與 `LinkGuardFeatureAccessMatrix`。若與下方舊版跨角色表有差異，應以此段為準。

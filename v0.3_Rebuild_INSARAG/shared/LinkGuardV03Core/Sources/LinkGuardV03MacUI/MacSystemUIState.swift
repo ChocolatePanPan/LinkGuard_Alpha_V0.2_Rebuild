@@ -3,6 +3,7 @@ import LinkGuardV03Core
 
 public enum MacSystemUIError: Error, Equatable, Sendable {
     case unsupportedApp(LinkGuardAppID)
+    case unsupportedPlatform(AppPlatform)
 }
 
 public struct MacNavigationItem: Identifiable, Hashable, Sendable {
@@ -111,8 +112,95 @@ public struct MacTransportRouteSummary: Identifiable, Hashable, Sendable {
     }
 }
 
+public struct MacICSSectionLane: Identifiable, Hashable, Sendable {
+    public var id: String { section.rawValue }
+    public var section: ICSSection
+    public var title: String
+    public var roleInUCC: String
+    public var primaryPositions: [ICSPosition]
+    public var primaryPermissions: [LinkGuardPermission]
+    public var authorityBoundary: String
+    public var systemImageName: String
+
+    public init(
+        section: ICSSection,
+        title: String,
+        roleInUCC: String,
+        primaryPositions: [ICSPosition],
+        primaryPermissions: [LinkGuardPermission],
+        authorityBoundary: String,
+        systemImageName: String
+    ) {
+        self.section = section
+        self.title = title
+        self.roleInUCC = roleInUCC
+        self.primaryPositions = primaryPositions
+        self.primaryPermissions = primaryPermissions
+        self.authorityBoundary = authorityBoundary
+        self.systemImageName = systemImageName
+    }
+}
+
+public struct MacICSBoundaryRule: Identifiable, Hashable, Sendable {
+    public var id: String
+    public var title: String
+    public var detail: String
+
+    public init(id: String, title: String, detail: String) {
+        self.id = id
+        self.title = title
+        self.detail = detail
+    }
+}
+
+public struct MacUCCICSArchitecture: Identifiable, Hashable, Sendable {
+    public var id: String { "ucc-ics-architecture" }
+    public var title: String
+    public var commandAuthority: CommandAuthorityLevel
+    public var coordinationRole: String
+    public var lanes: [MacICSSectionLane]
+    public var boundaryRules: [MacICSBoundaryRule]
+
+    public init(
+        title: String,
+        commandAuthority: CommandAuthorityLevel,
+        coordinationRole: String,
+        lanes: [MacICSSectionLane],
+        boundaryRules: [MacICSBoundaryRule]
+    ) {
+        self.title = title
+        self.commandAuthority = commandAuthority
+        self.coordinationRole = coordinationRole
+        self.lanes = lanes
+        self.boundaryRules = boundaryRules
+    }
+}
+
+public struct MacSOSAlertItem: Identifiable, Hashable, Sendable {
+    public var id: LinkGuardID
+    public var dangerType: SOSDangerType
+    public var reporterDeviceID: LinkGuardID
+    public var reporterAppID: LinkGuardAppID
+    public var location: GeoCoordinate
+    public var status: SOSStatus
+    public var createdAt: Date
+    public var note: String?
+
+    public init(report: SOSReport) {
+        self.id = report.id
+        self.dangerType = report.dangerType
+        self.reporterDeviceID = report.reporterDeviceID
+        self.reporterAppID = report.reporterAppID
+        self.location = report.location
+        self.status = report.status
+        self.createdAt = report.createdAt
+        self.note = report.note
+    }
+}
+
 public struct MacSystemUIState: Sendable {
     public var runtime: LinkGuardAppRuntime
+    public var loginSession: LoginSession?
     public var settingsInfo: LinkGuardAppSettingsInfo
     public var navigationItems: [MacNavigationItem]
     public var metrics: [MacMetricTile]
@@ -120,18 +208,22 @@ public struct MacSystemUIState: Sendable {
     public var quickActions: [MacQuickAction]
     public var transportRoutes: [MacTransportRouteSummary]
     public var teamCapabilityReports: [USARTeamCapabilityReport]
+    public var uccICSArchitecture: MacUCCICSArchitecture?
 
     public init(
         runtime: LinkGuardAppRuntime,
+        loginSession: LoginSession? = nil,
         settingsInfo: LinkGuardAppSettingsInfo,
         navigationItems: [MacNavigationItem],
         metrics: [MacMetricTile],
         inheritedModules: [MacInheritedModule],
         quickActions: [MacQuickAction],
         transportRoutes: [MacTransportRouteSummary],
-        teamCapabilityReports: [USARTeamCapabilityReport]
+        teamCapabilityReports: [USARTeamCapabilityReport],
+        uccICSArchitecture: MacUCCICSArchitecture? = nil
     ) {
         self.runtime = runtime
+        self.loginSession = loginSession
         self.settingsInfo = settingsInfo
         self.navigationItems = navigationItems
         self.metrics = metrics
@@ -139,12 +231,57 @@ public struct MacSystemUIState: Sendable {
         self.quickActions = quickActions
         self.transportRoutes = transportRoutes
         self.teamCapabilityReports = teamCapabilityReports
+        self.uccICSArchitecture = uccICSArchitecture
     }
 
     public var title: String { runtime.device.appID.rawValue }
     public var subtitle: String { "\(runtime.profile.displayName) / \(runtime.profile.commandAuthority.macDisplayName)" }
     public var versionInfo: LinkGuardVersionInfo { settingsInfo.versionInfo }
     public var settingsItems: [LinkGuardAppSettingsItem] { settingsInfo.items }
+    public var sosAlertItems: [MacSOSAlertItem] {
+        runtime.snapshot.sosReports.values
+            .sorted { $0.createdAt > $1.createdAt }
+            .map(MacSOSAlertItem.init(report:))
+    }
+
+    @discardableResult
+    public mutating func receive(_ batch: SyncTransportBatch, receivedAt: Date = Date()) -> SyncTransportResponse {
+        receive(batch.envelopes, receivedAt: receivedAt)
+    }
+
+    @discardableResult
+    public mutating func receive(_ envelopes: [SyncEnvelope], receivedAt: Date = Date()) -> SyncTransportResponse {
+        let receipts = envelopes.map { envelope in
+            let route = TransportTopology.route(for: envelope)
+            guard route.allowedRecipientApps.contains(runtime.device.appID) else {
+                return SyncTransportReceipt(
+                    envelopeID: envelope.id,
+                    accepted: false,
+                    receivedAt: receivedAt,
+                    error: "message is not routed to \(runtime.device.appID.rawValue)"
+                )
+            }
+
+            do {
+                try runtime.receive(envelope)
+                return SyncTransportReceipt(envelopeID: envelope.id, accepted: true, receivedAt: receivedAt)
+            } catch {
+                return SyncTransportReceipt(
+                    envelopeID: envelope.id,
+                    accepted: false,
+                    receivedAt: receivedAt,
+                    error: String(describing: error)
+                )
+            }
+        }
+        refreshDerivedState()
+        return SyncTransportResponse(receipts: receipts)
+    }
+
+    private mutating func refreshDerivedState() {
+        guard let refreshed = try? MacSystemUIFactory.makeState(for: runtime, versionInfo: versionInfo) else { return }
+        self = refreshed
+    }
 }
 
 public enum MacSystemUIFactory {
@@ -199,8 +336,97 @@ public enum MacSystemUIFactory {
             inheritedModules: sections.map { module(for: $0, runtime: runtime) },
             quickActions: quickActions(for: runtime),
             transportRoutes: transportRoutes(for: runtime),
-            teamCapabilityReports: teamCapabilityReports(for: runtime.snapshot)
+            teamCapabilityReports: teamCapabilityReports(for: runtime.snapshot),
+            uccICSArchitecture: uccICSArchitecture(for: runtime, sections: sections)
         )
+    }
+
+    public static func makeAuthenticatedState(
+        session: LoginSession,
+        snapshot: OperationSnapshot = OperationSnapshot(),
+        versionInfo: LinkGuardVersionInfo = .current
+    ) throws -> MacSystemUIState {
+        guard supportedMacApps.contains(session.device.appID) else {
+            throw MacSystemUIError.unsupportedApp(session.device.appID)
+        }
+        guard session.device.platform == .mac else {
+            throw MacSystemUIError.unsupportedPlatform(session.device.platform)
+        }
+
+        let runtime = LinkGuardAppRuntime(device: session.device, snapshot: snapshot)
+        let baseState = try makeState(for: runtime, versionInfo: versionInfo)
+        return applySessionConstraints(baseState, session: session)
+    }
+
+    public static func loginAndMakeState(
+        directory: inout AccountDirectory,
+        identifier: String,
+        credentialDigest: String,
+        appID: LinkGuardAppID,
+        deviceID: LinkGuardID,
+        displayName: String? = nil,
+        issuedAt: Date,
+        expiresAt: Date? = nil,
+        sessionID: LinkGuardID = .generated(prefix: "SESSION"),
+        snapshot: OperationSnapshot = OperationSnapshot(),
+        versionInfo: LinkGuardVersionInfo = .current
+    ) throws -> (session: LoginSession, state: MacSystemUIState) {
+        guard supportedMacApps.contains(appID) else {
+            throw MacSystemUIError.unsupportedApp(appID)
+        }
+
+        let device = DeviceIdentity(
+            id: deviceID,
+            appID: appID,
+            platform: .mac,
+            displayName: displayName ?? appID.rawValue
+        )
+
+        let session = try directory.login(
+            identifier: identifier,
+            credentialDigest: credentialDigest,
+            device: device,
+            issuedAt: issuedAt,
+            expiresAt: expiresAt,
+            sessionID: sessionID
+        )
+
+        let state = try makeAuthenticatedState(session: session, snapshot: snapshot, versionInfo: versionInfo)
+        return (session: session, state: state)
+    }
+
+    private static func applySessionConstraints(_ state: MacSystemUIState, session: LoginSession) -> MacSystemUIState {
+        var constrained = state
+        constrained.loginSession = session
+
+        constrained.inheritedModules = constrained.inheritedModules.map { module in
+            var copy = module
+            copy.enabledPermissions = module.enabledPermissions.filter { session.permissions.contains($0) }
+            return copy
+        }
+
+        constrained.quickActions = constrained.quickActions.map { action in
+            var copy = action
+            let hasActionPermission = session.permissions.contains(action.permission)
+            let hasMessagePermission: Bool
+            if let messageType = action.messageType, let required = AppLogicGate.requiredPermission(for: messageType) {
+                hasMessagePermission = session.permissions.contains(required)
+            } else {
+                hasMessagePermission = true
+            }
+            copy.isEnabled = copy.isEnabled && hasActionPermission && hasMessagePermission
+            return copy
+        }
+
+        constrained.transportRoutes = constrained.transportRoutes.map { route in
+            var copy = route
+            if let required = AppLogicGate.requiredPermission(for: route.messageType), session.permissions.contains(required) == false {
+                copy.canSend = false
+            }
+            return copy
+        }
+
+        return constrained
     }
 
     private static func orderedSections(for runtime: LinkGuardAppRuntime) -> [ICSSection] {
@@ -219,7 +445,7 @@ public enum MacSystemUIFactory {
             MacMetricTile(id: "worksites", title: "分區工址", value: String(snapshot.worksites.count), systemImageName: "map.fill", accentName: "orange"),
             MacMetricTile(id: "tasks", title: "進行任務", value: String(openTaskCount(in: snapshot)), systemImageName: "checklist", accentName: "green"),
             MacMetricTile(id: "team-capability", title: "隊伍概況", value: String(snapshot.teamCapabilityReports.count), systemImageName: "person.3.sequence.fill", accentName: "teal"),
-            MacMetricTile(id: "alerts", title: "緊急警報", value: String(snapshot.alerts.count), systemImageName: "exclamationmark.triangle.fill", accentName: "red"),
+            MacMetricTile(id: "alerts", title: "緊急警報", value: String(snapshot.alerts.count + snapshot.sosReports.count), systemImageName: "exclamationmark.triangle.fill", accentName: "red"),
             MacMetricTile(id: "queue", title: "同步佇列", value: String(runtime.outboundQueue.entries.count), systemImageName: "arrow.up.arrow.down", accentName: "purple")
         ]
 
@@ -304,6 +530,45 @@ public enum MacSystemUIFactory {
         }
     }
 
+    private static func uccICSArchitecture(for runtime: LinkGuardAppRuntime, sections: [ICSSection]) -> MacUCCICSArchitecture? {
+        guard runtime.device.appID == .ucc else { return nil }
+        let lanes = sections.map { section in
+            MacICSSectionLane(
+                section: section,
+                title: section.macDisplayName,
+                roleInUCC: uccRoleDescription(for: section),
+                primaryPositions: uccPositions(for: section),
+                primaryPermissions: permissionsForSection(section).filter { runtime.profile.allows($0) },
+                authorityBoundary: uccAuthorityBoundary(for: section),
+                systemImageName: section.macSystemImageName
+            )
+        }
+
+        return MacUCCICSArchitecture(
+            title: "UCC ICS 架構",
+            commandAuthority: runtime.profile.commandAuthority,
+            coordinationRole: "跨災區協調、外部資源整合、資訊管理與 SCC 狀態監控",
+            lanes: lanes,
+            boundaryRules: [
+                MacICSBoundaryRule(
+                    id: "scc-tactical-authority",
+                    title: "SCC 保留現場戰術權",
+                    detail: "UCC 監控跨區目標與資源缺口；分區、worksite、入退場與現場安全由 SCC 主責。"
+                ),
+                MacICSBoundaryRule(
+                    id: "medical-operational-summary",
+                    title: "醫療只上收營運摘要",
+                    detail: "UCC 讀取後送、醫院容量與醫療量能；完整臨床病歷留在 EMT 授權邊界。"
+                ),
+                MacICSBoundaryRule(
+                    id: "audit-source-of-truth",
+                    title: "AAR 全端留痕",
+                    detail: "每個命令、回報、同步收據與決策都進入 audit trail，UCC 負責跨區彙整。"
+                )
+            ]
+        )
+    }
+
     private static func openTaskCount(in snapshot: OperationSnapshot) -> Int {
         snapshot.tasks.values.filter { task in
             task.status != .completed && task.status != .cancelled
@@ -349,6 +614,63 @@ public enum MacSystemUIFactory {
             return [.viewMedicalSummary, .managePatientReport, .manageEvacuation, .manageMedicalPatient]
         case .afterActionReview:
             return [.exportAAR]
+        }
+    }
+
+    private static func uccRoleDescription(for section: ICSSection) -> String {
+        switch section {
+        case .command:
+            return "全局目標、跨中心指揮權限、對外協調與警報發布"
+        case .operations:
+            return "跨區資源調度、SCC 戰情監控、重大任務與 SOS 升級"
+        case .planning:
+            return "IAP 週期、情資彙整、災情統計與作戰節奏"
+        case .logistics:
+            return "通訊、裝備、電力、交通、LoRa/中繼與補給支援"
+        case .finance:
+            return "工時、採購、成本、行政文件與災後請款資料"
+        case .medical:
+            return "後送、醫院容量、醫療量能與跨區 EMT 支援摘要"
+        case .afterActionReview:
+            return "事件時間線、決策紀錄、證據包與復盤匯出"
+        }
+    }
+
+    private static func uccPositions(for section: ICSSection) -> [ICSPosition] {
+        switch section {
+        case .command:
+            return [.incidentCommander, .liaisonOfficer, .publicInformationOfficer, .safetyOfficer]
+        case .operations:
+            return [.operationsSectionChief, .sectorCommander, .teamLeader]
+        case .planning:
+            return [.planningSectionChief]
+        case .logistics:
+            return [.logisticsSectionChief]
+        case .finance:
+            return [.financeSectionChief]
+        case .medical:
+            return [.emtLead, .emt]
+        case .afterActionReview:
+            return [.incidentCommander, .planningSectionChief]
+        }
+    }
+
+    private static func uccAuthorityBoundary(for section: ICSSection) -> String {
+        switch section {
+        case .command:
+            return "UCC 主責跨區與外部協調；SCC 主責現場命令落地。"
+        case .operations:
+            return "UCC 看全區與跨區缺口；SCC/TL 主責現場任務派遣。"
+        case .planning:
+            return "UCC 匯整 IAP 與情資；SCC 維護現場 operational period 細節。"
+        case .logistics:
+            return "UCC 協調跨區資源；SCC 管現場補給、通訊與中繼。"
+        case .finance:
+            return "UCC 主責彙整；現場端只提供必要工時與成本事件。"
+        case .medical:
+            return "UCC 只看營運摘要；EMT 保留完整 clinical data。"
+        case .afterActionReview:
+            return "UCC 彙整跨區復盤；各端都必須保留原始 audit event。"
         }
     }
 
@@ -414,7 +736,7 @@ public extension ICSSection {
     }
 }
 
-private extension CommandAuthorityLevel {
+public extension CommandAuthorityLevel {
     var macDisplayName: String {
         switch self {
         case .none:

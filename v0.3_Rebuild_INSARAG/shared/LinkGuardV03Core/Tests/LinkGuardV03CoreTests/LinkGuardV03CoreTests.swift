@@ -6,6 +6,14 @@ import XCTest
 final class LinkGuardV03CoreTests: XCTestCase {
     private let fixedDate = Date(timeIntervalSince1970: 1_799_712_000)
 
+    private func fieldGPSFix(capturedAt: Date? = nil) -> GPSFix {
+        GPSFix(
+            coordinate: GeoCoordinate(latitude: 25.033, longitude: 121.565, accuracyMeters: 8),
+            source: .manual,
+            capturedAt: capturedAt ?? fixedDate
+        )
+    }
+
     private enum TestTransportError: Error, Equatable {
         case forcedFailure
     }
@@ -1110,6 +1118,54 @@ final class LinkGuardV03CoreTests: XCTestCase {
         }
     }
 
+    func testAccountLoginSupportsIdentifierLookupAndAmbiguityGuard() throws {
+        let sccAccount = UserAccount(
+            id: "ACCOUNT-SCC-2",
+            personID: "PERSON-SCC-2",
+            displayName: "Sector Commander 2",
+            callSign: "SCC-2",
+            allowedAppIDs: [.scc],
+            defaultPosition: .operationsSectionChief,
+            credentialDigest: "digest-scc-2"
+        )
+        let duplicateCallSign = UserAccount(
+            id: "ACCOUNT-SCC-3",
+            personID: "PERSON-SCC-3",
+            displayName: "Sector Commander 3",
+            callSign: "SCC-2",
+            allowedAppIDs: [.scc],
+            defaultPosition: .operationsSectionChief,
+            credentialDigest: "digest-scc-3"
+        )
+        var directory = AccountDirectory(accounts: [sccAccount])
+        let sccDevice = DeviceIdentity(id: "DEVICE-SCC-LOGIN", appID: .scc, platform: .mac, displayName: "SCC Console")
+
+        let byPersonSession = try directory.login(
+            identifier: sccAccount.personID.rawValue,
+            credentialDigest: "digest-scc-2",
+            device: sccDevice,
+            issuedAt: fixedDate,
+            sessionID: "SESSION-BY-PERSON"
+        )
+        XCTAssertEqual(byPersonSession.accountID, sccAccount.id)
+
+        let byCallSignSession = try directory.login(
+            identifier: "scc-2",
+            credentialDigest: "digest-scc-2",
+            device: sccDevice,
+            issuedAt: fixedDate,
+            sessionID: "SESSION-BY-CALLSIGN"
+        )
+        XCTAssertEqual(byCallSignSession.accountID, sccAccount.id)
+
+        directory.upsert(duplicateCallSign)
+        XCTAssertThrowsError(
+            try directory.account(for: "SCC-2")
+        ) { error in
+            XCTAssertEqual(error as? AccountAccessError, .ambiguousIdentifier("SCC-2"))
+        }
+    }
+
     func testPhaseOneOfflineQueuePersistsAndFlushesWhenOnline() throws {
         let teamMember = runtime(appID: .teamMember)
         let hub = InMemoryTransportHub(runtimes: allAppRuntimes())
@@ -1376,6 +1432,7 @@ final class LinkGuardV03CoreTests: XCTestCase {
             platform: .iPhone,
             deviceID: "IOS-TL-TEST",
             displayName: "TL Test",
+            initialGPSFix: fieldGPSFix(),
             now: fixedDate
         )
 
@@ -1421,6 +1478,103 @@ final class LinkGuardV03CoreTests: XCTestCase {
         try scc.receive(envelope)
         XCTAssertEqual(scc.snapshot.teamCapabilityReports[report.id]?.personnelSummary, "出隊 8 · 搜救犬 1")
         XCTAssertEqual(scc.snapshot.auditEvents.last?.targetType, "teamCapabilityReport")
+    }
+
+    func testFieldControllerStartsWithoutSyntheticGPSFix() throws {
+        var controller = FieldAppController(
+            appID: .teamMember,
+            platform: .iPhone,
+            deviceID: "IOS-TE-NO-GPS-TEST",
+            displayName: "TE No GPS Test",
+            now: fixedDate
+        )
+
+        XCTAssertNil(controller.latestGPSFix)
+        XCTAssertThrowsError(try controller.queueGPSReport(now: fixedDate.addingTimeInterval(1)))
+        XCTAssertThrowsError(try controller.queuePhotoReport(photoAttachmentID: "ATTACH-NO-GPS", caption: nil, checksum: nil, now: fixedDate.addingTimeInterval(2)))
+        XCTAssertThrowsError(try controller.queueSOS(dangerType: .trapped, note: nil, now: fixedDate.addingTimeInterval(3)))
+
+        controller.recordGPSFix(fieldGPSFix(capturedAt: fixedDate.addingTimeInterval(4)))
+        let gps = try controller.queueGPSReport(now: fixedDate.addingTimeInterval(5))
+        let report = try gps.decodePayload(PersonnelStatusReport.self)
+        let location = try XCTUnwrap(report.location)
+        XCTAssertEqual(location.latitude, 25.033, accuracy: 0.0001)
+        XCTAssertEqual(location.longitude, 121.565, accuracy: 0.0001)
+    }
+
+    func testFieldControllerPersistsAndRestoresQueuedOutbox() throws {
+        let store = FileBackedLocalOperationCacheStore(fileURL: try temporaryCacheURL())
+        var controller = FieldAppController(
+            appID: .teamMember,
+            platform: .iPhone,
+            deviceID: "IOS-TE-PERSIST-TEST",
+            displayName: "TE Persist Test",
+            initialGPSFix: fieldGPSFix(),
+            localCacheStore: store,
+            now: fixedDate
+        )
+
+        let envelope = try controller.queueSOS(
+            dangerType: .trapped,
+            note: "Persist me",
+            now: fixedDate.addingTimeInterval(1)
+        )
+
+        XCTAssertNil(controller.lastPersistenceError)
+        XCTAssertEqual(controller.pendingEnvelopeCount, 1)
+        let savedCache = try store.load()
+        XCTAssertEqual(savedCache.pendingCount, 1)
+        XCTAssertEqual(savedCache.outboundQueue.entries.first?.envelope.id, envelope.id)
+
+        let restoredController = FieldAppController(
+            appID: .teamMember,
+            platform: .iPhone,
+            deviceID: "IOS-TE-PERSIST-TEST",
+            displayName: "TE Persist Test",
+            localCacheStore: store,
+            now: fixedDate.addingTimeInterval(2)
+        )
+
+        XCTAssertNil(restoredController.lastPersistenceError)
+        XCTAssertEqual(restoredController.pendingEnvelopeCount, 1)
+        XCTAssertEqual(restoredController.runtime.pendingOutboundCount, 1)
+        XCTAssertEqual(restoredController.queuedSummaries.first?.id, envelope.id)
+        XCTAssertEqual(restoredController.queuedSummaries.first?.messageType, .sosReportUpsert)
+    }
+
+    func testFieldControllerManualSyncFlushesPersistedOutbox() async throws {
+        let store = FileBackedLocalOperationCacheStore(fileURL: try temporaryCacheURL())
+        var controller = FieldAppController(
+            appID: .teamMember,
+            platform: .iPhone,
+            deviceID: "IOS-TE-SYNC-TEST",
+            displayName: "TE Sync Test",
+            initialGPSFix: fieldGPSFix(),
+            localCacheStore: store,
+            now: fixedDate
+        )
+
+        let envelope = try controller.queueSOS(
+            dangerType: .trapped,
+            note: "Sync me",
+            now: fixedDate.addingTimeInterval(1)
+        )
+
+        let result = try await controller.syncQueuedEnvelopes(
+            transport: AcceptingTransport(),
+            now: fixedDate.addingTimeInterval(2)
+        )
+
+        XCTAssertTrue(result.attempted)
+        XCTAssertEqual(result.deliveredEnvelopeIDs, [envelope.id])
+        XCTAssertEqual(result.failedEnvelopeIDs, [])
+        XCTAssertEqual(result.remainingPendingCount, 0)
+        XCTAssertEqual(controller.pendingEnvelopeCount, 0)
+        XCTAssertEqual(controller.runtime.pendingOutboundCount, 0)
+        XCTAssertEqual(controller.queuedSummaries, [])
+        XCTAssertEqual(controller.lastSyncResult?.deliveredEnvelopeIDs, [envelope.id])
+        XCTAssertNil(controller.lastSyncError)
+        XCTAssertEqual(try store.load().pendingCount, 0)
     }
 
     func testFieldTLAndEMTMedicalActionsFollowFeatureMatrix() throws {
@@ -1559,6 +1713,7 @@ final class LinkGuardV03CoreTests: XCTestCase {
             platform: .iPhone,
             deviceID: "IOS-TE-TEST",
             displayName: "TE Test",
+            initialGPSFix: fieldGPSFix(),
             now: fixedDate
         )
 
@@ -1610,6 +1765,7 @@ final class LinkGuardV03CoreTests: XCTestCase {
             platform: .iPhone,
             deviceID: "IOS-VO-TEST",
             displayName: "VO Test",
+            initialGPSFix: fieldGPSFix(),
             now: fixedDate
         )
 
@@ -1935,6 +2091,13 @@ final class LinkGuardV03CoreTests: XCTestCase {
         XCTAssertTrue(state.transportRoutes.contains { $0.messageType == .teamCapabilityReportUpsert && $0.receives })
         XCTAssertEqual(state.settingsItems.first { $0.key == "version" }?.value, LinkGuardVersionInfo.current.version.stringValue)
         XCTAssertEqual(state.settingsItems.first { $0.key == "build" }?.value, String(LinkGuardVersionInfo.current.buildNumber))
+
+        let architecture = try XCTUnwrap(state.uccICSArchitecture)
+        XCTAssertEqual(architecture.commandAuthority, .global)
+        XCTAssertEqual(architecture.lanes.map(\.section), [.command, .operations, .planning, .logistics, .finance, .afterActionReview])
+        XCTAssertTrue(architecture.lanes.first { $0.section == .command }?.primaryPositions.contains(.incidentCommander) == true)
+        XCTAssertTrue(architecture.lanes.first { $0.section == .operations }?.authorityBoundary.contains("SCC/TL") == true)
+        XCTAssertTrue(architecture.boundaryRules.contains { $0.id == "scc-tactical-authority" })
     }
 
     func testMacSCCUIUsesSCCScopeInsteadOfUCCMirror() throws {
@@ -1946,14 +2109,92 @@ final class LinkGuardV03CoreTests: XCTestCase {
         XCTAssertTrue(sections.contains(.operations))
         XCTAssertFalse(sections.contains(.finance))
         XCTAssertFalse(state.quickActions.contains { $0.id == "finance" })
+        XCTAssertNil(state.uccICSArchitecture)
         XCTAssertEqual(LinkGuardFeatureAccessMatrix.accessLevel(for: .scc, feature: .medicalEvacuation), .limited)
         XCTAssertTrue(state.transportRoutes.contains { $0.messageType == .evacuationRequestUpsert && $0.receives && $0.canSend })
+    }
+
+    func testMacSCCStateReceivesFieldSOSSyncBatch() throws {
+        var fieldController = FieldAppController(
+            appID: .teamMember,
+            platform: .iPhone,
+            deviceID: "IOS-TE-SOS-SYNC",
+            displayName: "TE SOS Sync",
+            initialGPSFix: fieldGPSFix(),
+            now: fixedDate
+        )
+        let envelope = try fieldController.queueSOS(
+            dangerType: .trapped,
+            note: "Need extraction",
+            now: fixedDate.addingTimeInterval(1)
+        )
+        let report = try envelope.decodePayload(SOSReport.self)
+        let batch = SyncTransportBatch(
+            device: fieldController.runtime.device,
+            generatedAt: fixedDate.addingTimeInterval(2),
+            envelopes: [envelope]
+        )
+        var state = try MacSystemUIFactory.makeState(appID: .scc, deviceID: "DEVICE-SCC")
+
+        let response = state.receive(batch, receivedAt: fixedDate.addingTimeInterval(3))
+
+        XCTAssertEqual(response.receipts, [
+            SyncTransportReceipt(envelopeID: envelope.id, accepted: true, receivedAt: fixedDate.addingTimeInterval(3))
+        ])
+        XCTAssertEqual(state.runtime.snapshot.sosReports.count, 1)
+        XCTAssertEqual(state.sosAlertItems.first?.id, report.id)
+        XCTAssertEqual(state.sosAlertItems.first?.reporterAppID, .teamMember)
+        XCTAssertEqual(state.sosAlertItems.first?.dangerType, .trapped)
+        XCTAssertEqual(state.sosAlertItems.first?.note, "Need extraction")
+        XCTAssertEqual(state.metrics.first { $0.id == "alerts" }?.value, "1")
+        XCTAssertEqual(state.inheritedModules.first { $0.section == .command }?.recordCount, 1)
     }
 
     func testMacUIRejectsNonMacApps() throws {
         XCTAssertThrowsError(try MacSystemUIFactory.makeState(appID: .teamLeader, deviceID: "DEVICE-TL")) { error in
             XCTAssertEqual(error as? MacSystemUIError, .unsupportedApp(.teamLeader))
         }
+    }
+
+    func testMacAuthenticatedStateAppliesSessionPermissionConstraints() throws {
+        let account = UserAccount(
+            id: "ACCOUNT-UCC-AUTH",
+            personID: "PERSON-UCC-AUTH",
+            displayName: "UCC Commander",
+            callSign: "UCC-COMMAND",
+            allowedAppIDs: [.ucc],
+            defaultPosition: .incidentCommander,
+            credentialDigest: "digest-ucc",
+            revokedPermissions: [.issueCommand]
+        )
+        var directory = AccountDirectory(accounts: [account])
+
+        let result = try MacSystemUIFactory.loginAndMakeState(
+            directory: &directory,
+            identifier: "ucc-command",
+            credentialDigest: "digest-ucc",
+            appID: .ucc,
+            deviceID: "DEVICE-UCC-AUTH",
+            issuedAt: fixedDate,
+            sessionID: "SESSION-UCC-AUTH"
+        )
+
+        XCTAssertEqual(result.session.id, "SESSION-UCC-AUTH")
+        XCTAssertEqual(result.state.loginSession?.id, "SESSION-UCC-AUTH")
+        XCTAssertFalse(result.session.permissions.contains(.issueCommand))
+        XCTAssertTrue(result.session.permissions.contains(.sendSOS))
+
+        let issueCommandAction = try XCTUnwrap(result.state.quickActions.first { $0.id == "issue-command" })
+        XCTAssertFalse(issueCommandAction.isEnabled)
+
+        let sendSOSAction = try XCTUnwrap(result.state.quickActions.first { $0.id == "send-sos" })
+        XCTAssertTrue(sendSOSAction.isEnabled)
+
+        let commandRoute = try XCTUnwrap(result.state.transportRoutes.first { $0.messageType == .commandUpsert })
+        XCTAssertFalse(commandRoute.canSend)
+
+        let sosRoute = try XCTUnwrap(result.state.transportRoutes.first { $0.messageType == .sosReportUpsert })
+        XCTAssertTrue(sosRoute.canSend)
     }
 
     // MARK: - Map System Types Tests

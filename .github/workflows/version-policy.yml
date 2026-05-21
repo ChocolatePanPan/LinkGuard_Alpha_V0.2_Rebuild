@@ -1,0 +1,41 @@
+name: Version Policy
+
+on:
+  pull_request:
+    branches:
+      - main
+      - release/v0.3
+  push:
+    branches:
+      - main
+      - release/v0.3
+
+jobs:
+  require-version-update:
+    name: Require version update for product changes
+    runs-on: macos-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve comparison base
+        id: refs
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "base=${{ github.event.pull_request.base.sha }}" >> "$GITHUB_OUTPUT"
+            echo "head=${{ github.event.pull_request.head.sha }}" >> "$GITHUB_OUTPUT"
+          else
+            before="${{ github.event.before }}"
+            if [[ "$before" =~ ^0+$ ]]; then
+              before="$(git rev-parse HEAD^)"
+            fi
+            echo "base=$before" >> "$GITHUB_OUTPUT"
+            echo "head=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Enforce version policy
+        shell: zsh {0}
+        run: scripts/require-version-update.sh "${{ steps.refs.outputs.base }}" "${{ steps.refs.outputs.head }}"

@@ -4,14 +4,18 @@ import SwiftUI
 public struct FieldAppShellView: View {
     @State private var controller: FieldAppController
     @StateObject private var mapMarkup = MapMarkupViewModel()
+    @StateObject private var locationService = FieldLocationService()
     @State private var selectedTab: FieldAppTab = .overview
     @State private var statusText = "Ready"
     @State private var statusAccent = FieldTheme.green
     @State private var showingTeamCapabilityForm = false
     @State private var teamCapabilityDraft: USARTeamCapabilityReport?
+    @State private var syncEndpointText = "http://127.0.0.1:8080/sync"
+    @State private var isSyncing = false
 
     public init(appID: LinkGuardAppID, platform: AppPlatform, deviceID: LinkGuardID, displayName: String) {
-        _controller = State(initialValue: FieldAppController(appID: appID, platform: platform, deviceID: deviceID, displayName: displayName))
+        let localCacheStore = FieldAppController.defaultLocalCacheStore(appID: appID, deviceID: deviceID)
+        _controller = State(initialValue: FieldAppController(appID: appID, platform: platform, deviceID: deviceID, displayName: displayName, localCacheStore: localCacheStore))
     }
 
     public var body: some View {
@@ -50,6 +54,17 @@ public struct FieldAppShellView: View {
                 }
             }
         }
+        .onChange(of: locationService.lastFix) { fix in
+            guard let fix else { return }
+            controller.recordGPSFix(fix)
+            statusText = "GPS Updated"
+            statusAccent = FieldTheme.green
+        }
+        .onChange(of: locationService.lastErrorMessage) { message in
+            guard message != nil else { return }
+            statusText = "GPS Blocked"
+            statusAccent = FieldTheme.warning
+        }
     }
 
     private var availableTabs: [FieldAppTab] {
@@ -84,12 +99,11 @@ public struct FieldAppShellView: View {
         FieldPanel(accent: roleAccent) {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(alignment: .top, spacing: 12) {
-                    Image(systemName: roleIcon)
-                        .font(.title2.weight(.semibold))
-                        .foregroundStyle(roleAccent)
-                        .frame(width: 42, height: 42)
-                        .background(roleAccent.opacity(0.16), in: RoundedRectangle(cornerRadius: 10))
+                    brandMark
                     VStack(alignment: .leading, spacing: 4) {
+                        Text("LinkGuard")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(FieldTheme.green)
                         Text(controller.runtime.device.displayName)
                             .font(.title3.weight(.bold))
                             .lineLimit(2)
@@ -108,18 +122,61 @@ public struct FieldAppShellView: View {
                             .foregroundStyle(.secondary)
                         Text("\(controller.pendingEnvelopeCount)")
                             .font(.title3.weight(.bold).monospacedDigit())
+                        Button {
+                            locationService.requestCurrentFix()
+                        } label: {
+                            Image(systemName: locationService.isRequestingFix ? "location.fill" : "location.viewfinder")
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(locationService.canRequestFix ? FieldTheme.green : .secondary)
+                                .frame(width: 30, height: 30)
+                                .background((locationService.canRequestFix ? FieldTheme.green : Color.secondary).opacity(0.16), in: Circle())
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(locationService.canRequestFix == false)
+                        .help("Refresh GPS")
                     }
                 }
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
                         FieldStatusPill(title: statusText, systemImage: "checkmark.seal.fill", accent: statusAccent)
                         FieldStatusPill(title: controller.latestGPSFix == nil ? "No GPS" : "GPS Ready", systemImage: "location.fill", accent: controller.latestGPSFix == nil ? FieldTheme.warning : FieldTheme.green)
+                        FieldStatusPill(title: LinkGuardVersionInfo.current.displayVersion, systemImage: "tag.fill", accent: FieldTheme.info)
                         FieldStatusPill(title: controller.blueprint.homeSurface.fieldDisplayName, systemImage: "rectangle.3.group.fill", accent: FieldTheme.info)
                         FieldStatusPill(title: controller.profile.commandAuthority.fieldDisplayName, systemImage: "person.badge.key.fill", accent: FieldTheme.command)
                     }
                 }
             }
         }
+    }
+
+    private var brandMark: some View {
+        ZStack(alignment: .bottomTrailing) {
+            Image("Logo", bundle: .main)
+                .resizable()
+                .scaledToFit()
+                .padding(7)
+                .frame(width: 54, height: 54)
+                .background(FieldTheme.raisedSurface, in: RoundedRectangle(cornerRadius: 12))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(FieldTheme.green.opacity(0.34), lineWidth: 1)
+                )
+
+            Image(systemName: roleIcon)
+                .font(.caption.weight(.bold))
+                .foregroundStyle(roleAccent)
+                .frame(width: 22, height: 22)
+                .background(FieldTheme.surface, in: Circle())
+                .overlay(Circle().stroke(roleAccent.opacity(0.48), lineWidth: 1))
+        }
+        .accessibilityLabel("LinkGuard")
+    }
+
+    private var locationAccent: Color {
+        if locationService.lastErrorMessage != nil { return FieldTheme.warning }
+        if locationService.isRequestingFix { return FieldTheme.info }
+        if controller.latestGPSFix != nil { return FieldTheme.green }
+        return FieldTheme.warning
     }
 
     private var overviewTab: some View {
@@ -237,6 +294,7 @@ public struct FieldAppShellView: View {
                     FieldMetricTile(title: "Local Queue", value: "\(controller.pendingEnvelopeCount)", systemImage: "tray.full.fill", accent: controller.pendingEnvelopeCount == 0 ? FieldTheme.green : FieldTheme.warning)
                     FieldMetricTile(title: "GPS", value: controller.latestGPSFix == nil ? "Missing" : "Ready", systemImage: "location.fill", accent: controller.latestGPSFix == nil ? FieldTheme.warning : FieldTheme.green)
                     FieldMetricTile(title: "Runtime", value: controller.runtime.pendingOutboundCount == 0 ? "Clear" : "Queued", systemImage: "arrow.triangle.2.circlepath", accent: controller.runtime.pendingOutboundCount == 0 ? FieldTheme.green : FieldTheme.info)
+                    FieldMetricTile(title: "Storage", value: controller.localCacheStore == nil ? "Memory" : (controller.lastPersistenceError == nil ? "Saved" : "Error"), systemImage: "externaldrive.fill", accent: controller.lastPersistenceError == nil ? FieldTheme.green : FieldTheme.warning)
                 }
                 ForEach(Array(features), id: \.self) { feature in
                     let access = controller.accessLevel(for: feature)
@@ -394,6 +452,7 @@ public struct FieldAppShellView: View {
                 } else {
                     emptyRow("No GPS fix available", systemImage: "location.slash")
                 }
+                locationServiceRow
                 mapMarkupCanvas
                 mapMarkupControls
                 FieldAdaptiveGrid(minimum: 158) {
@@ -410,6 +469,43 @@ public struct FieldAppShellView: View {
                 mapMarkupList
             }
         }
+    }
+
+    private var locationServiceRow: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: locationService.isRequestingFix ? "location.fill" : "location.viewfinder")
+                .foregroundStyle(locationAccent)
+                .frame(width: 28, height: 28)
+                .background(locationAccent.opacity(0.14), in: Circle())
+            VStack(alignment: .leading, spacing: 3) {
+                Text(locationService.statusTitle)
+                    .font(.subheadline.weight(.semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.82)
+                Text(locationService.statusDetail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+            Spacer(minLength: 0)
+            Button {
+                locationService.requestCurrentFix()
+            } label: {
+                Label(locationService.isRequestingFix ? "Locating" : "Refresh", systemImage: "location.fill.viewfinder")
+                    .font(.caption.weight(.semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.82)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+                    .foregroundStyle(locationService.canRequestFix ? FieldTheme.green : .secondary)
+                    .background((locationService.canRequestFix ? FieldTheme.green : Color.secondary).opacity(0.14), in: Capsule())
+                    .overlay(Capsule().stroke((locationService.canRequestFix ? FieldTheme.green : Color.secondary).opacity(0.34), lineWidth: 1))
+            }
+            .buttonStyle(.plain)
+            .disabled(locationService.canRequestFix == false)
+        }
+        .padding(12)
+        .background(FieldTheme.raisedSurface, in: RoundedRectangle(cornerRadius: FieldTheme.compactRadius))
     }
 
     private var mapMarkupCanvas: some View {
@@ -579,6 +675,47 @@ public struct FieldAppShellView: View {
     private var outboxPanel: some View {
         FieldPanel("Offline Queue", systemImage: "tray.full", accent: FieldTheme.green) {
             VStack(spacing: 8) {
+                HStack(spacing: 8) {
+                    TextField("Sync endpoint", text: $syncEndpointText)
+                        .font(.caption.monospaced())
+                        .textFieldStyle(.roundedBorder)
+                    Button {
+                        runSyncNow()
+                    } label: {
+                        Label(isSyncing ? "Syncing" : "Sync Now", systemImage: "arrow.triangle.2.circlepath")
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.82)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(isSyncing || controller.pendingEnvelopeCount == 0)
+                }
+                if let syncResult = controller.lastSyncResult {
+                    FieldTimelineRow(
+                        title: syncResult.attempted ? "Last Sync" : "Sync Idle",
+                        detail: "Delivered \(syncResult.deliveredEnvelopeIDs.count) / Failed \(syncResult.failedEnvelopeIDs.count) / Remaining \(syncResult.remainingPendingCount)",
+                        systemImage: syncResult.failedEnvelopeIDs.isEmpty ? "checkmark.icloud.fill" : "exclamationmark.icloud.fill",
+                        accent: syncResult.failedEnvelopeIDs.isEmpty ? FieldTheme.green : FieldTheme.warning,
+                        trailing: syncResult.attempted ? "SYNC" : "IDLE"
+                    )
+                }
+                if let syncError = controller.lastSyncError {
+                    FieldTimelineRow(
+                        title: "Sync Error",
+                        detail: syncError,
+                        systemImage: "wifi.exclamationmark",
+                        accent: FieldTheme.warning,
+                        trailing: "FAILED"
+                    )
+                }
+                if let persistenceError = controller.lastPersistenceError {
+                    FieldTimelineRow(
+                        title: "Outbox Storage",
+                        detail: persistenceError,
+                        systemImage: "externaldrive.badge.exclamationmark",
+                        accent: FieldTheme.warning,
+                        trailing: "ERROR"
+                    )
+                }
                 if controller.queuedSummaries.isEmpty {
                     emptyRow("No queued envelopes", systemImage: "tray")
                 } else {
@@ -668,6 +805,37 @@ public struct FieldAppShellView: View {
         } catch {
             statusText = "Blocked USAR Profile"
             statusAccent = FieldTheme.warning
+        }
+    }
+
+    private func runSyncNow() {
+        guard isSyncing == false else { return }
+        guard
+            let endpointURL = URL(string: syncEndpointText),
+            let scheme = endpointURL.scheme?.lowercased(),
+            scheme == "http" || scheme == "https"
+        else {
+            statusText = "Bad Endpoint"
+            statusAccent = FieldTheme.warning
+            return
+        }
+
+        isSyncing = true
+        statusText = "Syncing"
+        statusAccent = FieldTheme.info
+        Task { @MainActor in
+            defer { isSyncing = false }
+            var syncingController = controller
+            do {
+                let result = try await syncingController.syncQueuedEnvelopes(endpointURL: endpointURL, now: Date())
+                controller = syncingController
+                statusText = result.attempted ? "Synced \(result.deliveredEnvelopeIDs.count)" : "Sync Idle"
+                statusAccent = result.failedEnvelopeIDs.isEmpty ? FieldTheme.green : FieldTheme.warning
+            } catch {
+                controller = syncingController
+                statusText = "Sync Failed"
+                statusAccent = FieldTheme.warning
+            }
         }
     }
 

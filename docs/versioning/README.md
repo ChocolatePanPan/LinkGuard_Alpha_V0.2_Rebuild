@@ -4,9 +4,9 @@ LinkGuard uses a repo-level version manifest and Git tag as the release source o
 
 ## Current version
 
-- Version: `0.3.1-alpha.3`
-- Git tag: `v0.3.1-alpha.3`
-- Build number: `301012`
+- Version: `0.3.1-alpha.13`
+- Git tag: `v0.3.1-alpha.13`
+- Build number: `301022`
 - Channel: `alpha`
 - Series: `v0.3_Rebuild_INSARAG`
 
@@ -25,6 +25,9 @@ Every implementation update must bump the version before the update is considere
 2. An annotated Git tag named `v<version>` on that commit.
 3. No generated build artifacts in the commit.
 4. The push sequence must end by pushing the matching tag.
+
+GitHub Actions enforces version updates for product changes on `main` and `release/v0.3`.
+Use `scripts/require-version-update.sh origin/main HEAD` locally to run the same check before pushing.
 
 The normal alpha flow after code changes is:
 

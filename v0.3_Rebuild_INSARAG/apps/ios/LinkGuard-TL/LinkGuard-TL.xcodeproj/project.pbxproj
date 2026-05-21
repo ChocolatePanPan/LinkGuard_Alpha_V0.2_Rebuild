@@ -175,8 +175,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "Apple Development";
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 301022;
+				CURRENT_PROJECT_VERSION = 301023;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "LinkGuard TL";
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "LinkGuard uses Bluetooth to connect nearby field devices.";
@@ -202,8 +204,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "Apple Development";
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 301022;
+				CURRENT_PROJECT_VERSION = 301023;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "LinkGuard TL";
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "LinkGuard uses Bluetooth to connect nearby field devices.";
