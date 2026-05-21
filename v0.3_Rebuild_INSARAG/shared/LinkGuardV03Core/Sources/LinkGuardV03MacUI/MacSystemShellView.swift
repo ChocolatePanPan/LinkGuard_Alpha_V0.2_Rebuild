@@ -31,66 +31,85 @@ public struct MacSystemShellView: View {
     }
 
     public var body: some View {
-        HQZoomContainer(scale: uiScale) {
-            HQDashboardView(vm: viewModel)
-                .onAppear {
-                    if viewModel.hqRole == .server {
-                        viewModel.startServer()
+        ZStack {
+            HQZoomContainer(scale: uiScale) {
+                HQDashboardView(vm: viewModel)
+                    .onAppear {
+                        if viewModel.hqRole == .server {
+                            viewModel.startServer()
+                        }
+                        #if os(macOS)
+                        startSyncReceiverIfNeeded()
+                        externalDashboardManager.start(viewModel: viewModel, l10n: l10n, colorScheme: colorScheme)
+                        externalDashboardManager.setEnabled(externalDisplayEnabled)
+                        spacebarPTT.attach(viewModel: viewModel)
+                        #endif
                     }
                     #if os(macOS)
-                    startSyncReceiverIfNeeded()
-                    externalDashboardManager.start(viewModel: viewModel, l10n: l10n, colorScheme: colorScheme)
-                    externalDashboardManager.setEnabled(externalDisplayEnabled)
-                    spacebarPTT.attach(viewModel: viewModel)
+                    .onDisappear {
+                        syncReceiver.stop()
+                    }
                     #endif
-                }
-                #if os(macOS)
-                .onDisappear {
-                    syncReceiver.stop()
-                }
-                #endif
-                #if os(macOS)
-                .onChange(of: appColorScheme) { _, _ in
-                    externalDashboardManager.refresh(colorScheme: colorScheme)
-                }
-                .onChange(of: l10n.language) { _, _ in
-                    externalDashboardManager.refresh(colorScheme: colorScheme)
-                }
-                .onChange(of: externalDisplayEnabled) { _, newValue in
-                    externalDashboardManager.setEnabled(newValue)
-                }
-                #endif
-                .preferredColorScheme(colorScheme)
-                .environment(\.locale, Locale(identifier: l10n.language))
-                .tint(NV.green)
-                .environmentObject(viewModel.udpAudioServer)
-                .environmentObject(l10n)
-        }
-        #if os(macOS)
-        .overlay(alignment: .topLeading) {
-            if let architecture = macState.uccICSArchitecture {
-                MacUCCICSArchitecturePanel(architecture: architecture)
-                    .frame(width: 390)
-                    .padding(.top, 18)
-                    .padding(.leading, 18)
+                    #if os(macOS)
+                    .onChange(of: appColorScheme) { _, _ in
+                        externalDashboardManager.refresh(colorScheme: colorScheme)
+                    }
+                    .onChange(of: l10n.language) { _, _ in
+                        externalDashboardManager.refresh(colorScheme: colorScheme)
+                    }
+                    .onChange(of: externalDisplayEnabled) { _, newValue in
+                        externalDashboardManager.setEnabled(newValue)
+                    }
+                    #endif
+                    .preferredColorScheme(colorScheme)
+                    .environment(\.locale, Locale(identifier: l10n.language))
+                    .tint(NV.green)
+                    .environmentObject(viewModel.udpAudioServer)
+                    .environmentObject(l10n)
             }
-        }
-        .overlay(alignment: .topTrailing) {
-            if macState.runtime.device.appID == .scc {
-                MacSOSAlertPanelView(
-                    items: macState.sosAlertItems,
-                    isReceiverRunning: syncReceiver.isRunning,
-                    receiverPort: syncReceiver.port,
-                    receiverError: syncReceiver.lastError
-                )
+            #if os(macOS)
+            .overlay(alignment: .topLeading) {
+                if let architecture = macState.uccICSArchitecture {
+                    MacUCCICSArchitecturePanel(architecture: architecture)
+                        .frame(width: 390)
+                        .padding(.top, 18)
+                        .padding(.leading, 18)
+                }
+            }
+            .overlay(alignment: .topTrailing) {
+                HStack(alignment: .top, spacing: 12) {
+                    if let session = macState.loginSession {
+                        MacSystemSessionStatusPanel(session: session) {
+                            // Reset state to non-logged-in basic state
+                            if let reset = try? MacSystemUIFactory.makeState(appID: macState.runtime.device.appID, deviceID: macState.runtime.device.id, displayName: macState.runtime.device.displayName, snapshot: macState.runtime.snapshot, versionInfo: macState.settingsInfo.versionInfo) {
+                                macState = reset
+                            }
+                        }
+                    }
+
+                    if macState.runtime.device.appID == .scc {
+                        MacSOSAlertPanelView(
+                            items: macState.sosAlertItems,
+                            isReceiverRunning: syncReceiver.isRunning,
+                            receiverPort: syncReceiver.port,
+                            receiverError: syncReceiver.lastError
+                        )
+                    }
+                }
                 .padding(.top, 18)
                 .padding(.trailing, 18)
             }
+            .overlay {
+                HQNotificationFlashOverlay(manager: notificationCueManager)
+            }
+            #endif
+
+            #if os(macOS)
+            if macState.loginSession == nil {
+                MacSystemLoginOverlayView(macState: $macState)
+            }
+            #endif
         }
-        .overlay {
-            HQNotificationFlashOverlay(manager: notificationCueManager)
-        }
-        #endif
     }
 
     #if os(macOS)
