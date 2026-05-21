@@ -137,10 +137,9 @@ struct TeamCapabilityReportView: View {
 
     private var teamInformationSection: some View {
         Section(L("A. 隊伍資訊")) {
-            TextField(L("A0 隊伍代碼（國家代碼 + 隊伍編碼）"), text: $usarTeamCode)
-                .textInputAutocapitalization(.characters)
-            TextField(L("A1 隊伍所屬國"), text: $country)
-            TextField(L("A2 隊伍名稱"), text: $teamName)
+            fixedUppercaseTextField(L("A0 隊伍代碼（國家代碼 + 隊伍編碼）"), text: $usarTeamCode)
+            fixedTextField(L("A1 隊伍所屬國"), text: $country)
+            fixedTextField(L("A2 隊伍名稱"), text: $teamName)
             Stepper(value: $totalMembers, in: 0...999) { Text(L("A3 出隊總人數：%lld", totalMembers)) }
             Stepper(value: $searchDogCount, in: 0...99) { Text(L("A4 出隊搜救犬：%lld", searchDogCount)) }
             Picker(L("A5 響應類型"), selection: $responseType) {
@@ -157,12 +156,11 @@ struct TeamCapabilityReportView: View {
             Stepper(value: $structuralEngineerCount, in: 0...99) { Text(L("A12 結構工程師：%lld", structuralEngineerCount)) }
             Toggle(L("A13 可建立臨時 OSOCC / RDC"), isOn: $canEstablishOSOCCRDC)
             Toggle(L("A14 可支援 USAR 協調"), isOn: $canSupportUSARCoordination)
-            TextField(L("A15 其他能力"), text: $otherCapabilities, axis: .vertical)
-                .lineLimit(2...5)
-            TextField(L("A16 預計抵達日期（日/月/年）"), text: $arrivalDate)
-            TextField(L("A17 預計抵達時間（24 小時制）"), text: $arrivalTime)
-            TextField(L("A18 抵達地點（機場、城市、港口等）"), text: $arrivalPoint)
-            TextField(L("A19 飛機類型（型號、大小）"), text: $aircraftType)
+            fixedMultilineTextField(L("A15 其他能力"), text: $otherCapabilities, lines: 2...5)
+            fixedTextField(L("A16 預計抵達日期（日/月/年）"), text: $arrivalDate)
+            fixedTextField(L("A17 預計抵達時間（24 小時制）"), text: $arrivalTime)
+            fixedTextField(L("A18 抵達地點（機場、城市、港口等）"), text: $arrivalPoint)
+            fixedTextField(L("A19 飛機類型（型號、大小）"), text: $aircraftType)
         }
     }
 
@@ -182,51 +180,43 @@ struct TeamCapabilityReportView: View {
             Toggle(L("B12 需要切割用丙烷"), isOn: $needsCuttingPropane)
             Toggle(L("B13 需要醫用氧氣補給"), isOn: $needsMedicalOxygen)
             decimalField(L("B14 行動基地用地面積（平方米）"), value: $baseAreaSquareMeters)
-            TextField(L("B15 其他後勤需求"), text: $otherLogisticsNeeds, axis: .vertical)
-                .lineLimit(2...5)
+            fixedMultilineTextField(L("B15 其他後勤需求"), text: $otherLogisticsNeeds, lines: 2...5)
         }
     }
 
     private var contactSection: some View {
         Section(L("C. 聯絡方式")) {
-            TextField(L("C1 隊伍聯絡人姓名或職務"), text: $teamContactNameOrRole)
-            TextField(L("C2 隊伍聯絡人手機"), text: $teamContactMobile)
-            TextField(L("C3 隊伍聯絡人衛星電話"), text: $teamContactSatellite)
-            TextField(L("C4 隊伍聯絡人電子郵件"), text: $teamContactEmail)
-                .textInputAutocapitalization(.never)
-            TextField(L("C5 行動聯絡人姓名或職稱"), text: $operationsContactNameOrTitle)
-            TextField(L("C6 行動聯絡人手機"), text: $operationsContactMobile)
-            TextField(L("C7 行動聯絡人電子郵件"), text: $operationsContactEmail)
-                .textInputAutocapitalization(.never)
-            TextField(L("C8 政策聯絡人姓名或職稱"), text: $policyContactNameOrTitle)
-            TextField(L("C9 政策聯絡人手機"), text: $policyContactMobile)
-            TextField(L("C10 政策聯絡人電子郵件"), text: $policyContactEmail)
-                .textInputAutocapitalization(.never)
-            TextField(L("C11 行動基地位置或地址"), text: $baseLocationAddress)
-            TextField(L("C12 行動基地無線電頻率（MHz）"), text: $baseRadioFrequencyMHz)
-            TextField(L("C13 行動基地 GPS 坐標（WGS84）"), text: $baseGPSCoordinates)
+            fixedTextField(L("C1 隊伍聯絡人姓名或職務"), text: $teamContactNameOrRole)
+            fixedTextField(L("C2 隊伍聯絡人手機"), text: $teamContactMobile)
+            fixedTextField(L("C3 隊伍聯絡人衛星電話"), text: $teamContactSatellite)
+            fixedNoCapsTextField(L("C4 隊伍聯絡人電子郵件"), text: $teamContactEmail)
+            fixedTextField(L("C5 行動聯絡人姓名或職稱"), text: $operationsContactNameOrTitle)
+            fixedTextField(L("C6 行動聯絡人手機"), text: $operationsContactMobile)
+            fixedNoCapsTextField(L("C7 行動聯絡人電子郵件"), text: $operationsContactEmail)
+            fixedTextField(L("C8 政策聯絡人姓名或職稱"), text: $policyContactNameOrTitle)
+            fixedTextField(L("C9 政策聯絡人手機"), text: $policyContactMobile)
+            fixedNoCapsTextField(L("C10 政策聯絡人電子郵件"), text: $policyContactEmail)
+            fixedTextField(L("C11 行動基地位置或地址"), text: $baseLocationAddress)
+            fixedTextField(L("C12 行動基地無線電頻率（MHz）"), text: $baseRadioFrequencyMHz)
+            fixedTextField(L("C13 行動基地 GPS 坐標（WGS84）"), text: $baseGPSCoordinates)
         }
     }
 
     private var evacuationSection: some View {
         Section(L("D. 撤離資訊")) {
-            TextField(L("D1 預計撤離日期（日/月/年）"), text: $evacuationDate)
-            TextField(L("D2 預計撤離時間（24 小時制）"), text: $evacuationTime)
-            TextField(L("D3 撤離地點（機場、城市、港口等）"), text: $evacuationPoint)
-            TextField(L("D4 離開運輸情況 / 航班資訊"), text: $departureTransportInfo, axis: .vertical)
-                .lineLimit(2...4)
+            fixedTextField(L("D1 預計撤離日期（日/月/年）"), text: $evacuationDate)
+            fixedTextField(L("D2 預計撤離時間（24 小時制）"), text: $evacuationTime)
+            fixedTextField(L("D3 撤離地點（機場、城市、港口等）"), text: $evacuationPoint)
+            fixedMultilineTextField(L("D4 離開運輸情況 / 航班資訊"), text: $departureTransportInfo, lines: 2...4)
             Toggle(L("D5 需要地面運輸支持"), isOn: $evacuationNeedsGroundTransport)
             Toggle(L("D6 需要物資支持"), isOn: $evacuationNeedsLogisticsSupport)
             Stepper(value: $evacuationTransportPersonnelCount, in: 0...999) { Text(L("D7 運輸人員：%lld", evacuationTransportPersonnelCount)) }
             Stepper(value: $evacuationTransportDogCount, in: 0...99) { Text(L("D8 運輸搜救犬：%lld", evacuationTransportDogCount)) }
             decimalField(L("D9 裝備總重量（噸）"), value: $evacuationEquipmentWeightTons)
             decimalField(L("D10 裝備總體積（立方米）"), value: $evacuationEquipmentVolumeCubicMeters)
-            TextField(L("D11 裝卸協助需求"), text: $loadingAssistanceNeeds, axis: .vertical)
-                .lineLimit(2...4)
-            TextField(L("D12 撤離地點臨時住宿需求"), text: $evacuationTemporaryAccommodationNeeds, axis: .vertical)
-                .lineLimit(2...4)
-            TextField(L("D13 其他資訊或後勤需求"), text: $evacuationOtherInfo, axis: .vertical)
-                .lineLimit(2...5)
+            fixedMultilineTextField(L("D11 裝卸協助需求"), text: $loadingAssistanceNeeds, lines: 2...4)
+            fixedMultilineTextField(L("D12 撤離地點臨時住宿需求"), text: $evacuationTemporaryAccommodationNeeds, lines: 2...4)
+            fixedMultilineTextField(L("D13 其他資訊或後勤需求"), text: $evacuationOtherInfo, lines: 2...5)
         }
     }
 
@@ -268,6 +258,83 @@ struct TeamCapabilityReportView: View {
         !trim(usarTeamCode).isEmpty && !trim(teamName).isEmpty
     }
 
+    private func fixedTextField(_ title: String, text: Binding<String>) -> some View {
+        HStack(spacing: 12) {
+            Text(title)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            TextField("", text: text)
+                .multilineTextAlignment(.trailing)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .background(Color.gray.opacity(0.22))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Color.white.opacity(0.65), lineWidth: 1)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .frame(minWidth: 96, maxWidth: 180)
+        }
+    }
+
+    private func fixedUppercaseTextField(_ title: String, text: Binding<String>) -> some View {
+        HStack(spacing: 12) {
+            Text(title)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            TextField("", text: text)
+                .multilineTextAlignment(.trailing)
+                .textInputAutocapitalization(.characters)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .background(Color.gray.opacity(0.22))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Color.white.opacity(0.65), lineWidth: 1)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .frame(minWidth: 96, maxWidth: 180)
+        }
+    }
+
+    private func fixedNoCapsTextField(_ title: String, text: Binding<String>) -> some View {
+        HStack(spacing: 12) {
+            Text(title)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            TextField("", text: text)
+                .multilineTextAlignment(.trailing)
+                .textInputAutocapitalization(.never)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .background(Color.gray.opacity(0.22))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Color.white.opacity(0.65), lineWidth: 1)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .frame(minWidth: 96, maxWidth: 220)
+        }
+    }
+
+    private func fixedMultilineTextField(_ title: String, text: Binding<String>, lines: ClosedRange<Int>) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            TextField("", text: text, axis: .vertical)
+                .lineLimit(lines)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .background(Color.gray.opacity(0.22))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Color.white.opacity(0.65), lineWidth: 1)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+        }
+    }
+
     private func decimalField(_ title: String, value: Binding<Double>) -> some View {
         HStack(spacing: 12) {
             Text(title)
@@ -276,6 +343,14 @@ struct TeamCapabilityReportView: View {
             TextField("", value: value, format: .number)
                 .keyboardType(.decimalPad)
                 .multilineTextAlignment(.trailing)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .background(Color.gray.opacity(0.22))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Color.white.opacity(0.65), lineWidth: 1)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 8))
                 .frame(minWidth: 88, maxWidth: 140)
         }
     }
