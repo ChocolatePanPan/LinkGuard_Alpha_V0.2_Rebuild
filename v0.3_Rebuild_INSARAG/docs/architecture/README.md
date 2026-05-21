@@ -14,4 +14,5 @@
 延伸：
 
 - `map-system/README.md`：地圖主架構、作戰圖層、離線優先與操作可靠性原則。
+- `ics-insarag-mapping/README.md`：ICS 指揮骨架與 INSARAG 搜救方法的資料層對照、權限邊界、ASR/RCM/worksite/team capability 導入規則。
 - `ucc-ics/README.md`：UCC 導入 ICS 指揮架構的資料模型、Mac UI 入口、SCC 邊界與後續產品化順序。
