@@ -4,6 +4,10 @@
 
 Every implementation update must update the version before the work is complete.
 
+GitHub enforces this for product changes on `main` and `release/v0.3`.
+If product code, shared models, app targets, resources, or scripts change,
+the same push or PR must also update the version files.
+
 For normal alpha implementation bumps, use:
 
 ```bash
@@ -28,6 +32,12 @@ Before pushing, verify the push tail:
 
 ```bash
 scripts/version.sh push-check
+```
+
+For local preflight before opening a PR, compare against the target branch:
+
+```bash
+scripts/require-version-update.sh origin/main HEAD
 ```
 
 The final command in the push sequence must push the matching version tag, for example:
