@@ -137,37 +137,37 @@ struct TeamCapabilityReportFormView: View {
     }
 
     private func textField(_ title: String, text: Binding<String>, axis: Axis = .horizontal) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: 6) {
             Text(title)
                 .font(.caption)
                 .foregroundColor(.secondary)
-            TextField("", text: text, axis: axis)
+            TextField("請輸入", text: text, axis: axis)
                 .textFieldStyle(.roundedBorder)
-                .multilineTextAlignment(.trailing)
+                .multilineTextAlignment(.leading)
         }
     }
 
     private func intField(_ title: String, value: Binding<Int>) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: 6) {
             Text(title)
                 .font(.caption)
                 .foregroundColor(.secondary)
-            TextField("", value: value, format: .number)
+            TextField("請輸入", value: value, format: .number)
                 .textFieldStyle(.roundedBorder)
-                .multilineTextAlignment(.trailing)
-                .frame(maxWidth: 130)
+                .multilineTextAlignment(.leading)
+                .keyboardType(.numberPad)
         }
     }
 
     private func doubleField(_ title: String, value: Binding<Double>) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: 6) {
             Text(title)
                 .font(.caption)
                 .foregroundColor(.secondary)
-            TextField("", value: value, format: .number.precision(.fractionLength(1)))
+            TextField("請輸入", value: value, format: .number.precision(.fractionLength(1)))
                 .textFieldStyle(.roundedBorder)
-                .multilineTextAlignment(.trailing)
-                .frame(maxWidth: 130)
+                .multilineTextAlignment(.leading)
+                .keyboardType(.decimalPad)
         }
     }
 }
