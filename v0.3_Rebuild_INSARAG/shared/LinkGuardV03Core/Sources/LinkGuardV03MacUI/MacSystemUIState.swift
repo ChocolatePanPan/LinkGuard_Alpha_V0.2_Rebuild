@@ -279,7 +279,9 @@ public struct MacSystemUIState: Sendable {
     }
 
     private mutating func refreshDerivedState() {
-        guard let refreshed = try? MacSystemUIFactory.makeState(for: runtime, versionInfo: versionInfo) else { return }
+        let selectedSession = loginSession
+        guard var refreshed = try? MacSystemUIFactory.makeState(for: runtime, versionInfo: versionInfo) else { return }
+        refreshed.loginSession = selectedSession
         self = refreshed
     }
 }
@@ -356,6 +358,52 @@ public enum MacSystemUIFactory {
         let runtime = LinkGuardAppRuntime(device: session.device, snapshot: snapshot)
         let baseState = try makeState(for: runtime, versionInfo: versionInfo)
         return applySessionConstraints(baseState, session: session)
+    }
+
+    public static func selectIdentityAndMakeState(
+        directory: AccountDirectory,
+        identifier: String,
+        appID: LinkGuardAppID,
+        deviceID: LinkGuardID,
+        displayName: String? = nil,
+        selectedAt: Date,
+        sessionID: LinkGuardID = .generated(prefix: "IDENTITY"),
+        snapshot: OperationSnapshot = OperationSnapshot(),
+        versionInfo: LinkGuardVersionInfo = .current
+    ) throws -> (session: LoginSession, state: MacSystemUIState) {
+        guard supportedMacApps.contains(appID) else {
+            throw MacSystemUIError.unsupportedApp(appID)
+        }
+
+        let account = try directory.account(for: identifier)
+        guard account.status == .active else {
+            throw AccountAccessError.inactiveAccount(account.id)
+        }
+        guard account.canUse(appID: appID) else {
+            throw AccountAccessError.appNotAllowed(accountID: account.id, appID: appID)
+        }
+
+        let device = DeviceIdentity(
+            id: deviceID,
+            appID: appID,
+            platform: .mac,
+            displayName: displayName ?? appID.rawValue
+        )
+        let profile = RoleProfileCatalog.profile(for: appID)
+        let session = LoginSession(
+            id: sessionID,
+            accountID: account.id,
+            personID: account.personID,
+            displayName: account.displayName,
+            device: device,
+            position: account.defaultPosition,
+            profile: profile,
+            issuedAt: selectedAt,
+            permissions: profile.permissions
+        )
+        var state = try makeState(appID: appID, deviceID: deviceID, displayName: displayName, snapshot: snapshot, versionInfo: versionInfo)
+        state.loginSession = session
+        return (session: session, state: state)
     }
 
     public static func loginAndMakeState(

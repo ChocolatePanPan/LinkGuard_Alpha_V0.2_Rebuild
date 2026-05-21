@@ -644,6 +644,27 @@ final class LinkGuardV03CoreTests: XCTestCase {
         XCTAssertFalse(EMTMedicalPhaseCatalog.isExecutableByEMT(EMTMedicalPhaseCatalog.phase(id: .phase12)))
     }
 
+    func testFieldLaunchIdentityOptionsRemainDisplayOnly() {
+        let emtOptions = FieldLaunchIdentityOption.options(for: .emtIPad)
+        let selectedIdentity = emtOptions[1]
+        let controller = FieldAppController(
+            appID: .emtIPad,
+            platform: .iPad,
+            deviceID: "IPAD-EMT-IDENTITY-TEST",
+            displayName: "EMT Identity Test",
+            now: fixedDate
+        )
+
+        XCTAssertEqual(emtOptions.map(\.code), ["EMT-01", "EMT-02"])
+        XCTAssertEqual(selectedIdentity.displayLabel, "EMT-02 / 救護員")
+        XCTAssertEqual(controller.runtime.device.appID, .emtIPad)
+        XCTAssertEqual(controller.profile.appID, .emtIPad)
+        XCTAssertTrue(controller.canUseFeature(.patientCreation))
+        XCTAssertTrue(controller.canUseFeature(.sosSending))
+        XCTAssertEqual(FieldLaunchIdentityOption.options(for: .teamLeaderIPad).map(\.code), ["TL-01", "TL-02"])
+        XCTAssertEqual(FieldLaunchIdentityOption.options(for: .sccIPad).map(\.code), ["SCC-01", "SCC-OPS", "SCC-SAFE"])
+    }
+
     func testOfflineQueuePrioritizesCriticalMessagesAndDeduplicates() throws {
         var queue = OfflineQueue()
         let lowPriorityTask = FieldTask(
@@ -2154,6 +2175,37 @@ final class LinkGuardV03CoreTests: XCTestCase {
         XCTAssertThrowsError(try MacSystemUIFactory.makeState(appID: .teamLeader, deviceID: "DEVICE-TL")) { error in
             XCTAssertEqual(error as? MacSystemUIError, .unsupportedApp(.teamLeader))
         }
+    }
+
+    func testMacIdentitySelectionDisplaysSessionWithoutChangingFeatures() throws {
+        let snapshot = OperationSnapshot()
+        let baseState = try MacSystemUIFactory.makeState(
+            appID: .ucc,
+            deviceID: "DEVICE-UCC-ID",
+            displayName: "LinkGuard UCC Console",
+            snapshot: snapshot
+        )
+
+        let result = try MacSystemUIFactory.selectIdentityAndMakeState(
+            directory: .demo,
+            identifier: "CS-01",
+            appID: .ucc,
+            deviceID: "DEVICE-UCC-ID",
+            displayName: "LinkGuard UCC Console",
+            selectedAt: fixedDate,
+            sessionID: "IDENTITY-CS-01",
+            snapshot: snapshot,
+            versionInfo: baseState.settingsInfo.versionInfo
+        )
+
+        XCTAssertEqual(result.session.id, "IDENTITY-CS-01")
+        XCTAssertEqual(result.state.loginSession?.displayName, "指揮幕僚 (Command Staff)")
+        XCTAssertEqual(result.state.quickActions.map { "\($0.id):\($0.isEnabled)" }, baseState.quickActions.map { "\($0.id):\($0.isEnabled)" })
+        XCTAssertEqual(result.state.transportRoutes.map { "\($0.id):\($0.canSend)" }, baseState.transportRoutes.map { "\($0.id):\($0.canSend)" })
+        XCTAssertEqual(
+            result.state.inheritedModules.map { "\($0.section.rawValue):\($0.enabledPermissions.map(\.rawValue).sorted().joined(separator: ","))" },
+            baseState.inheritedModules.map { "\($0.section.rawValue):\($0.enabledPermissions.map(\.rawValue).sorted().joined(separator: ","))" }
+        )
     }
 
     func testMacAuthenticatedStateAppliesSessionPermissionConstraints() throws {

@@ -80,10 +80,7 @@ public struct MacSystemShellView: View {
                 HStack(alignment: .top, spacing: 12) {
                     if let session = macState.loginSession {
                         MacSystemSessionStatusPanel(session: session) {
-                            // Reset state to non-logged-in basic state
-                            if let reset = try? MacSystemUIFactory.makeState(appID: macState.runtime.device.appID, deviceID: macState.runtime.device.id, displayName: macState.runtime.device.displayName, snapshot: macState.runtime.snapshot, versionInfo: macState.settingsInfo.versionInfo) {
-                                macState = reset
-                            }
+                            macState.loginSession = nil
                         }
                     }
 
@@ -106,7 +103,7 @@ public struct MacSystemShellView: View {
 
             #if os(macOS)
             if macState.loginSession == nil {
-                MacSystemLoginOverlayView(macState: $macState)
+                MacSystemIdentityPickerOverlayView(macState: $macState)
             }
             #endif
         }

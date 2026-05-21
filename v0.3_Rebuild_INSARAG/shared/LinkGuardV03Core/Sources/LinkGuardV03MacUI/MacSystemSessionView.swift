@@ -1,44 +1,47 @@
 import SwiftUI
 import LinkGuardV03Core
 
-public struct MacSystemLoginOverlayView: View {
+public struct MacSystemIdentityPickerOverlayView: View {
     @Binding var macState: MacSystemUIState
-    @State private var directory = AccountDirectory.demo
-    @State private var identifier = ""
-    @State private var password = ""
     @State private var errorMessage: String? = nil
+    private let directory = AccountDirectory.demo
 
-    private let demoAccounts = [
-        ("IC-01", "事故指揮官 (Incident Commander)", "事故指揮"),
-        ("CS-01", "指揮幕僚 (Command Staff)", "指揮幕僚"),
-        ("PLAN-01", "計畫組長 (Planning Chief)", "計畫組"),
-        ("LOG-01", "後勤組長 (Logistics Chief)", "後勤組"),
-        ("FIN-01", "財務行政組長 (Finance Chief)", "財務組")
+    private let identityOptions = [
+        IdentityOption(identifier: "IC-01", title: "事故指揮官", section: "Incident Commander"),
+        IdentityOption(identifier: "CS-01", title: "指揮幕僚", section: "Command Staff"),
+        IdentityOption(identifier: "OPS-01", title: "作業組長", section: "Operations Section"),
+        IdentityOption(identifier: "PLAN-01", title: "計畫組長", section: "Planning Section"),
+        IdentityOption(identifier: "LOG-01", title: "後勤組長", section: "Logistics Section"),
+        IdentityOption(identifier: "FIN-01", title: "財務行政組長", section: "Finance/Admin Section")
     ]
 
     public init(macState: Binding<MacSystemUIState>) {
         self._macState = macState
     }
 
+    private var availableIdentityOptions: [IdentityOption] {
+        identityOptions.filter { option in
+            guard let account = try? directory.account(for: option.identifier) else { return false }
+            return account.status == .active && account.canUse(appID: macState.runtime.device.appID)
+        }
+    }
+
     public var body: some View {
         ZStack {
-            // Dark night vision dimmed background
             Color.black.opacity(0.85)
                 .edgesIgnoringSafeArea(.all)
 
             VStack(spacing: 24) {
-                // HUD styling window
                 VStack(spacing: 20) {
-                    // Header
                     HStack(spacing: 12) {
-                        Image(systemName: "shield.and.key.fill")
+                        Image(systemName: "person.crop.circle.badge.checkmark")
                             .font(.title)
                             .foregroundColor(NV.green)
                         VStack(alignment: .leading) {
-                            Text("LinkGuard-E 登錄系統")
+                            Text("選擇啟動身分")
                                 .font(.title3.weight(.bold))
                                 .foregroundColor(.white)
-                            Text("ICS 權責與指揮鏈驗證")
+                            Text("LinkGuard-E Operator Identity")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
@@ -60,86 +63,53 @@ public struct MacSystemLoginOverlayView: View {
                         .cornerRadius(6)
                     }
 
-                    // Input Form
-                    VStack(alignment: .leading, spacing: 14) {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("帳號識別碼 (帳號 ID / 人員 ID / 呼號)")
-                                .font(.caption.weight(.medium))
-                                .foregroundColor(.secondary)
-                            TextField("例如 IC-01", text: $identifier)
-                                .textFieldStyle(.plain)
-                                .padding(10)
-                                .background(Color.black.opacity(0.4))
-                                .cornerRadius(6)
-                                .foregroundColor(.white)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 6)
-                                        .stroke(NV.green.opacity(0.3), lineWidth: 1)
-                                )
-                        }
-
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("密鑰")
-                                .font(.caption.weight(.medium))
-                                .foregroundColor(.secondary)
-                            SecureField("請輸入安全憑證密碼", text: $password)
-                                .textFieldStyle(.plain)
-                                .padding(10)
-                                .background(Color.black.opacity(0.4))
-                                .cornerRadius(6)
-                                .foregroundColor(.white)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 6)
-                                        .stroke(NV.green.opacity(0.3), lineWidth: 1)
-                                )
-                        }
-                    }
-
-                    // Log In Button
-                    Button(action: performLogin) {
-                        HStack {
-                            Spacer()
-                            Text("驗證並登錄系統")
-                                .font(.body.weight(.bold))
-                            Spacer()
-                        }
-                        .foregroundColor(.black)
-                        .padding(.vertical, 12)
-                        .background(NV.green)
-                        .cornerRadius(6)
-                    }
-                    .buttonStyle(.plain)
-
-                    Divider()
-
-                    // Quick Demo Accounts to Click & Auto-fill
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("ICS 推薦測試帳號 (密碼：password):")
-                            .font(.caption)
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("目前身分")
+                            .font(.caption.weight(.semibold))
                             .foregroundColor(.secondary)
 
-                        Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 6) {
-                            ForEach(demoAccounts, id: \.0) { account in
-                                GridRow {
-                                    Button(action: {
-                                        self.identifier = account.0
-                                        self.password = "password"
-                                    }) {
-                                        Text(account.0)
-                                            .font(.caption.monospaced().weight(.bold))
-                                            .foregroundColor(.white)
-                                            .padding(.horizontal, 6)
-                                            .padding(.vertical, 3)
-                                            .background(NV.nightVisionSurface)
-                                            .cornerRadius(4)
-                                    }
-                                    .buttonStyle(.plain)
+                        ForEach(availableIdentityOptions) { option in
+                            Button(action: { selectIdentity(option) }) {
+                                HStack(spacing: 12) {
+                                    Text(option.identifier)
+                                        .font(.caption.monospaced().weight(.bold))
+                                        .foregroundColor(.black)
+                                        .frame(width: 78, alignment: .center)
+                                        .padding(.vertical, 6)
+                                        .background(NV.green)
+                                        .cornerRadius(4)
 
-                                    Text(account.1)
-                                        .font(.caption2)
-                                        .foregroundColor(.secondary)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(option.title)
+                                            .font(.caption.weight(.bold))
+                                            .foregroundColor(.white)
+                                        Text(option.section)
+                                            .font(.caption2)
+                                            .foregroundColor(.secondary)
+                                    }
+
+                                    Spacer()
+
+                                    Image(systemName: "chevron.right")
+                                        .font(.caption.weight(.bold))
+                                        .foregroundColor(NV.green.opacity(0.8))
                                 }
+                                .padding(10)
+                                .background(Color.black.opacity(0.4))
+                                .cornerRadius(6)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .stroke(NV.green.opacity(0.22), lineWidth: 1)
+                                )
                             }
+                            .buttonStyle(.plain)
+                        }
+
+                        if availableIdentityOptions.isEmpty {
+                            Text("此主控台尚無可選身分")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .padding(.vertical, 12)
                         }
                     }
                 }
@@ -155,39 +125,46 @@ public struct MacSystemLoginOverlayView: View {
         }
     }
 
-    private func performLogin() {
+    private func selectIdentity(_ option: IdentityOption) {
         errorMessage = nil
         do {
-            let (_, newState) = try MacSystemUIFactory.loginAndMakeState(
-                directory: &directory,
-                identifier: identifier,
-                credentialDigest: password,
+            let (_, newState) = try MacSystemUIFactory.selectIdentityAndMakeState(
+                directory: directory,
+                identifier: option.identifier,
                 appID: macState.runtime.device.appID,
                 deviceID: macState.runtime.device.id,
                 displayName: macState.runtime.device.displayName,
-                issuedAt: Date(),
+                selectedAt: Date(),
                 snapshot: macState.runtime.snapshot,
                 versionInfo: macState.settingsInfo.versionInfo
             )
             macState = newState
         } catch AccountAccessError.accountNotFound {
-            errorMessage = "找不到此帳號或呼號"
-        } catch AccountAccessError.invalidCredential {
-            errorMessage = "憑證密碼錯誤"
+            errorMessage = "找不到此身分"
         } catch AccountAccessError.appNotAllowed {
-            errorMessage = "此帳號無權登入本端應用"
+            errorMessage = "此身分不屬於本端主控台"
         } catch {
-            errorMessage = "登入驗證失敗: \(error.localizedDescription)"
+            errorMessage = "身分選擇失敗: \(error.localizedDescription)"
         }
     }
+
+    private struct IdentityOption: Identifiable {
+        let identifier: String
+        let title: String
+        let section: String
+
+        var id: String { identifier }
+    }
 }
+
+public typealias MacSystemLoginOverlayView = MacSystemIdentityPickerOverlayView
 
 public struct MacSystemSessionStatusPanel: View {
     let session: LoginSession
     let onLogout: () -> Void
 
     public var body: some View {
-        HQPanel(title: "登錄狀態", icon: "person.badge.shield.checkmark.fill", accent: NV.green) {
+        HQPanel(title: "目前身分", icon: "person.crop.circle.badge.checkmark", accent: NV.green) {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 8) {
                     Image(systemName: "person.circle.fill")
@@ -197,7 +174,7 @@ public struct MacSystemSessionStatusPanel: View {
                         Text(session.displayName)
                             .font(.caption.weight(.bold))
                             .foregroundColor(.white)
-                        Text("呼號: \(session.profile.appID.rawValue.uppercased())-\(session.position.rawValue)")
+                        Text(session.accountID.rawValue)
                             .font(.caption2.monospaced())
                             .foregroundColor(.secondary)
                     }
@@ -217,11 +194,11 @@ public struct MacSystemSessionStatusPanel: View {
                     }
 
                     HStack {
-                        Text("Session")
+                        Text("功能模式")
                             .font(.caption2)
                             .foregroundColor(.secondary)
                         Spacer()
-                        Text(session.id.rawValue)
+                        Text("統一")
                             .font(.caption2.monospaced())
                             .foregroundColor(.secondary)
                     }
@@ -230,7 +207,7 @@ public struct MacSystemSessionStatusPanel: View {
                 Button(action: onLogout) {
                     HStack {
                         Spacer()
-                        Text("登出系統 (Logout)")
+                        Text("重新選擇身分")
                             .font(.caption.weight(.bold))
                         Spacer()
                     }

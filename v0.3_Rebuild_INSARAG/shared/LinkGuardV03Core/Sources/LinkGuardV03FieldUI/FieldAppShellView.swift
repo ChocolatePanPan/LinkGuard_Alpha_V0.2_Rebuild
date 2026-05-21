@@ -6,6 +6,7 @@ public struct FieldAppShellView: View {
     @StateObject private var mapMarkup = MapMarkupViewModel()
     @StateObject private var locationService = FieldLocationService()
     @State private var selectedTab: FieldAppTab = .overview
+    @State private var selectedIdentity: FieldLaunchIdentityOption? = nil
     @State private var statusText = "Ready"
     @State private var statusAccent = FieldTheme.green
     @State private var showingTeamCapabilityForm = false
@@ -19,27 +20,38 @@ public struct FieldAppShellView: View {
     }
 
     public var body: some View {
-        NavigationStack {
-            TabView(selection: $selectedTab) {
-                ForEach(availableTabs) { tab in
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: FieldTheme.panelSpacing) {
-                            fieldHeader
-                            content(for: tab)
+        ZStack {
+            NavigationStack {
+                TabView(selection: $selectedTab) {
+                    ForEach(availableTabs) { tab in
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: FieldTheme.panelSpacing) {
+                                fieldHeader
+                                content(for: tab)
+                            }
+                            .padding(FieldTheme.pagePadding)
                         }
-                        .padding(FieldTheme.pagePadding)
+                        .background(FieldTheme.pageBackground.ignoresSafeArea())
+                        .tag(tab)
+                        .tabItem { Label(tab.title, systemImage: tab.systemImage) }
                     }
-                    .background(FieldTheme.pageBackground.ignoresSafeArea())
-                    .tag(tab)
-                    .tabItem { Label(tab.title, systemImage: tab.systemImage) }
+                }
+                .navigationTitle(controller.profile.displayName)
+                .toolbar {
+                    ToolbarItem(placement: .primaryAction) {
+                        Text(LinkGuardVersionInfo.current.displayVersion)
+                            .font(.caption.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
-            .navigationTitle(controller.profile.displayName)
-            .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    Text(LinkGuardVersionInfo.current.displayVersion)
-                        .font(.caption.monospacedDigit())
-                        .foregroundStyle(.secondary)
+
+            if selectedIdentity == nil {
+                FieldIdentityPickerOverlay(
+                    options: FieldLaunchIdentityOption.options(for: controller.runtime.device.appID),
+                    accent: roleAccent
+                ) { identity in
+                    selectedIdentity = identity
                 }
             }
         }
@@ -111,6 +123,11 @@ public struct FieldAppShellView: View {
                         Text(controller.roleWorkflowTitle)
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(roleAccent)
+                        if let selectedIdentity {
+                            Text(selectedIdentity.displayLabel)
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                        }
                         Text(controller.context.worksiteID.rawValue)
                             .font(.caption.monospaced())
                             .foregroundStyle(.secondary)
@@ -139,6 +156,9 @@ public struct FieldAppShellView: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
                         FieldStatusPill(title: statusText, systemImage: "checkmark.seal.fill", accent: statusAccent)
+                        if let selectedIdentity {
+                            FieldStatusPill(title: selectedIdentity.code, systemImage: "person.crop.circle.fill", accent: roleAccent)
+                        }
                         FieldStatusPill(title: controller.latestGPSFix == nil ? "No GPS" : "GPS Ready", systemImage: "location.fill", accent: controller.latestGPSFix == nil ? FieldTheme.warning : FieldTheme.green)
                         FieldStatusPill(title: LinkGuardVersionInfo.current.displayVersion, systemImage: "tag.fill", accent: FieldTheme.info)
                         FieldStatusPill(title: controller.blueprint.homeSurface.fieldDisplayName, systemImage: "rectangle.3.group.fill", accent: FieldTheme.info)
@@ -1357,6 +1377,122 @@ private enum FieldAppTab: String, Identifiable, Hashable {
             return "tray.full.fill"
         case .settings:
             return "gearshape.fill"
+        }
+    }
+}
+
+struct FieldLaunchIdentityOption: Identifiable, Equatable {
+    let code: String
+    let title: String
+    let detail: String
+
+    var id: String { code }
+    var displayLabel: String { "\(code) / \(title)" }
+
+    static func options(for appID: LinkGuardAppID) -> [FieldLaunchIdentityOption] {
+        switch appID {
+        case .sccIPad:
+            return [
+                FieldLaunchIdentityOption(code: "SCC-01", title: "現場指揮", detail: "Sector Command"),
+                FieldLaunchIdentityOption(code: "SCC-OPS", title: "作業協調", detail: "Operations Coordination"),
+                FieldLaunchIdentityOption(code: "SCC-SAFE", title: "安全監控", detail: "Safety Watch")
+            ]
+        case .teamLeader, .teamLeaderIPad:
+            return [
+                FieldLaunchIdentityOption(code: "TL-01", title: "分隊長", detail: "Team Leader"),
+                FieldLaunchIdentityOption(code: "TL-02", title: "副分隊長", detail: "Deputy Team Leader")
+            ]
+        case .emt, .emtIPad:
+            return [
+                FieldLaunchIdentityOption(code: "EMT-01", title: "救護組長", detail: "Medical Lead"),
+                FieldLaunchIdentityOption(code: "EMT-02", title: "救護員", detail: "Emergency Medical Technician")
+            ]
+        case .teamMember:
+            return [
+                FieldLaunchIdentityOption(code: "TE-01", title: "搜救員", detail: "Search Team Member"),
+                FieldLaunchIdentityOption(code: "TE-02", title: "搜救員", detail: "Rescue Team Member")
+            ]
+        case .volunteer:
+            return [
+                FieldLaunchIdentityOption(code: "VO-01", title: "志工", detail: "Volunteer Support"),
+                FieldLaunchIdentityOption(code: "VO-02", title: "後勤志工", detail: "Logistics Support")
+            ]
+        case .ucc, .scc:
+            return [
+                FieldLaunchIdentityOption(code: "CMD-01", title: "指揮席", detail: "Command Console"),
+                FieldLaunchIdentityOption(code: "OPS-01", title: "作業席", detail: "Operations Console")
+            ]
+        }
+    }
+}
+
+private struct FieldIdentityPickerOverlay: View {
+    let options: [FieldLaunchIdentityOption]
+    let accent: Color
+    let onSelect: (FieldLaunchIdentityOption) -> Void
+
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.82)
+                .ignoresSafeArea()
+
+            VStack(alignment: .leading, spacing: 16) {
+                HStack(spacing: 12) {
+                    Image(systemName: "person.crop.circle.badge.checkmark")
+                        .font(.title2.weight(.bold))
+                        .foregroundStyle(accent)
+                        .frame(width: 42, height: 42)
+                        .background(accent.opacity(0.16), in: RoundedRectangle(cornerRadius: FieldTheme.compactRadius))
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("選擇啟動身分")
+                            .font(.headline)
+                        Text("Field Operator Identity")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                VStack(spacing: 8) {
+                    ForEach(options) { option in
+                        Button {
+                            onSelect(option)
+                        } label: {
+                            HStack(spacing: 12) {
+                                Text(option.code)
+                                    .font(.caption.monospaced().weight(.bold))
+                                    .foregroundStyle(.black)
+                                    .frame(width: 88, alignment: .center)
+                                    .padding(.vertical, 7)
+                                    .background(accent, in: RoundedRectangle(cornerRadius: 6))
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(option.title)
+                                        .font(.subheadline.weight(.semibold))
+                                        .foregroundStyle(.primary)
+                                    Text(option.detail)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer(minLength: 0)
+                                Image(systemName: "chevron.right")
+                                    .font(.caption.weight(.bold))
+                                    .foregroundStyle(accent)
+                            }
+                            .padding(12)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(FieldTheme.raisedSurface, in: RoundedRectangle(cornerRadius: FieldTheme.compactRadius))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            .padding(18)
+            .frame(maxWidth: 460, alignment: .leading)
+            .background(FieldTheme.surface, in: RoundedRectangle(cornerRadius: FieldTheme.cardRadius))
+            .overlay(
+                RoundedRectangle(cornerRadius: FieldTheme.cardRadius)
+                    .stroke(accent.opacity(0.4), lineWidth: 1)
+            )
+            .padding(FieldTheme.pagePadding)
         }
     }
 }
