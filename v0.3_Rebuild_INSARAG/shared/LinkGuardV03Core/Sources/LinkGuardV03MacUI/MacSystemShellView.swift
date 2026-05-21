@@ -67,6 +67,14 @@ public struct MacSystemShellView: View {
                 .environmentObject(l10n)
         }
         #if os(macOS)
+        .overlay(alignment: .topLeading) {
+            if let architecture = macState.uccICSArchitecture {
+                MacUCCICSArchitecturePanel(architecture: architecture)
+                    .frame(width: 390)
+                    .padding(.top, 18)
+                    .padding(.leading, 18)
+            }
+        }
         .overlay(alignment: .topTrailing) {
             if macState.runtime.device.appID == .scc {
                 MacSOSAlertPanelView(

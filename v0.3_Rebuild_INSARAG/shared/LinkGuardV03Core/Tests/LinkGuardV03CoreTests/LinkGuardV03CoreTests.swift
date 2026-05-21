@@ -2091,6 +2091,13 @@ final class LinkGuardV03CoreTests: XCTestCase {
         XCTAssertTrue(state.transportRoutes.contains { $0.messageType == .teamCapabilityReportUpsert && $0.receives })
         XCTAssertEqual(state.settingsItems.first { $0.key == "version" }?.value, LinkGuardVersionInfo.current.version.stringValue)
         XCTAssertEqual(state.settingsItems.first { $0.key == "build" }?.value, String(LinkGuardVersionInfo.current.buildNumber))
+
+        let architecture = try XCTUnwrap(state.uccICSArchitecture)
+        XCTAssertEqual(architecture.commandAuthority, .global)
+        XCTAssertEqual(architecture.lanes.map(\.section), [.command, .operations, .planning, .logistics, .finance, .afterActionReview])
+        XCTAssertTrue(architecture.lanes.first { $0.section == .command }?.primaryPositions.contains(.incidentCommander) == true)
+        XCTAssertTrue(architecture.lanes.first { $0.section == .operations }?.authorityBoundary.contains("SCC/TL") == true)
+        XCTAssertTrue(architecture.boundaryRules.contains { $0.id == "scc-tactical-authority" })
     }
 
     func testMacSCCUIUsesSCCScopeInsteadOfUCCMirror() throws {
@@ -2102,6 +2109,7 @@ final class LinkGuardV03CoreTests: XCTestCase {
         XCTAssertTrue(sections.contains(.operations))
         XCTAssertFalse(sections.contains(.finance))
         XCTAssertFalse(state.quickActions.contains { $0.id == "finance" })
+        XCTAssertNil(state.uccICSArchitecture)
         XCTAssertEqual(LinkGuardFeatureAccessMatrix.accessLevel(for: .scc, feature: .medicalEvacuation), .limited)
         XCTAssertTrue(state.transportRoutes.contains { $0.messageType == .evacuationRequestUpsert && $0.receives && $0.canSend })
     }
@@ -2146,6 +2154,47 @@ final class LinkGuardV03CoreTests: XCTestCase {
         XCTAssertThrowsError(try MacSystemUIFactory.makeState(appID: .teamLeader, deviceID: "DEVICE-TL")) { error in
             XCTAssertEqual(error as? MacSystemUIError, .unsupportedApp(.teamLeader))
         }
+    }
+
+    func testMacAuthenticatedStateAppliesSessionPermissionConstraints() throws {
+        let account = UserAccount(
+            id: "ACCOUNT-UCC-AUTH",
+            personID: "PERSON-UCC-AUTH",
+            displayName: "UCC Commander",
+            callSign: "UCC-COMMAND",
+            allowedAppIDs: [.ucc],
+            defaultPosition: .incidentCommander,
+            credentialDigest: "digest-ucc",
+            revokedPermissions: [.issueCommand]
+        )
+        var directory = AccountDirectory(accounts: [account])
+
+        let result = try MacSystemUIFactory.loginAndMakeState(
+            directory: &directory,
+            identifier: "ucc-command",
+            credentialDigest: "digest-ucc",
+            appID: .ucc,
+            deviceID: "DEVICE-UCC-AUTH",
+            issuedAt: fixedDate,
+            sessionID: "SESSION-UCC-AUTH"
+        )
+
+        XCTAssertEqual(result.session.id, "SESSION-UCC-AUTH")
+        XCTAssertEqual(result.state.loginSession?.id, "SESSION-UCC-AUTH")
+        XCTAssertFalse(result.session.permissions.contains(.issueCommand))
+        XCTAssertTrue(result.session.permissions.contains(.sendSOS))
+
+        let issueCommandAction = try XCTUnwrap(result.state.quickActions.first { $0.id == "issue-command" })
+        XCTAssertFalse(issueCommandAction.isEnabled)
+
+        let sendSOSAction = try XCTUnwrap(result.state.quickActions.first { $0.id == "send-sos" })
+        XCTAssertTrue(sendSOSAction.isEnabled)
+
+        let commandRoute = try XCTUnwrap(result.state.transportRoutes.first { $0.messageType == .commandUpsert })
+        XCTAssertFalse(commandRoute.canSend)
+
+        let sosRoute = try XCTUnwrap(result.state.transportRoutes.first { $0.messageType == .sosReportUpsert })
+        XCTAssertTrue(sosRoute.canSend)
     }
 
     // MARK: - Map System Types Tests
