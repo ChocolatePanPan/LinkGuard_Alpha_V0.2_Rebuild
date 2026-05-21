@@ -48,6 +48,11 @@ struct FieldAIReportView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     typePicker
+                    ReportPhotoAttachmentView(
+                        vm: vm,
+                        reportType: L("AI 回報"),
+                        context: (formalText.isEmpty ? rawText : formalText).trimmingCharacters(in: .whitespacesAndNewlines)
+                    )
                     rawInputCard
                     actionRow
                     if !errorMessage.isEmpty {

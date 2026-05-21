@@ -79,6 +79,7 @@ struct TeamCapabilityReportView: View {
     var body: some View {
         Form {
             connectionSection
+            photoAttachmentSection
             teamInformationSection
             supportNeedsSection
             contactSection
@@ -161,6 +162,16 @@ struct TeamCapabilityReportView: View {
             fixedTextField(L("A17 預計抵達時間（24 小時制）"), text: $arrivalTime)
             fixedTextField(L("A18 抵達地點（機場、城市、港口等）"), text: $arrivalPoint)
             fixedTextField(L("A19 飛機類型（型號、大小）"), text: $aircraftType)
+        }
+    }
+
+    private var photoAttachmentSection: some View {
+        Section(L("照片附件")) {
+            ReportPhotoAttachmentView(
+                vm: vm,
+                reportType: L("隊伍能力概況"),
+                context: "\(trim(teamName)) \(trim(usarTeamCode))"
+            )
         }
     }
 

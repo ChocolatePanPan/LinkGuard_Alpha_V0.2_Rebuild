@@ -720,6 +720,16 @@ struct PatientFormView: View {
                     Text(L("補充說明"))
                 }
 
+                Section {
+                    ReportPhotoAttachmentView(
+                        vm: vm,
+                        reportType: L("傷員回報"),
+                        context: "\(activePatientID) \(location.trimmingCharacters(in: .whitespacesAndNewlines))"
+                    )
+                } header: {
+                    Text(L("照片附件"))
+                }
+
                 // GPS 資訊
                 Section {
                     if let loc = locationMgr.lastLocation {

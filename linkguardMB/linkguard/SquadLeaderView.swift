@@ -39,6 +39,7 @@ struct SquadLeaderView: View {
                 FieldINSARAGBriefPanel(profile: .squadLeader, accent: NV.green)
                 taskList
                 statusPanel
+                reportPhotoPanel
                 FieldRCMMarkingPanel(vm: vm, worksite: selectedWorksite, originRole: .squadLeader, accent: NV.info)
                 FieldUSAROperationalLogPanel(
                     vm: vm,
@@ -211,6 +212,20 @@ struct SquadLeaderView: View {
             .buttonStyle(.borderedProminent)
             .tint(NV.danger)
             .disabled(medicalVictimID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        }
+        .padding()
+        .glassEffect(.regular, in: .rect(cornerRadius: 12))
+    }
+
+    private var reportPhotoPanel: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label(L("回報照片"), systemImage: "camera.fill")
+                .font(.headline)
+            ReportPhotoAttachmentView(
+                vm: vm,
+                reportType: L("小隊回報"),
+                context: "\((selectedTask?.title ?? L("未指派任務"))) \(locationDescription.trimmingCharacters(in: .whitespacesAndNewlines))"
+            )
         }
         .padding()
         .glassEffect(.regular, in: .rect(cornerRadius: 12))

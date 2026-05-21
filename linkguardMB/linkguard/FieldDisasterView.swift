@@ -197,6 +197,14 @@ struct HazardReportSheet: View {
                 TextField(L("區域"), text: $zone)
                 TextField(L("描述"), text: $description, axis: .vertical)
                     .lineLimit(2...4)
+
+                Section(L("照片附件")) {
+                    ReportPhotoAttachmentView(
+                        vm: vm,
+                        reportType: L("危險回報"),
+                        context: "\(selectedType.label) \(zone.trimmingCharacters(in: .whitespacesAndNewlines)) \(description.trimmingCharacters(in: .whitespacesAndNewlines))"
+                    )
+                }
             }
             .navigationTitle(L("回報危險"))
             #if os(iOS)

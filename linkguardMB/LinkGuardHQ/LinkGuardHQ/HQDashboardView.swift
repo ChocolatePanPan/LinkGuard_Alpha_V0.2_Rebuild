@@ -156,6 +156,7 @@ struct HQDashboardView: View {
     @State private var sosFlash = false
     @State private var localIPText = "IP: --"
     @State private var shouldRevealBottomNavigationSelection = false
+    @State private var attachmentPanelExpanded = true
 
     private static let sosTimeFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -250,16 +251,40 @@ struct HQDashboardView: View {
     private var centeredDetailContent: some View {
         Group {
             if splitEnabled, let second = HQSection(rawValue: splitSecondSectionRaw) {
-                HStack(spacing: 0) {
-                    detailContent
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                    Divider()
-                    secondPanelContent(for: second)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                VStack(spacing: 0) {
+                    HStack(spacing: 0) {
+                        detailContent
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                        Divider()
+                        secondPanelContent(for: second)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    }
+
+                    if selectedSectionValue != .photoWall && second != .photoWall {
+                        HQAttachmentPanel(
+                            vm: vm,
+                            isExpanded: $attachmentPanelExpanded,
+                            onOpenPhotoWall: {
+                                selectedSection = .photoWall
+                            }
+                        )
+                    }
                 }
             } else {
-                detailContent
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                VStack(spacing: 0) {
+                    detailContent
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+
+                    if selectedSectionValue != .photoWall {
+                        HQAttachmentPanel(
+                            vm: vm,
+                            isExpanded: $attachmentPanelExpanded,
+                            onOpenPhotoWall: {
+                                selectedSection = .photoWall
+                            }
+                        )
+                    }
+                }
             }
         }
         .background(NV.pageBackground(appColorScheme: appColorScheme, colorScheme: colorScheme).ignoresSafeArea())
@@ -1909,5 +1934,73 @@ struct VictimSummaryCard: View {
                 .stroke(victim.isSOS ? NV.danger.opacity(0.5) : Color.gray.opacity(0.2), lineWidth: NV.strokeWidth)
         )
         .cornerRadius(NV.cardRadius)
+    }
+}
+
+private struct HQAttachmentPanel: View {
+    @ObservedObject var vm: HQViewModel
+    @Binding var isExpanded: Bool
+    let onOpenPhotoWall: () -> Void
+
+    private struct AttachmentEntry: Identifiable {
+        let id: String
+        let data: [String: Any]
+    }
+
+    private var entries: [AttachmentEntry] {
+        vm.photoAlerts.enumerated().prefix(12).map { index, raw in
+            let data = raw["data"] as? [String: Any] ?? raw
+            let photoId = data["photo_id"] as? String ?? ""
+            let fullURL = data["full_url"] as? String ?? ""
+            let timestamp = data["timestamp"] as? String ?? ""
+            let stableID = [photoId, fullURL, timestamp]
+                .filter { !$0.isEmpty }
+                .joined(separator: "|")
+            return AttachmentEntry(id: stableID.isEmpty ? "attachment-\(index)" : stableID, data: data)
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Label(L("照片附件（全部功能）"), systemImage: "paperclip")
+                    .font(.subheadline.bold())
+                Spacer()
+                Text(L("%lld 筆", vm.photoAlerts.count))
+                    .font(.caption.monospacedDigit())
+                    .foregroundColor(.secondary)
+                Button(isExpanded ? L("收合") : L("展開")) {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        isExpanded.toggle()
+                    }
+                }
+                .buttonStyle(.borderless)
+                Button(L("全部"), action: onOpenPhotoWall)
+                    .buttonStyle(.bordered)
+            }
+
+            if isExpanded {
+                if entries.isEmpty {
+                    Text(L("尚未收到照片附件"))
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .padding(.vertical, 6)
+                } else {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 10) {
+                            ForEach(entries) { entry in
+                                PhotoCard(data: entry.data)
+                                    .frame(width: 280)
+                            }
+                        }
+                    }
+                    .frame(height: 260)
+                }
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(NV.surface.opacity(0.95))
+        .overlay(Divider(), alignment: .top)
     }
 }
