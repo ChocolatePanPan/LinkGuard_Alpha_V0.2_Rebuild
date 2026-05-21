@@ -51,6 +51,7 @@ struct FieldAIReportView: View {
                     ReportPhotoAttachmentView(
                         vm: vm,
                         reportType: L("AI 回報"),
+                        reportTypeKey: "ai_report",
                         context: (formalText.isEmpty ? rawText : formalText).trimmingCharacters(in: .whitespacesAndNewlines)
                     )
                     rawInputCard

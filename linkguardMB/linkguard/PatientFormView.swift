@@ -724,6 +724,7 @@ struct PatientFormView: View {
                     ReportPhotoAttachmentView(
                         vm: vm,
                         reportType: L("傷員回報"),
+                        reportTypeKey: "patient_report",
                         context: "\(activePatientID) \(location.trimmingCharacters(in: .whitespacesAndNewlines))"
                     )
                 } header: {

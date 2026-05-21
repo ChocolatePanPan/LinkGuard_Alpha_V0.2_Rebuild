@@ -224,6 +224,7 @@ struct SquadLeaderView: View {
             ReportPhotoAttachmentView(
                 vm: vm,
                 reportType: L("小隊回報"),
+                reportTypeKey: "squad_report",
                 context: "\((selectedTask?.title ?? L("未指派任務"))) \(locationDescription.trimmingCharacters(in: .whitespacesAndNewlines))"
             )
         }

@@ -202,6 +202,7 @@ struct HazardReportSheet: View {
                     ReportPhotoAttachmentView(
                         vm: vm,
                         reportType: L("危險回報"),
+                        reportTypeKey: "hazard_report",
                         context: "\(selectedType.label) \(zone.trimmingCharacters(in: .whitespacesAndNewlines)) \(description.trimmingCharacters(in: .whitespacesAndNewlines))"
                     )
                 }

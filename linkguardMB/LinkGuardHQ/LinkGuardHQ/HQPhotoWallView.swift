@@ -102,12 +102,13 @@ private func matchingPhotoEntries(
     keywords: [String],
     limit: Int
 ) -> [PhotoWallEntry] {
-    let normalizedReportType = normalizePhotoLookupText(reportType)
+    let normalizedReportTypeAliases = normalizedPhotoTypeAliases(reportType)
     let normalizedKeywords = keywords
         .map(normalizePhotoLookupText)
         .filter { !$0.isEmpty }
 
-    return alerts.enumerated().compactMap { index, raw in
+    let allTypeMatches = alerts.enumerated().compactMap { entry -> PhotoWallEntry? in
+        let (index, raw) = entry
         let data = raw["data"] as? [String: Any] ?? raw
         let photoId = data["photo_id"] as? String ?? ""
         let fullURL = data["full_url"] as? String ?? ""
@@ -122,13 +123,48 @@ private func matchingPhotoEntries(
             photoId
         ].joined(separator: " "))
 
-        guard haystack.contains(normalizedReportType) else { return nil }
-        guard normalizedKeywords.isEmpty || normalizedKeywords.contains(where: { haystack.contains($0) }) else { return nil }
+        guard normalizedReportTypeAliases.contains(where: { haystack.contains($0) }) else { return nil }
 
         return PhotoWallEntry(id: stableId.isEmpty ? "inline-photo-\(index)" : stableId, data: data)
     }
-    .prefix(limit)
-    .map { $0 }
+
+    let keywordMatches = normalizedKeywords.isEmpty
+        ? allTypeMatches
+        : allTypeMatches.filter { entry in
+            let data = entry.data
+            let haystack = normalizePhotoLookupText([
+                data["location_desc"] as? String ?? "",
+                data["caption"] as? String ?? "",
+                data["sender_name"] as? String ?? "",
+                data["photo_id"] as? String ?? ""
+            ].joined(separator: " "))
+            return normalizedKeywords.contains(where: { haystack.contains($0) })
+        }
+
+    let selected = keywordMatches.isEmpty ? allTypeMatches : keywordMatches
+    return Array(selected.prefix(limit))
+}
+
+private func normalizedPhotoTypeAliases(_ reportType: String) -> [String] {
+    let normalized = normalizePhotoLookupText(reportType)
+    let aliases: [String]
+
+    switch normalized {
+    case normalizePhotoLookupText("隊伍能力概況"), "team_capability":
+        aliases = ["隊伍能力概況", "team_capability", "team capability"]
+    case normalizePhotoLookupText("傷員回報"), "patient_report":
+        aliases = ["傷員回報", "patient_report", "patient report"]
+    case normalizePhotoLookupText("危險回報"), "hazard_report":
+        aliases = ["危險回報", "hazard_report", "hazard report"]
+    case normalizePhotoLookupText("AI 回報"), "ai_report":
+        aliases = ["AI 回報", "ai_report", "ai report"]
+    case normalizePhotoLookupText("小隊回報"), "squad_report":
+        aliases = ["小隊回報", "squad_report", "squad report"]
+    default:
+        aliases = [reportType]
+    }
+
+    return aliases.map(normalizePhotoLookupText)
 }
 
 private func normalizePhotoLookupText(_ text: String) -> String {

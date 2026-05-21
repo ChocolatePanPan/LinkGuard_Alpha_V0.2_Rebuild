@@ -7,6 +7,7 @@ import UIKit
 struct ReportPhotoAttachmentView: View {
     @ObservedObject var vm: LinkGuardViewModel
     let reportType: String
+    let reportTypeKey: String
     let context: String
 
     @State private var selectedImage: UIImage?
@@ -100,7 +101,7 @@ struct ReportPhotoAttachmentView: View {
         appendField("sender_name", trimmedNickname.isEmpty ? vm.nodeStatus.nodeID : trimmedNickname)
         appendField("lat", "0")
         appendField("lon", "0")
-        appendField("location_desc", reportType)
+        appendField("location_desc", reportTypeKey)
         appendField("caption", "[\(reportType)] \(context)")
         appendField("timestamp", ISO8601DateFormatter().string(from: Date()))
         appendField("media_type", "photo")
@@ -141,6 +142,7 @@ struct ReportPhotoAttachmentView: View {
 struct ReportPhotoAttachmentView: View {
     @ObservedObject var vm: LinkGuardViewModel
     let reportType: String
+    let reportTypeKey: String
     let context: String
 
     var body: some View {

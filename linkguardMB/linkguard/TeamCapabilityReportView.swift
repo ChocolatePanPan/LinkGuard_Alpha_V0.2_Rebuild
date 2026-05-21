@@ -170,6 +170,7 @@ struct TeamCapabilityReportView: View {
             ReportPhotoAttachmentView(
                 vm: vm,
                 reportType: L("隊伍能力概況"),
+                reportTypeKey: "team_capability",
                 context: "\(trim(teamName)) \(trim(usarTeamCode))"
             )
         }
