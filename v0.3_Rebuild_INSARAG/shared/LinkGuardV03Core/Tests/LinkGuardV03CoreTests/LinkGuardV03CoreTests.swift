@@ -1118,6 +1118,54 @@ final class LinkGuardV03CoreTests: XCTestCase {
         }
     }
 
+    func testAccountLoginSupportsIdentifierLookupAndAmbiguityGuard() throws {
+        let sccAccount = UserAccount(
+            id: "ACCOUNT-SCC-2",
+            personID: "PERSON-SCC-2",
+            displayName: "Sector Commander 2",
+            callSign: "SCC-2",
+            allowedAppIDs: [.scc],
+            defaultPosition: .operationsSectionChief,
+            credentialDigest: "digest-scc-2"
+        )
+        let duplicateCallSign = UserAccount(
+            id: "ACCOUNT-SCC-3",
+            personID: "PERSON-SCC-3",
+            displayName: "Sector Commander 3",
+            callSign: "SCC-2",
+            allowedAppIDs: [.scc],
+            defaultPosition: .operationsSectionChief,
+            credentialDigest: "digest-scc-3"
+        )
+        var directory = AccountDirectory(accounts: [sccAccount])
+        let sccDevice = DeviceIdentity(id: "DEVICE-SCC-LOGIN", appID: .scc, platform: .mac, displayName: "SCC Console")
+
+        let byPersonSession = try directory.login(
+            identifier: sccAccount.personID.rawValue,
+            credentialDigest: "digest-scc-2",
+            device: sccDevice,
+            issuedAt: fixedDate,
+            sessionID: "SESSION-BY-PERSON"
+        )
+        XCTAssertEqual(byPersonSession.accountID, sccAccount.id)
+
+        let byCallSignSession = try directory.login(
+            identifier: "scc-2",
+            credentialDigest: "digest-scc-2",
+            device: sccDevice,
+            issuedAt: fixedDate,
+            sessionID: "SESSION-BY-CALLSIGN"
+        )
+        XCTAssertEqual(byCallSignSession.accountID, sccAccount.id)
+
+        directory.upsert(duplicateCallSign)
+        XCTAssertThrowsError(
+            try directory.account(for: "SCC-2")
+        ) { error in
+            XCTAssertEqual(error as? AccountAccessError, .ambiguousIdentifier("SCC-2"))
+        }
+    }
+
     func testPhaseOneOfflineQueuePersistsAndFlushesWhenOnline() throws {
         let teamMember = runtime(appID: .teamMember)
         let hub = InMemoryTransportHub(runtimes: allAppRuntimes())

@@ -8,6 +8,7 @@ public enum AccountStatus: String, Codable, CaseIterable, Sendable {
 
 public enum AccountAccessError: Error, Equatable, Sendable {
     case accountNotFound(LinkGuardID)
+    case ambiguousIdentifier(String)
     case invalidCredential(LinkGuardID)
     case inactiveAccount(LinkGuardID)
     case appNotAllowed(accountID: LinkGuardID, appID: LinkGuardAppID)
@@ -116,6 +117,24 @@ public struct AccountDirectory: Codable, Sendable {
         accounts[account.id] = account
     }
 
+    public func account(for identifier: String) throws -> UserAccount {
+        let normalized = identifier.trimmingCharacters(in: .whitespacesAndNewlines)
+        let matches = accounts.values.filter { account in
+            if account.id.rawValue == normalized { return true }
+            if account.personID.rawValue == normalized { return true }
+            if account.callSign?.caseInsensitiveCompare(normalized) == .orderedSame { return true }
+            return false
+        }
+
+        guard let account = matches.first else {
+            throw AccountAccessError.accountNotFound(LinkGuardID(normalized))
+        }
+        guard matches.count == 1 else {
+            throw AccountAccessError.ambiguousIdentifier(normalized)
+        }
+        return account
+    }
+
     @discardableResult
     public mutating func login(
         accountID: LinkGuardID,
@@ -156,6 +175,26 @@ public struct AccountDirectory: Codable, Sendable {
         )
         sessions[session.id] = session
         return session
+    }
+
+    @discardableResult
+    public mutating func login(
+        identifier: String,
+        credentialDigest: String,
+        device: DeviceIdentity,
+        issuedAt: Date,
+        expiresAt: Date? = nil,
+        sessionID: LinkGuardID = .generated(prefix: "SESSION")
+    ) throws -> LoginSession {
+        let account = try account(for: identifier)
+        return try login(
+            accountID: account.id,
+            credentialDigest: credentialDigest,
+            device: device,
+            issuedAt: issuedAt,
+            expiresAt: expiresAt,
+            sessionID: sessionID
+        )
     }
 
     public mutating func logout(sessionID: LinkGuardID) {
