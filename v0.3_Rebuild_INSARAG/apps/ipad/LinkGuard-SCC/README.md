@@ -17,6 +17,17 @@ UCC 偏向戰略層，SCC 偏向戰術層。
 
 UCC/SCC 權限分工以 `docs/architecture/role-feature-access/README.md` 的「UCC / SCC 正式基準」為唯一來源，shared core 對應 `UCCSCCCapabilityMatrix`。
 
+## ICS 對照
+
+| ICS 部門 | 中文說法 | 主要工作 | 對 LinkGuard-E 的對應 |
+| --- | --- | --- | --- |
+| Incident Commander | 事故指揮官 | 統一指揮、設定目標、核准行動計畫 | 消防指揮官／現場總指揮 |
+| Command Staff | 指揮幕僚 | 安全、媒體、跨單位聯絡 | 系統管理、對外通報、安全提醒 |
+| Operations Section | 作業組 | 執行現場搜救與戰術任務 | 搜救員終端、任務分派、受困者救援 |
+| Planning Section | 計畫組 | 蒐集資料、判斷災情、建立行動計畫 | AI 分析、受困者排序、災情地圖 |
+| Logistics Section | 後勤組 | 通訊、設備、補給、交通、醫療支援 | LoRa 節點、NFC 傷票、設備電量、通訊維護 |
+| Finance/Admin Section | 財務／行政組 | 成本、採購、工時、文件紀錄 | 系統紀錄、任務歷程、災後報告 |
+
 ## 主要畫面
 
 - 戰術地圖
