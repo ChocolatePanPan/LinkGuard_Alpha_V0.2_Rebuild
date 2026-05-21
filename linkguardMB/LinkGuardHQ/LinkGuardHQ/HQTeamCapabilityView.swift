@@ -2,6 +2,7 @@ import SwiftUI
 
 struct HQTeamCapabilityView: View {
     @ObservedObject var vm: HQViewModel
+    @State private var expandedReportIDs: Set<String> = []
 
     private var reports: [TeamCapabilityReport] {
         vm.teamCapabilityReports.sorted { $0.timestamp > $1.timestamp }
@@ -99,7 +100,9 @@ struct HQTeamCapabilityView: View {
     }
 
     private func capabilityCard(_ report: TeamCapabilityReport) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        let isExpanded = expandedReportIDs.contains(report.id)
+
+        return VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(report.teamName)
@@ -117,6 +120,27 @@ struct HQTeamCapabilityView: View {
                 }
             }
 
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    if isExpanded {
+                        expandedReportIDs.remove(report.id)
+                    } else {
+                        expandedReportIDs.insert(report.id)
+                    }
+                }
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: isExpanded ? "chevron.down.circle.fill" : "chevron.right.circle.fill")
+                        .foregroundStyle(NV.green)
+                    Text(isExpanded ? L("收合完整資訊") : L("點開查看完整資訊"))
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(NV.green)
+                    Spacer()
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
             infoGrid([
                 (L("出隊 / 搜救犬"), "\(report.totalMembers) / \(report.searchDogCount ?? 0)"),
                 (L("抵達"), compact([report.arrivalDate, report.arrivalTime])),
@@ -124,99 +148,101 @@ struct HQTeamCapabilityView: View {
                 (L("裝備"), "\(formatNumber(report.equipmentWeightTons)) t / \(formatNumber(report.equipmentVolumeCubicMeters)) m³")
             ])
 
-            detailGroup(L("A. 隊伍資訊")) {
-                infoGrid([
-                    (L("A0 隊伍代碼"), value(report.usarTeamCode)),
-                    (L("A1 所屬國"), value(report.country)),
-                    (L("A2 隊伍名稱"), value(report.teamName)),
-                    (L("A3 出隊總人數"), "\(report.totalMembers)"),
-                    (L("A4 搜救犬總數"), "\(report.searchDogCount ?? 0)"),
-                    (L("A5 響應類型"), value(report.responseType)),
-                    (L("A6 分級測評"), value(report.classificationStatus)),
-                    (L("A7 技術搜索"), yesNo(report.hasTechnicalSearch)),
-                    (L("A8 犬搜索"), yesNo(report.hasDogSearch)),
-                    (L("A9 營救"), yesNo(report.hasRescueCapability)),
-                    (L("A10 醫療"), yesNo(report.hasMedicalCapability)),
-                    (L("A11 危險品偵檢"), yesNo(report.hasHazmatDetection)),
-                    (L("A12 結構工程師"), "\(report.structuralEngineerCount ?? 0)"),
-                    (L("A13 OSOCC/RDC"), yesNo(report.canEstablishOSOCCRDC)),
-                    (L("A14 USAR 協調"), yesNo(report.canSupportUSARCoordination)),
-                    (L("A16 抵達日期"), value(report.arrivalDate)),
-                    (L("A17 抵達時間"), value(report.arrivalTime)),
-                    (L("A18 抵達地點"), value(report.arrivalPoint)),
-                    (L("A19 飛機類型"), value(report.aircraftType))
-                ])
-                detailBlock(title: L("A15 其他能力"), content: report.otherCapabilities)
-            }
-
-            detailGroup(L("B. 支援需求")) {
-                infoGrid([
-                    (L("B1 水可持續"), "\(report.waterDays ?? 0) 天"),
-                    (L("B2 食物可持續"), "\(report.foodDays ?? 0) 天"),
-                    (L("B3 地面運輸"), yesNo(report.needsGroundTransport)),
-                    (L("B4 物資支持"), yesNo(report.needsLogisticsSupport)),
-                    (L("B5 運輸人員"), "\(report.transportPersonnelCount ?? 0)"),
-                    (L("B6 運輸搜救犬"), "\(report.transportDogCount ?? 0)"),
-                    (L("B7 裝備重量"), "\(formatNumber(report.equipmentWeightTons)) t"),
-                    (L("B8 裝備體積"), "\(formatNumber(report.equipmentVolumeCubicMeters)) m³"),
-                    (L("B9 汽油 / 日"), "\(formatNumber(report.dailyGasolineLiters)) L"),
-                    (L("B10 柴油 / 日"), "\(formatNumber(report.dailyDieselLiters)) L"),
-                    (L("B11 切割氧氣"), yesNo(report.needsCuttingOxygen)),
-                    (L("B12 切割丙烷"), yesNo(report.needsCuttingPropane)),
-                    (L("B13 醫用氧氣"), yesNo(report.needsMedicalOxygen)),
-                    (L("B14 基地面積"), "\(formatNumber(report.baseAreaSquareMeters)) m²")
-                ])
-                detailBlock(title: L("B15 其他後勤需求"), content: report.otherLogisticsNeeds)
-            }
-
-            detailGroup(L("C. 聯絡方式")) {
-                infoGrid([
-                    (L("C1 隊伍聯絡人"), value(report.teamContactNameOrRole)),
-                    (L("C2 隊伍手機"), value(report.teamContactMobile)),
-                    (L("C3 衛星電話"), value(report.teamContactSatellite)),
-                    (L("C4 隊伍電子郵件"), value(report.teamContactEmail)),
-                    (L("C5 行動聯絡人"), value(report.operationsContactNameOrTitle)),
-                    (L("C6 行動手機"), value(report.operationsContactMobile)),
-                    (L("C7 行動電子郵件"), value(report.operationsContactEmail)),
-                    (L("C8 政策聯絡人"), value(report.policyContactNameOrTitle)),
-                    (L("C9 政策手機"), value(report.policyContactMobile)),
-                    (L("C10 政策電子郵件"), value(report.policyContactEmail)),
-                    (L("C11 行動基地"), value(report.baseLocationAddress)),
-                    (L("C12 無線電頻率"), value(report.baseRadioFrequencyMHz)),
-                    (L("C13 GPS 坐標"), value(report.baseGPSCoordinates))
-                ])
-            }
-
-            detailGroup(L("D. 撤離資訊")) {
-                infoGrid([
-                    (L("D1 撤離日期"), value(report.evacuationDate)),
-                    (L("D2 撤離時間"), value(report.evacuationTime)),
-                    (L("D3 撤離地點"), value(report.evacuationPoint)),
-                    (L("D5 地面運輸"), yesNo(report.evacuationNeedsGroundTransport)),
-                    (L("D6 物資支持"), yesNo(report.evacuationNeedsLogisticsSupport)),
-                    (L("D7 運輸人員"), "\(report.evacuationTransportPersonnelCount ?? 0)"),
-                    (L("D8 運輸搜救犬"), "\(report.evacuationTransportDogCount ?? 0)"),
-                    (L("D9 裝備重量"), "\(formatNumber(report.evacuationEquipmentWeightTons)) t"),
-                    (L("D10 裝備體積"), "\(formatNumber(report.evacuationEquipmentVolumeCubicMeters)) m³")
-                ])
-                detailBlock(title: L("D4 離開運輸情況 / 航班資訊"), content: report.departureTransportInfo)
-                detailBlock(title: L("D11 裝卸協助需求"), content: report.loadingAssistanceNeeds)
-                detailBlock(title: L("D12 臨時住宿需求"), content: report.evacuationTemporaryAccommodationNeeds)
-                detailBlock(title: L("D13 其他資訊或後勤需求"), content: report.evacuationOtherInfo)
-            }
-
-            HStack {
-                if let contact = nonEmpty(report.teamContactNameOrRole ?? report.leaderName) {
-                    Label(contact, systemImage: "person.crop.circle")
+            if isExpanded {
+                detailGroup(L("A. 隊伍資訊")) {
+                    infoGrid([
+                        (L("A0 隊伍代碼"), value(report.usarTeamCode)),
+                        (L("A1 所屬國"), value(report.country)),
+                        (L("A2 隊伍名稱"), value(report.teamName)),
+                        (L("A3 出隊總人數"), "\(report.totalMembers)"),
+                        (L("A4 搜救犬總數"), "\(report.searchDogCount ?? 0)"),
+                        (L("A5 響應類型"), value(report.responseType)),
+                        (L("A6 分級測評"), value(report.classificationStatus)),
+                        (L("A7 技術搜索"), yesNo(report.hasTechnicalSearch)),
+                        (L("A8 犬搜索"), yesNo(report.hasDogSearch)),
+                        (L("A9 營救"), yesNo(report.hasRescueCapability)),
+                        (L("A10 醫療"), yesNo(report.hasMedicalCapability)),
+                        (L("A11 危險品偵檢"), yesNo(report.hasHazmatDetection)),
+                        (L("A12 結構工程師"), "\(report.structuralEngineerCount ?? 0)"),
+                        (L("A13 OSOCC/RDC"), yesNo(report.canEstablishOSOCCRDC)),
+                        (L("A14 USAR 協調"), yesNo(report.canSupportUSARCoordination)),
+                        (L("A16 抵達日期"), value(report.arrivalDate)),
+                        (L("A17 抵達時間"), value(report.arrivalTime)),
+                        (L("A18 抵達地點"), value(report.arrivalPoint)),
+                        (L("A19 飛機類型"), value(report.aircraftType))
+                    ])
+                    detailBlock(title: L("A15 其他能力"), content: report.otherCapabilities)
                 }
-                if let phone = nonEmpty(report.teamContactMobile ?? report.contactPhone) {
-                    Label(phone, systemImage: "phone.fill")
+
+                detailGroup(L("B. 支援需求")) {
+                    infoGrid([
+                        (L("B1 水可持續"), "\(report.waterDays ?? 0) 天"),
+                        (L("B2 食物可持續"), "\(report.foodDays ?? 0) 天"),
+                        (L("B3 地面運輸"), yesNo(report.needsGroundTransport)),
+                        (L("B4 物資支持"), yesNo(report.needsLogisticsSupport)),
+                        (L("B5 運輸人員"), "\(report.transportPersonnelCount ?? 0)"),
+                        (L("B6 運輸搜救犬"), "\(report.transportDogCount ?? 0)"),
+                        (L("B7 裝備重量"), "\(formatNumber(report.equipmentWeightTons)) t"),
+                        (L("B8 裝備體積"), "\(formatNumber(report.equipmentVolumeCubicMeters)) m³"),
+                        (L("B9 汽油 / 日"), "\(formatNumber(report.dailyGasolineLiters)) L"),
+                        (L("B10 柴油 / 日"), "\(formatNumber(report.dailyDieselLiters)) L"),
+                        (L("B11 切割氧氣"), yesNo(report.needsCuttingOxygen)),
+                        (L("B12 切割丙烷"), yesNo(report.needsCuttingPropane)),
+                        (L("B13 醫用氧氣"), yesNo(report.needsMedicalOxygen)),
+                        (L("B14 基地面積"), "\(formatNumber(report.baseAreaSquareMeters)) m²")
+                    ])
+                    detailBlock(title: L("B15 其他後勤需求"), content: report.otherLogisticsNeeds)
                 }
-                Spacer()
-                Text(report.reporterName.isEmpty ? report.reporterID : report.reporterName)
-                    .foregroundStyle(.secondary)
+
+                detailGroup(L("C. 聯絡方式")) {
+                    infoGrid([
+                        (L("C1 隊伍聯絡人"), value(report.teamContactNameOrRole)),
+                        (L("C2 隊伍手機"), value(report.teamContactMobile)),
+                        (L("C3 衛星電話"), value(report.teamContactSatellite)),
+                        (L("C4 隊伍電子郵件"), value(report.teamContactEmail)),
+                        (L("C5 行動聯絡人"), value(report.operationsContactNameOrTitle)),
+                        (L("C6 行動手機"), value(report.operationsContactMobile)),
+                        (L("C7 行動電子郵件"), value(report.operationsContactEmail)),
+                        (L("C8 政策聯絡人"), value(report.policyContactNameOrTitle)),
+                        (L("C9 政策手機"), value(report.policyContactMobile)),
+                        (L("C10 政策電子郵件"), value(report.policyContactEmail)),
+                        (L("C11 行動基地"), value(report.baseLocationAddress)),
+                        (L("C12 無線電頻率"), value(report.baseRadioFrequencyMHz)),
+                        (L("C13 GPS 坐標"), value(report.baseGPSCoordinates))
+                    ])
+                }
+
+                detailGroup(L("D. 撤離資訊")) {
+                    infoGrid([
+                        (L("D1 撤離日期"), value(report.evacuationDate)),
+                        (L("D2 撤離時間"), value(report.evacuationTime)),
+                        (L("D3 撤離地點"), value(report.evacuationPoint)),
+                        (L("D5 地面運輸"), yesNo(report.evacuationNeedsGroundTransport)),
+                        (L("D6 物資支持"), yesNo(report.evacuationNeedsLogisticsSupport)),
+                        (L("D7 運輸人員"), "\(report.evacuationTransportPersonnelCount ?? 0)"),
+                        (L("D8 運輸搜救犬"), "\(report.evacuationTransportDogCount ?? 0)"),
+                        (L("D9 裝備重量"), "\(formatNumber(report.evacuationEquipmentWeightTons)) t"),
+                        (L("D10 裝備體積"), "\(formatNumber(report.evacuationEquipmentVolumeCubicMeters)) m³")
+                    ])
+                    detailBlock(title: L("D4 離開運輸情況 / 航班資訊"), content: report.departureTransportInfo)
+                    detailBlock(title: L("D11 裝卸協助需求"), content: report.loadingAssistanceNeeds)
+                    detailBlock(title: L("D12 臨時住宿需求"), content: report.evacuationTemporaryAccommodationNeeds)
+                    detailBlock(title: L("D13 其他資訊或後勤需求"), content: report.evacuationOtherInfo)
+                }
+
+                HStack {
+                    if let contact = nonEmpty(report.teamContactNameOrRole ?? report.leaderName) {
+                        Label(contact, systemImage: "person.crop.circle")
+                    }
+                    if let phone = nonEmpty(report.teamContactMobile ?? report.contactPhone) {
+                        Label(phone, systemImage: "phone.fill")
+                    }
+                    Spacer()
+                    Text(report.reporterName.isEmpty ? report.reporterID : report.reporterName)
+                        .foregroundStyle(.secondary)
+                }
+                .font(.caption)
             }
-            .font(.caption)
         }
         .padding(14)
         .background(NV.surface.opacity(0.95))
