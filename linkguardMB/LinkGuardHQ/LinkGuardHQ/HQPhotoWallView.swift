@@ -60,6 +60,84 @@ private struct PhotoWallEntry: Identifiable {
     let data: [String: Any]
 }
 
+struct HQInlinePhotoStrip: View {
+    @ObservedObject var vm: HQViewModel
+    let reportType: String
+    let keywords: [String]
+    var title: String = L("照片附件")
+    var limit: Int = 3
+    var cardWidth: CGFloat = 220
+
+    private var entries: [PhotoWallEntry] {
+        matchingPhotoEntries(
+            from: vm.photoAlerts,
+            reportType: reportType,
+            keywords: keywords,
+            limit: limit
+        )
+    }
+
+    var body: some View {
+        if !entries.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 10) {
+                        ForEach(entries) { entry in
+                            PhotoCard(data: entry.data)
+                                .frame(width: cardWidth)
+                        }
+                    }
+                }
+                .frame(height: 220)
+            }
+        }
+    }
+}
+
+private func matchingPhotoEntries(
+    from alerts: [[String: Any]],
+    reportType: String,
+    keywords: [String],
+    limit: Int
+) -> [PhotoWallEntry] {
+    let normalizedReportType = normalizePhotoLookupText(reportType)
+    let normalizedKeywords = keywords
+        .map(normalizePhotoLookupText)
+        .filter { !$0.isEmpty }
+
+    return alerts.enumerated().compactMap { index, raw in
+        let data = raw["data"] as? [String: Any] ?? raw
+        let photoId = data["photo_id"] as? String ?? ""
+        let fullURL = data["full_url"] as? String ?? ""
+        let timestamp = data["timestamp"] as? String ?? ""
+        let stableId = [photoId, fullURL, timestamp]
+            .filter { !$0.isEmpty }
+            .joined(separator: "|")
+        let haystack = normalizePhotoLookupText([
+            data["location_desc"] as? String ?? "",
+            data["caption"] as? String ?? "",
+            data["sender_name"] as? String ?? "",
+            photoId
+        ].joined(separator: " "))
+
+        guard haystack.contains(normalizedReportType) else { return nil }
+        guard normalizedKeywords.isEmpty || normalizedKeywords.contains(where: { haystack.contains($0) }) else { return nil }
+
+        return PhotoWallEntry(id: stableId.isEmpty ? "inline-photo-\(index)" : stableId, data: data)
+    }
+    .prefix(limit)
+    .map { $0 }
+}
+
+private func normalizePhotoLookupText(_ text: String) -> String {
+    text
+        .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+        .trimmingCharacters(in: .whitespacesAndNewlines)
+        .lowercased()
+}
+
 struct PhotoCard: View {
     let data: [String: Any]
 

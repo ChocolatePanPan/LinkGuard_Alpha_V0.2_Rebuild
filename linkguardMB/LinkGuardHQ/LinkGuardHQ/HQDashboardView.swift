@@ -156,7 +156,6 @@ struct HQDashboardView: View {
     @State private var sosFlash = false
     @State private var localIPText = "IP: --"
     @State private var shouldRevealBottomNavigationSelection = false
-    @State private var attachmentPanelExpanded = true
 
     private static let sosTimeFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -251,40 +250,16 @@ struct HQDashboardView: View {
     private var centeredDetailContent: some View {
         Group {
             if splitEnabled, let second = HQSection(rawValue: splitSecondSectionRaw) {
-                VStack(spacing: 0) {
-                    HStack(spacing: 0) {
-                        detailContent
-                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                        Divider()
-                        secondPanelContent(for: second)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                    }
-
-                    if selectedSectionValue != .photoWall && second != .photoWall {
-                        HQAttachmentPanel(
-                            vm: vm,
-                            isExpanded: $attachmentPanelExpanded,
-                            onOpenPhotoWall: {
-                                selectedSection = .photoWall
-                            }
-                        )
-                    }
-                }
-            } else {
-                VStack(spacing: 0) {
+                HStack(spacing: 0) {
                     detailContent
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-
-                    if selectedSectionValue != .photoWall {
-                        HQAttachmentPanel(
-                            vm: vm,
-                            isExpanded: $attachmentPanelExpanded,
-                            onOpenPhotoWall: {
-                                selectedSection = .photoWall
-                            }
-                        )
-                    }
+                    Divider()
+                    secondPanelContent(for: second)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 }
+            } else {
+                detailContent
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             }
         }
         .background(NV.pageBackground(appColorScheme: appColorScheme, colorScheme: colorScheme).ignoresSafeArea())
@@ -1506,32 +1481,56 @@ struct HQDashboardView: View {
                     .padding()
             } else {
                 ForEach(vm.hazardReports.prefix(6)) { hazard in
-                    HStack(spacing: 8) {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundColor(hazard.severityLevel.color)
-                            .frame(width: 20)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(hazard.hazard?.label ?? hazard.hazardType)
-                                .font(.caption).bold()
-                            Text("\(hazard.reporterName) · \(hazard.zone.isEmpty ? "未知" : hazard.zone)")
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundColor(hazard.severityLevel.color)
+                                .frame(width: 20)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(hazard.hazard?.label ?? hazard.hazardType)
+                                    .font(.caption).bold()
+                                Text("\(hazard.reporterName) · \(hazard.zone.isEmpty ? "未知" : hazard.zone)")
+                                    .font(.caption2).foregroundColor(.secondary)
+                            }
+                            Spacer()
+                            Text(hazard.severityLevel.label)
+                                .font(.caption2).bold()
+                                .padding(.horizontal, 4).padding(.vertical, 2)
+                                .foregroundColor(hazard.severityLevel.color)
+                                .background(hazard.severityLevel.color.opacity(0.15))
+                                .cornerRadius(4)
+                            Text(hazard.timeText)
                                 .font(.caption2).foregroundColor(.secondary)
                         }
-                        Spacer()
-                        Text(hazard.severityLevel.label)
-                            .font(.caption2).bold()
-                            .padding(.horizontal, 4).padding(.vertical, 2)
-                            .foregroundColor(hazard.severityLevel.color)
-                            .background(hazard.severityLevel.color.opacity(0.15))
-                            .cornerRadius(4)
-                        Text(hazard.timeText)
-                            .font(.caption2).foregroundColor(.secondary)
+
+                        HQInlinePhotoStrip(
+                            vm: vm,
+                            reportType: "危險回報",
+                            keywords: hazardPhotoKeywords(hazard),
+                            title: L("現場照片"),
+                            limit: 2,
+                            cardWidth: 180
+                        )
                     }
+                    .padding(10)
+                    .background(Color.black.opacity(0.08))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
                 }
             }
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
         .commandDashboardPanelChrome(accent: NV.danger)
+    }
+
+    private func hazardPhotoKeywords(_ hazard: HazardReport) -> [String] {
+        [
+            hazard.hazardType,
+            hazard.hazard?.label ?? "",
+            hazard.zone,
+            hazard.reporterName,
+            hazard.description
+        ].filter { !$0.isEmpty }
     }
 
     // MARK: - 受困者總覽
@@ -1937,70 +1936,3 @@ struct VictimSummaryCard: View {
     }
 }
 
-private struct HQAttachmentPanel: View {
-    @ObservedObject var vm: HQViewModel
-    @Binding var isExpanded: Bool
-    let onOpenPhotoWall: () -> Void
-
-    private struct AttachmentEntry: Identifiable {
-        let id: String
-        let data: [String: Any]
-    }
-
-    private var entries: [AttachmentEntry] {
-        vm.photoAlerts.enumerated().prefix(12).map { index, raw in
-            let data = raw["data"] as? [String: Any] ?? raw
-            let photoId = data["photo_id"] as? String ?? ""
-            let fullURL = data["full_url"] as? String ?? ""
-            let timestamp = data["timestamp"] as? String ?? ""
-            let stableID = [photoId, fullURL, timestamp]
-                .filter { !$0.isEmpty }
-                .joined(separator: "|")
-            return AttachmentEntry(id: stableID.isEmpty ? "attachment-\(index)" : stableID, data: data)
-        }
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Label(L("照片附件（全部功能）"), systemImage: "paperclip")
-                    .font(.subheadline.bold())
-                Spacer()
-                Text(L("%lld 筆", vm.photoAlerts.count))
-                    .font(.caption.monospacedDigit())
-                    .foregroundColor(.secondary)
-                Button(isExpanded ? L("收合") : L("展開")) {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        isExpanded.toggle()
-                    }
-                }
-                .buttonStyle(.borderless)
-                Button(L("全部"), action: onOpenPhotoWall)
-                    .buttonStyle(.bordered)
-            }
-
-            if isExpanded {
-                if entries.isEmpty {
-                    Text(L("尚未收到照片附件"))
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .padding(.vertical, 6)
-                } else {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 10) {
-                            ForEach(entries) { entry in
-                                PhotoCard(data: entry.data)
-                                    .frame(width: 280)
-                            }
-                        }
-                    }
-                    .frame(height: 260)
-                }
-            }
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .background(NV.surface.opacity(0.95))
-        .overlay(Divider(), alignment: .top)
-    }
-}

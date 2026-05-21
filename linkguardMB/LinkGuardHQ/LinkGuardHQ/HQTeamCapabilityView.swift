@@ -149,6 +149,13 @@ struct HQTeamCapabilityView: View {
             ])
 
             if isExpanded {
+                HQInlinePhotoStrip(
+                    vm: vm,
+                    reportType: "隊伍能力概況",
+                    keywords: capabilityPhotoKeywords(report),
+                    title: L("現場照片")
+                )
+
                 detailGroup(L("A. 隊伍資訊")) {
                     infoGrid([
                         (L("A0 隊伍代碼"), value(report.usarTeamCode)),
@@ -248,6 +255,17 @@ struct HQTeamCapabilityView: View {
         .background(NV.surface.opacity(0.95))
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .overlay(RoundedRectangle(cornerRadius: 8).stroke(NV.green.opacity(0.2)))
+    }
+
+    private func capabilityPhotoKeywords(_ report: TeamCapabilityReport) -> [String] {
+        [
+            report.teamName,
+            report.usarTeamCode ?? "",
+            report.reporterName,
+            report.reporterID,
+            report.country ?? "",
+            report.arrivalPoint ?? ""
+        ].filter { !$0.isEmpty }
     }
 
     private func statusBadge(_ status: String) -> some View {

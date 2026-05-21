@@ -429,6 +429,14 @@ private struct VictimDetailPanel: View {
                     }
                 }
 
+                HQInlinePhotoStrip(
+                    vm: vm,
+                    reportType: "傷員回報",
+                    keywords: [record.id, record.patientName, record.location, record.sourceDeviceID]
+                        .filter { !$0.isEmpty },
+                    title: L("現場照片")
+                )
+
                 Divider()
 
                 // 優先級設定
