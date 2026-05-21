@@ -14,3 +14,4 @@
 延伸：
 
 - `map-system/README.md`：地圖主架構、作戰圖層、離線優先與操作可靠性原則。
+- `ucc-ics/README.md`：UCC 導入 ICS 指揮架構的資料模型、Mac UI 入口、SCC 邊界與後續產品化順序。

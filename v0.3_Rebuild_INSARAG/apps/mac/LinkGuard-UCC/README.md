@@ -56,4 +56,12 @@ UCC/SCC 權限分工以 `docs/architecture/role-feature-access/README.md` 的「
 
 UCC Mac app 使用 `LinkGuardV03MacUI` 的 `MacSystemShellView`。畫面狀態由 `MacSystemUIFactory.makeState(appID: .ucc, ...)` 產生，繼承 shared core 的權限、指揮層級、事件快照、離線佇列、傳輸拓撲與版本資訊。
 
+目前 UCC 已導入第一版 ICS 架構面板：
+
+- `MacUCCICSArchitecture` 定義 UCC 的 ICS lanes、指揮權限與邊界規則。
+- `MacSystemUIState.uccICSArchitecture` 僅在 UCC 產生，SCC 不會套用。
+- `MacUCCICSArchitecturePanel` 先以 overlay 呈現在 UCC Mac 畫面左上方，作為後續替換 copied v0.2 HQ UI 的入口。
+
+詳細產品邊界見 `docs/architecture/ucc-ics/README.md`。
+
 `LinkGuard-UCC.xcodeproj` 已包含 macOS SwiftUI app target，並透過本地 Swift package dependency 引用 `LinkGuardV03MacUI`。

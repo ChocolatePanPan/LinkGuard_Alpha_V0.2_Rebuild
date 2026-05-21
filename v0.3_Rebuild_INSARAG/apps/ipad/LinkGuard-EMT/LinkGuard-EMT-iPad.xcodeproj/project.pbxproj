@@ -8,10 +8,12 @@
 
 /* Begin PBXBuildFile section */
 		A10000000000000000000001 /* LinkGuardV03FieldUI in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000002 /* LinkGuardV03FieldUI */; };
+		A10000000000000000000013 /* LinkGuardEMTIPadApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000014 /* LinkGuardEMTIPadApp.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		A10000000000000000000003 /* LinkGuard-EMT-iPad.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "LinkGuard-EMT-iPad.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		A10000000000000000000014 /* LinkGuardEMTIPadApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LinkGuard-EMT-iPad/LinkGuardEMTIPadApp.swift"; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -129,6 +131,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A10000000000000000000013 /* LinkGuardEMTIPadApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -179,6 +182,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 301023;
+				ENABLE_DEBUG_DYLIB = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "LinkGuard EMT iPad";
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "LinkGuard uses Bluetooth to connect nearby field devices.";
