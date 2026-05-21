@@ -137,16 +137,22 @@ struct TeamCapabilityReportFormView: View {
     }
 
     private func textField(_ title: String, text: Binding<String>, axis: Axis = .horizontal) -> some View {
-        LabeledContent(title) {
-            TextField(title, text: text, axis: axis)
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(.caption)
+                .foregroundColor(.secondary)
+            TextField("", text: text, axis: axis)
                 .textFieldStyle(.roundedBorder)
                 .multilineTextAlignment(.trailing)
         }
     }
 
     private func intField(_ title: String, value: Binding<Int>) -> some View {
-        LabeledContent(title) {
-            TextField(title, value: value, format: .number)
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(.caption)
+                .foregroundColor(.secondary)
+            TextField("", value: value, format: .number)
                 .textFieldStyle(.roundedBorder)
                 .multilineTextAlignment(.trailing)
                 .frame(maxWidth: 130)
@@ -154,8 +160,11 @@ struct TeamCapabilityReportFormView: View {
     }
 
     private func doubleField(_ title: String, value: Binding<Double>) -> some View {
-        LabeledContent(title) {
-            TextField(title, value: value, format: .number.precision(.fractionLength(1)))
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(.caption)
+                .foregroundColor(.secondary)
+            TextField("", value: value, format: .number.precision(.fractionLength(1)))
                 .textFieldStyle(.roundedBorder)
                 .multilineTextAlignment(.trailing)
                 .frame(maxWidth: 130)
