@@ -152,10 +152,16 @@ struct TeamCapabilityReportFormView: View {
             Text(title)
                 .font(.caption)
                 .foregroundColor(.secondary)
+            #if os(iOS) || os(tvOS) || os(watchOS)
             TextField("請輸入", value: value, format: .number)
                 .textFieldStyle(.roundedBorder)
                 .multilineTextAlignment(.leading)
                 .keyboardType(.numberPad)
+            #else
+            TextField("請輸入", value: value, format: .number)
+                .textFieldStyle(.roundedBorder)
+                .multilineTextAlignment(.leading)
+            #endif
         }
     }
 
@@ -164,10 +170,16 @@ struct TeamCapabilityReportFormView: View {
             Text(title)
                 .font(.caption)
                 .foregroundColor(.secondary)
+            #if os(iOS) || os(tvOS) || os(watchOS)
             TextField("請輸入", value: value, format: .number.precision(.fractionLength(1)))
                 .textFieldStyle(.roundedBorder)
                 .multilineTextAlignment(.leading)
                 .keyboardType(.decimalPad)
+            #else
+            TextField("請輸入", value: value, format: .number.precision(.fractionLength(1)))
+                .textFieldStyle(.roundedBorder)
+                .multilineTextAlignment(.leading)
+            #endif
         }
     }
 }

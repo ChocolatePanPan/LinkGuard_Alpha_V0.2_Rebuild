@@ -213,3 +213,66 @@ public struct AccountDirectory: Codable, Sendable {
         }
     }
 }
+
+public extension AccountDirectory {
+    static var demo: AccountDirectory {
+        let accounts = [
+            UserAccount(
+                id: "ACC-IC",
+                personID: "PERSON-IC",
+                displayName: "事故指揮官 (Incident Commander)",
+                callSign: "IC-01",
+                allowedAppIDs: [.ucc, .scc],
+                defaultPosition: .incidentCommander,
+                credentialDigest: "password",
+                extraPermissions: Set(LinkGuardPermission.allCases)
+            ),
+            UserAccount(
+                id: "ACC-CS",
+                personID: "PERSON-CS",
+                displayName: "指揮幕僚 (Command Staff)",
+                callSign: "CS-01",
+                allowedAppIDs: [.ucc],
+                defaultPosition: .safetyOfficer,
+                credentialDigest: "password"
+            ),
+            UserAccount(
+                id: "ACC-OPS",
+                personID: "PERSON-OPS",
+                displayName: "作業組長 (Operations Chief)",
+                callSign: "OPS-01",
+                allowedAppIDs: [.scc],
+                defaultPosition: .operationsSectionChief,
+                credentialDigest: "password"
+            ),
+            UserAccount(
+                id: "ACC-PLAN",
+                personID: "PERSON-PLAN",
+                displayName: "計畫組長 (Planning Chief)",
+                callSign: "PLAN-01",
+                allowedAppIDs: [.ucc],
+                defaultPosition: .planningSectionChief,
+                credentialDigest: "password"
+            ),
+            UserAccount(
+                id: "ACC-LOG",
+                personID: "PERSON-LOG",
+                displayName: "後勤組長 (Logistics Chief)",
+                callSign: "LOG-01",
+                allowedAppIDs: [.ucc, .scc],
+                defaultPosition: .logisticsSectionChief,
+                credentialDigest: "password"
+            ),
+            UserAccount(
+                id: "ACC-FIN",
+                personID: "PERSON-FIN",
+                displayName: "財務行政組長 (Finance Chief)",
+                callSign: "FIN-01",
+                allowedAppIDs: [.ucc],
+                defaultPosition: .financeSectionChief,
+                credentialDigest: "password"
+            )
+        ]
+        return AccountDirectory(accounts: accounts)
+    }
+}
