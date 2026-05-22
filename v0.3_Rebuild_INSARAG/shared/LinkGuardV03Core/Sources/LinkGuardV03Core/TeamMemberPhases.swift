@@ -201,11 +201,20 @@ public enum TeamMemberPhaseCatalog {
     }
 
     public static func phases(for appID: LinkGuardAppID) -> [TeamMemberPhase] {
-        appID == .teamMember ? phases : []
+        switch appID {
+        case .teamLeader, .teamLeaderIPad, .teamMember:
+            return phases
+        case .ucc, .scc, .sccIPad, .volunteer, .emt, .emtIPad:
+            return []
+        }
+    }
+
+    public static func isExecutable(_ phase: TeamMemberPhase, by appID: LinkGuardAppID) -> Bool {
+        guard phase.implementationState == .coreBacked else { return false }
+        return phase.requiredFeatures.allSatisfy { LinkGuardFeatureAccessMatrix.isAvailable($0, for: appID) }
     }
 
     public static func isExecutableByTeamMember(_ phase: TeamMemberPhase) -> Bool {
-        guard phase.implementationState == .coreBacked else { return false }
-        return phase.requiredFeatures.allSatisfy { LinkGuardFeatureAccessMatrix.isAvailable($0, for: .teamMember) }
+        isExecutable(phase, by: .teamMember)
     }
 }

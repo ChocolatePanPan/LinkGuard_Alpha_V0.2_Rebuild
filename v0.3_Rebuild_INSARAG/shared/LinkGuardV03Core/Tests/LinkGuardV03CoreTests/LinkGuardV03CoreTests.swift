@@ -718,6 +718,39 @@ final class LinkGuardV03CoreTests: XCTestCase {
         XCTAssertEqual(FieldOperationalPrinciples.principle(id: "large-buttons")?.title, "大按鈕")
     }
 
+    func testTeamLeaderAndTeamMemberShareFieldWorkflowCatalog() {
+        let teamLeaderController = FieldAppController(
+            appID: .teamLeader,
+            platform: .iPhone,
+            deviceID: "IOS-TL-PHASE-TEST",
+            displayName: "TL Phase Test",
+            now: fixedDate
+        )
+        let teamMemberController = FieldAppController(
+            appID: .teamMember,
+            platform: .iPhone,
+            deviceID: "IOS-TE-PHASE-TEST",
+            displayName: "TE Phase Test",
+            now: fixedDate
+        )
+
+        XCTAssertEqual(TeamMemberPhaseCatalog.phases(for: .teamLeader).map(\.id), TeamMemberPhaseID.allCases)
+        XCTAssertEqual(TeamMemberPhaseCatalog.phases(for: .teamMember).map(\.id), TeamMemberPhaseID.allCases)
+        XCTAssertEqual(teamLeaderController.teamMemberPhases.map(\.id), teamMemberController.teamMemberPhases.map(\.id))
+        XCTAssertEqual(teamLeaderController.executableTeamMemberPhases.map(\.id), TeamMemberPhaseCatalog.coreBackedPhases.map(\.id))
+        XCTAssertEqual(teamMemberController.executableTeamMemberPhases.map(\.id), TeamMemberPhaseCatalog.coreBackedPhases.map(\.id))
+    }
+
+    func testTeamLeaderAndTeamMemberShareLaunchIdentityOptions() {
+        let expectedCodes = ["TL-01", "TL-02", "TE-01", "TE-02"]
+        let expectedLabels = ["TL-01 / 分隊長", "TL-02 / 副分隊長", "TE-01 / 搜索員", "TE-02 / 救援員"]
+
+        XCTAssertEqual(FieldLaunchIdentityOption.options(for: .teamLeader).map(\.code), expectedCodes)
+        XCTAssertEqual(FieldLaunchIdentityOption.options(for: .teamMember).map(\.code), expectedCodes)
+        XCTAssertEqual(FieldLaunchIdentityOption.options(for: .teamLeader).map(\.displayLabel), expectedLabels)
+        XCTAssertEqual(FieldLaunchIdentityOption.options(for: .teamMember).map(\.displayLabel), expectedLabels)
+    }
+
     func testEMTMedicalPhaseCatalogMatchesRequestedRoadmap() {
         let phases = EMTMedicalPhaseCatalog.phases
 

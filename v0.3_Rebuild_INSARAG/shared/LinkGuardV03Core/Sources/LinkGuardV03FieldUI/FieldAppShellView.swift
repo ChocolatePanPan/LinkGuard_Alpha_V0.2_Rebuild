@@ -1459,20 +1459,17 @@ struct FieldLaunchIdentityOption: Identifiable, Equatable {
                 FieldLaunchIdentityOption(code: "SCC-OPS", title: "作業協調", detail: "Operations Coordination"),
                 FieldLaunchIdentityOption(code: "SCC-SAFE", title: "安全監控", detail: "Safety Watch")
             ]
-        case .teamLeader, .teamLeaderIPad:
+        case .teamLeader, .teamLeaderIPad, .teamMember:
             return [
                 FieldLaunchIdentityOption(code: "TL-01", title: "分隊長", detail: "Team Leader"),
-                FieldLaunchIdentityOption(code: "TL-02", title: "副分隊長", detail: "Deputy Team Leader")
+                FieldLaunchIdentityOption(code: "TL-02", title: "副分隊長", detail: "Deputy Team Leader"),
+                FieldLaunchIdentityOption(code: "TE-01", title: "搜索員", detail: "Search Team Member"),
+                FieldLaunchIdentityOption(code: "TE-02", title: "救援員", detail: "Rescue Team Member")
             ]
         case .emt, .emtIPad:
             return [
                 FieldLaunchIdentityOption(code: "EMT-01", title: "救護組長", detail: "Medical Lead"),
                 FieldLaunchIdentityOption(code: "EMT-02", title: "救護員", detail: "Emergency Medical Technician")
-            ]
-        case .teamMember:
-            return [
-                FieldLaunchIdentityOption(code: "TE-01", title: "搜救員", detail: "Search Team Member"),
-                FieldLaunchIdentityOption(code: "TE-02", title: "搜救員", detail: "Rescue Team Member")
             ]
         case .volunteer:
             return [

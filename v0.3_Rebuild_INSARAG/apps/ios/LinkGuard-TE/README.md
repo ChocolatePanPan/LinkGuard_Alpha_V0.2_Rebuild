@@ -28,6 +28,8 @@
 
 `TeamMemberPhaseCatalog` 是此表的 shared core 來源；FieldUI 透過 `FieldAppController.teamMemberPhases` 取得同一份 roadmap。
 
+TL 手機版也使用同一份 `TeamMemberPhaseCatalog`。目前 TL/TE 啟動身分只作為畫面標示，兩個手機 target 先共用一致的小隊任務執行功能面。
+
 ## 允許功能
 
 - 分區地圖讀取與有限標記。

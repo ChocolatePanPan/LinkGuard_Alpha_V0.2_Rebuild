@@ -251,7 +251,7 @@ public struct FieldAppController: Sendable {
     public var profile: RoleProfile { runtime.profile }
     public var blueprint: AppBlueprint { runtime.blueprint }
     public var teamMemberPhases: [TeamMemberPhase] { TeamMemberPhaseCatalog.phases(for: runtime.device.appID) }
-    public var executableTeamMemberPhases: [TeamMemberPhase] { teamMemberPhases.filter(TeamMemberPhaseCatalog.isExecutableByTeamMember) }
+    public var executableTeamMemberPhases: [TeamMemberPhase] { teamMemberPhases.filter { TeamMemberPhaseCatalog.isExecutable($0, by: runtime.device.appID) } }
     public var emtMedicalPhases: [EMTMedicalPhase] { EMTMedicalPhaseCatalog.phases(for: runtime.device.appID) }
     public var executableEMTMedicalPhases: [EMTMedicalPhase] { emtMedicalPhases.filter(EMTMedicalPhaseCatalog.isExecutableByEMT) }
     public var pendingEnvelopeCount: Int { localCache.pendingCount }
@@ -313,10 +313,8 @@ public struct FieldAppController: Sendable {
         switch runtime.device.appID {
         case .sccIPad:
             return "SCC iPad / Sector Control"
-        case .teamLeader, .teamLeaderIPad:
-            return "TL / Worksite Command"
-        case .teamMember:
-            return "TE / Task Execution"
+        case .teamLeader, .teamLeaderIPad, .teamMember:
+            return "TL/TE / Team Operations"
         case .volunteer:
             return "VO / Support Reporting"
         case .emt, .emtIPad:
@@ -330,10 +328,8 @@ public struct FieldAppController: Sendable {
         switch runtime.device.appID {
         case .sccIPad:
             return "分區管理、人員總覽、安全管制"
-        case .teamLeader, .teamLeaderIPad:
-            return "分區、Worksite、任務派遣與回報閉環"
-        case .teamMember:
-            return "任務接收、GPS、照片、SOS 與狀態回報"
+        case .teamLeader, .teamLeaderIPad, .teamMember:
+            return "小隊指揮、任務執行、GPS、照片、SOS 與狀態回報"
         case .volunteer:
             return "GPS、SOS、照片、災情與語音回報"
         case .emt, .emtIPad:
