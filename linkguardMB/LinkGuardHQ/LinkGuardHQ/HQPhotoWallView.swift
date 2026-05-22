@@ -107,7 +107,7 @@ private func matchingPhotoEntries(
         .map(normalizePhotoLookupText)
         .filter { !$0.isEmpty }
 
-    let allTypeMatches = alerts.enumerated().compactMap { entry -> PhotoWallEntry? in
+    let candidates = alerts.enumerated().compactMap { entry -> (photo: PhotoWallEntry, haystack: String)? in
         let (index, raw) = entry
         let data = raw["data"] as? [String: Any] ?? raw
         let photoId = data["photo_id"] as? String ?? ""
@@ -123,26 +123,37 @@ private func matchingPhotoEntries(
             photoId
         ].joined(separator: " "))
 
-        guard normalizedReportTypeAliases.contains(where: { haystack.contains($0) }) else { return nil }
-
-        return PhotoWallEntry(id: stableId.isEmpty ? "inline-photo-\(index)" : stableId, data: data)
+        let photo = PhotoWallEntry(id: stableId.isEmpty ? "inline-photo-\(index)" : stableId, data: data)
+        return (photo: photo, haystack: haystack)
     }
 
-    let keywordMatches = normalizedKeywords.isEmpty
-        ? allTypeMatches
-        : allTypeMatches.filter { entry in
-            let data = entry.data
-            let haystack = normalizePhotoLookupText([
-                data["location_desc"] as? String ?? "",
-                data["caption"] as? String ?? "",
-                data["sender_name"] as? String ?? "",
-                data["photo_id"] as? String ?? ""
-            ].joined(separator: " "))
-            return normalizedKeywords.contains(where: { haystack.contains($0) })
-        }
+    let typeMatches = candidates.filter { candidate in
+        normalizedReportTypeAliases.contains(where: { candidate.haystack.contains($0) })
+    }
 
-    let selected = keywordMatches.isEmpty ? allTypeMatches : keywordMatches
-    return Array(selected.prefix(limit))
+    let keywordFilter: ([(photo: PhotoWallEntry, haystack: String)]) -> [PhotoWallEntry] = { rows in
+        let selectedRows: [(photo: PhotoWallEntry, haystack: String)]
+        if normalizedKeywords.isEmpty {
+            selectedRows = rows
+        } else {
+            selectedRows = rows.filter { row in
+                normalizedKeywords.contains(where: { row.haystack.contains($0) })
+            }
+        }
+        return selectedRows.map(\.photo)
+    }
+
+    let phase1 = keywordFilter(typeMatches)
+    if !phase1.isEmpty { return Array(phase1.prefix(limit)) }
+
+    let phase2 = keywordFilter(candidates)
+    if !phase2.isEmpty { return Array(phase2.prefix(limit)) }
+
+    if !typeMatches.isEmpty {
+        return Array(typeMatches.prefix(limit).map(\.photo))
+    }
+
+    return Array(candidates.prefix(limit).map(\.photo))
 }
 
 private func normalizedPhotoTypeAliases(_ reportType: String) -> [String] {
@@ -153,9 +164,9 @@ private func normalizedPhotoTypeAliases(_ reportType: String) -> [String] {
     case normalizePhotoLookupText("隊伍能力概況"), "team_capability":
         aliases = ["隊伍能力概況", "team_capability", "team capability"]
     case normalizePhotoLookupText("傷員回報"), "patient_report":
-        aliases = ["傷員回報", "patient_report", "patient report"]
+        aliases = ["傷員回報", "傷患回報", "patient_report", "patient report"]
     case normalizePhotoLookupText("危險回報"), "hazard_report":
-        aliases = ["危險回報", "hazard_report", "hazard report"]
+        aliases = ["危險回報", "危害回報", "hazard_report", "hazard report"]
     case normalizePhotoLookupText("AI 回報"), "ai_report":
         aliases = ["AI 回報", "ai_report", "ai report"]
     case normalizePhotoLookupText("小隊回報"), "squad_report":
