@@ -10,8 +10,11 @@ public enum SyncMessageType: String, Codable, CaseIterable, Sendable {
     case roleAssignmentUpsert
     case commandUpsert
     case taskUpsert
+    case operationalPeriodUpsert
     case photoReportUpsert
     case disasterReportUpsert
+    case agencyMessageUpsert
+    case ceocMissionUpsert
     case safetyZoneUpsert
     case safetyEntryLogUpsert
     case groupChatMessageAppend
@@ -21,6 +24,7 @@ public enum SyncMessageType: String, Codable, CaseIterable, Sendable {
     case sosReportUpsert
     case mapFeatureUpsert
     case patientUpsert
+    case patientOperationalSummaryUpsert
     case evacuationRequestUpsert
     case hospitalCapacityUpsert
     case purchaseRequestUpsert

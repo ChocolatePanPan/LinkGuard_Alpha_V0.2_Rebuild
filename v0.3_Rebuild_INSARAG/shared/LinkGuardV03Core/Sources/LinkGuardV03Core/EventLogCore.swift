@@ -70,12 +70,21 @@ public enum AuditEventFactory {
         case .taskUpsert:
             let item = try envelope.decodePayload(FieldTask.self)
             return AuditTargetDescriptor(incidentID: item.incidentID, targetType: "task", targetID: item.id, action: .update)
+        case .operationalPeriodUpsert:
+            let item = try envelope.decodePayload(OperationalPeriod.self)
+            return AuditTargetDescriptor(incidentID: item.incidentID, targetType: "operationalPeriod", targetID: item.id, action: .update)
         case .photoReportUpsert:
             let item = try envelope.decodePayload(PhotoReport.self)
             return AuditTargetDescriptor(incidentID: item.incidentID, targetType: "photoReport", targetID: item.id, action: .submitReport)
         case .disasterReportUpsert:
             let item = try envelope.decodePayload(DisasterReport.self)
             return AuditTargetDescriptor(incidentID: item.incidentID, targetType: "disasterReport", targetID: item.id, action: .submitReport)
+        case .agencyMessageUpsert:
+            let item = try envelope.decodePayload(AgencyMessage.self)
+            return AuditTargetDescriptor(incidentID: item.incidentID, targetType: "agencyMessage", targetID: item.id, action: .communication)
+        case .ceocMissionUpsert:
+            let item = try envelope.decodePayload(CEOCMission.self)
+            return AuditTargetDescriptor(incidentID: item.incidentID, targetType: "ceocMission", targetID: item.id, action: .issueCommand)
         case .safetyZoneUpsert:
             let item = try envelope.decodePayload(SafetyZone.self)
             return AuditTargetDescriptor(incidentID: item.incidentID, targetType: "safetyZone", targetID: item.id, action: .safetyControl)
@@ -103,6 +112,9 @@ public enum AuditEventFactory {
         case .patientUpsert:
             let item = try envelope.decodePayload(PatientRecord.self)
             return AuditTargetDescriptor(incidentID: item.incidentID, targetType: "patient", targetID: item.id, action: .submitReport)
+        case .patientOperationalSummaryUpsert:
+            let item = try envelope.decodePayload(PatientOperationalSummary.self)
+            return AuditTargetDescriptor(incidentID: item.incidentID, targetType: "patientOperationalSummary", targetID: item.id, action: .submitReport)
         case .evacuationRequestUpsert:
             let item = try envelope.decodePayload(EvacuationRequest.self)
             return AuditTargetDescriptor(incidentID: item.patientID, targetType: "evacuationRequest", targetID: item.id, action: .submitReport)

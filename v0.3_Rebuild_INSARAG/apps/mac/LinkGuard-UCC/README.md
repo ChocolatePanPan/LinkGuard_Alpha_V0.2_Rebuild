@@ -50,7 +50,7 @@ UCC/SCC 權限分工以 `docs/architecture/role-feature-access/README.md` 的「
 | UCC Phase 12 | 多指揮中心 | 備援切換 | 容錯能力 |
 | UCC Phase 13 | 國際協作 | INSARAG模式 | 國際接軌 |
 
-`UCCPhaseCatalog` 是此表的 shared core 來源；Phase 1-5、7、10、11 已對應現有 shared core 權限、功能矩陣與 sync message 類型，Phase 6、8、9 標為外部整合待接，Phase 12、13 標為戰略產品規劃。
+`UCCPhaseCatalog` 是此表的 shared core 來源；Phase 1-5、7、10、11 已對應現有 shared core 權限、功能矩陣與 sync message 類型。Phase 9 已具備 CEOC/EMIC 資料契約（`DisasterReport` 查證欄位、`AgencyMessage`、`CEOCMission`、`OperationalPeriod`、`PatientOperationalSummary`），但仍標為外部整合待接，因為正式 EMIC endpoint、token、簽章與政府端 schema 尚未接入。Phase 6、8 同樣為外部整合待接，Phase 12、13 標為戰略產品規劃。
 
 ## UI 實作
 

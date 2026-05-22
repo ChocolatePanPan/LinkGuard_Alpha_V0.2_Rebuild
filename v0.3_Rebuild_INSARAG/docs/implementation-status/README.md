@@ -13,6 +13,7 @@
 - `LinkGuardV03Core` 已包含 incident、sector、sub-sector、worksite、task、map、personnel、photo、safety、communication、medical、AAR、finance 等核心模型。
 - `SyncEnvelope`、`OperationSnapshot`、`OfflineQueue`、transport topology、local cache/recovery sync coordinator 已建立資料鏈骨架，並具備 offline flush planning、retry interval gating、manual retry 與 receipt failure handling。
 - `RoleProfileCatalog`、`AppBlueprintCatalog`、`LinkGuardFeatureAccessMatrix` 已定義 UCC/SCC/TL/TE/EMT/VO 的權限與功能可見性。
+- CEOC/EMIC-compatible 資料契約已進入 shared core：`DisasterReport` 支援來源機關、查證狀態、受影響範圍、傷亡估計與 EMIC reference；`AgencyMessage`、`CEOCMission`、`OperationalPeriod` 的開設層級/IAP 摘要，以及 `PatientOperationalSummary` 已可透過 sync envelope 進入同一個 incident snapshot。
 - `SCCPhaseCatalog` 已將 LinkGuard-SCC 的 25 phase 固定為 shared core 產品契約；Phase 1-16、18、19、21、25 由現有 core/feature gate/snapshot 骨架覆蓋，Phase 17/22 為通訊整合待接，Phase 20/23/24 為產品化與上下層協同待接。
 - Mac `LinkGuard-UCC` / `LinkGuard-SCC` 已有可 build project，並包入 copied v0.2 HQ UI。
 - iPhone `LinkGuard-TL` / `LinkGuard-TE` / `LinkGuard-VO` / `LinkGuard-EMT` 與 iPad `LinkGuard-SCC-iPad` / `LinkGuard-TL-iPad` / `LinkGuard-EMT-iPad` 已有 target/scheme 與 shared FieldUI shell。
@@ -30,6 +31,7 @@
 - Mac UCC/SCC 目前主要仍是 copied v0.2 HQ UI；UCC 已有第一版 ICS architecture panel，但各 ICS lane 尚未完整替換成 v0.3 專用指揮流程。
 - SCC 的 25 phase 產品契約已補入 shared core，但 Phase 17 電台監聽、Phase 22 LoRa 中繼、Phase 23 多裝置同步、Phase 24 UCC 同步仍未串成正式產品流程，Phase 20 AI 風險分析仍缺專用模型與驗證。
 - UCC Phase 6/8/9/12/13 已有 shared core roadmap 與 feature gate，但仍待接入實際 PTT/PWS/EMIC、備援切換與國際協作流程。
+- UCC Phase 9 已具備 CEOC/EMIC 資料契約與 sync message 類型，但尚未接正式消防署 EMIC endpoint、token、簽章、查證 API 或政府端 payload schema。
 - HQ/UCC/SCC 與 field apps 的實際 HTTP/WebSocket/Bonjour/LoRa/MQTT/離線轉送鏈路尚未以產品流程串起；目前已完成 client-side offline retry 行為，尚缺 server endpoint、device provisioning 與真實網路 field drill。
 - TE Phase 11 的 LoRa 仍待 iPhone field app 接入實際 LoRa/BLE gateway、封包轉換與弱網演練。
 - EMT Phase 10/12 仍待接入 AI 惡化預測模型與 Apple Watch/其他穿戴式生命徵象來源。
@@ -52,6 +54,7 @@
 ## Next Implementation Order
 
 1. 建立 field app 到 HQ/UCC/SCC 的正式 sync server endpoint、device provisioning 與角色配置。
-2. 接上真實 GPS、照片、語音、NFC、地圖與通知能力。
-3. 將 Mac UCC/SCC 從 copied HQ UI 逐步替換為 v0.3 指揮流程。
-4. 做 offline/weak-network field drill，將結果轉成測試與修復清單。
+2. 為 UCC Phase 9 建立 EMIC adapter/mock endpoint，對齊 `AgencyMessage`、`CEOCMission`、`DisasterReport` 與 `OperationalPeriod` payload schema。
+3. 接上真實 GPS、照片、語音、NFC、地圖與通知能力。
+4. 將 Mac UCC/SCC 從 copied HQ UI 逐步替換為 v0.3 指揮流程。
+5. 做 offline/weak-network field drill，將結果轉成測試與修復清單。

@@ -75,6 +75,10 @@ public enum LinkGuardFeature: String, Codable, CaseIterable, Sendable {
     case resourceManagement
     case pwsIntegration
     case emicIntegration
+    case agencyMessaging
+    case ceocMissionDispatch
+    case eocActivationManagement
+    case medicalOperationalSummary
     case commandCenterRedundancy
     case internationalCoordination
 
@@ -207,6 +211,10 @@ public enum LinkGuardFeatureAccessMatrix {
         .resourceManagement: .init(.primary, .limited, .limited, .none, .limited, .none),
         .pwsIntegration: .init(.primary, .limited, .limited, .none, .none, .none),
         .emicIntegration: .init(.primary, .none, .none, .none, .none, .none),
+        .agencyMessaging: .init(.primary, .limited, .none, .none, .none, .none),
+        .ceocMissionDispatch: .init(.primary, .limited, .none, .none, .none, .none),
+        .eocActivationManagement: .init(.primary, .none, .none, .none, .none, .none),
+        .medicalOperationalSummary: .init(.primary, .limited, .limited, .none, .primary, .none),
         .commandCenterRedundancy: .init(.primary, .primary, .none, .none, .none, .none),
         .internationalCoordination: .init(.primary, .limited, .none, .none, .none, .none),
 

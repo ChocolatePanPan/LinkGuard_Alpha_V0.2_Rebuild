@@ -5,6 +5,7 @@ public enum LinkGuardPermission: String, Codable, CaseIterable, Sendable {
     case manageIncident
     case assignRole
     case issueCommand
+    case coordinateAgency
     case acknowledgeAlert
     case forceAcknowledgeAlert
     case manageMap
@@ -60,6 +61,7 @@ public enum RoleProfileCatalog {
             .manageIncident,
             .assignRole,
             .issueCommand,
+            .coordinateAgency,
             .acknowledgeAlert,
             .forceAcknowledgeAlert,
             .manageMap,

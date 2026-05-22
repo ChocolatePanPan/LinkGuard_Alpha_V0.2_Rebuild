@@ -202,6 +202,10 @@ final class LinkGuardV03CoreTests: XCTestCase {
         assertAccess(.resourceManagement, .primary, .limited, .limited, .none, .limited, .none)
         assertAccess(.pwsIntegration, .primary, .limited, .limited, .none, .none, .none)
         assertAccess(.emicIntegration, .primary, .none, .none, .none, .none, .none)
+        assertAccess(.agencyMessaging, .primary, .limited, .none, .none, .none, .none)
+        assertAccess(.ceocMissionDispatch, .primary, .limited, .none, .none, .none, .none)
+        assertAccess(.eocActivationManagement, .primary, .none, .none, .none, .none, .none)
+        assertAccess(.medicalOperationalSummary, .primary, .limited, .limited, .none, .primary, .none)
         assertAccess(.commandCenterRedundancy, .primary, .primary, .none, .none, .none, .none)
         assertAccess(.internationalCoordination, .primary, .limited, .none, .none, .none, .none)
 
@@ -261,6 +265,14 @@ final class LinkGuardV03CoreTests: XCTestCase {
         XCTAssertEqual(UCCSCCCapabilityMatrix.scope(for: "pttMonitoring")?.scc, .primary)
         XCTAssertEqual(UCCSCCCapabilityMatrix.scope(for: "emic")?.ucc, .primary)
         XCTAssertEqual(UCCSCCCapabilityMatrix.scope(for: "emic")?.scc, .unavailable)
+        XCTAssertEqual(UCCSCCCapabilityMatrix.scope(for: "agencyMessaging")?.ucc, .primary)
+        XCTAssertEqual(UCCSCCCapabilityMatrix.scope(for: "agencyMessaging")?.scc, .assisted)
+        XCTAssertEqual(UCCSCCCapabilityMatrix.scope(for: "ceocMissionDispatch")?.ucc, .primary)
+        XCTAssertEqual(UCCSCCCapabilityMatrix.scope(for: "ceocMissionDispatch")?.scc, .assisted)
+        XCTAssertEqual(UCCSCCCapabilityMatrix.scope(for: "eocActivationManagement")?.ucc, .primary)
+        XCTAssertEqual(UCCSCCCapabilityMatrix.scope(for: "eocActivationManagement")?.scc, .unavailable)
+        XCTAssertEqual(UCCSCCCapabilityMatrix.scope(for: "medicalOperationalSummary")?.ucc, .primary)
+        XCTAssertEqual(UCCSCCCapabilityMatrix.scope(for: "medicalOperationalSummary")?.scc, .assisted)
         XCTAssertEqual(UCCSCCCapabilityMatrix.scope(for: "fieldSafetyRealtime")?.ucc, .unavailable)
         XCTAssertEqual(UCCSCCCapabilityMatrix.scope(for: "fieldSafetyRealtime")?.scc, .primary)
         XCTAssertEqual(UCCSCCCapabilityMatrix.scope(for: "multiSCCMonitoring")?.ucc, .primary)
@@ -301,6 +313,10 @@ final class LinkGuardV03CoreTests: XCTestCase {
             .resourceManagement,
             .pwsIntegration,
             .emicIntegration,
+            .agencyMessaging,
+            .ceocMissionDispatch,
+            .eocActivationManagement,
+            .medicalOperationalSummary,
             .commandCenterRedundancy,
             .multiDisasterSwitch,
             .globalHeatAnalysis,
@@ -415,6 +431,18 @@ final class LinkGuardV03CoreTests: XCTestCase {
         }
     }
 
+    func testUCCPhaseNineCarriesCEOCEMICDataContracts() {
+        let phase = UCCPhaseCatalog.phase(id: .phase9)
+
+        XCTAssertTrue(phase.requiredFeatures.contains(.emicIntegration))
+        XCTAssertTrue(phase.requiredFeatures.contains(.agencyMessaging))
+        XCTAssertTrue(phase.requiredFeatures.contains(.ceocMissionDispatch))
+        XCTAssertTrue(phase.requiredFeatures.contains(.eocActivationManagement))
+        XCTAssertTrue(phase.relatedMessageTypes.contains(.operationalPeriodUpsert))
+        XCTAssertTrue(phase.relatedMessageTypes.contains(.agencyMessageUpsert))
+        XCTAssertTrue(phase.relatedMessageTypes.contains(.ceocMissionUpsert))
+    }
+
     func testSCCPhaseCatalogMatchesRequestedRoadmap() {
         let phases = SCCPhaseCatalog.phases
 
@@ -500,6 +528,132 @@ final class LinkGuardV03CoreTests: XCTestCase {
                 XCTAssertTrue(profile.defaultSections.contains(section), "\(phase.label) requires \(section.rawValue)")
             }
         }
+    }
+
+    func testSCCUsesOperationalMedicalSummaryInsteadOfClinicalPatientPayloads() {
+        let casualtyOverview = SCCPhaseCatalog.phase(id: .phase11)
+        let startStatistics = SCCPhaseCatalog.phase(id: .phase12)
+
+        XCTAssertTrue(casualtyOverview.requiredFeatures.contains(.medicalOperationalSummary))
+        XCTAssertTrue(startStatistics.requiredFeatures.contains(.medicalOperationalSummary))
+        XCTAssertTrue(casualtyOverview.relatedMessageTypes.contains(.patientOperationalSummaryUpsert))
+        XCTAssertTrue(startStatistics.relatedMessageTypes.contains(.patientOperationalSummaryUpsert))
+        XCTAssertFalse(casualtyOverview.relatedMessageTypes.contains(.patientUpsert))
+        XCTAssertFalse(startStatistics.relatedMessageTypes.contains(.patientUpsert))
+    }
+
+    func testCEOCEMICContractsRoundTripThroughSnapshotAndRouting() throws {
+        let incidentID = LinkGuardID("INC-CEOC-001")
+        let uccAgency = AgencyIdentity(id: "AG-UCC", displayName: "UCC", jurisdiction: "National")
+        let sccAgency = AgencyIdentity(id: "AG-SCC", displayName: "SCC", jurisdiction: "Local")
+        let report = DisasterReport(
+            id: "DR-CEOC-001",
+            incidentID: incidentID,
+            reporterDeviceID: "DEV-VO-001",
+            reporterAppID: .volunteer,
+            kind: .collapse,
+            location: GeoCoordinate(latitude: 24.147, longitude: 120.673, accuracyMeters: 12),
+            severity: .critical,
+            summary: "Collapsed residential block",
+            createdAt: fixedDate,
+            sourceAgency: sccAgency,
+            verificationStatus: .verified,
+            verifiedByAgency: uccAgency,
+            verifiedByPersonID: "PERSON-UCC-01",
+            verifiedAt: fixedDate,
+            affectedAreaSummary: "North district grid A3",
+            victimEstimate: 12,
+            emicReferenceID: "EMIC-20260522-001"
+        )
+        let agencyMessage = AgencyMessage(
+            id: "AM-001",
+            incidentID: incidentID,
+            fromAgency: sccAgency,
+            toAgency: uccAgency,
+            kind: .situationReply,
+            subject: "CEOC verification update",
+            body: "Initial report verified by local command.",
+            verificationStatus: .verified,
+            relatedDisasterReportID: report.id,
+            sentAt: fixedDate
+        )
+        let mission = CEOCMission(
+            id: "MISSION-001",
+            incidentID: incidentID,
+            missionNumber: "CEOC-M-001",
+            issuingAgency: uccAgency,
+            receivingAgency: sccAgency,
+            taskDescription: "Deploy heavy USAR intake team to sector A.",
+            priority: .critical,
+            status: .dispatched,
+            relatedDisasterReportID: report.id,
+            issuedAt: fixedDate,
+            dispatchedAt: fixedDate
+        )
+        let operationalPeriod = OperationalPeriod(
+            id: "OP-001",
+            incidentID: incidentID,
+            startsAt: fixedDate,
+            endsAt: fixedDate.addingTimeInterval(43_200),
+            objectives: ["Stabilize sector A", "Complete CEOC verification loop"],
+            safetyMessage: "Aftershock watch",
+            weatherForecast: "Heavy rain after 1800",
+            communicationsPlanSummary: "UCC-SCC voice primary, packet sync secondary",
+            medicalPlanSummary: "Route red/yellow patients to assigned hospitals",
+            resourceSummary: "Heavy USAR and EMT strike teams staged",
+            eocActivationLevel: .level1,
+            meetingRecordIDs: ["MEET-001"]
+        )
+        let patientSummary = PatientOperationalSummary(
+            id: "PSUM-001",
+            incidentID: incidentID,
+            patientID: "PAT-001",
+            displayCode: "P-001",
+            triageCategory: .red,
+            location: GeoCoordinate(latitude: 24.148, longitude: 120.674),
+            evacuationStatus: .assigned,
+            destinationHospitalID: "HOSP-001",
+            updatedAt: fixedDate
+        )
+
+        let envelopes = try [
+            SyncEnvelope.make(messageType: .disasterReportUpsert, sourceAppID: .volunteer, sourceDeviceID: "DEV-VO-001", priority: .critical, createdAt: fixedDate, idempotencyKey: "DR-CEOC-001", payload: report),
+            SyncEnvelope.make(messageType: .agencyMessageUpsert, sourceAppID: .scc, sourceDeviceID: "DEV-SCC-001", priority: .high, createdAt: fixedDate, idempotencyKey: "AM-001", payload: agencyMessage),
+            SyncEnvelope.make(messageType: .ceocMissionUpsert, sourceAppID: .ucc, sourceDeviceID: "DEV-UCC-001", priority: .critical, createdAt: fixedDate, idempotencyKey: "MISSION-001", payload: mission),
+            SyncEnvelope.make(messageType: .operationalPeriodUpsert, sourceAppID: .ucc, sourceDeviceID: "DEV-UCC-001", priority: .low, createdAt: fixedDate, idempotencyKey: "OP-001", payload: operationalPeriod),
+            SyncEnvelope.make(messageType: .patientOperationalSummaryUpsert, sourceAppID: .emt, sourceDeviceID: "DEV-EMT-001", priority: .high, createdAt: fixedDate, idempotencyKey: "PSUM-001", payload: patientSummary)
+        ]
+
+        var snapshot = OperationSnapshot()
+        for envelope in envelopes {
+            try snapshot.apply(envelope)
+        }
+
+        XCTAssertEqual(snapshot.disasterReports[report.id]?.emicReferenceID, "EMIC-20260522-001")
+        XCTAssertEqual(snapshot.disasterReports[report.id]?.verificationStatus, .verified)
+        XCTAssertEqual(snapshot.agencyMessages[agencyMessage.id]?.relatedDisasterReportID, report.id)
+        XCTAssertEqual(snapshot.ceocMissions[mission.id]?.status, .dispatched)
+        XCTAssertEqual(snapshot.operationalPeriods[operationalPeriod.id]?.eocActivationLevel, .level1)
+        XCTAssertEqual(snapshot.patientOperationalSummaries[patientSummary.id]?.triageCategory, .red)
+
+        let agencyEnvelope = envelopes[1]
+        XCTAssertTrue(TransportTopology.canDeliver(agencyEnvelope, to: .ucc))
+        XCTAssertTrue(TransportTopology.canDeliver(agencyEnvelope, to: .scc))
+        XCTAssertFalse(TransportTopology.canDeliver(agencyEnvelope, to: .teamLeader))
+        XCTAssertTrue(runtime(appID: .ucc).canSend(.agencyMessageUpsert))
+        XCTAssertTrue(runtime(appID: .scc).canSend(.ceocMissionUpsert))
+        XCTAssertFalse(runtime(appID: .teamLeader).canSend(.agencyMessageUpsert))
+
+        let summaryEnvelope = envelopes[4]
+        XCTAssertTrue(TransportTopology.canDeliver(summaryEnvelope, to: .ucc))
+        XCTAssertTrue(TransportTopology.canDeliver(summaryEnvelope, to: .scc))
+        XCTAssertTrue(TransportTopology.canDeliver(summaryEnvelope, to: .emt))
+        XCTAssertFalse(TransportTopology.canDeliver(summaryEnvelope, to: .volunteer))
+
+        let summaryJSON = String(data: try LinkGuardJSON.encode(patientSummary), encoding: .utf8) ?? ""
+        XCTAssertFalse(summaryJSON.contains("heartRate"))
+        XCTAssertFalse(summaryJSON.contains("latestVitals"))
+        XCTAssertFalse(summaryJSON.contains("injurySummary"))
     }
 
     func testTeamMemberPhaseCatalogMatchesRequestedRoadmap() {

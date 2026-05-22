@@ -43,12 +43,19 @@ LinkGuard 的 INSARAG 層不應只是 UI 文字，應落在可同步、可稽核
 | Team capability | team code, country, response type, classification, technical/dog/medical/hazmat capability, support needs | `TeamCapabilityModels.swift` |
 | Task | source, target, worksite, objective, priority, due time, acceptance/result | `TaskModels.swift`, FieldUI envelopes |
 | Medical evacuation | patient ID, START category, CCP, route, destination, handoff status | `MedicalModels.swift` |
+| CEOC/EMIC disaster report | source agency, verification status, affected area, victim estimate, EMIC reference | `DisasterReport`, `disasterReportUpsert` |
+| Agency message | from/to agency, notification/request/reply/decision kind, subject, body, verification status | `AgencyMessage`, `agencyMessageUpsert` |
+| CEOC mission | mission number, issuing/receiving agency, task description, status, priority, due/completed time | `CEOCMission`, `ceocMissionUpsert` |
+| Operational period / IAP summary | objectives, safety, weather, communications, medical plan, resources, EOC activation level | `OperationalPeriod`, `operationalPeriodUpsert` |
+| Patient operational summary | patient ID, START category, location, evacuation status, destination hospital | `PatientOperationalSummary`, `patientOperationalSummaryUpsert` |
 | Audit event | actor, role, operation, before/after summary, sync receipt | sync envelope / AAR models |
 
 ## Authority Boundaries
 
 - UCC may create the incident, set cross-SCC priorities, approve external resource strategy, receive team capability reports, and publish operational-period summaries.
+- UCC owns CEOC/EMIC coordination records: agency messages, CEOC missions, EOC activation level, and verified disaster-report exchange.
 - SCC owns tactical site command: sector boundaries, worksite assignment, safety control, task dispatch and operational map truth.
+- SCC may receive/respond to CEOC missions and agency messages, but does not own the UCC-only EMIC integration or EOC activation management feature.
 - TL owns team execution details inside assigned sectors or worksites, but cannot silently overwrite SCC authority data.
 - TE/VO can submit observations and SOS, but their submissions should remain pending or attributed until TL/SCC accepts them into the official operational picture.
 - EMT owns clinical detail. SCC/UCC should receive evacuation status, capacity and triage summary without taking over full medical record authority.
@@ -62,6 +69,7 @@ LinkGuard 的 INSARAG 層不應只是 UI 文字，應落在可同步、可稽核
 5. SCC promotes accepted field observations into the official map and worksite state.
 6. EMT updates patient, START, CCP and evacuation summaries; clinical details stay in the medical boundary.
 7. UCC receives cross-site situation, resource gaps, medical load, finance events and AAR timeline.
+8. UCC/SCC exchange CEOC/EMIC-compatible agency messages and mission records while keeping field tasks and clinical patient records in their separate authority boundaries.
 
 ## UI Implications
 
@@ -75,6 +83,7 @@ LinkGuard 的 INSARAG 層不應只是 UI 文字，應落在可同步、可稽核
 - `MacUCCICSArchitecture` and `MacUCCICSArchitecturePanel` provide the first UCC ICS architecture surface.
 - `TeamCapabilityModels.swift` contains the current shared model for USAR team capability intake, including OSOCC/RDC support flags.
 - `MapSystemTypes.swift` contains the point/line/polygon, ICS area and map markup primitives needed by ASR/RCM overlays.
+- CEOC/EMIC data contracts are now represented in shared core through `AgencyMessage`, `CEOCMission`, `OperationalPeriod` extensions, and `PatientOperationalSummary`; this is data-contract readiness, not a claim that a government EMIC API is connected.
 - `HQUSARCommandView.swift` under `V02CopiedHQ` still carries useful ASR/RCM/worksite behavior, but it should be treated as migration reference until the v0.3 UCC/SCC products fully replace copied v0.2 UI.
 
 ## Acceptance Checks

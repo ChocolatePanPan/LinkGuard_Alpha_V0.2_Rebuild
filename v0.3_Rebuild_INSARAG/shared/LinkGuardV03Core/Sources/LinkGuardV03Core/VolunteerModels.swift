@@ -35,6 +35,14 @@ public struct DisasterReport: Codable, Hashable, Sendable {
     public var photoAttachmentIDs: [LinkGuardID]
     public var createdAt: Date
     public var receivedAt: Date?
+    public var sourceAgency: AgencyIdentity?
+    public var verificationStatus: VerificationStatus?
+    public var verifiedByAgency: AgencyIdentity?
+    public var verifiedByPersonID: LinkGuardID?
+    public var verifiedAt: Date?
+    public var affectedAreaSummary: String?
+    public var victimEstimate: Int?
+    public var emicReferenceID: String?
 
     public init(
         id: LinkGuardID,
@@ -47,7 +55,15 @@ public struct DisasterReport: Codable, Hashable, Sendable {
         summary: String? = nil,
         photoAttachmentIDs: [LinkGuardID] = [],
         createdAt: Date,
-        receivedAt: Date? = nil
+        receivedAt: Date? = nil,
+        sourceAgency: AgencyIdentity? = nil,
+        verificationStatus: VerificationStatus? = nil,
+        verifiedByAgency: AgencyIdentity? = nil,
+        verifiedByPersonID: LinkGuardID? = nil,
+        verifiedAt: Date? = nil,
+        affectedAreaSummary: String? = nil,
+        victimEstimate: Int? = nil,
+        emicReferenceID: String? = nil
     ) {
         self.id = id
         self.incidentID = incidentID
@@ -60,6 +76,14 @@ public struct DisasterReport: Codable, Hashable, Sendable {
         self.photoAttachmentIDs = photoAttachmentIDs
         self.createdAt = createdAt
         self.receivedAt = receivedAt
+        self.sourceAgency = sourceAgency
+        self.verificationStatus = verificationStatus
+        self.verifiedByAgency = verifiedByAgency
+        self.verifiedByPersonID = verifiedByPersonID
+        self.verifiedAt = verifiedAt
+        self.affectedAreaSummary = affectedAreaSummary
+        self.victimEstimate = victimEstimate
+        self.emicReferenceID = emicReferenceID
     }
 }
 

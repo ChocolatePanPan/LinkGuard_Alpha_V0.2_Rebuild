@@ -10,6 +10,7 @@ public enum TransportPolicy: String, Codable, CaseIterable, Sendable {
     case broadcast
     case medicalClinical
     case medicalOperational
+    case agencyCoordination
     case finance
     case audit
 }
@@ -42,6 +43,7 @@ public enum TransportTopology {
     public static let personnelOverviewApps: Set<LinkGuardAppID> = [.ucc, .scc, .sccIPad, .teamLeader, .teamLeaderIPad]
     public static let medicalClinicalApps: Set<LinkGuardAppID> = [.emt, .emtIPad]
     public static let medicalOperationalApps: Set<LinkGuardAppID> = [.ucc, .scc, .sccIPad, .emt, .emtIPad]
+    public static let agencyCoordinationApps: Set<LinkGuardAppID> = [.ucc, .scc, .sccIPad]
     public static let financeApps: Set<LinkGuardAppID> = [.ucc]
     public static let allApps = Set(LinkGuardAppID.allCases)
 
@@ -62,7 +64,7 @@ public enum TransportTopology {
 
     private static func transportPolicy(for messageType: SyncMessageType) -> TransportPolicy {
         switch messageType {
-        case .incidentUpsert, .sectorUpsert, .roleAssignmentUpsert, .commandUpsert, .decisionRecordUpsert:
+        case .incidentUpsert, .sectorUpsert, .roleAssignmentUpsert, .commandUpsert, .operationalPeriodUpsert, .decisionRecordUpsert:
             return .commandSpine
         case .subSectorUpsert, .worksiteUpsert, .taskUpsert, .mapFeatureUpsert:
             return .fieldOperations
@@ -70,6 +72,8 @@ public enum TransportTopology {
             return .personnelOverview
         case .photoReportUpsert, .disasterReportUpsert:
             return .fieldReports
+        case .agencyMessageUpsert, .ceocMissionUpsert:
+            return .agencyCoordination
         case .safetyZoneUpsert, .safetyEntryLogUpsert:
             return .safetyControl
         case .groupChatMessageAppend, .voiceReportAppend:
@@ -78,7 +82,7 @@ public enum TransportTopology {
             return .broadcast
         case .patientUpsert:
             return .medicalClinical
-        case .evacuationRequestUpsert, .hospitalCapacityUpsert:
+        case .patientOperationalSummaryUpsert, .evacuationRequestUpsert, .hospitalCapacityUpsert:
             return .medicalOperational
         case .purchaseRequestUpsert, .personnelHoursUpsert:
             return .finance
@@ -107,6 +111,8 @@ public enum TransportTopology {
             return medicalClinicalApps
         case .medicalOperational:
             return medicalOperationalApps
+        case .agencyCoordination:
+            return agencyCoordinationApps
         case .finance:
             return financeApps
         case .audit:
@@ -141,6 +147,9 @@ public enum TransportTopology {
             return [.emt, .emtIPad]
         case .medicalOperational:
             return [.emt, .scc, .ucc]
+        case .agencyCoordination:
+            if sourceAppID == .ucc { return [.scc] }
+            return [.ucc]
         case .finance:
             return [.ucc]
         case .audit:

@@ -166,9 +166,9 @@ public enum UCCPhaseCatalog {
             moduleName: "EMIC整合",
             capability: "災情同步",
             purpose: "政府協同",
-            requiredFeatures: [.emicIntegration, .disasterStatistics],
+            requiredFeatures: [.emicIntegration, .agencyMessaging, .ceocMissionDispatch, .eocActivationManagement, .disasterStatistics],
             requiredPermissions: [.manageIncident, .submitReport],
-            relatedMessageTypes: [.incidentUpsert, .disasterReportUpsert, .auditEventAppend],
+            relatedMessageTypes: [.incidentUpsert, .operationalPeriodUpsert, .disasterReportUpsert, .agencyMessageUpsert, .ceocMissionUpsert, .auditEventAppend],
             primarySections: [.planning, .operations],
             implementationState: .externalIntegrationPlanned
         ),

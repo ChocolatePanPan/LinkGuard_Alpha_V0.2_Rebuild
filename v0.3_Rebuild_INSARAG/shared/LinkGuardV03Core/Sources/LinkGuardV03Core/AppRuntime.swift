@@ -11,12 +11,14 @@ public enum LinkGuardRuntimeError: Error, Equatable, Sendable {
 public enum AppLogicGate {
     public static func requiredPermission(for messageType: SyncMessageType) -> LinkGuardPermission? {
         switch messageType {
-        case .incidentUpsert, .sectorUpsert, .subSectorUpsert:
+        case .incidentUpsert, .sectorUpsert, .subSectorUpsert, .operationalPeriodUpsert:
             return .manageIncident
         case .roleAssignmentUpsert:
             return .assignRole
         case .commandUpsert:
             return .issueCommand
+        case .agencyMessageUpsert, .ceocMissionUpsert:
+            return .coordinateAgency
         case .worksiteUpsert, .safetyZoneUpsert:
             return .manageMap
         case .mapFeatureUpsert:
@@ -33,6 +35,8 @@ public enum AppLogicGate {
             return .sendSOS
         case .patientUpsert:
             return .managePatientReport
+        case .patientOperationalSummaryUpsert:
+            return .viewMedicalSummary
         case .evacuationRequestUpsert:
             return .manageEvacuation
         case .hospitalCapacityUpsert:
@@ -50,11 +54,11 @@ public enum AppLogicGate {
         switch messageType {
         case .alertUpsert, .sosReportUpsert, .patientUpsert, .evacuationRequestUpsert:
             return .critical
-        case .commandUpsert, .worksiteUpsert, .personnelStatusUpsert, .teamCapabilityReportUpsert, .photoReportUpsert, .disasterReportUpsert, .mapFeatureUpsert, .safetyZoneUpsert, .safetyEntryLogUpsert, .voiceReportAppend, .hospitalCapacityUpsert:
+        case .commandUpsert, .ceocMissionUpsert, .worksiteUpsert, .personnelStatusUpsert, .teamCapabilityReportUpsert, .photoReportUpsert, .disasterReportUpsert, .agencyMessageUpsert, .mapFeatureUpsert, .safetyZoneUpsert, .safetyEntryLogUpsert, .voiceReportAppend, .hospitalCapacityUpsert, .patientOperationalSummaryUpsert:
             return .high
         case .taskUpsert, .alertAcknowledgementUpsert, .roleAssignmentUpsert, .groupChatMessageAppend:
             return .medium
-        case .incidentUpsert, .sectorUpsert, .subSectorUpsert, .purchaseRequestUpsert, .personnelHoursUpsert, .decisionRecordUpsert:
+        case .incidentUpsert, .sectorUpsert, .subSectorUpsert, .operationalPeriodUpsert, .purchaseRequestUpsert, .personnelHoursUpsert, .decisionRecordUpsert:
             return .low
         case .auditEventAppend:
             return .routine

@@ -81,6 +81,43 @@ public struct PatientRecord: Codable, Hashable, Sendable {
     }
 }
 
+public struct PatientOperationalSummary: Codable, Hashable, Sendable {
+    public var id: LinkGuardID
+    public var incidentID: LinkGuardID
+    public var patientID: LinkGuardID
+    public var displayCode: String
+    public var triageCategory: TriageCategory
+    public var location: GeoCoordinate?
+    public var careLocationID: LinkGuardID?
+    public var evacuationStatus: EvacuationStatus?
+    public var destinationHospitalID: LinkGuardID?
+    public var updatedAt: Date
+
+    public init(
+        id: LinkGuardID,
+        incidentID: LinkGuardID,
+        patientID: LinkGuardID,
+        displayCode: String,
+        triageCategory: TriageCategory,
+        location: GeoCoordinate? = nil,
+        careLocationID: LinkGuardID? = nil,
+        evacuationStatus: EvacuationStatus? = nil,
+        destinationHospitalID: LinkGuardID? = nil,
+        updatedAt: Date
+    ) {
+        self.id = id
+        self.incidentID = incidentID
+        self.patientID = patientID
+        self.displayCode = displayCode
+        self.triageCategory = triageCategory
+        self.location = location
+        self.careLocationID = careLocationID
+        self.evacuationStatus = evacuationStatus
+        self.destinationHospitalID = destinationHospitalID
+        self.updatedAt = updatedAt
+    }
+}
+
 public struct EvacuationRequest: Codable, Hashable, Sendable {
     public var id: LinkGuardID
     public var patientID: LinkGuardID
