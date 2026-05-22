@@ -17,7 +17,7 @@ struct HQPhotoWallView: View {
     }
 
     private var photoEntries: [PhotoWallEntry] {
-        vm.photoAlerts.enumerated().map { index, photo in
+        mergedPhotoAlerts(vm.photoAlerts).enumerated().map { index, photo in
             let data = photo["data"] as? [String: Any] ?? photo
             let photoId = data["photo_id"] as? String ?? ""
             let fullURL = data["full_url"] as? String ?? ""
@@ -67,6 +67,7 @@ struct HQInlinePhotoStrip: View {
     var title: String = L("照片附件")
     var limit: Int = 3
     var cardWidth: CGFloat = 220
+    var stripHeight: CGFloat = 240
 
     private var entries: [PhotoWallEntry] {
         matchingPhotoEntries(
@@ -78,10 +79,16 @@ struct HQInlinePhotoStrip: View {
     }
 
     var body: some View {
-        if !entries.isEmpty {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(title)
-                    .font(.subheadline.weight(.semibold))
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.subheadline.weight(.semibold))
+
+            if entries.isEmpty {
+                Text(L("尚未收到照片附件"))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .padding(.vertical, 6)
+            } else {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 10) {
                         ForEach(entries) { entry in
@@ -90,9 +97,11 @@ struct HQInlinePhotoStrip: View {
                         }
                     }
                 }
-                .frame(height: 220)
+                .frame(height: stripHeight)
+                .clipped()
             }
         }
+        .padding(.vertical, 2)
     }
 }
 
@@ -131,29 +140,89 @@ private func matchingPhotoEntries(
         normalizedReportTypeAliases.contains(where: { candidate.haystack.contains($0) })
     }
 
-    let keywordFilter: ([(photo: PhotoWallEntry, haystack: String)]) -> [PhotoWallEntry] = { rows in
-        let selectedRows: [(photo: PhotoWallEntry, haystack: String)]
-        if normalizedKeywords.isEmpty {
-            selectedRows = rows
-        } else {
-            selectedRows = rows.filter { row in
+    let strictMatches: [PhotoWallEntry]
+    if normalizedKeywords.isEmpty {
+        strictMatches = typeMatches.map(\.photo)
+    } else {
+        strictMatches = typeMatches
+            .filter { row in
                 normalizedKeywords.contains(where: { row.haystack.contains($0) })
             }
+            .map(\.photo)
+    }
+
+    return Array(strictMatches.prefix(limit))
+}
+
+private func mergedPhotoAlerts(_ alerts: [[String: Any]]) -> [[String: Any]] {
+    let locals = localCachedPhotoAlerts()
+    guard !locals.isEmpty else { return alerts }
+
+    var seen = Set<String>()
+    let normalizedRemote: [[String: Any]] = alerts.map { raw in
+        let data = raw["data"] as? [String: Any] ?? raw
+        let key = uniquePhotoKey(data)
+        if !key.isEmpty { seen.insert(key) }
+        return data
+    }
+
+    let newLocals = locals.filter { local in
+        let key = uniquePhotoKey(local)
+        return key.isEmpty || !seen.contains(key)
+    }
+
+    return normalizedRemote + newLocals
+}
+
+private func uniquePhotoKey(_ data: [String: Any]) -> String {
+    let photoId = data["photo_id"] as? String ?? ""
+    if !photoId.isEmpty { return photoId }
+    return data["full_url"] as? String ?? ""
+}
+
+private func localCachedPhotoAlerts() -> [[String: Any]] {
+    let fm = FileManager.default
+    let base = fm.homeDirectoryForCurrentUser
+        .appendingPathComponent("Documents")
+        .appendingPathComponent("LinkGuardData/photos")
+
+    guard let files = try? fm.contentsOfDirectory(at: base, includingPropertiesForKeys: [.contentModificationDateKey], options: [.skipsHiddenFiles]) else {
+        return []
+    }
+
+    let thumbs = files.filter { $0.lastPathComponent.hasSuffix("_thumb.jpg") }
+
+    let entries: [([String: Any], Date)] = thumbs.compactMap { thumb in
+        let name = thumb.deletingPathExtension().lastPathComponent
+        guard name.hasSuffix("_thumb") else { return nil }
+        let photoId = String(name.dropLast("_thumb".count))
+
+        let fullCandidates = ["jpg", "jpeg", "png", "heic", "mov", "mp4"].map {
+            base.appendingPathComponent("\(photoId).\($0)")
         }
-        return selectedRows.map(\.photo)
+        guard let full = fullCandidates.first(where: { fm.fileExists(atPath: $0.path) }) else { return nil }
+
+        let modifiedAt = (try? thumb.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? Date.distantPast
+        let timestamp = ISO8601DateFormatter().string(from: modifiedAt)
+        let payload: [String: Any] = [
+            "photo_id": photoId,
+            "device_id": "local-cache",
+            "sender_name": "HQ Local Cache",
+            "lat": 0,
+            "lon": 0,
+            "location_desc": "",
+            "caption": "",
+            "timestamp": timestamp,
+            "media_type": ["mov", "mp4"].contains(full.pathExtension.lowercased()) ? "video" : "photo",
+            "thumbnail_url": thumb.absoluteURL.absoluteString,
+            "full_url": full.absoluteURL.absoluteString
+        ]
+        return (payload, modifiedAt)
     }
 
-    let phase1 = keywordFilter(typeMatches)
-    if !phase1.isEmpty { return Array(phase1.prefix(limit)) }
-
-    let phase2 = keywordFilter(candidates)
-    if !phase2.isEmpty { return Array(phase2.prefix(limit)) }
-
-    if !typeMatches.isEmpty {
-        return Array(typeMatches.prefix(limit).map(\.photo))
-    }
-
-    return Array(candidates.prefix(limit).map(\.photo))
+    return entries
+        .sorted { $0.1 > $1.1 }
+        .map { $0.0 }
 }
 
 private func normalizedPhotoTypeAliases(_ reportType: String) -> [String] {
