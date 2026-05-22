@@ -452,7 +452,51 @@ def section_development_blueprint(doc: Document) -> None:
         ],
         [1900, 3250, 4210],
     )
-    add_heading(doc, "5.1 CEOC-compatible data model", 2)
+    add_heading(doc, "5.1 安裝與模組啟用架構", 2)
+    add_para(
+        doc,
+        "LinkGuard 不應把 UCC、SCC、TL、TE、VO、EMT 做成彼此完全分裂的多個產品，也不應把所有功能塞進同一個混亂首頁。較合理的產品架構是：行動裝置採單一 App，登入後依帳號權限啟用角色模組；指揮端採 Command Launcher，登入後依組織、事件與職務開啟 CEOC/UCC/SCC/地圖/任務/醫療/AAR 等工作模組。",
+    )
+    add_callout(
+        doc,
+        "產品定義：",
+        "安裝只是部署入口，真正決定使用者看到什麼的是帳號權限、組織歸屬、事件範圍、任務角色與模組授權。這可避免現場裝錯版本，也讓所有人能使用同一套版本更新。",
+        "EEF6EF",
+    )
+    add_table(
+        doc,
+        ["產品型態", "適用裝置", "啟用方式", "主要模組"],
+        [
+            ["LinkGuard Mobile", "iPhone / iPad / Android field device", "登入帳號、QR code、邀請碼或 MDM provisioning 後啟用", "VO 通報、TE 任務、TL 分隊、EMT 醫療、SCC Mobile。"],
+            ["LinkGuard Command", "Mac / iPad command workstation", "帳號 + 組織 + incident scope + command authority", "CEOC/UCC Dashboard、SCC Command、Map Operations、AgencyMessage、Resource、AAR。"],
+            ["Admin / Provisioning", "管理端或受控工作站", "系統管理員、機關管理員或事件管理員授權", "帳號、角色、裝置、事件、模組 entitlement、撤銷與臨時授權。"],
+        ],
+        [1750, 2350, 3050, 2210],
+    )
+    add_table(
+        doc,
+        ["登入後權限", "會啟用的模組", "不應顯示"],
+        [
+            ["CEOC/UCC", "跨區災情、AgencyMessage、資源缺口、會議、AAR、CEOC dashboard", "TE 詳細任務操作、完整臨床病歷。"],
+            ["SCC", "地方/現場災情查證、任務派遣、地圖態勢、同步節點、人員安全", "跨區戰略覆寫、完整臨床病歷。"],
+            ["TL", "分區任務、worksite、ASR/RCM、隊伍狀態、安全進出", "CEOC 會議、跨機關資源決策。"],
+            ["TE", "任務接收、GPS、照片、ASR/RCM 回報、SOS、簡短通訊", "指揮後台、其他隊伍敏感位置。"],
+            ["VO", "低門檻災情通報、位置、照片、狀態查詢、安全提示", "ICS/CEOC 指揮、任務派遣、個資資料。"],
+            ["EMT", "傷患、START、生命徵象、後送、醫療容量、交接摘要", "非醫療指揮後台與不必要現場個資。"],
+        ],
+        [1500, 5100, 2760],
+    )
+    add_bullets(
+        doc,
+        [
+            "安裝包統一：同一個版本更新下去，使用者登入後自動看到自己的模組。",
+            "權限動態：救災現場角色會變，server/provisioning service 必須可臨時升級、降級、撤銷或轉移權限。",
+            "離線保護：斷網時使用最後有效權限快照，但高風險操作需排隊，恢復連線後再取得確認或合併。",
+            "訓練簡化：現場只需知道「安裝 LinkGuard、登入帳號、進入自己的首頁」，不要要求使用者判斷該裝哪個版本。",
+            "部署彈性：CEOC/UCC/SCC 可用 Command Launcher，行動端維持 field-first 低負擔操作。",
+        ],
+    )
+    add_heading(doc, "5.2 CEOC-compatible data model", 2)
     add_table(
         doc,
         ["模型", "必要欄位", "權威角色"],
@@ -467,7 +511,7 @@ def section_development_blueprint(doc: Document) -> None:
         ],
         [1750, 5250, 2360],
     )
-    add_heading(doc, "5.2 sync envelope and approval path", 2)
+    add_heading(doc, "5.3 sync envelope and approval path", 2)
     add_para(
         doc,
         "CEOC/INSARAG 對齊不是把資料送上雲端就完成。每筆資料都需要知道來源、權限、查證狀態與是否已被納入 official operational picture。這一層是 LinkGuard 從展示 demo 進入真實救災系統的關鍵。",
