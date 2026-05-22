@@ -350,6 +350,19 @@ private struct VictimDetailPanel: View {
 
                 Divider()
 
+                if record.hasPatientReport {
+                    HQInlinePhotoStrip(
+                        vm: vm,
+                        reportType: "傷員回報",
+                        keywords: patientPhotoKeywords(record),
+                        title: L("現場照片"),
+                        limit: 2,
+                        cardWidth: 180
+                    )
+                }
+
+                Divider()
+
                 // 處置狀態
                 VStack(alignment: .leading, spacing: 8) {
                     Text(L("處置狀態")).font(.headline)
@@ -505,6 +518,16 @@ private struct VictimDetailPanel: View {
         if record.heartRate < 50 || record.heartRate > 120 { return NV.danger }
         if record.heartRate < 60 || record.heartRate > 100 { return NV.warning }
         return NV.green
+    }
+
+    private func patientPhotoKeywords(_ record: HQVictimRecord) -> [String] {
+        [
+            record.id,
+            record.patientName,
+            record.sourceDeviceID,
+            record.sourceDeptCode,
+            record.location
+        ].filter { !$0.isEmpty }
     }
 }
 

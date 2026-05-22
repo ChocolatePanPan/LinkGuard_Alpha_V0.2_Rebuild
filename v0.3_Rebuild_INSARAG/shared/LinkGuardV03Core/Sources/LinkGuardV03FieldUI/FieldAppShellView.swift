@@ -11,6 +11,8 @@ public struct FieldAppShellView: View {
     @State private var statusAccent = FieldTheme.green
     @State private var showingTeamCapabilityForm = false
     @State private var teamCapabilityDraft: USARTeamCapabilityReport?
+    @State private var showingPhotoCaptureSheet = false
+    @State private var photoCapturePreset: FieldPhotoCapturePreset = .scene
     @State private var syncEndpointText = "http://127.0.0.1:8080/sync"
     @State private var isSyncing = false
 
@@ -20,41 +22,7 @@ public struct FieldAppShellView: View {
     }
 
     public var body: some View {
-        ZStack {
-            NavigationStack {
-                TabView(selection: $selectedTab) {
-                    ForEach(availableTabs) { tab in
-                        ScrollView {
-                            VStack(alignment: .leading, spacing: FieldTheme.panelSpacing) {
-                                fieldHeader
-                                content(for: tab)
-                            }
-                            .padding(FieldTheme.pagePadding)
-                        }
-                        .background(FieldTheme.pageBackground.ignoresSafeArea())
-                        .tag(tab)
-                        .tabItem { Label(tab.title, systemImage: tab.systemImage) }
-                    }
-                }
-                .navigationTitle(controller.profile.displayName)
-                .toolbar {
-                    ToolbarItem(placement: .primaryAction) {
-                        Text(LinkGuardVersionInfo.current.displayVersion)
-                            .font(.caption.monospacedDigit())
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
-
-            if selectedIdentity == nil {
-                FieldIdentityPickerOverlay(
-                    options: FieldLaunchIdentityOption.options(for: controller.runtime.device.appID),
-                    accent: roleAccent
-                ) { identity in
-                    selectedIdentity = identity
-                }
-            }
-        }
+        shellRoot
         .tint(FieldTheme.green)
         .preferredColorScheme(.dark)
         .sheet(isPresented: $showingTeamCapabilityForm) {
@@ -66,6 +34,17 @@ public struct FieldAppShellView: View {
                 }
             }
         }
+        .sheet(isPresented: $showingPhotoCaptureSheet) {
+            FieldPhotoCaptureView(
+                preset: photoCapturePreset,
+                onCancel: {
+                    showingPhotoCaptureSheet = false
+                },
+                onSubmit: { caption in
+                    submitPhotoReport(caption: caption, preset: photoCapturePreset)
+                }
+            )
+        }
         .onChange(of: locationService.lastFix) { fix in
             guard let fix else { return }
             controller.recordGPSFix(fix)
@@ -76,6 +55,56 @@ public struct FieldAppShellView: View {
             guard message != nil else { return }
             statusText = "GPS Blocked"
             statusAccent = FieldTheme.warning
+        }
+    }
+
+    private var shellRoot: some View {
+        ZStack {
+            navigationShell
+
+            if selectedIdentity == nil {
+                identityOverlay
+            }
+        }
+    }
+
+    private var navigationShell: some View {
+        NavigationStack {
+            fieldTabs
+                .navigationTitle(controller.profile.displayName)
+                .toolbar {
+                    ToolbarItem(placement: .primaryAction) {
+                        Text(LinkGuardVersionInfo.current.displayVersion)
+                            .font(.caption.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                    }
+                }
+        }
+    }
+
+    private var fieldTabs: some View {
+        TabView(selection: $selectedTab) {
+            ForEach(availableTabs) { tab in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: FieldTheme.panelSpacing) {
+                        fieldHeader
+                        content(for: tab)
+                    }
+                    .padding(FieldTheme.pagePadding)
+                }
+                .background(FieldTheme.pageBackground.ignoresSafeArea())
+                .tag(tab)
+                .tabItem { Label(tab.title, systemImage: tab.systemImage) }
+            }
+        }
+    }
+
+    private var identityOverlay: some View {
+        FieldIdentityPickerOverlay(
+            options: FieldLaunchIdentityOption.options(for: controller.runtime.device.appID),
+            accent: roleAccent
+        ) { identity in
+            selectedIdentity = identity
         }
     }
 
@@ -626,6 +655,9 @@ public struct FieldAppShellView: View {
     private var reportPanel: some View {
         FieldPanel("Field Reports", systemImage: "doc.text.image.fill", accent: FieldTheme.info) {
             FieldAdaptiveGrid(minimum: 158) {
+                FieldActionCard(title: "Photo", detail: "Capture and queue photo evidence", systemImage: "camera.fill", accent: FieldTheme.info, isEnabled: controller.canUseFeature(.photoReport) && controller.canSend(.photoReportUpsert)) {
+                    openPhotoCapture(.scene)
+                }
                 fieldAction("Collapse", detail: "Report structural collapse", systemImage: "exclamationmark.bubble.fill", feature: .disasterReport, messageType: .disasterReportUpsert, accent: FieldTheme.warning) {
                     try controller.queueDisasterReport(kind: .collapse, summary: "Collapse report", now: Date())
                 }
@@ -824,6 +856,36 @@ public struct FieldAppShellView: View {
             teamCapabilityDraft = nil
         } catch {
             statusText = "Blocked USAR Profile"
+            statusAccent = FieldTheme.warning
+        }
+    }
+
+    private func openPhotoCapture(_ preset: FieldPhotoCapturePreset) {
+        guard controller.canUseFeature(.photoReport), controller.canSend(.photoReportUpsert) else {
+            statusText = "Blocked Photo"
+            statusAccent = FieldTheme.warning
+            return
+        }
+        photoCapturePreset = preset
+        showingPhotoCaptureSheet = true
+    }
+
+    private func submitPhotoReport(caption: String, preset: FieldPhotoCapturePreset) {
+        var updatingController = controller
+        do {
+            _ = try updatingController.queuePhotoReport(
+                photoAttachmentID: LinkGuardID.generated(prefix: preset.attachmentPrefix),
+                caption: caption.isEmpty ? preset.defaultCaption : caption,
+                checksum: nil,
+                now: Date()
+            )
+            controller = updatingController
+            statusText = "Queued Photo"
+            statusAccent = FieldTheme.green
+            showingPhotoCaptureSheet = false
+        } catch {
+            controller = updatingController
+            statusText = "Blocked Photo"
             statusAccent = FieldTheme.warning
         }
     }

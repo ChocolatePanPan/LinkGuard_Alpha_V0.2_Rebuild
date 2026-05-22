@@ -17,7 +17,7 @@ struct HQPhotoWallView: View {
     }
 
     private var photoEntries: [PhotoWallEntry] {
-        vm.photoAlerts.enumerated().map { index, photo in
+        mergedPhotoAlerts(vm.photoAlerts).enumerated().map { index, photo in
             let data = photo["data"] as? [String: Any] ?? photo
             let photoId = data["photo_id"] as? String ?? ""
             let fullURL = data["full_url"] as? String ?? ""
@@ -58,6 +58,201 @@ struct HQPhotoWallView: View {
 private struct PhotoWallEntry: Identifiable {
     let id: String
     let data: [String: Any]
+}
+
+struct HQInlinePhotoStrip: View {
+    @ObservedObject var vm: HQViewModel
+    let reportType: String
+    let keywords: [String]
+    var title: String = L("照片附件")
+    var limit: Int = 3
+    var cardWidth: CGFloat = 220
+    var stripHeight: CGFloat = 240
+
+    private var entries: [PhotoWallEntry] {
+        matchingPhotoEntries(
+            from: vm.photoAlerts,
+            reportType: reportType,
+            keywords: keywords,
+            limit: limit
+        )
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.subheadline.weight(.semibold))
+
+            if entries.isEmpty {
+                Text(L("尚未收到照片附件"))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .padding(.vertical, 6)
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 10) {
+                        ForEach(entries) { entry in
+                            PhotoCard(data: entry.data)
+                                .frame(width: cardWidth)
+                        }
+                    }
+                }
+                .frame(height: stripHeight)
+                .clipped()
+            }
+        }
+        .padding(.vertical, 2)
+    }
+}
+
+private func matchingPhotoEntries(
+    from alerts: [[String: Any]],
+    reportType: String,
+    keywords: [String],
+    limit: Int
+) -> [PhotoWallEntry] {
+    let normalizedReportTypeAliases = normalizedPhotoTypeAliases(reportType)
+    let normalizedKeywords = keywords
+        .map(normalizePhotoLookupText)
+        .filter { !$0.isEmpty }
+
+    let candidates = alerts.enumerated().compactMap { entry -> (photo: PhotoWallEntry, haystack: String)? in
+        let index = entry.offset
+        let raw = entry.element
+        let data = raw["data"] as? [String: Any] ?? raw
+        let photoId = data["photo_id"] as? String ?? ""
+        let fullURL = data["full_url"] as? String ?? ""
+        let timestamp = data["timestamp"] as? String ?? ""
+        let stableId = [photoId, fullURL, timestamp]
+            .filter { !$0.isEmpty }
+            .joined(separator: "|")
+        let haystack = normalizePhotoLookupText([
+            data["location_desc"] as? String ?? "",
+            data["caption"] as? String ?? "",
+            data["sender_name"] as? String ?? "",
+            photoId
+        ].joined(separator: " "))
+
+        let photo = PhotoWallEntry(id: stableId.isEmpty ? "inline-photo-\(index)" : stableId, data: data)
+        return (photo: photo, haystack: haystack)
+    }
+
+    let typeMatches = candidates.filter { candidate in
+        normalizedReportTypeAliases.contains(where: { candidate.haystack.contains($0) })
+    }
+
+    let strictMatches: [PhotoWallEntry]
+    if normalizedKeywords.isEmpty {
+        strictMatches = typeMatches.map(\.photo)
+    } else {
+        strictMatches = typeMatches
+            .filter { row in
+                normalizedKeywords.contains(where: { row.haystack.contains($0) })
+            }
+            .map(\.photo)
+    }
+
+    return Array(strictMatches.prefix(limit))
+}
+
+private func mergedPhotoAlerts(_ alerts: [[String: Any]]) -> [[String: Any]] {
+    let locals = localCachedPhotoAlerts()
+    guard !locals.isEmpty else { return alerts }
+
+    var seen = Set<String>()
+    let normalizedRemote: [[String: Any]] = alerts.map { raw in
+        let data = raw["data"] as? [String: Any] ?? raw
+        let key = uniquePhotoKey(data)
+        if !key.isEmpty { seen.insert(key) }
+        return data
+    }
+
+    let newLocals = locals.filter { local in
+        let key = uniquePhotoKey(local)
+        return key.isEmpty || !seen.contains(key)
+    }
+
+    return normalizedRemote + newLocals
+}
+
+private func uniquePhotoKey(_ data: [String: Any]) -> String {
+    let photoId = data["photo_id"] as? String ?? ""
+    if !photoId.isEmpty { return photoId }
+    return data["full_url"] as? String ?? ""
+}
+
+private func localCachedPhotoAlerts() -> [[String: Any]] {
+    let fm = FileManager.default
+    let base = fm.homeDirectoryForCurrentUser
+        .appendingPathComponent("Documents")
+        .appendingPathComponent("LinkGuardData/photos")
+
+    guard let files = try? fm.contentsOfDirectory(at: base, includingPropertiesForKeys: [.contentModificationDateKey], options: [.skipsHiddenFiles]) else {
+        return []
+    }
+
+    let thumbs = files.filter { $0.lastPathComponent.hasSuffix("_thumb.jpg") }
+
+    let entries: [([String: Any], Date)] = thumbs.compactMap { thumb in
+        let name = thumb.deletingPathExtension().lastPathComponent
+        guard name.hasSuffix("_thumb") else { return nil }
+        let photoId = String(name.dropLast("_thumb".count))
+
+        let fullCandidates = ["jpg", "jpeg", "png", "heic", "mov", "mp4"].map {
+            base.appendingPathComponent("\(photoId).\($0)")
+        }
+        guard let full = fullCandidates.first(where: { fm.fileExists(atPath: $0.path) }) else { return nil }
+
+        let modifiedAt = (try? thumb.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? Date.distantPast
+        let timestamp = ISO8601DateFormatter().string(from: modifiedAt)
+        let payload: [String: Any] = [
+            "photo_id": photoId,
+            "device_id": "local-cache",
+            "sender_name": "HQ Local Cache",
+            "lat": 0,
+            "lon": 0,
+            "location_desc": "",
+            "caption": "",
+            "timestamp": timestamp,
+            "media_type": ["mov", "mp4"].contains(full.pathExtension.lowercased()) ? "video" : "photo",
+            "thumbnail_url": thumb.absoluteURL.absoluteString,
+            "full_url": full.absoluteURL.absoluteString
+        ]
+        return (payload, modifiedAt)
+    }
+
+    return entries
+        .sorted { $0.1 > $1.1 }
+        .map { $0.0 }
+}
+
+private func normalizedPhotoTypeAliases(_ reportType: String) -> [String] {
+    let normalized = normalizePhotoLookupText(reportType)
+    let aliases: [String]
+
+    switch normalized {
+    case normalizePhotoLookupText("隊伍能力概況"), "team_capability":
+        aliases = ["隊伍能力概況", "team_capability", "team capability"]
+    case normalizePhotoLookupText("傷員回報"), "patient_report":
+        aliases = ["傷員回報", "傷患回報", "patient_report", "patient report"]
+    case normalizePhotoLookupText("危險回報"), "hazard_report":
+        aliases = ["危險回報", "危害回報", "hazard_report", "hazard report"]
+    case normalizePhotoLookupText("AI 回報"), "ai_report":
+        aliases = ["AI 回報", "ai_report", "ai report"]
+    case normalizePhotoLookupText("小隊回報"), "squad_report":
+        aliases = ["小隊回報", "squad_report", "squad report"]
+    default:
+        aliases = [reportType]
+    }
+
+    return aliases.map(normalizePhotoLookupText)
+}
+
+private func normalizePhotoLookupText(_ text: String) -> String {
+    text
+        .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+        .trimmingCharacters(in: .whitespacesAndNewlines)
+        .lowercased()
 }
 
 struct PhotoCard: View {

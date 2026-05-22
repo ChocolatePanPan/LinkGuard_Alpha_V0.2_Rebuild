@@ -124,6 +124,13 @@ struct HQTeamCapabilityView: View {
                 (L("裝備"), "\(formatNumber(report.equipmentWeightTons)) t / \(formatNumber(report.equipmentVolumeCubicMeters)) m³")
             ])
 
+            HQInlinePhotoStrip(
+                vm: vm,
+                reportType: "隊伍能力概況",
+                keywords: capabilityPhotoKeywords(report),
+                title: L("現場照片")
+            )
+
             detailGroup(L("A. 隊伍資訊")) {
                 infoGrid([
                     (L("A0 隊伍代碼"), value(report.usarTeamCode)),
@@ -262,6 +269,17 @@ struct HQTeamCapabilityView: View {
                 Text(text).font(.subheadline).textSelection(.enabled)
             }
         }
+    }
+
+    private func capabilityPhotoKeywords(_ report: TeamCapabilityReport) -> [String] {
+        [
+            report.teamName,
+            report.usarTeamCode ?? "",
+            report.reporterName,
+            report.reporterID,
+            report.country ?? "",
+            report.arrivalPoint ?? ""
+        ].filter { !$0.isEmpty }
     }
 
     private func supportRequestText(_ report: TeamCapabilityReport) -> String {

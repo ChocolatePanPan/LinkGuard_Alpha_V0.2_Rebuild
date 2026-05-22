@@ -22,6 +22,12 @@ struct HQDisasterView: View {
             floorSection
             zoneSection
             hazardSection
+            HQInlinePhotoStrip(
+                vm: vm,
+                reportType: "危險回報",
+                keywords: disasterPhotoKeywords,
+                title: L("現場照片")
+            )
             entryPointSection
             miscSection
 
@@ -235,5 +241,15 @@ struct HQDisasterView: View {
                 }
             }
         }
+    }
+
+    private var disasterPhotoKeywords: [String] {
+        [
+            editingSite.buildingName,
+            editingSite.address,
+            editingSite.note,
+            editingSite.rallyPoint,
+            editingSite.collapseType.label
+        ].filter { !$0.isEmpty }
     }
 }

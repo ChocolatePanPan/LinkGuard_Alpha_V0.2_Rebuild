@@ -137,10 +137,7 @@ struct TeamCapabilityReportFormView: View {
     }
 
     private func textField(_ title: String, text: Binding<String>, axis: Axis = .horizontal) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title)
-                .font(.caption)
-                .foregroundColor(.secondary)
+        formRow(title) {
             TextField("請輸入", text: text, axis: axis)
                 .textFieldStyle(.roundedBorder)
                 .multilineTextAlignment(.leading)
@@ -148,10 +145,7 @@ struct TeamCapabilityReportFormView: View {
     }
 
     private func intField(_ title: String, value: Binding<Int>) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title)
-                .font(.caption)
-                .foregroundColor(.secondary)
+        formRow(title) {
             #if os(iOS) || os(tvOS) || os(watchOS)
             TextField("請輸入", value: value, format: .number)
                 .textFieldStyle(.roundedBorder)
@@ -166,10 +160,7 @@ struct TeamCapabilityReportFormView: View {
     }
 
     private func doubleField(_ title: String, value: Binding<Double>) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title)
-                .font(.caption)
-                .foregroundColor(.secondary)
+        formRow(title) {
             #if os(iOS) || os(tvOS) || os(watchOS)
             TextField("請輸入", value: value, format: .number.precision(.fractionLength(1)))
                 .textFieldStyle(.roundedBorder)
@@ -180,6 +171,16 @@ struct TeamCapabilityReportFormView: View {
                 .textFieldStyle(.roundedBorder)
                 .multilineTextAlignment(.leading)
             #endif
+        }
+    }
+
+    private func formRow<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            Text(title)
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .frame(width: 138, alignment: .leading)
+            content()
         }
     }
 }
