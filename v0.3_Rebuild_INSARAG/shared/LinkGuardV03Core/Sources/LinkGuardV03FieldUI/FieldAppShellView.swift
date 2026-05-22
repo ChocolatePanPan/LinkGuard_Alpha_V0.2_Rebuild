@@ -1459,12 +1459,16 @@ struct FieldLaunchIdentityOption: Identifiable, Equatable {
                 FieldLaunchIdentityOption(code: "SCC-OPS", title: "作業協調", detail: "Operations Coordination"),
                 FieldLaunchIdentityOption(code: "SCC-SAFE", title: "安全監控", detail: "Safety Watch")
             ]
-        case .teamLeader, .teamLeaderIPad, .teamMember:
+        case .teamLeader, .teamMember:
+            return [
+                FieldLaunchIdentityOption(code: "TL-01", title: "分隊長", detail: "小隊指揮"),
+                FieldLaunchIdentityOption(code: "TL-02", title: "副分隊長", detail: "協助指揮"),
+                FieldLaunchIdentityOption(code: "TE-01", title: "搜救員", detail: "任務執行")
+            ]
+        case .teamLeaderIPad:
             return [
                 FieldLaunchIdentityOption(code: "TL-01", title: "分隊長", detail: "Team Leader"),
-                FieldLaunchIdentityOption(code: "TL-02", title: "副分隊長", detail: "Deputy Team Leader"),
-                FieldLaunchIdentityOption(code: "TE-01", title: "搜索員", detail: "Search Team Member"),
-                FieldLaunchIdentityOption(code: "TE-02", title: "救援員", detail: "Rescue Team Member")
+                FieldLaunchIdentityOption(code: "TL-02", title: "副分隊長", detail: "Deputy Team Leader")
             ]
         case .emt, .emtIPad:
             return [
@@ -1505,7 +1509,7 @@ private struct FieldIdentityPickerOverlay: View {
                     VStack(alignment: .leading, spacing: 3) {
                         Text("選擇啟動身分")
                             .font(.headline)
-                        Text("Field Operator Identity")
+                        Text("TL/TE 小隊作業身分")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }

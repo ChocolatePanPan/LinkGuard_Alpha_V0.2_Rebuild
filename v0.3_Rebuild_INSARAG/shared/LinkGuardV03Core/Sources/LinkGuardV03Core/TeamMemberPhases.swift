@@ -202,9 +202,9 @@ public enum TeamMemberPhaseCatalog {
 
     public static func phases(for appID: LinkGuardAppID) -> [TeamMemberPhase] {
         switch appID {
-        case .teamLeader, .teamLeaderIPad, .teamMember:
+        case .teamLeader, .teamMember:
             return phases
-        case .ucc, .scc, .sccIPad, .volunteer, .emt, .emtIPad:
+        case .ucc, .scc, .sccIPad, .teamLeaderIPad, .volunteer, .emt, .emtIPad:
             return []
         }
     }

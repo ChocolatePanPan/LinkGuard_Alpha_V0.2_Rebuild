@@ -742,13 +742,16 @@ final class LinkGuardV03CoreTests: XCTestCase {
     }
 
     func testTeamLeaderAndTeamMemberShareLaunchIdentityOptions() {
-        let expectedCodes = ["TL-01", "TL-02", "TE-01", "TE-02"]
-        let expectedLabels = ["TL-01 / 分隊長", "TL-02 / 副分隊長", "TE-01 / 搜索員", "TE-02 / 救援員"]
+        let expectedCodes = ["TL-01", "TL-02", "TE-01"]
+        let expectedLabels = ["TL-01 / 分隊長", "TL-02 / 副分隊長", "TE-01 / 搜救員"]
+        let expectedDetails = ["小隊指揮", "協助指揮", "任務執行"]
 
         XCTAssertEqual(FieldLaunchIdentityOption.options(for: .teamLeader).map(\.code), expectedCodes)
         XCTAssertEqual(FieldLaunchIdentityOption.options(for: .teamMember).map(\.code), expectedCodes)
         XCTAssertEqual(FieldLaunchIdentityOption.options(for: .teamLeader).map(\.displayLabel), expectedLabels)
         XCTAssertEqual(FieldLaunchIdentityOption.options(for: .teamMember).map(\.displayLabel), expectedLabels)
+        XCTAssertEqual(FieldLaunchIdentityOption.options(for: .teamLeader).map(\.detail), expectedDetails)
+        XCTAssertEqual(FieldLaunchIdentityOption.options(for: .teamMember).map(\.detail), expectedDetails)
     }
 
     func testEMTMedicalPhaseCatalogMatchesRequestedRoadmap() {

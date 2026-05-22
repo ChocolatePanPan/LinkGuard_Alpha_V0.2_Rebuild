@@ -313,8 +313,10 @@ public struct FieldAppController: Sendable {
         switch runtime.device.appID {
         case .sccIPad:
             return "SCC iPad / Sector Control"
-        case .teamLeader, .teamLeaderIPad, .teamMember:
-            return "TL/TE / Team Operations"
+        case .teamLeader, .teamMember:
+            return "TL/TE 小隊作業"
+        case .teamLeaderIPad:
+            return "TL iPad / Worksite Command"
         case .volunteer:
             return "VO / Support Reporting"
         case .emt, .emtIPad:
@@ -328,8 +330,10 @@ public struct FieldAppController: Sendable {
         switch runtime.device.appID {
         case .sccIPad:
             return "分區管理、人員總覽、安全管制"
-        case .teamLeader, .teamLeaderIPad, .teamMember:
+        case .teamLeader, .teamMember:
             return "小隊指揮、任務執行、GPS、照片、SOS 與狀態回報"
+        case .teamLeaderIPad:
+            return "分區、Worksite、任務派遣與回報閉環"
         case .volunteer:
             return "GPS、SOS、照片、災情與語音回報"
         case .emt, .emtIPad:
