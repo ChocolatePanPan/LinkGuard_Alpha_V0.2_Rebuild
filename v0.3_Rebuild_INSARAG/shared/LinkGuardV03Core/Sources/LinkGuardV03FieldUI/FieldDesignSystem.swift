@@ -233,15 +233,15 @@ extension PriorityLevel {
     var fieldLabel: String {
         switch self {
         case .routine:
-            return "routine"
+            return "例行"
         case .low:
-            return "low"
+            return "低"
         case .medium:
-            return "medium"
+            return "中"
         case .high:
-            return "high"
+            return "高"
         case .critical:
-            return "critical"
+            return "緊急"
         }
     }
 }

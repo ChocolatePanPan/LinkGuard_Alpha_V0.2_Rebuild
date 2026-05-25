@@ -10,7 +10,8 @@ struct LinkGuardTEApp: App {
                 appID: .teamMember,
                 platform: .iPhone,
                 deviceID: "IOS-TE-LOCAL",
-                displayName: "LinkGuard TE"
+                displayName: "LinkGuard TE",
+                defaultIdentityCode: "TE-01"
             )
         }
     }

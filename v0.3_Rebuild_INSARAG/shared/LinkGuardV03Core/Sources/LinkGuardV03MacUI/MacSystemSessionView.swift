@@ -162,6 +162,7 @@ public typealias MacSystemLoginOverlayView = MacSystemIdentityPickerOverlayView
 public struct MacSystemSessionStatusPanel: View {
     let session: LoginSession
     let onLogout: () -> Void
+    private var activation: ModuleActivationSnapshot { session.moduleActivationSnapshot }
 
     public var body: some View {
         HQPanel(title: "目前身分", icon: "person.crop.circle.badge.checkmark", accent: NV.green) {
@@ -198,9 +199,33 @@ public struct MacSystemSessionStatusPanel: View {
                             .font(.caption2)
                             .foregroundColor(.secondary)
                         Spacer()
-                        Text("統一")
+                        Text(activation.shell.macDisplayName)
                             .font(.caption2.monospaced())
                             .foregroundColor(.secondary)
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("已啟用模組")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundColor(.secondary)
+                    if activation.enabledModules.isEmpty {
+                        Text("無可用模組")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    } else {
+                        ForEach(Array(activation.enabledModules.prefix(5))) { module in
+                            HStack(spacing: 6) {
+                                Image(systemName: module.id.macSystemImageName)
+                                    .font(.caption2)
+                                    .foregroundColor(NV.green)
+                                Text(module.displayName)
+                                    .font(.caption2.weight(.semibold))
+                                    .foregroundColor(.white.opacity(0.92))
+                                    .lineLimit(1)
+                                Spacer(minLength: 0)
+                            }
+                        }
                     }
                 }
 
@@ -220,5 +245,65 @@ public struct MacSystemSessionStatusPanel: View {
             }
         }
         .frame(width: 250)
+    }
+}
+
+private extension LinkGuardProductShell {
+    var macDisplayName: String {
+        switch self {
+        case .mobile:
+            return "Mobile"
+        case .command:
+            return "Command"
+        case .adminProvisioning:
+            return "Admin"
+        }
+    }
+}
+
+private extension LinkGuardModuleID {
+    var macSystemImageName: String {
+        switch self {
+        case .volunteerReporting:
+            return "person.wave.2.fill"
+        case .teamMemberOperations:
+            return "figure.walk"
+        case .teamLeaderOperations:
+            return "person.2.badge.gearshape.fill"
+        case .emtMedical:
+            return "cross.case.fill"
+        case .sccMobileCommand, .sccCommand:
+            return "map.fill"
+        case .fieldAIAssistant:
+            return "sparkles"
+        case .photoEvidence:
+            return "camera.fill"
+        case .voicePTT:
+            return "waveform.circle.fill"
+        case .fieldTranslation:
+            return "character.bubble.fill"
+        case .patientTriage:
+            return "cross.vial.fill"
+        case .nfcPatientTagging:
+            return "wave.3.right.circle.fill"
+        case .hospitalDirectory:
+            return "building.2.fill"
+        case .personalNotifications:
+            return "bell.badge.fill"
+        case .ceocDashboard:
+            return "rectangle.3.group.fill"
+        case .mapOperations:
+            return "map.circle.fill"
+        case .agencyMessaging:
+            return "building.2.crop.circle.fill"
+        case .resourceCoordination:
+            return "shippingbox.fill"
+        case .aarReplay:
+            return "clock.arrow.circlepath"
+        case .backupReplay:
+            return "externaldrive.fill"
+        case .adminProvisioning:
+            return "person.badge.key.fill"
+        }
     }
 }

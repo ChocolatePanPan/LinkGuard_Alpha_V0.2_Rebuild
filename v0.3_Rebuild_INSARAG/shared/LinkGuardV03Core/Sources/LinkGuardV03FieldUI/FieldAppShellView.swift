@@ -7,7 +7,7 @@ public struct FieldAppShellView: View {
     @StateObject private var locationService = FieldLocationService()
     @State private var selectedTab: FieldAppTab = .overview
     @State private var selectedIdentity: FieldLaunchIdentityOption? = nil
-    @State private var statusText = "Ready"
+    @State private var statusText = "就緒"
     @State private var statusAccent = FieldTheme.green
     @State private var showingTeamCapabilityForm = false
     @State private var teamCapabilityDraft: USARTeamCapabilityReport?
@@ -15,10 +15,23 @@ public struct FieldAppShellView: View {
     @State private var photoCapturePreset: FieldPhotoCapturePreset = .scene
     @State private var syncEndpointText = "http://127.0.0.1:8080/sync"
     @State private var isSyncing = false
+    @State private var didRunLaunchAutomation = false
 
-    public init(appID: LinkGuardAppID, platform: AppPlatform, deviceID: LinkGuardID, displayName: String) {
+    public init(
+        appID: LinkGuardAppID,
+        platform: AppPlatform,
+        deviceID: LinkGuardID,
+        displayName: String,
+        defaultIdentityCode: String? = nil
+    ) {
         let localCacheStore = FieldAppController.defaultLocalCacheStore(appID: appID, deviceID: deviceID)
+        let launchEnvironment = ProcessInfo.processInfo.environment
+        let launchTab = launchEnvironment["LINKGUARD_DEFAULT_TAB"].flatMap(FieldAppTab.init(rawValue:)) ?? .overview
         _controller = State(initialValue: FieldAppController(appID: appID, platform: platform, deviceID: deviceID, displayName: displayName, localCacheStore: localCacheStore))
+        _selectedTab = State(initialValue: launchTab)
+        _selectedIdentity = State(initialValue: defaultIdentityCode.flatMap { code in
+            FieldLaunchIdentityOption.options(for: appID).first { $0.code == code }
+        })
     }
 
     public var body: some View {
@@ -48,13 +61,16 @@ public struct FieldAppShellView: View {
         .onChange(of: locationService.lastFix) { fix in
             guard let fix else { return }
             controller.recordGPSFix(fix)
-            statusText = "GPS Updated"
+            statusText = "GPS 已更新"
             statusAccent = FieldTheme.green
         }
         .onChange(of: locationService.lastErrorMessage) { message in
             guard message != nil else { return }
-            statusText = "GPS Blocked"
+            statusText = "GPS 受限"
             statusAccent = FieldTheme.warning
+        }
+        .task {
+            runLaunchAutomationIfNeeded()
         }
     }
 
@@ -109,6 +125,15 @@ public struct FieldAppShellView: View {
     }
 
     private var availableTabs: [FieldAppTab] {
+        if controller.runtime.device.platform == .iPhone {
+            switch controller.runtime.device.appID {
+            case .teamLeader, .emt:
+                return [.overview, .operations, .mapSafety, .medical, .comms]
+            default:
+                return [.overview, .operations, .mapSafety, .comms, .queue]
+            }
+        }
+
         var tabs: [FieldAppTab] = [.overview, .operations, .mapSafety, .comms, .queue, .settings]
         if controller.runtime.device.appID == .emt || controller.runtime.device.appID == .emtIPad || controller.runtime.device.appID == .teamLeader || controller.runtime.device.appID == .teamLeaderIPad {
             tabs.insert(.medical, at: tabs.firstIndex(of: .comms) ?? tabs.count)
@@ -163,7 +188,7 @@ public struct FieldAppShellView: View {
                     }
                     Spacer(minLength: 0)
                     VStack(alignment: .trailing, spacing: 5) {
-                        Text("OUTBOX")
+                        Text("待同步")
                             .font(.caption2.weight(.semibold))
                             .foregroundStyle(.secondary)
                         Text("\(controller.pendingEnvelopeCount)")
@@ -179,7 +204,7 @@ public struct FieldAppShellView: View {
                         }
                         .buttonStyle(.plain)
                         .disabled(locationService.canRequestFix == false)
-                        .help("Refresh GPS")
+                        .help("更新 GPS")
                     }
                 }
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -188,7 +213,7 @@ public struct FieldAppShellView: View {
                         if let selectedIdentity {
                             FieldStatusPill(title: selectedIdentity.code, systemImage: "person.crop.circle.fill", accent: roleAccent)
                         }
-                        FieldStatusPill(title: controller.latestGPSFix == nil ? "No GPS" : "GPS Ready", systemImage: "location.fill", accent: controller.latestGPSFix == nil ? FieldTheme.warning : FieldTheme.green)
+                        FieldStatusPill(title: controller.latestGPSFix == nil ? "無 GPS" : "GPS 就緒", systemImage: "location.fill", accent: controller.latestGPSFix == nil ? FieldTheme.warning : FieldTheme.green)
                         FieldStatusPill(title: LinkGuardVersionInfo.current.displayVersion, systemImage: "tag.fill", accent: FieldTheme.info)
                         FieldStatusPill(title: controller.blueprint.homeSurface.fieldDisplayName, systemImage: "rectangle.3.group.fill", accent: FieldTheme.info)
                         FieldStatusPill(title: controller.profile.commandAuthority.fieldDisplayName, systemImage: "person.badge.key.fill", accent: FieldTheme.command)
@@ -285,11 +310,11 @@ public struct FieldAppShellView: View {
 
     private var appSettingsPanel: some View {
         let settingsInfo = LinkGuardAppSettingsInfo(device: controller.runtime.device)
-        return FieldPanel("App Settings", systemImage: "gearshape.fill", accent: FieldTheme.command) {
+        return FieldPanel("應用設定", systemImage: "gearshape.fill", accent: FieldTheme.command) {
             VStack(spacing: 8) {
                 ForEach(settingsInfo.items) { item in
                     FieldTimelineRow(
-                        title: item.title,
+                        title: settingsTitle(for: item),
                         detail: item.value,
                         systemImage: settingsIcon(for: item.key),
                         accent: settingsAccent(for: item.key),
@@ -297,7 +322,7 @@ public struct FieldAppShellView: View {
                     )
                 }
                 FieldTimelineRow(
-                    title: "Notes",
+                    title: "版本備註",
                     detail: settingsInfo.versionInfo.notes,
                     systemImage: "doc.text.fill",
                     accent: FieldTheme.info,
@@ -309,13 +334,13 @@ public struct FieldAppShellView: View {
 
     private var roleContractPanel: some View {
         let permissions = controller.profile.permissions.sorted { $0.rawValue < $1.rawValue }
-        return FieldPanel("Role Contract", systemImage: "person.badge.key.fill", accent: roleAccent) {
+        return FieldPanel("角色權限", systemImage: "person.badge.key.fill", accent: roleAccent) {
             VStack(alignment: .leading, spacing: 12) {
                 FieldAdaptiveGrid(minimum: 142) {
-                    FieldMetricTile(title: "Authority", value: controller.profile.commandAuthority.fieldDisplayName, systemImage: "person.badge.key.fill", accent: FieldTheme.command)
-                    FieldMetricTile(title: "Medical", value: controller.profile.medicalAccess.fieldDisplayName, systemImage: "cross.case.fill", accent: FieldTheme.medical)
-                    FieldMetricTile(title: "Required", value: "\(controller.blueprint.requiredPermissions.count)", systemImage: "checkmark.shield.fill", accent: FieldTheme.green)
-                    FieldMetricTile(title: "Granted", value: "\(permissions.count)", systemImage: "key.fill", accent: FieldTheme.team)
+                    FieldMetricTile(title: "指揮", value: controller.profile.commandAuthority.fieldDisplayName, systemImage: "person.badge.key.fill", accent: FieldTheme.command)
+                    FieldMetricTile(title: "醫療", value: controller.profile.medicalAccess.fieldDisplayName, systemImage: "cross.case.fill", accent: FieldTheme.medical)
+                    FieldMetricTile(title: "必要", value: "\(controller.blueprint.requiredPermissions.count)", systemImage: "checkmark.shield.fill", accent: FieldTheme.green)
+                    FieldMetricTile(title: "授權", value: "\(permissions.count)", systemImage: "key.fill", accent: FieldTheme.team)
                 }
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
@@ -337,13 +362,13 @@ public struct FieldAppShellView: View {
         let features = LinkGuardFeatureAccessMatrix.features(for: controller.runtime.device.appID)
             .sorted { lhs, rhs in lhs.rawValue < rhs.rawValue }
             .prefix(12)
-        return FieldPanel("Field Readiness", systemImage: "antenna.radiowaves.left.and.right", accent: FieldTheme.green) {
+        return FieldPanel("現場就緒", systemImage: "antenna.radiowaves.left.and.right", accent: FieldTheme.green) {
             VStack(spacing: 8) {
                 FieldAdaptiveGrid(minimum: 142) {
-                    FieldMetricTile(title: "Local Queue", value: "\(controller.pendingEnvelopeCount)", systemImage: "tray.full.fill", accent: controller.pendingEnvelopeCount == 0 ? FieldTheme.green : FieldTheme.warning)
-                    FieldMetricTile(title: "GPS", value: controller.latestGPSFix == nil ? "Missing" : "Ready", systemImage: "location.fill", accent: controller.latestGPSFix == nil ? FieldTheme.warning : FieldTheme.green)
-                    FieldMetricTile(title: "Runtime", value: controller.runtime.pendingOutboundCount == 0 ? "Clear" : "Queued", systemImage: "arrow.triangle.2.circlepath", accent: controller.runtime.pendingOutboundCount == 0 ? FieldTheme.green : FieldTheme.info)
-                    FieldMetricTile(title: "Storage", value: controller.localCacheStore == nil ? "Memory" : (controller.lastPersistenceError == nil ? "Saved" : "Error"), systemImage: "externaldrive.fill", accent: controller.lastPersistenceError == nil ? FieldTheme.green : FieldTheme.warning)
+                    FieldMetricTile(title: "佇列", value: "\(controller.pendingEnvelopeCount)", systemImage: "tray.full.fill", accent: controller.pendingEnvelopeCount == 0 ? FieldTheme.green : FieldTheme.warning)
+                    FieldMetricTile(title: "GPS", value: controller.latestGPSFix == nil ? "未定位" : "就緒", systemImage: "location.fill", accent: controller.latestGPSFix == nil ? FieldTheme.warning : FieldTheme.green)
+                    FieldMetricTile(title: "傳輸", value: controller.runtime.pendingOutboundCount == 0 ? "清空" : "待送", systemImage: "arrow.triangle.2.circlepath", accent: controller.runtime.pendingOutboundCount == 0 ? FieldTheme.green : FieldTheme.info)
+                    FieldMetricTile(title: "儲存", value: controller.localCacheStore == nil ? "記憶體" : (controller.lastPersistenceError == nil ? "已保存" : "錯誤"), systemImage: "externaldrive.fill", accent: controller.lastPersistenceError == nil ? FieldTheme.green : FieldTheme.warning)
                 }
                 ForEach(Array(features), id: \.self) { feature in
                     let access = controller.accessLevel(for: feature)
@@ -361,7 +386,7 @@ public struct FieldAppShellView: View {
 
     private var missionOverview: some View {
         let summary = controller.missionSummary
-        return FieldPanel("Mission", systemImage: "scope", accent: roleAccent) {
+        return FieldPanel("任務概況", systemImage: "scope", accent: roleAccent) {
             VStack(alignment: .leading, spacing: 12) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(summary.incidentName)
@@ -371,13 +396,13 @@ public struct FieldAppShellView: View {
                         .foregroundStyle(.secondary)
                 }
                 FieldAdaptiveGrid(minimum: 142) {
-                    FieldMetricTile(title: "Open Tasks", value: "\(summary.openTaskCount)", systemImage: "checklist.checked", accent: FieldTheme.green)
+                    FieldMetricTile(title: "任務", value: "\(summary.openTaskCount)", systemImage: "checklist.checked", accent: FieldTheme.green)
                     if controller.canUseFeature(.personnelOverview) {
-                        FieldMetricTile(title: "Online", value: "\(summary.onlinePersonnelCount)/\(summary.personnelCount)", systemImage: "person.3.fill", accent: FieldTheme.team)
+                        FieldMetricTile(title: "在線", value: "\(summary.onlinePersonnelCount)/\(summary.personnelCount)", systemImage: "person.3.fill", accent: FieldTheme.team)
                     }
-                    FieldMetricTile(title: "Safety", value: "\(summary.safetyZoneCount)", systemImage: "shield.lefthalf.filled", accent: FieldTheme.warning)
-                    FieldMetricTile(title: "Reports", value: "\(summary.photoReportCount + summary.disasterReportCount + summary.teamCapabilityReportCount)", systemImage: "camera.fill", accent: FieldTheme.info)
-                    FieldMetricTile(title: "Patients", value: "\(summary.patientCount)", systemImage: "cross.case.fill", accent: FieldTheme.medical)
+                    FieldMetricTile(title: "安全", value: "\(summary.safetyZoneCount)", systemImage: "shield.lefthalf.filled", accent: FieldTheme.warning)
+                    FieldMetricTile(title: "回報", value: "\(summary.photoReportCount + summary.disasterReportCount + summary.teamCapabilityReportCount)", systemImage: "camera.fill", accent: FieldTheme.info)
+                    FieldMetricTile(title: "傷患", value: "\(summary.patientCount)", systemImage: "cross.case.fill", accent: FieldTheme.medical)
                     FieldMetricTile(title: "SOS", value: "\(summary.sosCount)", systemImage: "sos.circle.fill", accent: FieldTheme.danger)
                 }
             }
@@ -385,15 +410,15 @@ public struct FieldAppShellView: View {
     }
 
     private var priorityActionPanel: some View {
-        FieldPanel("Priority Actions", systemImage: "bolt.fill", accent: FieldTheme.danger) {
+        FieldPanel("快速操作", systemImage: "bolt.fill", accent: FieldTheme.danger) {
             FieldAdaptiveGrid(minimum: 158) {
-                fieldAction("SOS", detail: "Queue location + danger report", systemImage: "sos.circle.fill", feature: .sosSending, messageType: .sosReportUpsert, accent: FieldTheme.danger) {
+                fieldAction("SOS", detail: "送出定位與危急狀態", systemImage: "sos.circle.fill", feature: .sosSending, messageType: .sosReportUpsert, accent: FieldTheme.danger) {
                     try controller.queueSOS(dangerType: controller.runtime.device.appID == .emt ? .injured : .trapped, note: "Field SOS", now: Date())
                 }
-                fieldAction("GPS", detail: "Send current field position", systemImage: "location.fill", feature: .gpsTracking, messageType: .personnelStatusUpsert, accent: FieldTheme.green) {
+                fieldAction("GPS", detail: "回報目前位置", systemImage: "location.fill", feature: .gpsTracking, messageType: .personnelStatusUpsert, accent: FieldTheme.green) {
                     try controller.queueGPSReport(now: Date())
                 }
-                fieldAction("Voice", detail: "Push a voice status report", systemImage: "waveform.circle.fill", feature: .voiceReport, messageType: .voiceReportAppend, accent: FieldTheme.team) {
+                fieldAction("語音", detail: "送出語音狀態", systemImage: "waveform.circle.fill", feature: .voiceReport, messageType: .voiceReportAppend, accent: FieldTheme.team) {
                     try controller.queueVoiceReport(transcript: "Field voice update", durationSeconds: 6, now: Date())
                 }
             }
@@ -417,10 +442,10 @@ public struct FieldAppShellView: View {
             if lhs.priority != rhs.priority { return lhs.priority > rhs.priority }
             return lhs.createdAt > rhs.createdAt
         }
-        return FieldPanel("Tasks", systemImage: "checklist.checked", accent: FieldTheme.green) {
+        return FieldPanel("任務列表", systemImage: "checklist.checked", accent: FieldTheme.green) {
             VStack(spacing: 8) {
                 if tasks.isEmpty {
-                    emptyRow("No task assigned", systemImage: "checklist.unchecked")
+                    emptyRow("尚無指派任務", systemImage: "checklist.unchecked")
                 } else {
                     ForEach(Array(tasks.prefix(5)), id: \.id) { task in
                         FieldTimelineRow(
@@ -437,7 +462,7 @@ public struct FieldAppShellView: View {
     }
 
     private var phasePanel: some View {
-        FieldPanel("Workflow", systemImage: "point.topleft.down.curvedto.point.bottomright.up", accent: FieldTheme.info) {
+        FieldPanel("作業流程", systemImage: "point.topleft.down.curvedto.point.bottomright.up", accent: FieldTheme.info) {
             VStack(alignment: .leading, spacing: 10) {
                 if controller.runtime.device.appID == .emt || controller.runtime.device.appID == .emtIPad {
                     ForEach(controller.emtMedicalPhases) { phase in
@@ -453,10 +478,10 @@ public struct FieldAppShellView: View {
     }
 
     private var inboxPanel: some View {
-        FieldPanel("Received", systemImage: "tray.full", accent: FieldTheme.info) {
+        FieldPanel("接收項目", systemImage: "tray.full", accent: FieldTheme.info) {
             VStack(spacing: 8) {
                 if controller.inboxItems.isEmpty {
-                    emptyRow("No incoming items", systemImage: "tray")
+                    emptyRow("尚無接收項目", systemImage: "tray")
                 } else {
                     ForEach(controller.inboxItems) { item in
                         FieldTimelineRow(title: item.title, detail: item.detail, systemImage: item.systemImageName, accent: item.priority.fieldAccentColor, trailing: item.priority.fieldLabel)
@@ -468,10 +493,10 @@ public struct FieldAppShellView: View {
 
     private var personnelPanel: some View {
         let statuses = controller.runtime.snapshot.latestPersonnelStatuses(onlineWithin: 300, now: Date())
-        return FieldPanel("Personnel", systemImage: "person.3.fill", accent: FieldTheme.team) {
+        return FieldPanel("人員狀態", systemImage: "person.3.fill", accent: FieldTheme.team) {
             VStack(spacing: 8) {
                 if statuses.isEmpty {
-                    emptyRow("No personnel heartbeat", systemImage: "person.crop.circle.badge.questionmark")
+                    emptyRow("尚無人員心跳", systemImage: "person.crop.circle.badge.questionmark")
                 } else {
                     ForEach(Array(statuses.prefix(6)), id: \.id) { status in
                         FieldTimelineRow(
@@ -488,30 +513,30 @@ public struct FieldAppShellView: View {
     }
 
     private var mapStatusPanel: some View {
-        FieldPanel("Map", systemImage: "map.fill", accent: FieldTheme.green) {
+        FieldPanel("現場地圖", systemImage: "map.fill", accent: FieldTheme.green) {
             VStack(alignment: .leading, spacing: 12) {
                 if let fix = controller.latestGPSFix {
                     FieldTimelineRow(
-                        title: "Current GPS fix",
+                        title: "目前 GPS 定位",
                         detail: "\(fix.coordinate.latitude.formatted(.number.precision(.fractionLength(4)))), \(fix.coordinate.longitude.formatted(.number.precision(.fractionLength(4)))) / \(fix.source.rawValue)",
                         systemImage: "location.fill",
                         accent: FieldTheme.green,
                         trailing: fix.coordinate.accuracyMeters.map { "±\(Int($0))m" }
                     )
                 } else {
-                    emptyRow("No GPS fix available", systemImage: "location.slash")
+                    emptyRow("尚無 GPS 定位", systemImage: "location.slash")
                 }
                 locationServiceRow
                 mapMarkupCanvas
                 mapMarkupControls
                 FieldAdaptiveGrid(minimum: 158) {
-                    fieldAction("Point", detail: "Victim or marker point", systemImage: "mappin.circle.fill", feature: .pointMarker, messageType: .mapFeatureUpsert, accent: FieldTheme.green) {
+                    fieldAction("點位", detail: "標記傷患或危險點", systemImage: "mappin.circle.fill", feature: .pointMarker, messageType: .mapFeatureUpsert, accent: FieldTheme.green) {
                         try controller.queueMapMarker(featureType: .victimPoint, geometryType: .point, title: "Field point", now: Date())
                     }
-                    fieldAction("Route", detail: "Polyline route marker", systemImage: "point.topleft.down.curvedto.point.bottomright.up", feature: .lineMarker, messageType: .mapFeatureUpsert, accent: FieldTheme.info) {
+                    fieldAction("路線", detail: "標記搜索或後送路線", systemImage: "point.topleft.down.curvedto.point.bottomright.up", feature: .lineMarker, messageType: .mapFeatureUpsert, accent: FieldTheme.info) {
                         try controller.queueMapMarker(featureType: .evacuationRoute, geometryType: .polyline, title: "Evacuation route", now: Date())
                     }
-                    fieldAction("Area", detail: "Polygon hazard marker", systemImage: "skew", feature: .areaMarker, messageType: .mapFeatureUpsert, accent: FieldTheme.warning) {
+                    fieldAction("區域", detail: "標記搜索區或危險區", systemImage: "skew", feature: .areaMarker, messageType: .mapFeatureUpsert, accent: FieldTheme.warning) {
                         try controller.queueMapMarker(featureType: .collapsedAreaPolygon, geometryType: .polygon, title: "Hazard area", now: Date())
                     }
                 }
@@ -540,7 +565,7 @@ public struct FieldAppShellView: View {
             Button {
                 locationService.requestCurrentFix()
             } label: {
-                Label(locationService.isRequestingFix ? "Locating" : "Refresh", systemImage: "location.fill.viewfinder")
+                Label(locationService.isRequestingFix ? "定位中" : "更新", systemImage: "location.fill.viewfinder")
                     .font(.caption.weight(.semibold))
                     .lineLimit(1)
                     .minimumScaleFactor(0.82)
@@ -585,16 +610,16 @@ public struct FieldAppShellView: View {
                             mapMarkup.toggleLayer(mode)
                         }
                     }
-                    mapControlButton("Undo", systemImage: "arrow.uturn.backward.circle.fill", accent: FieldTheme.info, isEnabled: mapMarkup.canUndo) {
+                    mapControlButton("復原", systemImage: "arrow.uturn.backward.circle.fill", accent: FieldTheme.info, isEnabled: mapMarkup.canUndo) {
                         mapMarkup.undo()
                     }
-                    mapControlButton("Redo", systemImage: "arrow.uturn.forward.circle.fill", accent: FieldTheme.info, isEnabled: mapMarkup.canRedo) {
+                    mapControlButton("重做", systemImage: "arrow.uturn.forward.circle.fill", accent: FieldTheme.info, isEnabled: mapMarkup.canRedo) {
                         mapMarkup.redo()
                     }
-                    mapControlButton("Cancel", systemImage: "xmark.circle.fill", accent: FieldTheme.warning, isEnabled: mapMarkup.draftGeometry != nil) {
+                    mapControlButton("取消", systemImage: "xmark.circle.fill", accent: FieldTheme.warning, isEnabled: mapMarkup.draftGeometry != nil) {
                         mapMarkup.cancelDraft()
                     }
-                    mapControlButton("Commit", systemImage: "checkmark.circle.fill", accent: FieldTheme.green, isEnabled: mapMarkup.draftGeometry != nil) {
+                    mapControlButton("送出", systemImage: "checkmark.circle.fill", accent: FieldTheme.green, isEnabled: mapMarkup.draftGeometry != nil) {
                         commitMapDraft()
                     }
                 }
@@ -605,7 +630,7 @@ public struct FieldAppShellView: View {
     private var mapMarkupList: some View {
         VStack(spacing: 8) {
             if mapMarkup.features.isEmpty {
-                emptyRow("No local map markup", systemImage: "map")
+                emptyRow("尚無本機地圖標註", systemImage: "map")
             } else {
                 ForEach(Array(mapMarkup.features.suffix(5).reversed()), id: \.id) { feature in
                     FieldTimelineRow(
@@ -621,15 +646,15 @@ public struct FieldAppShellView: View {
     }
 
     private var safetyPanel: some View {
-        FieldPanel("Safety Control", systemImage: "shield.lefthalf.filled", accent: FieldTheme.warning) {
+        FieldPanel("安全管制", systemImage: "shield.lefthalf.filled", accent: FieldTheme.warning) {
             FieldAdaptiveGrid(minimum: 158) {
-                fieldAction("Hot Zone", detail: "Publish active danger zone", systemImage: "exclamationmark.triangle.fill", feature: .hazardZoneManagement, messageType: .safetyZoneUpsert, accent: FieldTheme.warning) {
+                fieldAction("危險區", detail: "發布現場危險區", systemImage: "exclamationmark.triangle.fill", feature: .hazardZoneManagement, messageType: .safetyZoneUpsert, accent: FieldTheme.warning) {
                     try controller.queueSafetyZone(now: Date())
                 }
-                fieldAction("Check In", detail: "Record entering controlled zone", systemImage: "figure.walk.arrival", feature: .personnelEntryLog, messageType: .safetyEntryLogUpsert, accent: FieldTheme.green) {
+                fieldAction("進場", detail: "登錄進入管制區", systemImage: "figure.walk.arrival", feature: .personnelEntryLog, messageType: .safetyEntryLogUpsert, accent: FieldTheme.green) {
                     try controller.queueSafetyEntry(.checkIn, now: Date())
                 }
-                fieldAction("Check Out", detail: "Record leaving controlled zone", systemImage: "figure.walk.departure", feature: .personnelEntryLog, messageType: .safetyEntryLogUpsert, accent: FieldTheme.info) {
+                fieldAction("離場", detail: "登錄離開管制區", systemImage: "figure.walk.departure", feature: .personnelEntryLog, messageType: .safetyEntryLogUpsert, accent: FieldTheme.info) {
                     try controller.queueSafetyEntry(.checkOut, now: Date())
                 }
             }
@@ -637,15 +662,15 @@ public struct FieldAppShellView: View {
     }
 
     private var communicationPanel: some View {
-        FieldPanel("Comms", systemImage: "message.fill", accent: FieldTheme.team) {
+        FieldPanel("通訊回報", systemImage: "message.fill", accent: FieldTheme.team) {
             FieldAdaptiveGrid(minimum: 158) {
-                fieldAction("Chat", detail: "Queue group message", systemImage: "message.fill", feature: .communicationChannel, messageType: .groupChatMessageAppend, accent: FieldTheme.team) {
+                fieldAction("訊息", detail: "送出小隊群組訊息", systemImage: "message.fill", feature: .communicationChannel, messageType: .groupChatMessageAppend, accent: FieldTheme.team) {
                     try controller.queueGroupChat(body: chatMessageForRole, now: Date())
                 }
-                fieldAction("Voice", detail: "Queue audio/transcript report", systemImage: "waveform.circle.fill", feature: .voiceReport, messageType: .voiceReportAppend, accent: FieldTheme.green) {
+                fieldAction("語音", detail: "送出語音與逐字稿", systemImage: "waveform.circle.fill", feature: .voiceReport, messageType: .voiceReportAppend, accent: FieldTheme.green) {
                     try controller.queueVoiceReport(transcript: voiceMessageForRole, durationSeconds: 6, now: Date())
                 }
-                fieldAction("Photo", detail: "Queue photo + GPS evidence", systemImage: "camera.fill", feature: .photoReport, messageType: .photoReportUpsert, accent: FieldTheme.info) {
+                fieldAction("照片", detail: "送出照片與 GPS 證據", systemImage: "camera.fill", feature: .photoReport, messageType: .photoReportUpsert, accent: FieldTheme.info) {
                     try controller.queuePhotoReport(photoAttachmentID: LinkGuardID.generated(prefix: "ATTACH"), caption: photoCaptionForRole, checksum: nil, now: Date())
                 }
             }
@@ -653,16 +678,16 @@ public struct FieldAppShellView: View {
     }
 
     private var reportPanel: some View {
-        FieldPanel("Field Reports", systemImage: "doc.text.image.fill", accent: FieldTheme.info) {
+        FieldPanel("現場回報", systemImage: "doc.text.image.fill", accent: FieldTheme.info) {
             FieldAdaptiveGrid(minimum: 158) {
-                FieldActionCard(title: "Photo", detail: "Capture and queue photo evidence", systemImage: "camera.fill", accent: FieldTheme.info, isEnabled: controller.canUseFeature(.photoReport) && controller.canSend(.photoReportUpsert)) {
+                FieldActionCard(title: "拍照", detail: "拍攝並送出現場照片", systemImage: "camera.fill", accent: FieldTheme.info, isEnabled: controller.canUseFeature(.photoReport) && controller.canSend(.photoReportUpsert)) {
                     openPhotoCapture(.scene)
                 }
-                fieldAction("Collapse", detail: "Report structural collapse", systemImage: "exclamationmark.bubble.fill", feature: .disasterReport, messageType: .disasterReportUpsert, accent: FieldTheme.warning) {
-                    try controller.queueDisasterReport(kind: .collapse, summary: "Collapse report", now: Date())
+                fieldAction("倒塌", detail: "回報結構倒塌狀況", systemImage: "exclamationmark.bubble.fill", feature: .disasterReport, messageType: .disasterReportUpsert, accent: FieldTheme.warning) {
+                    try controller.queueDisasterReport(kind: .collapse, summary: "結構倒塌回報", now: Date())
                 }
-                fieldAction("Fire", detail: "Report active fire", systemImage: "flame.fill", feature: .disasterReport, messageType: .disasterReportUpsert, accent: FieldTheme.danger) {
-                    try controller.queueDisasterReport(kind: .fire, severity: .critical, summary: "Active fire observed", now: Date())
+                fieldAction("火災", detail: "回報現場火勢", systemImage: "flame.fill", feature: .disasterReport, messageType: .disasterReportUpsert, accent: FieldTheme.danger) {
+                    try controller.queueDisasterReport(kind: .fire, severity: .critical, summary: "現場火勢回報", now: Date())
                 }
                 teamCapabilityProfileAction
             }
@@ -677,8 +702,8 @@ public struct FieldAppShellView: View {
         return Group {
             if visible {
                 FieldActionCard(
-                    title: "USAR Profile",
-                    detail: "Fill A/B/C/D team capability profile",
+                    title: "USAR 能量",
+                    detail: "填寫 A/B/C/D 小隊能量",
                     systemImage: "person.3.sequence.fill",
                     accent: FieldTheme.green,
                     isEnabled: enabled
@@ -690,7 +715,7 @@ public struct FieldAppShellView: View {
     }
 
     private var medicalOverviewPanel: some View {
-        FieldPanel("Medical Flow", systemImage: "cross.case.fill", accent: FieldTheme.medical) {
+        FieldPanel("醫療流程", systemImage: "cross.case.fill", accent: FieldTheme.medical) {
             VStack(spacing: 8) {
                 ForEach(controller.emtMedicalPhases) { phase in
                     FieldTimelineRow(title: phase.moduleName, detail: phase.capability, systemImage: "cross.case.fill", accent: FieldTheme.medical, trailing: phase.label)
@@ -700,41 +725,41 @@ public struct FieldAppShellView: View {
     }
 
     private var medicalActionPanel: some View {
-        FieldPanel("Patient Actions", systemImage: "heart.text.square.fill", accent: FieldTheme.medical) {
+        FieldPanel("傷患作業", systemImage: "heart.text.square.fill", accent: FieldTheme.medical) {
             FieldAdaptiveGrid(minimum: 158) {
-                fieldAction("Patient", detail: "Create field patient record", systemImage: "cross.case.fill", feature: .patientCreation, messageType: .patientUpsert, accent: FieldTheme.medical) {
-                    try controller.queuePatientUpload(displayCode: "A023", triageCategory: .red, injurySummary: "Leg bleed", now: Date())
+                fieldAction("傷患", detail: "建立現場傷患紀錄", systemImage: "cross.case.fill", feature: .patientCreation, messageType: .patientUpsert, accent: FieldTheme.medical) {
+                    try controller.queuePatientUpload(displayCode: "A023", triageCategory: .red, injurySummary: "腿部出血", now: Date())
                 }
-                fieldAction("START", detail: "Record START triage", systemImage: "waveform.path.ecg", feature: .startTriage, messageType: .patientUpsert, accent: FieldTheme.danger) {
-                    try controller.queueStartTriage(displayCode: "A023", category: .red, respiratoryRate: 28, pulseRate: 120, gcs: 14, injurySummary: "Leg bleed", now: Date())
+                fieldAction("START", detail: "登錄 START 檢傷", systemImage: "waveform.path.ecg", feature: .startTriage, messageType: .patientUpsert, accent: FieldTheme.danger) {
+                    try controller.queueStartTriage(displayCode: "A023", category: .red, respiratoryRate: 28, pulseRate: 120, gcs: 14, injurySummary: "腿部出血", now: Date())
                 }
-                fieldAction("Vitals", detail: "Update triage and vitals", systemImage: "heart.text.square.fill", feature: .patientStatusUpdate, messageType: .patientUpsert, accent: FieldTheme.warning) {
-                    try controller.queuePatientStatusUpdate(patientID: "PATIENT-A023", displayCode: "A023", triageCategory: .yellow, injurySummary: "Tourniquet applied", now: Date())
+                fieldAction("生命徵象", detail: "更新檢傷與生命徵象", systemImage: "heart.text.square.fill", feature: .patientStatusUpdate, messageType: .patientUpsert, accent: FieldTheme.warning) {
+                    try controller.queuePatientStatusUpdate(patientID: "PATIENT-A023", displayCode: "A023", triageCategory: .yellow, injurySummary: "已使用止血帶", now: Date())
                 }
-                fieldAction("Evac", detail: "Request patient evacuation", systemImage: "arrow.triangle.2.circlepath.circle.fill", feature: .medicalEvacuation, messageType: .evacuationRequestUpsert, accent: FieldTheme.info) {
+                fieldAction("後送", detail: "提出傷患後送需求", systemImage: "arrow.triangle.2.circlepath.circle.fill", feature: .medicalEvacuation, messageType: .evacuationRequestUpsert, accent: FieldTheme.info) {
                     try controller.queueEvacuationRequest(patientID: "PATIENT-A023", destinationHospitalID: nil, now: Date())
                 }
-                fieldAction("Hospital", detail: "Publish capacity update", systemImage: "cross.vial.fill", feature: .hospitalCapacityView, messageType: .hospitalCapacityUpsert, accent: FieldTheme.green) {
+                fieldAction("醫院", detail: "發布醫療量能更新", systemImage: "cross.vial.fill", feature: .hospitalCapacityView, messageType: .hospitalCapacityUpsert, accent: FieldTheme.green) {
                     try controller.queueHospitalCapacityUpdate(emergencyCapacity: 8, traumaCapacity: 3, burnCapacity: 1, pediatricCapacity: 2, now: Date())
                 }
-                fieldAction("Patient Photo", detail: "Attach patient evidence", systemImage: "camera.fill", feature: .patientPhoto, messageType: .photoReportUpsert, accent: FieldTheme.info) {
-                    try controller.queuePhotoReport(photoAttachmentID: LinkGuardID.generated(prefix: "PATIENT-PHOTO"), caption: "Patient photo", checksum: nil, now: Date())
+                fieldAction("傷患照片", detail: "附加傷患影像紀錄", systemImage: "camera.fill", feature: .patientPhoto, messageType: .photoReportUpsert, accent: FieldTheme.info) {
+                    try controller.queuePhotoReport(photoAttachmentID: LinkGuardID.generated(prefix: "PATIENT-PHOTO"), caption: "傷患照片", checksum: nil, now: Date())
                 }
             }
         }
     }
 
     private var outboxPanel: some View {
-        FieldPanel("Offline Queue", systemImage: "tray.full", accent: FieldTheme.green) {
+        FieldPanel("離線佇列", systemImage: "tray.full", accent: FieldTheme.green) {
             VStack(spacing: 8) {
                 HStack(spacing: 8) {
-                    TextField("Sync endpoint", text: $syncEndpointText)
+                    TextField("同步端點", text: $syncEndpointText)
                         .font(.caption.monospaced())
                         .textFieldStyle(.roundedBorder)
                     Button {
                         runSyncNow()
                     } label: {
-                        Label(isSyncing ? "Syncing" : "Sync Now", systemImage: "arrow.triangle.2.circlepath")
+                        Label(isSyncing ? "同步中" : "立即同步", systemImage: "arrow.triangle.2.circlepath")
                             .lineLimit(1)
                             .minimumScaleFactor(0.82)
                     }
@@ -743,38 +768,38 @@ public struct FieldAppShellView: View {
                 }
                 if let syncResult = controller.lastSyncResult {
                     FieldTimelineRow(
-                        title: syncResult.attempted ? "Last Sync" : "Sync Idle",
-                        detail: "Delivered \(syncResult.deliveredEnvelopeIDs.count) / Failed \(syncResult.failedEnvelopeIDs.count) / Remaining \(syncResult.remainingPendingCount)",
+                        title: syncResult.attempted ? "上次同步" : "尚未同步",
+                        detail: "已送達 \(syncResult.deliveredEnvelopeIDs.count) / 失敗 \(syncResult.failedEnvelopeIDs.count) / 剩餘 \(syncResult.remainingPendingCount)",
                         systemImage: syncResult.failedEnvelopeIDs.isEmpty ? "checkmark.icloud.fill" : "exclamationmark.icloud.fill",
                         accent: syncResult.failedEnvelopeIDs.isEmpty ? FieldTheme.green : FieldTheme.warning,
-                        trailing: syncResult.attempted ? "SYNC" : "IDLE"
+                        trailing: syncResult.attempted ? "同步" : "待命"
                     )
                 }
                 if let syncError = controller.lastSyncError {
                     FieldTimelineRow(
-                        title: "Sync Error",
+                        title: "同步錯誤",
                         detail: syncError,
                         systemImage: "wifi.exclamationmark",
                         accent: FieldTheme.warning,
-                        trailing: "FAILED"
+                        trailing: "失敗"
                     )
                 }
                 if let persistenceError = controller.lastPersistenceError {
                     FieldTimelineRow(
-                        title: "Outbox Storage",
+                        title: "佇列儲存",
                         detail: persistenceError,
                         systemImage: "externaldrive.badge.exclamationmark",
                         accent: FieldTheme.warning,
-                        trailing: "ERROR"
+                        trailing: "錯誤"
                     )
                 }
                 if controller.queuedSummaries.isEmpty {
-                    emptyRow("No queued envelopes", systemImage: "tray")
+                    emptyRow("尚無待同步封包", systemImage: "tray")
                 } else {
                     ForEach(controller.queuedSummaries) { item in
                         FieldTimelineRow(
-                            title: item.messageType.rawValue,
-                            detail: "Queued for sync / \(item.id.rawValue)",
+                            title: item.messageType.fieldDisplayName,
+                            detail: "等待同步 / \(item.id.rawValue)",
                             systemImage: iconName(for: item.messageType),
                             accent: item.priority.fieldAccentColor,
                             trailing: item.priority.fieldLabel
@@ -786,11 +811,11 @@ public struct FieldAppShellView: View {
     }
 
     private var eventLogPanel: some View {
-        FieldPanel("Event Log", systemImage: "clock.arrow.circlepath", accent: FieldTheme.info) {
+        FieldPanel("事件紀錄", systemImage: "clock.arrow.circlepath", accent: FieldTheme.info) {
             VStack(spacing: 8) {
                 let events = controller.runtime.snapshot.auditEvents.suffix(8).reversed()
                 if events.isEmpty {
-                    emptyRow("No local audit events yet", systemImage: "clock")
+                    emptyRow("尚無本機稽核事件", systemImage: "clock")
                 } else {
                     ForEach(Array(events), id: \.id) { event in
                         FieldTimelineRow(
@@ -829,17 +854,17 @@ public struct FieldAppShellView: View {
     private func runAction(_ title: String, _ action: () throws -> SyncEnvelope) {
         do {
             _ = try action()
-            statusText = "Queued \(title)"
+            statusText = "已排入 \(title)"
             statusAccent = FieldTheme.green
         } catch {
-            statusText = "Blocked \(title)"
+            statusText = "受限 \(title)"
             statusAccent = FieldTheme.warning
         }
     }
 
     private func openTeamCapabilityForm() {
         guard controller.canUseFeature(.teamCapabilityOverview), controller.canSend(.teamCapabilityReportUpsert) else {
-            statusText = "Blocked USAR Profile"
+            statusText = "受限 USAR 能量"
             statusAccent = FieldTheme.warning
             return
         }
@@ -850,19 +875,19 @@ public struct FieldAppShellView: View {
     private func submitTeamCapabilityReport(_ report: USARTeamCapabilityReport) {
         do {
             _ = try controller.queueTeamCapabilityReport(report, now: report.createdAt)
-            statusText = "Queued USAR Profile"
+            statusText = "已排入 USAR 能量"
             statusAccent = FieldTheme.green
             showingTeamCapabilityForm = false
             teamCapabilityDraft = nil
         } catch {
-            statusText = "Blocked USAR Profile"
+            statusText = "受限 USAR 能量"
             statusAccent = FieldTheme.warning
         }
     }
 
     private func openPhotoCapture(_ preset: FieldPhotoCapturePreset) {
         guard controller.canUseFeature(.photoReport), controller.canSend(.photoReportUpsert) else {
-            statusText = "Blocked Photo"
+            statusText = "受限 拍照"
             statusAccent = FieldTheme.warning
             return
         }
@@ -880,12 +905,12 @@ public struct FieldAppShellView: View {
                 now: Date()
             )
             controller = updatingController
-            statusText = "Queued Photo"
+            statusText = "已排入 拍照"
             statusAccent = FieldTheme.green
             showingPhotoCaptureSheet = false
         } catch {
             controller = updatingController
-            statusText = "Blocked Photo"
+            statusText = "受限 拍照"
             statusAccent = FieldTheme.warning
         }
     }
@@ -897,13 +922,13 @@ public struct FieldAppShellView: View {
             let scheme = endpointURL.scheme?.lowercased(),
             scheme == "http" || scheme == "https"
         else {
-            statusText = "Bad Endpoint"
+            statusText = "端點錯誤"
             statusAccent = FieldTheme.warning
             return
         }
 
         isSyncing = true
-        statusText = "Syncing"
+        statusText = "同步中"
         statusAccent = FieldTheme.info
         Task { @MainActor in
             defer { isSyncing = false }
@@ -911,11 +936,11 @@ public struct FieldAppShellView: View {
             do {
                 let result = try await syncingController.syncQueuedEnvelopes(endpointURL: endpointURL, now: Date())
                 controller = syncingController
-                statusText = result.attempted ? "Synced \(result.deliveredEnvelopeIDs.count)" : "Sync Idle"
+                statusText = result.attempted ? "已同步 \(result.deliveredEnvelopeIDs.count)" : "尚未同步"
                 statusAccent = result.failedEnvelopeIDs.isEmpty ? FieldTheme.green : FieldTheme.warning
             } catch {
                 controller = syncingController
-                statusText = "Sync Failed"
+                statusText = "同步失敗"
                 statusAccent = FieldTheme.warning
             }
         }
@@ -947,6 +972,30 @@ public struct FieldAppShellView: View {
         }
     }
 
+    private func runLaunchAutomationIfNeeded() {
+        guard didRunLaunchAutomation == false else { return }
+        didRunLaunchAutomation = true
+
+        let rawActions = ProcessInfo.processInfo.environment["LINKGUARD_AUTORUN_ACTIONS"] ?? ""
+        let actions = rawActions
+            .split(separator: ",")
+            .compactMap { FieldRoleActionKind(launchToken: String($0)) }
+        guard actions.isEmpty == false else { return }
+
+        var latestStatus = "自動操作完成"
+        var latestAccent = FieldTheme.green
+        for action in actions {
+            do {
+                _ = try perform(action)
+            } catch {
+                latestStatus = "自動操作受限"
+                latestAccent = FieldTheme.warning
+            }
+        }
+        statusText = latestStatus
+        statusAccent = latestAccent
+    }
+
     private func handleMapTap(_ coordinate: MapCoordinate) {
         switch mapMarkup.drawingMode {
         case .select:
@@ -975,7 +1024,7 @@ public struct FieldAppShellView: View {
             polygonType: mapPolygonTypeForRole,
             now: Date()
         ) else {
-            statusText = "Map draft incomplete"
+            statusText = "地圖草稿未完成"
             statusAccent = FieldTheme.warning
             return
         }
@@ -986,10 +1035,10 @@ public struct FieldAppShellView: View {
                 featureType: mapFeatureType(for: feature.geometry),
                 now: Date()
             )
-            statusText = "Queued Map"
+            statusText = "已排入 地圖"
             statusAccent = FieldTheme.green
         } catch {
-            statusText = "Saved Map"
+            statusText = "已暫存 地圖"
             statusAccent = FieldTheme.warning
         }
     }
@@ -1178,17 +1227,19 @@ public struct FieldAppShellView: View {
     private var roleOperationsTitle: String {
         switch controller.runtime.device.appID {
         case .sccIPad:
-            return "SCC iPad Sector Control"
-        case .teamLeader, .teamLeaderIPad:
-            return "TL Worksite Command"
+            return "SCC iPad 分區管制"
+        case .teamLeader:
+            return "TL 小隊指揮"
+        case .teamLeaderIPad:
+            return "TL iPad 工區指揮"
         case .teamMember:
-            return "TE Task Execution"
+            return "TE 任務執行"
         case .volunteer:
-            return "VO Support Loop"
+            return "VO 支援回報"
         case .emt, .emtIPad:
-            return "EMT Field Support"
+            return "EMT 現場醫療"
         case .ucc, .scc:
-            return "Command Preview"
+            return "指揮預覽"
         }
     }
 
@@ -1196,49 +1247,49 @@ public struct FieldAppShellView: View {
         switch controller.runtime.device.appID {
         case .sccIPad:
             return [
-                .init("Sector", "Create sector/sub-sector/worksite", "square.3.layers.3d", .sectorCreation, .sectorUpsert, FieldTheme.command, .sectorPlan),
-                .init("Dispatch", "Assign task to team", "paperplane.fill", .taskAssignment, .taskUpsert, FieldTheme.green, .taskAssignment),
-                .init("Personnel", "Publish online personnel status", "person.3.fill", .personnelOverview, .personnelStatusUpsert, FieldTheme.team, .personnelOnline),
-                .init("Safety", "Publish hot zone", "shield.lefthalf.filled", .safetyControlBoard, .safetyZoneUpsert, FieldTheme.warning, .safetyZone),
-                .init("Check In", "Record entry control", "figure.walk.arrival", .personnelEntryLog, .safetyEntryLogUpsert, FieldTheme.info, .safetyCheckIn),
-                .init("Chat", "Send sector message", "message.fill", .communicationChannel, .groupChatMessageAppend, FieldTheme.team, .chat)
+                .init("分區", "建立分區/子分區/工區", "square.3.layers.3d", .sectorCreation, .sectorUpsert, FieldTheme.command, .sectorPlan),
+                .init("派任務", "指派任務給小隊", "paperplane.fill", .taskAssignment, .taskUpsert, FieldTheme.green, .taskAssignment),
+                .init("人員", "發布線上人員狀態", "person.3.fill", .personnelOverview, .personnelStatusUpsert, FieldTheme.team, .personnelOnline),
+                .init("安全", "發布危險區", "shield.lefthalf.filled", .safetyControlBoard, .safetyZoneUpsert, FieldTheme.warning, .safetyZone),
+                .init("進場", "登錄管制區進入", "figure.walk.arrival", .personnelEntryLog, .safetyEntryLogUpsert, FieldTheme.info, .safetyCheckIn),
+                .init("通訊", "送出分區訊息", "message.fill", .communicationChannel, .groupChatMessageAppend, FieldTheme.team, .chat)
             ]
         case .teamLeader, .teamLeaderIPad:
             return [
-                .init("Worksite", "Create A1 worksite plan", "square.3.layers.3d", .worksiteMarkerSystem, .worksiteUpsert, FieldTheme.command, .sectorPlan),
-                .init("Dispatch", "Assign team task", "paperplane.fill", .taskAssignment, .taskUpsert, FieldTheme.green, .taskAssignment),
-                .init("In Progress", "Update task status", "figure.run.circle.fill", .taskReport, .taskUpsert, FieldTheme.team, .taskInProgress),
-                .init("Safety", "Publish hazard zone", "exclamationmark.triangle.fill", .hazardZoneManagement, .safetyZoneUpsert, FieldTheme.warning, .safetyZone),
-                .init("Entry", "Check into hot zone", "figure.walk.arrival", .personnelEntryLog, .safetyEntryLogUpsert, FieldTheme.info, .safetyCheckIn),
-                .init("Chat", "Send team message", "message.fill", .communicationChannel, .groupChatMessageAppend, FieldTheme.team, .chat)
+                .init("工區", "建立 A1 工區計畫", "square.3.layers.3d", .worksiteMarkerSystem, .worksiteUpsert, FieldTheme.command, .sectorPlan),
+                .init("派任務", "指派小隊任務", "paperplane.fill", .taskAssignment, .taskUpsert, FieldTheme.green, .taskAssignment),
+                .init("執行中", "更新任務狀態", "figure.run.circle.fill", .taskReport, .taskUpsert, FieldTheme.team, .taskInProgress),
+                .init("安全區", "發布危險區", "exclamationmark.triangle.fill", .hazardZoneManagement, .safetyZoneUpsert, FieldTheme.warning, .safetyZone),
+                .init("進場", "進入管制區", "figure.walk.arrival", .personnelEntryLog, .safetyEntryLogUpsert, FieldTheme.info, .safetyCheckIn),
+                .init("通訊", "送出小隊訊息", "message.fill", .communicationChannel, .groupChatMessageAppend, FieldTheme.team, .chat)
             ]
         case .teamMember:
             return [
-                .init("Accept", "Accept assigned task", "checkmark.circle.fill", .taskReport, .taskUpsert, FieldTheme.green, .taskAccepted),
-                .init("Working", "Mark task in progress", "figure.run.circle.fill", .taskReport, .taskUpsert, FieldTheme.team, .taskInProgress),
-                .init("GPS", "Send location heartbeat", "location.fill", .gpsTracking, .personnelStatusUpsert, FieldTheme.green, .gps),
-                .init("Photo", "Report photo evidence", "camera.fill", .photoReport, .photoReportUpsert, FieldTheme.info, .photo),
-                .init("Entry", "Check into zone", "figure.walk.arrival", .personnelEntryLog, .safetyEntryLogUpsert, FieldTheme.warning, .safetyCheckIn),
-                .init("Chat", "Send team message", "message.fill", .communicationChannel, .groupChatMessageAppend, FieldTheme.team, .chat)
+                .init("接收", "接受指派任務", "checkmark.circle.fill", .taskReport, .taskUpsert, FieldTheme.green, .taskAccepted),
+                .init("執行中", "標記正在作業", "figure.run.circle.fill", .taskReport, .taskUpsert, FieldTheme.team, .taskInProgress),
+                .init("GPS", "送出定位心跳", "location.fill", .gpsTracking, .personnelStatusUpsert, FieldTheme.green, .gps),
+                .init("照片", "回報現場照片", "camera.fill", .photoReport, .photoReportUpsert, FieldTheme.info, .photo),
+                .init("進場", "進入管制區", "figure.walk.arrival", .personnelEntryLog, .safetyEntryLogUpsert, FieldTheme.warning, .safetyCheckIn),
+                .init("通訊", "送出小隊訊息", "message.fill", .communicationChannel, .groupChatMessageAppend, FieldTheme.team, .chat)
             ]
         case .volunteer:
             return [
-                .init("Accept", "Confirm support task", "checkmark.circle.fill", .taskReport, .taskUpsert, FieldTheme.green, .taskAccepted),
-                .init("GPS", "Send support location", "location.fill", .gpsTracking, .personnelStatusUpsert, FieldTheme.green, .gps),
-                .init("Photo", "Report scene photo", "camera.fill", .photoReport, .photoReportUpsert, FieldTheme.info, .photo),
-                .init("Chat", "Send support message", "message.fill", .communicationChannel, .groupChatMessageAppend, FieldTheme.team, .chat)
+                .init("接收", "確認支援任務", "checkmark.circle.fill", .taskReport, .taskUpsert, FieldTheme.green, .taskAccepted),
+                .init("GPS", "送出支援位置", "location.fill", .gpsTracking, .personnelStatusUpsert, FieldTheme.green, .gps),
+                .init("照片", "回報現場照片", "camera.fill", .photoReport, .photoReportUpsert, FieldTheme.info, .photo),
+                .init("通訊", "送出支援訊息", "message.fill", .communicationChannel, .groupChatMessageAppend, FieldTheme.team, .chat)
             ]
         case .emt, .emtIPad:
             return [
-                .init("GPS", "Send EMT location", "location.fill", .gpsTracking, .personnelStatusUpsert, FieldTheme.green, .gps),
-                .init("Photo", "Attach patient photo", "camera.fill", .patientPhoto, .photoReportUpsert, FieldTheme.info, .photo),
-                .init("Chat", "Send medical message", "message.fill", .communicationChannel, .groupChatMessageAppend, FieldTheme.team, .chat)
+                .init("GPS", "送出 EMT 位置", "location.fill", .gpsTracking, .personnelStatusUpsert, FieldTheme.green, .gps),
+                .init("照片", "附加傷患照片", "camera.fill", .patientPhoto, .photoReportUpsert, FieldTheme.info, .photo),
+                .init("通訊", "送出醫療訊息", "message.fill", .communicationChannel, .groupChatMessageAppend, FieldTheme.team, .chat)
             ]
         case .ucc, .scc:
             return [
-                .init("Sector", "Preview sector plan", "square.3.layers.3d", .sectorCreation, .sectorUpsert, FieldTheme.command, .sectorPlan),
-                .init("Dispatch", "Preview task dispatch", "paperplane.fill", .taskAssignment, .taskUpsert, FieldTheme.green, .taskAssignment),
-                .init("Chat", "Preview message", "message.fill", .communicationChannel, .groupChatMessageAppend, FieldTheme.team, .chat)
+                .init("分區", "預覽分區計畫", "square.3.layers.3d", .sectorCreation, .sectorUpsert, FieldTheme.command, .sectorPlan),
+                .init("派任務", "預覽任務派遣", "paperplane.fill", .taskAssignment, .taskUpsert, FieldTheme.green, .taskAssignment),
+                .init("通訊", "預覽訊息", "message.fill", .communicationChannel, .groupChatMessageAppend, FieldTheme.team, .chat)
             ]
         }
     }
@@ -1276,39 +1327,39 @@ public struct FieldAppShellView: View {
     private var chatMessageForRole: String {
         switch controller.runtime.device.appID {
         case .emt, .emtIPad:
-            return "EMT patient status update"
+            return "EMT 傷患狀態更新"
         case .sccIPad:
-            return "SCC sector update"
+            return "SCC 分區狀態更新"
         case .teamLeader, .teamLeaderIPad:
-            return "A1 task status update"
+            return "A1 任務狀態更新"
         case .teamMember:
-            return "TE task progress update"
+            return "TE 任務進度更新"
         case .volunteer:
-            return "VO support update"
+            return "VO 支援狀態更新"
         case .ucc, .scc:
-            return "Command preview message"
+            return "指揮預覽訊息"
         }
     }
 
     private var voiceMessageForRole: String {
         switch controller.runtime.device.appID {
         case .emt, .emtIPad:
-            return "EMT voice update"
+            return "EMT 語音更新"
         case .teamMember, .volunteer:
-            return "Field voice update"
+            return "現場語音更新"
         default:
-            return "Command voice update"
+            return "指揮語音更新"
         }
     }
 
     private var photoCaptionForRole: String {
         switch controller.runtime.device.appID {
         case .emt, .emtIPad:
-            return "Patient photo"
+            return "傷患照片"
         case .teamLeader, .teamLeaderIPad:
-            return "Worksite overview"
+            return "工區概況"
         default:
-            return "Task photo"
+            return "任務照片"
         }
     }
 
@@ -1366,6 +1417,27 @@ public struct FieldAppShellView: View {
         }
     }
 
+    private func settingsTitle(for item: LinkGuardAppSettingsItem) -> String {
+        switch item.key {
+        case "app":
+            return "應用"
+        case "device":
+            return "裝置"
+        case "version":
+            return "版本"
+        case "build":
+            return "建置"
+        case "channel":
+            return "通道"
+        case "gitTag":
+            return "Git 標籤"
+        case "series":
+            return "系列"
+        default:
+            return item.title
+        }
+    }
+
     private func settingsAccent(for key: String) -> Color {
         switch key {
         case "version", "build", "gitTag":
@@ -1407,19 +1479,19 @@ private enum FieldAppTab: String, Identifiable, Hashable {
     var title: String {
         switch self {
         case .overview:
-            return "Overview"
+            return "總覽"
         case .operations:
-            return "Ops"
+            return "作業"
         case .mapSafety:
-            return "Map"
+            return "地圖"
         case .medical:
-            return "Medical"
+            return "醫療"
         case .comms:
-            return "Comms"
+            return "通訊"
         case .queue:
-            return "Queue"
+            return "離線"
         case .settings:
-            return "Settings"
+            return "設定"
         }
     }
 
@@ -1594,17 +1666,46 @@ private enum FieldRoleActionKind {
     case chat
 }
 
+private extension FieldRoleActionKind {
+    init?(launchToken: String) {
+        switch launchToken.trimmingCharacters(in: .whitespacesAndNewlines) {
+        case "sectorPlan":
+            self = .sectorPlan
+        case "taskAssignment":
+            self = .taskAssignment
+        case "taskAccepted":
+            self = .taskAccepted
+        case "taskInProgress":
+            self = .taskInProgress
+        case "personnelOnline":
+            self = .personnelOnline
+        case "gps":
+            self = .gps
+        case "photo":
+            self = .photo
+        case "safetyZone":
+            self = .safetyZone
+        case "safetyCheckIn":
+            self = .safetyCheckIn
+        case "chat":
+            self = .chat
+        default:
+            return nil
+        }
+    }
+}
+
 private extension MapDrawingMode {
     var fieldTitle: String {
         switch self {
         case .select:
-            return "Select"
+            return "選取"
         case .point:
-            return "Point"
+            return "點位"
         case .polyline:
-            return "Line"
+            return "路線"
         case .polygon:
-            return "Area"
+            return "區域"
         }
     }
 
@@ -1639,17 +1740,17 @@ private extension HomeSurface {
     var fieldDisplayName: String {
         switch self {
         case .globalCommand:
-            return "Global Command"
+            return "全域指揮"
         case .sectorCommand:
-            return "Sector Command"
+            return "分區指揮"
         case .teamBriefing:
-            return "Team Briefing"
+            return "小隊簡報"
         case .taskList:
-            return "Task List"
+            return "任務列表"
         case .volunteerSafety:
-            return "Volunteer Safety"
+            return "志工安全"
         case .medicalTriage:
-            return "Medical Triage"
+            return "醫療檢傷"
         }
     }
 }
@@ -1658,17 +1759,17 @@ private extension CommandAuthorityLevel {
     var fieldDisplayName: String {
         switch self {
         case .none:
-            return "No command"
+            return "無指揮權"
         case .selfReport:
-            return "Self report"
+            return "自我回報"
         case .team:
-            return "Team command"
+            return "小隊指揮"
         case .sector:
-            return "Sector command"
+            return "分區指揮"
         case .incident:
-            return "Incident command"
+            return "事故指揮"
         case .global:
-            return "Global command"
+            return "全域指揮"
         }
     }
 }
@@ -1677,19 +1778,86 @@ private extension MedicalAccessLevel {
     var fieldDisplayName: String {
         switch self {
         case .none:
-            return "None"
+            return "無"
         case .summary:
-            return "Summary"
+            return "摘要"
         case .operational:
-            return "Ops"
+            return "作業"
         case .fullClinical:
-            return "Clinical"
+            return "臨床"
         }
     }
 }
 
 private extension LinkGuardPermission {
     var fieldDisplayName: String { rawValue.fieldTitle }
+}
+
+private extension SyncMessageType {
+    var fieldDisplayName: String {
+        switch self {
+        case .incidentUpsert:
+            return "事故資料"
+        case .sectorUpsert:
+            return "分區資料"
+        case .subSectorUpsert:
+            return "子分區資料"
+        case .worksiteUpsert:
+            return "工區資料"
+        case .personnelStatusUpsert:
+            return "人員狀態"
+        case .teamCapabilityReportUpsert:
+            return "小隊能量"
+        case .roleAssignmentUpsert:
+            return "角色派任"
+        case .commandUpsert:
+            return "指揮命令"
+        case .taskUpsert:
+            return "任務更新"
+        case .operationalPeriodUpsert:
+            return "作業期程"
+        case .photoReportUpsert:
+            return "照片回報"
+        case .disasterReportUpsert:
+            return "災情回報"
+        case .agencyMessageUpsert:
+            return "機關訊息"
+        case .ceocMissionUpsert:
+            return "CEOC 任務"
+        case .safetyZoneUpsert:
+            return "安全區"
+        case .safetyEntryLogUpsert:
+            return "進出紀錄"
+        case .groupChatMessageAppend:
+            return "群組訊息"
+        case .voiceReportAppend:
+            return "語音回報"
+        case .alertUpsert:
+            return "警示"
+        case .alertAcknowledgementUpsert:
+            return "警示確認"
+        case .sosReportUpsert:
+            return "SOS 回報"
+        case .mapFeatureUpsert:
+            return "地圖標註"
+        case .patientUpsert:
+            return "傷患資料"
+        case .patientOperationalSummaryUpsert:
+            return "傷患作業摘要"
+        case .evacuationRequestUpsert:
+            return "後送需求"
+        case .hospitalCapacityUpsert:
+            return "醫院量能"
+        case .purchaseRequestUpsert:
+            return "採購需求"
+        case .personnelHoursUpsert:
+            return "人員工時"
+        case .decisionRecordUpsert:
+            return "決策紀錄"
+        case .auditEventAppend:
+            return "稽核事件"
+        }
+    }
 }
 
 private extension LinkGuardFeature {
@@ -1721,22 +1889,22 @@ private extension FeatureAccessLevel {
     var fieldDisplayName: String {
         switch self {
         case .none:
-            return "Unavailable"
+            return "不可用"
         case .limited:
-            return "Limited"
+            return "受限"
         case .primary:
-            return "Primary"
+            return "主要"
         }
     }
 
     var fieldShortLabel: String {
         switch self {
         case .none:
-            return "NO"
+            return "無"
         case .limited:
-            return "LTD"
+            return "受限"
         case .primary:
-            return "PRI"
+            return "主要"
         }
     }
 

@@ -8,12 +8,10 @@
 
 /* Begin PBXBuildFile section */
 		A10000000000000000000001 /* LinkGuardV03FieldUI in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000002 /* LinkGuardV03FieldUI */; };
-		A10000000000000000000013 /* LinkGuardTEApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000014 /* LinkGuardTEApp.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		A10000000000000000000003 /* LinkGuard-TE.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "LinkGuard-TE.app"; sourceTree = BUILT_PRODUCTS_DIR; };
-		A10000000000000000000014 /* LinkGuardTEApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LinkGuard-TE/LinkGuardTEApp.swift"; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -131,7 +129,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A10000000000000000000013 /* LinkGuardTEApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
