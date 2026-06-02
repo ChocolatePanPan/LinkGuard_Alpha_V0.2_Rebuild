@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">LinkGuard</string>
+
+    <string name="nav_ops">オペレーション</string>
+    <string name="nav_comms">通信</string>
+    <string name="nav_support">支援</string>
+    <string name="nav_tools">ツール</string>
+
+    <string name="title_dashboard">ダッシュボード</string>
+    <string name="title_victims">要救助者</string>
+    <string name="title_sos">SOS</string>
+    <string name="title_disaster">災害状況</string>
+    <string name="title_chat">通信</string>
+    <string name="title_radio">無線</string>
+    <string name="title_commands">指揮命令</string>
+    <string name="title_notifications">通知</string>
+    <string name="title_team">チーム</string>
+    <string name="title_reinforcement">増援</string>
+    <string name="title_patient">傷者報告</string>
+    <string name="title_decision">HQ 決定</string>
+    <string name="title_translator">翻訳</string>
+    <string name="title_photo_report">写真報告</string>
+    <string name="title_connection">接続設定</string>
+
+    <string name="dashboard_victims">要救助者</string>
+    <string name="dashboard_sos">SOS</string>
+    <string name="dashboard_team">チーム</string>
+    <string name="dashboard_uptime">稼働時間</string>
+    <string name="dashboard_battery">バッテリー</string>
+    <string name="dashboard_ble">Bluetooth</string>
+    <string name="dashboard_wifi">WiFi</string>
+    <string name="dashboard_connected">接続中</string>
+    <string name="dashboard_disconnected">未接続</string>
+    <string name="dashboard_no_data">データなし</string>
+
+    <string name="sos_send">SOS 送信</string>
+    <string name="sos_cancel">SOS キャンセル</string>
+    <string name="sos_emergency">緊急 SOS</string>
+    <string name="sos_confirm_title">SOS 確認</string>
+    <string name="sos_confirm_msg">全ノードと HQ に緊急 SOS を送信しますか？</string>
+    <string name="sos_no_records">SOS 記録なし</string>
+
+    <string name="disaster_no_reports">災害報告なし</string>
+    <string name="disaster_report">危険を報告</string>
+    <string name="disaster_subtitle">報告を有効にして危険を記録</string>
+
+    <string name="chat_title">現場通信</string>
+    <string name="chat_send">送信</string>
+    <string name="chat_placeholder">メッセージを入力…</string>
+    <string name="chat_no_messages">メッセージなし</string>
+
+    <string name="radio_live">ライブ放送</string>
+    <string name="radio_briefing">定例ブリーフィング</string>
+    <string name="radio_text">テキスト放送</string>
+    <string name="radio_priority">優先度</string>
+    <string name="radio_normal">通常</string>
+    <string name="radio_urgent">緊急</string>
+    <string name="radio_placeholder">放送内容を入力…</string>
+    <string name="radio_send">放送送信</string>
+    <string name="radio_no_broadcasts">テキスト放送なし</string>
+
+    <string name="notif_title">通知</string>
+    <string name="notif_empty">通知なし</string>
+    <string name="notif_empty_subtitle">新しいアラートがここに表示されます</string>
+
+    <string name="patient_title">傷者評価フォーム</string>
+    <string name="patient_submit">評価を送信</string>
+
+    <string name="decision_title">HQ 決定</string>
+    <string name="decision_empty">決定なし</string>
+    <string name="decision_empty_subtitle">HQ の指令がここに表示されます</string>
+
+    <string name="translator_detect">自動検出</string>
+    <string name="translator_swap">入れ替え</string>
+    <string name="translator_translate">翻訳</string>
+    <string name="translator_placeholder">翻訳するテキストを入力…</string>
+    <string name="translator_quick">医療用語集</string>
+    <string name="translator_original">原文</string>
+    <string name="translator_result">翻訳</string>
+    <string name="translator_copy">コピー</string>
+    <string name="translator_speak">読み上げ</string>
+
+    <string name="photo_title">写真報告</string>
+    <string name="photo_select">写真を選択または撮影</string>
+    <string name="photo_camera">カメラ</string>
+    <string name="photo_gallery">ギャラリー</string>
+    <string name="photo_location">場所の説明（例：B棟3F廊下）</string>
+    <string name="photo_caption">写真の説明</string>
+    <string name="photo_upload">写真報告をアップロード</string>
+    <string name="photo_uploading">アップロード中…</string>
+    <string name="photo_reported">報告済み写真（%1$d 枚）</string>
+
+    <string name="voice_input">音声入力</string>
+    <string name="voice_recording">録音中… タップして停止</string>
+    <string name="voice_transcribing">文字起こし中…</string>
+    <string name="voice_done">文字起こし完了</string>
+
+    <string name="conn_ble">Bluetooth</string>
+    <string name="conn_wifi">WiFi</string>
+    <string name="conn_gps">GPS</string>
+    <string name="conn_retry">再試行</string>
+
+    <string name="onboarding_welcome">LinkGuard へようこそ</string>
+    <string name="onboarding_welcome_desc">現場救助通信・管理プラットフォーム</string>
+    <string name="onboarding_role">役割を選択</string>
+    <string name="onboarding_role_search">捜索</string>
+    <string name="onboarding_role_rescue">救助</string>
+    <string name="onboarding_role_medical">医療</string>
+    <string name="onboarding_role_logistics">後方支援</string>
+    <string name="onboarding_role_commander">指揮官</string>
+    <string name="onboarding_dept">部門コード</string>
+    <string name="onboarding_tour">機能ガイド</string>
+    <string name="onboarding_ready">準備完了</string>
+    <string name="onboarding_skip">スキップ</string>
+    <string name="onboarding_next">次へ</string>
+    <string name="onboarding_start">開始</string>
+
+    <string name="confirm">確認</string>
+    <string name="cancel">キャンセル</string>
+    <string name="send">送信</string>
+    <string name="retry">再試行</string>
+    <string name="back_to_dashboard">ダッシュボードに戻る</string>
+    <string name="no_connection">HQ に未接続</string>
+    <string name="upload_success">アップロード成功</string>
+    <string name="upload_failed">アップロード失敗</string>
+
+    <string name="title_nfc_reader">NFC リーダー</string>
+    <string name="title_hospital">病院ディレクトリ</string>
+    <string name="title_usar_role">USAR 指揮</string>
+    <string name="title_ai_chat">AI アシスタント</string>
+    <string name="title_activity_log">活動ログ</string>
+    <string name="title_personnel">人員配置</string>
+    <string name="personnel_add">人員を追加</string>
+    <string name="personnel_name">氏名</string>
+    <string name="personnel_role">役職</string>
+    <string name="personnel_zone">エリア</string>
+    <string name="personnel_floor">フロア</string>
+    <string name="nfc_ready">NFC タグをスキャン準備完了</string>
+    <string name="nfc_success">NFC タグをスキャンしました</string>
+    <string name="nfc_unavailable">このデバイスは NFC 非対応</string>
+    <string name="hospital_search">病院を検索…</string>
+    <string name="hospital_icu">ICU</string>
+    <string name="hospital_or">手術室</string>
+    <string name="hospital_beds">病床数</string>
+    <string name="ai_placeholder">AI アシスタントに質問…</string>
+    <string name="ai_send">送信</string>
+    <string name="ai_clear">会話をクリア</string>
+    <string name="ai_thinking">AI が考えています…</string>
+    <string name="ai_include_context">現場状況を含める</string>
+</resources>

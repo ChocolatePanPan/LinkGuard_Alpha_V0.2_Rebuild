@@ -120,6 +120,7 @@ fun MainScreen(viewModel: LinkGuardViewModel, windowSizeClass: WindowSizeClass? 
     val unreadCommands = viewModel.unreadCommandCount
     val pendingRF = viewModel.pendingReinforcementCount
     val unreadNotifications by viewModel.unreadNotificationCount.collectAsState()
+    val showRadarEffect by viewModel.showRadarEffect.collectAsState()
 
     val moreItems = buildMoreItems(
         pendingRF = pendingRF,
@@ -224,7 +225,7 @@ fun MainScreen(viewModel: LinkGuardViewModel, windowSizeClass: WindowSizeClass? 
     }
 
     Box(modifier = Modifier.fillMaxSize().background(NV.bg)) {
-        TacticalBackdrop()
+        TacticalBackdrop(showEffect = showRadarEffect)
         if (useRail) {
             // === 平板佈局: NavigationRail (5 主分頁) + Content ===
             Row(modifier = Modifier.fillMaxSize()) {
@@ -2217,22 +2218,10 @@ fun CardContainer(
             .fillMaxWidth()
             .shadow(6.dp, NVShape.card, ambientColor = Color.Black.copy(alpha = 0.5f), spotColor = Color.Black.copy(alpha = 0.3f))
             .clip(NVShape.card)
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        NV.card,
-                        Color(0xFF131920)
-                    )
-                )
-            )
+            .background(NV.card)
             .border(
                 width = 1.dp,
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        borderColor.copy(alpha = 0.6f),
-                        borderColor.copy(alpha = 0.2f)
-                    )
-                ),
+                color = NV.cardBorder,
                 shape = NVShape.card
             )
             .padding(16.dp),
@@ -2320,14 +2309,7 @@ fun StatCard(label: String, value: String, color: Color, modifier: Modifier = Mo
         modifier = modifier
             .shadow(8.dp, NVShape.card, ambientColor = color.copy(alpha = 0.15f), spotColor = color.copy(alpha = 0.1f))
             .clip(NVShape.card)
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        NV.card,
-                        Color(0xFF131920)
-                    )
-                )
-            )
+            .background(NV.card)
             .drawBehind {
                 // 色彩染色層
                 drawRect(color = color.copy(alpha = 0.07f))

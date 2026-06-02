@@ -741,22 +741,10 @@ fun InfoCard(title: String, content: @Composable ColumnScope.() -> Unit) {
             .fillMaxWidth()
             .shadow(6.dp, NVShape.card, ambientColor = Color.Black.copy(alpha = 0.5f), spotColor = Color.Black.copy(alpha = 0.3f))
             .clip(NVShape.card)
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        NV.card,
-                        Color(0xFF131920)
-                    )
-                )
-            )
+            .background(NV.card)
             .border(
                 width = 1.dp,
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        NV.cardBorder.copy(alpha = 0.6f),
-                        NV.cardBorder.copy(alpha = 0.2f)
-                    )
-                ),
+                color = NV.cardBorder,
                 shape = NVShape.card
             )
             .padding(14.dp),

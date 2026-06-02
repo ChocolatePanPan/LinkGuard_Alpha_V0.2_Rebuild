@@ -12,11 +12,15 @@ import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.NightlightRound
 import androidx.compose.material.icons.filled.PhoneAndroid
+import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.ui.graphics.Color
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -43,6 +47,7 @@ import com.linkguard.app.viewmodel.LinkGuardViewModel
 @Composable
 fun AppearanceSettingsScreen(viewModel: LinkGuardViewModel) {
     val current by viewModel.themeMode.collectAsState()
+    val showRadarEffect by viewModel.showRadarEffect.collectAsState()
 
     Column(
         modifier = Modifier
@@ -109,6 +114,56 @@ fun AppearanceSettingsScreen(viewModel: LinkGuardViewModel) {
                 showDivider = false,
                 onClick = { viewModel.setThemeMode(ThemeMode.NightVision) }
             )
+        }
+
+        // 視覺特效區塊
+        Text(
+            text = "視覺效果",
+            color = NV.textSecondary,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(start = 4.dp, bottom = 4.dp)
+        )
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(NVShape.card)
+                .background(NV.card)
+                .border(width = 1.dp, color = NV.cardBorder, shape = NVShape.card)
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.Sensors,
+                    contentDescription = null,
+                    tint = NV.textSecondary,
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(Modifier.width(16.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "背景雷達掃描",
+                        color = NV.textPrimary,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = "在主畫面背景顯示緩慢掃描動畫效果",
+                        color = NV.textSecondary,
+                        fontSize = 12.sp
+                    )
+                }
+                Switch(
+                    checked = showRadarEffect,
+                    onCheckedChange = { viewModel.setShowRadarEffect(it) },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = Color.White,
+                        checkedTrackColor = NV.green,
+                        uncheckedThumbColor = NV.textSecondary,
+                        uncheckedTrackColor = NV.surface
+                    )
+                )
+            }
         }
     }
 }

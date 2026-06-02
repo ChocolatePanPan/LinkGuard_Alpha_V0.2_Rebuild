@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">LinkGuard</string>
+
+    <string name="nav_ops">ปฏิบัติการ</string>
+    <string name="nav_comms">การสื่อสาร</string>
+    <string name="nav_support">สนับสนุน</string>
+    <string name="nav_tools">เครื่องมือ</string>
+
+    <string name="title_dashboard">ภาพรวม</string>
+    <string name="title_victims">ผู้ประสบภัย</string>
+    <string name="title_sos">SOS</string>
+    <string name="title_disaster">สถานการณ์ภัยพิบัติ</string>
+    <string name="title_chat">การสื่อสาร</string>
+    <string name="title_radio">วิทยุ</string>
+    <string name="title_commands">คำสั่งบัญชาการ</string>
+    <string name="title_notifications">การแจ้งเตือน</string>
+    <string name="title_team">ทีม</string>
+    <string name="title_reinforcement">กำลังเสริม</string>
+    <string name="title_patient">รายงานผู้บาดเจ็บ</string>
+    <string name="title_decision">การตัดสินใจ HQ</string>
+    <string name="title_translator">แปลภาษา</string>
+    <string name="title_photo_report">รายงานภาพถ่าย</string>
+    <string name="title_connection">การตั้งค่าการเชื่อมต่อ</string>
+
+    <string name="dashboard_victims">ผู้ประสบภัย</string>
+    <string name="dashboard_sos">SOS</string>
+    <string name="dashboard_team">ทีม</string>
+    <string name="dashboard_uptime">เวลาทำงาน</string>
+    <string name="dashboard_battery">แบตเตอรี่</string>
+    <string name="dashboard_ble">บลูทูธ</string>
+    <string name="dashboard_wifi">WiFi</string>
+    <string name="dashboard_connected">เชื่อมต่อแล้ว</string>
+    <string name="dashboard_disconnected">ไม่ได้เชื่อมต่อ</string>
+    <string name="dashboard_no_data">ยังไม่มีข้อมูล</string>
+
+    <string name="sos_send">ส่ง SOS</string>
+    <string name="sos_cancel">ยกเลิก SOS</string>
+    <string name="sos_emergency">SOS ฉุกเฉิน</string>
+    <string name="sos_confirm_title">ยืนยัน SOS</string>
+    <string name="sos_confirm_msg">ส่ง SOS ฉุกเฉินไปยังทุกโหนดและ HQ?</string>
+    <string name="sos_no_records">ไม่มีบันทึก SOS</string>
+
+    <string name="disaster_no_reports">ยังไม่มีรายงานภัยพิบัติ</string>
+    <string name="disaster_report">รายงานอันตราย</string>
+    <string name="disaster_subtitle">เปิดใช้การรายงานเพื่อบันทึกอันตราย</string>
+
+    <string name="chat_title">การสื่อสารภาคสนาม</string>
+    <string name="chat_send">ส่ง</string>
+    <string name="chat_placeholder">พิมพ์ข้อความ…</string>
+    <string name="chat_no_messages">ยังไม่มีข้อความ</string>
+
+    <string name="radio_live">ถ่ายทอดสด</string>
+    <string name="radio_briefing">การสรุปประจำงวด</string>
+    <string name="radio_text">ออกอากาศข้อความ</string>
+    <string name="radio_priority">ลำดับความสำคัญ</string>
+    <string name="radio_normal">ปกติ</string>
+    <string name="radio_urgent">เร่งด่วน</string>
+    <string name="radio_placeholder">พิมพ์ข้อความออกอากาศ…</string>
+    <string name="radio_send">ส่งออกอากาศ</string>
+    <string name="radio_no_broadcasts">ไม่มีการออกอากาศข้อความ</string>
+
+    <string name="notif_title">การแจ้งเตือน</string>
+    <string name="notif_empty">ไม่มีการแจ้งเตือน</string>
+    <string name="notif_empty_subtitle">การแจ้งเตือนใหม่จะปรากฏที่นี่</string>
+
+    <string name="patient_title">แบบฟอร์มประเมินผู้บาดเจ็บ</string>
+    <string name="patient_submit">ส่งการประเมิน</string>
+
+    <string name="decision_title">การตัดสินใจ HQ</string>
+    <string name="decision_empty">ยังไม่มีการตัดสินใจ</string>
+    <string name="decision_empty_subtitle">คำสั่ง HQ จะปรากฏที่นี่</string>
+
+    <string name="translator_detect">ตรวจจับอัตโนมัติ</string>
+    <string name="translator_swap">สลับ</string>
+    <string name="translator_translate">แปล</string>
+    <string name="translator_placeholder">พิมพ์ข้อความที่ต้องการแปล…</string>
+    <string name="translator_quick">วลีทางการแพทย์</string>
+    <string name="translator_original">ต้นฉบับ</string>
+    <string name="translator_result">คำแปล</string>
+    <string name="translator_copy">คัดลอก</string>
+    <string name="translator_speak">อ่านออกเสียง</string>
+
+    <string name="photo_title">รายงานภาพถ่าย</string>
+    <string name="photo_select">เลือกหรือถ่ายภาพ</string>
+    <string name="photo_camera">กล้อง</string>
+    <string name="photo_gallery">แกลเลอรี</string>
+    <string name="photo_location">คำอธิบายสถานที่（เช่น โซน B ชั้น 3 ทางเดิน）</string>
+    <string name="photo_caption">คำบรรยายภาพ</string>
+    <string name="photo_upload">อัปโหลดรายงานภาพถ่าย</string>
+    <string name="photo_uploading">กำลังอัปโหลด…</string>
+    <string name="photo_reported">ภาพที่รายงานแล้ว（%1$d ภาพ）</string>
+
+    <string name="voice_input">ป้อนด้วยเสียง</string>
+    <string name="voice_recording">กำลังบันทึก… แตะเพื่อหยุด</string>
+    <string name="voice_transcribing">กำลังถอดความ…</string>
+    <string name="voice_done">ถอดความเสร็จสิ้น</string>
+
+    <string name="conn_ble">บลูทูธ</string>
+    <string name="conn_wifi">WiFi</string>
+    <string name="conn_gps">GPS</string>
+    <string name="conn_retry">ลองอีกครั้ง</string>
+
+    <string name="onboarding_welcome">ยินดีต้อนรับสู่ LinkGuard</string>
+    <string name="onboarding_welcome_desc">แพลตฟอร์มสื่อสารและจัดการการกู้ภัยภาคสนาม</string>
+    <string name="onboarding_role">เลือกบทบาท</string>
+    <string name="onboarding_role_search">ค้นหา</string>
+    <string name="onboarding_role_rescue">กู้ภัย</string>
+    <string name="onboarding_role_medical">การแพทย์</string>
+    <string name="onboarding_role_logistics">โลจิสติกส์</string>
+    <string name="onboarding_role_commander">ผู้บัญชาการ</string>
+    <string name="onboarding_dept">รหัสหน่วย</string>
+    <string name="onboarding_tour">แนะนำฟีเจอร์</string>
+    <string name="onboarding_ready">พร้อมแล้ว</string>
+    <string name="onboarding_skip">ข้าม</string>
+    <string name="onboarding_next">ถัดไป</string>
+    <string name="onboarding_start">เริ่มต้น</string>
+
+    <string name="confirm">ยืนยัน</string>
+    <string name="cancel">ยกเลิก</string>
+    <string name="send">ส่ง</string>
+    <string name="retry">ลองอีกครั้ง</string>
+    <string name="back_to_dashboard">กลับสู่ภาพรวม</string>
+    <string name="no_connection">ไม่ได้เชื่อมต่อ HQ</string>
+    <string name="upload_success">อัปโหลดสำเร็จ</string>
+    <string name="upload_failed">อัปโหลดล้มเหลว</string>
+
+    <string name="title_nfc_reader">เครื่องอ่าน NFC</string>
+    <string name="title_hospital">รายชื่อโรงพยาบาล</string>
+    <string name="title_usar_role">บัญชาการ USAR</string>
+    <string name="title_ai_chat">ผู้ช่วย AI</string>
+    <string name="title_activity_log">บันทึกกิจกรรม</string>
+    <string name="title_personnel">การจัดสรรบุคลากร</string>
+    <string name="personnel_add">เพิ่มบุคลากร</string>
+    <string name="personnel_name">ชื่อ</string>
+    <string name="personnel_role">บทบาท</string>
+    <string name="personnel_zone">โซน</string>
+    <string name="personnel_floor">ชั้น</string>
+    <string name="nfc_ready">พร้อมสแกนแท็ก NFC</string>
+    <string name="nfc_success">สแกนแท็ก NFC แล้ว</string>
+    <string name="nfc_unavailable">อุปกรณ์นี้ไม่รองรับ NFC</string>
+    <string name="hospital_search">ค้นหาโรงพยาบาล…</string>
+    <string name="hospital_icu">ไอซียู</string>
+    <string name="hospital_or">ห้องผ่าตัด</string>
+    <string name="hospital_beds">เตียงทั้งหมด</string>
+    <string name="ai_placeholder">ถามผู้ช่วย AI…</string>
+    <string name="ai_send">ส่ง</string>
+    <string name="ai_clear">ล้างการสนทนา</string>
+    <string name="ai_thinking">AI กำลังคิด…</string>
+    <string name="ai_include_context">รวมบริบทภาคสนาม</string>
+</resources>

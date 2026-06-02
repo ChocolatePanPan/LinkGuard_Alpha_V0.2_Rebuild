@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">LinkGuard</string>
+
+    <string name="nav_ops">Hoạt động</string>
+    <string name="nav_comms">Liên lạc</string>
+    <string name="nav_support">Hỗ trợ</string>
+    <string name="nav_tools">Công cụ</string>
+
+    <string name="title_dashboard">Tổng quan</string>
+    <string name="title_victims">Nạn nhân</string>
+    <string name="title_sos">SOS</string>
+    <string name="title_disaster">Thảm họa</string>
+    <string name="title_chat">Liên lạc</string>
+    <string name="title_radio">Vô tuyến</string>
+    <string name="title_commands">Chỉ huy</string>
+    <string name="title_notifications">Thông báo</string>
+    <string name="title_team">Đội ngũ</string>
+    <string name="title_reinforcement">Tăng viện</string>
+    <string name="title_patient">Báo cáo thương vong</string>
+    <string name="title_decision">Quyết định HQ</string>
+    <string name="title_translator">Phiên dịch</string>
+    <string name="title_photo_report">Báo cáo ảnh</string>
+    <string name="title_connection">Cài đặt kết nối</string>
+
+    <string name="dashboard_victims">Nạn nhân</string>
+    <string name="dashboard_sos">SOS</string>
+    <string name="dashboard_team">Đội ngũ</string>
+    <string name="dashboard_uptime">Thời gian hoạt động</string>
+    <string name="dashboard_battery">Pin</string>
+    <string name="dashboard_ble">Bluetooth</string>
+    <string name="dashboard_wifi">WiFi</string>
+    <string name="dashboard_connected">Đã kết nối</string>
+    <string name="dashboard_disconnected">Chưa kết nối</string>
+    <string name="dashboard_no_data">Chưa có dữ liệu</string>
+
+    <string name="sos_send">Gửi SOS</string>
+    <string name="sos_cancel">Hủy SOS</string>
+    <string name="sos_emergency">SOS khẩn cấp</string>
+    <string name="sos_confirm_title">Xác nhận SOS</string>
+    <string name="sos_confirm_msg">Gửi SOS khẩn cấp đến tất cả các nút và HQ?</string>
+    <string name="sos_no_records">Không có hồ sơ SOS</string>
+
+    <string name="disaster_no_reports">Chưa có báo cáo thảm họa</string>
+    <string name="disaster_report">Báo cáo nguy hiểm</string>
+    <string name="disaster_subtitle">Kích hoạt báo cáo để ghi lại nguy hiểm</string>
+
+    <string name="chat_title">Liên lạc hiện trường</string>
+    <string name="chat_send">Gửi</string>
+    <string name="chat_placeholder">Nhập tin nhắn…</string>
+    <string name="chat_no_messages">Chưa có tin nhắn</string>
+
+    <string name="radio_live">Phát trực tiếp</string>
+    <string name="radio_briefing">Họp báo cáo</string>
+    <string name="radio_text">Phát văn bản</string>
+    <string name="radio_priority">Ưu tiên</string>
+    <string name="radio_normal">Bình thường</string>
+    <string name="radio_urgent">Khẩn cấp</string>
+    <string name="radio_placeholder">Nhập nội dung phát…</string>
+    <string name="radio_send">Phát sóng</string>
+    <string name="radio_no_broadcasts">Không có phát văn bản</string>
+
+    <string name="notif_title">Thông báo</string>
+    <string name="notif_empty">Không có thông báo</string>
+    <string name="notif_empty_subtitle">Cảnh báo mới sẽ hiển thị tại đây</string>
+
+    <string name="patient_title">Mẫu đánh giá thương vong</string>
+    <string name="patient_submit">Gửi đánh giá</string>
+
+    <string name="decision_title">Quyết định HQ</string>
+    <string name="decision_empty">Chưa có quyết định</string>
+    <string name="decision_empty_subtitle">Chỉ thị HQ sẽ hiển thị tại đây</string>
+
+    <string name="translator_detect">Tự động phát hiện</string>
+    <string name="translator_swap">Đổi chiều</string>
+    <string name="translator_translate">Dịch</string>
+    <string name="translator_placeholder">Nhập văn bản cần dịch…</string>
+    <string name="translator_quick">Cụm từ y tế nhanh</string>
+    <string name="translator_original">Gốc</string>
+    <string name="translator_result">Bản dịch</string>
+    <string name="translator_copy">Sao chép</string>
+    <string name="translator_speak">Đọc to</string>
+
+    <string name="photo_title">Báo cáo ảnh</string>
+    <string name="photo_select">Chọn hoặc chụp ảnh</string>
+    <string name="photo_camera">Camera</string>
+    <string name="photo_gallery">Thư viện</string>
+    <string name="photo_location">Mô tả vị trí（ví dụ: Khu B tầng 3 hành lang）</string>
+    <string name="photo_caption">Chú thích ảnh</string>
+    <string name="photo_upload">Tải lên báo cáo ảnh</string>
+    <string name="photo_uploading">Đang tải lên…</string>
+    <string name="photo_reported">Ảnh đã báo cáo（%1$d ảnh）</string>
+
+    <string name="voice_input">Nhập giọng nói</string>
+    <string name="voice_recording">Đang ghi… Nhấn để dừng</string>
+    <string name="voice_transcribing">Đang chuyển đổi…</string>
+    <string name="voice_done">Chuyển đổi hoàn tất</string>
+
+    <string name="conn_ble">Bluetooth</string>
+    <string name="conn_wifi">WiFi</string>
+    <string name="conn_gps">GPS</string>
+    <string name="conn_retry">Thử lại</string>
+
+    <string name="onboarding_welcome">Chào mừng đến LinkGuard</string>
+    <string name="onboarding_welcome_desc">Nền tảng liên lạc và quản lý cứu hộ hiện trường</string>
+    <string name="onboarding_role">Chọn vai trò</string>
+    <string name="onboarding_role_search">Tìm kiếm</string>
+    <string name="onboarding_role_rescue">Cứu hộ</string>
+    <string name="onboarding_role_medical">Y tế</string>
+    <string name="onboarding_role_logistics">Hậu cần</string>
+    <string name="onboarding_role_commander">Chỉ huy</string>
+    <string name="onboarding_dept">Mã đơn vị</string>
+    <string name="onboarding_tour">Hướng dẫn tính năng</string>
+    <string name="onboarding_ready">Sẵn sàng</string>
+    <string name="onboarding_skip">Bỏ qua</string>
+    <string name="onboarding_next">Tiếp theo</string>
+    <string name="onboarding_start">Bắt đầu</string>
+
+    <string name="confirm">Xác nhận</string>
+    <string name="cancel">Hủy</string>
+    <string name="send">Gửi</string>
+    <string name="retry">Thử lại</string>
+    <string name="back_to_dashboard">Quay lại tổng quan</string>
+    <string name="no_connection">Chưa kết nối HQ</string>
+    <string name="upload_success">Tải lên thành công</string>
+    <string name="upload_failed">Tải lên thất bại</string>
+
+    <string name="title_nfc_reader">Đầu đọc NFC</string>
+    <string name="title_hospital">Danh sách bệnh viện</string>
+    <string name="title_usar_role">Chỉ huy USAR</string>
+    <string name="title_ai_chat">Trợ lý AI</string>
+    <string name="title_activity_log">Nhật ký hoạt động</string>
+    <string name="title_personnel">Phân công nhân sự</string>
+    <string name="personnel_add">Thêm nhân sự</string>
+    <string name="personnel_name">Tên</string>
+    <string name="personnel_role">Vai trò</string>
+    <string name="personnel_zone">Khu vực</string>
+    <string name="personnel_floor">Tầng</string>
+    <string name="nfc_ready">Sẵn sàng quét thẻ NFC</string>
+    <string name="nfc_success">Đã quét thẻ NFC</string>
+    <string name="nfc_unavailable">Thiết bị không hỗ trợ NFC</string>
+    <string name="hospital_search">Tìm kiếm bệnh viện…</string>
+    <string name="hospital_icu">ICU</string>
+    <string name="hospital_or">Phòng mổ</string>
+    <string name="hospital_beds">Tổng giường</string>
+    <string name="ai_placeholder">Hỏi trợ lý AI…</string>
+    <string name="ai_send">Gửi</string>
+    <string name="ai_clear">Xóa hội thoại</string>
+    <string name="ai_thinking">AI đang suy nghĩ…</string>
+    <string name="ai_include_context">Bao gồm tình huống hiện trường</string>
+</resources>
