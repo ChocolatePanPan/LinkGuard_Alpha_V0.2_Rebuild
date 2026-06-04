@@ -157,7 +157,6 @@ struct FieldActionCard: View {
             )
         }
         .buttonStyle(.plain)
-        .disabled(!isEnabled)
         .opacity(isEnabled ? 1 : 0.62)
     }
 }
