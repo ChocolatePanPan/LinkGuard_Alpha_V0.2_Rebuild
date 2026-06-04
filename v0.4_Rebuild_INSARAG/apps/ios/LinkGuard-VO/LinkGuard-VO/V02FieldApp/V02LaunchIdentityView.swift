@@ -494,10 +494,44 @@ extension V02LaunchIdentity {
 
 struct V02LaunchIdentityView: View {
     @EnvironmentObject private var l10n: L10n
+    @Environment(\.colorScheme) private var systemColorScheme
+    @AppStorage("appColorScheme") private var appColorScheme = "dark"
     let onSelect: (V02LaunchIdentity) -> Void
 
     private var isEnglish: Bool {
         l10n.language.hasPrefix("en")
+    }
+
+    private var launchPreferredColorScheme: ColorScheme? {
+        switch appColorScheme {
+        case "light": return .light
+        case "dark": return .dark
+        default: return nil
+        }
+    }
+
+    private var isLightAppearance: Bool {
+        switch appColorScheme {
+        case "light": return true
+        case "dark": return false
+        default: return systemColorScheme == .light
+        }
+    }
+
+    private var pageBackground: Color {
+        isLightAppearance ? Color(red: 0.955, green: 0.975, blue: 0.962) : NV.bg
+    }
+
+    private var panelBackground: Color {
+        isLightAppearance ? Color.white : NV.surface
+    }
+
+    private var logoBackground: Color {
+        isLightAppearance ? Color(red: 0.900, green: 0.945, blue: 0.915) : NV.surface
+    }
+
+    private var panelStroke: Color {
+        isLightAppearance ? NV.green.opacity(0.18) : NV.green.opacity(0.25)
     }
 
     var body: some View {
@@ -511,7 +545,11 @@ struct V02LaunchIdentityView: View {
                             Button {
                                 onSelect(identity)
                             } label: {
-                                V02LaunchIdentityCard(identity: identity, isEnglish: isEnglish)
+                                V02LaunchIdentityCard(
+                                    identity: identity,
+                                    isEnglish: isEnglish,
+                                    isLightAppearance: isLightAppearance
+                                )
                             }
                             .buttonStyle(.plain)
                         }
@@ -519,7 +557,7 @@ struct V02LaunchIdentityView: View {
                 }
                 .padding(18)
             }
-            .background(NV.bg.ignoresSafeArea())
+            .background(pageBackground.ignoresSafeArea())
             .navigationTitle(isEnglish ? "Choose identity" : "選擇身份")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -532,7 +570,7 @@ struct V02LaunchIdentityView: View {
                 }
             }
         }
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(launchPreferredColorScheme)
         .tint(NV.green)
     }
 
@@ -544,7 +582,7 @@ struct V02LaunchIdentityView: View {
                     .scaledToFit()
                     .frame(width: 52, height: 52)
                     .padding(8)
-                    .background(NV.surface, in: RoundedRectangle(cornerRadius: 12))
+                    .background(logoBackground, in: RoundedRectangle(cornerRadius: 12))
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text("LinkGuard v0.4")
@@ -558,20 +596,53 @@ struct V02LaunchIdentityView: View {
             Text(isEnglish ? "Your choice sets the node ID, department code, and display name used by reports, SOS, chat, and HQ sync." : "選擇後會套用節點 ID、部門碼與顯示名稱，回報、SOS、通訊與 HQ 同步都會使用該身份。")
                 .font(.caption)
                 .foregroundColor(.secondary)
+
+            themeControl
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
-        .background(NV.surface, in: RoundedRectangle(cornerRadius: 14))
+        .background(panelBackground, in: RoundedRectangle(cornerRadius: 14))
         .overlay(
             RoundedRectangle(cornerRadius: 14)
-                .stroke(NV.green.opacity(0.25), lineWidth: 1)
+                .stroke(panelStroke, lineWidth: 1)
         )
+        .shadow(color: isLightAppearance ? Color.black.opacity(0.06) : .clear, radius: 14, x: 0, y: 8)
+    }
+
+    private var themeControl: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label(isEnglish ? "Appearance" : "外觀", systemImage: isLightAppearance ? "sun.max.fill" : "moon.fill")
+                .font(.caption.bold())
+                .foregroundColor(.secondary)
+
+            Picker("", selection: $appColorScheme) {
+                Label(isEnglish ? "Night" : "夜視", systemImage: "moon.fill").tag("dark")
+                Label(isEnglish ? "Light" : "淺色", systemImage: "sun.max.fill").tag("light")
+                Label(isEnglish ? "System" : "系統", systemImage: "circle.lefthalf.filled").tag("system")
+            }
+            .pickerStyle(.segmented)
+            .frame(maxWidth: 320)
+        }
+        .padding(.top, 2)
     }
 }
 
 private struct V02LaunchIdentityCard: View {
     let identity: V02LaunchIdentity
     let isEnglish: Bool
+    let isLightAppearance: Bool
+
+    private var cardBackground: Color {
+        isLightAppearance ? Color.white : NV.surface
+    }
+
+    private var cardStroke: Color {
+        identity.accent.opacity(isLightAppearance ? 0.20 : 0.26)
+    }
+
+    private var iconBackground: Color {
+        identity.accent.opacity(isLightAppearance ? 0.11 : 0.16)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -580,7 +651,7 @@ private struct V02LaunchIdentityCard: View {
                     .font(.title2)
                     .foregroundColor(identity.accent)
                     .frame(width: 38, height: 38)
-                    .background(identity.accent.opacity(0.16), in: RoundedRectangle(cornerRadius: 10))
+                    .background(iconBackground, in: RoundedRectangle(cornerRadius: 10))
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(identity.title)
@@ -608,11 +679,12 @@ private struct V02LaunchIdentityCard: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, minHeight: 152, alignment: .topLeading)
-        .background(NV.surface, in: RoundedRectangle(cornerRadius: 12))
+        .background(cardBackground, in: RoundedRectangle(cornerRadius: 12))
         .overlay(
             RoundedRectangle(cornerRadius: 12)
-                .stroke(identity.accent.opacity(0.26), lineWidth: 1)
+                .stroke(cardStroke, lineWidth: 1)
         )
+        .shadow(color: isLightAppearance ? identity.accent.opacity(0.08) : .clear, radius: 10, x: 0, y: 6)
     }
 
     private func identityPill(title: String, icon: String) -> some View {
