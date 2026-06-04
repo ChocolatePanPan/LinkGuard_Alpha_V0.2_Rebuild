@@ -24,16 +24,18 @@ struct LinkGuardEMTIPadApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ZStack {
-                ContentView()
-                    .opacity(showSplash ? 0 : 1)
+            V02LaunchIdentityGate {
+                ZStack {
+                    ContentView()
+                        .opacity(showSplash ? 0 : 1)
 
-                if showSplash {
-                    SplashView {
-                        showSplash = false
+                    if showSplash {
+                        SplashView {
+                            showSplash = false
+                        }
+                        .transition(.opacity)
+                        .zIndex(999)
                     }
-                    .transition(.opacity)
-                    .zIndex(999)
                 }
             }
             .animation(.easeInOut(duration: 0.5), value: showSplash)
