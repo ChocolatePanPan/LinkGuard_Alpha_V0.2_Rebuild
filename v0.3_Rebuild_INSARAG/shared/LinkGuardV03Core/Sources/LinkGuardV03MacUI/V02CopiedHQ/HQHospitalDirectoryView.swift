@@ -319,10 +319,10 @@ struct HQHospitalDirectoryView: View {
                 }
             }
             .hqPanelChrome(accent: NV.info)
-            .onChange(of: locator.detectedCity) { city in
+            .onChange(of: locator.detectedCity) { _, city in
                 applyDetectedCity(city)
             }
-            .onChange(of: query) { _ in
+            .onChange(of: query) { _, _ in
                 resetVisibleCount()
             }
 

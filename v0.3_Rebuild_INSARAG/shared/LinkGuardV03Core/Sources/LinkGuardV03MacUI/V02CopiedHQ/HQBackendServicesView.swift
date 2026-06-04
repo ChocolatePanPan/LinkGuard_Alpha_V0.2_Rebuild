@@ -210,7 +210,7 @@ struct HQBackendServicesView: View {
             .background(NV.surface.opacity(0.82))
             .cornerRadius(6)
             .padding(.top, 8)
-            .onChange(of: state.logTail.count) { newCount in
+            .onChange(of: state.logTail.count) { _, newCount in
                 guard newCount > 0 else { return }
                 proxy.scrollTo(newCount - 1, anchor: .bottom)
             }

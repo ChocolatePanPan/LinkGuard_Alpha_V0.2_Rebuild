@@ -32,7 +32,7 @@ struct HQChatView: View {
                         .padding(NV.pagePadding)
                     }
                 }
-                .onChange(of: vm.chatMessages.count) { _ in
+                .onChange(of: vm.chatMessages.count) { _, _ in
                     if let last = vm.chatMessages.last {
                         withAnimation { proxy.scrollTo(last.id, anchor: .bottom) }
                     }

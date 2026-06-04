@@ -79,8 +79,8 @@ struct HQZoneMapView: View {
             EditZoneSheet(vm: vm, zone: zone)
         }
         .onAppear { fitMapToPins() }
-        .onChange(of: trackingCameraKey) { _ in fitMapToPins() }
-        .onChange(of: selectedTrackingLayer) { _ in fitMapToPins() }
+        .onChange(of: trackingCameraKey) { _, _ in fitMapToPins() }
+        .onChange(of: selectedTrackingLayer) { _, _ in fitMapToPins() }
     }
 
     private var trackingMapSection: some View {

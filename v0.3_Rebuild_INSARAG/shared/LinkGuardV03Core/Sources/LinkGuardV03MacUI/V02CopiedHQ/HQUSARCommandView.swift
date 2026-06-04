@@ -120,12 +120,12 @@ struct HQUSARCommandView: View {
                 selectedRoleDeviceID = vm.server.fieldUnits.first?.deviceID ?? ""
             }
         }
-        .onChange(of: worksites.map(\.id)) { ids in
+        .onChange(of: worksites.map(\.id)) { _, ids in
             if selectedWorksiteID.isEmpty || !ids.contains(selectedWorksiteID) {
                 selectedWorksiteID = ids.first ?? ""
             }
         }
-        .onChange(of: vm.server.fieldUnits.map(\.deviceID)) { ids in
+        .onChange(of: vm.server.fieldUnits.map(\.deviceID)) { _, ids in
             if selectedDeviceID.isEmpty || !ids.contains(selectedDeviceID) {
                 selectedDeviceID = ids.first ?? ""
             }

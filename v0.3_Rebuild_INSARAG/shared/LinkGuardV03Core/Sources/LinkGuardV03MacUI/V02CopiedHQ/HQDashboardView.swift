@@ -201,7 +201,7 @@ struct HQDashboardView: View {
                     .zIndex(999)
             }
         }
-        .onChange(of: vm.showSOSOverlay) { show in
+        .onChange(of: vm.showSOSOverlay) { _, show in
             if show {
                 sosFlash = true
                 HQAlarmPlayer.shared.playSOSAlarm()
@@ -914,7 +914,7 @@ struct HQDashboardView: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
             }
-            .onChange(of: selectedSectionValue) { section in
+            .onChange(of: selectedSectionValue) { _, section in
                 if shouldRevealBottomNavigationSelection {
                     withAnimation(.easeInOut(duration: 0.18)) {
                         proxy.scrollTo(section)

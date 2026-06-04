@@ -189,7 +189,7 @@ struct HQDecisionView: View {
         } message: {
             Text(L("指揮決策已廣播至所有前線裝置"))
         }
-        .onChange(of: vm.backendBridge.latestAIDecision?.id) { _ in
+        .onChange(of: vm.backendBridge.latestAIDecision?.id) { _, _ in
             if let ai = vm.backendBridge.latestAIDecision {
                 decisionText = ai.decision
             }

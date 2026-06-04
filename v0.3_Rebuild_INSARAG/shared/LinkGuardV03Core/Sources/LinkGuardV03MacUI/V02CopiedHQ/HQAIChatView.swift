@@ -101,12 +101,12 @@ struct HQAIChatView: View {
                         .padding(.vertical, 10)
                     }
                 }
-                .onChange(of: chatStore.messages.count) { _ in
+                .onChange(of: chatStore.messages.count) { _, _ in
                     if let last = chatStore.messages.last {
                         withAnimation { proxy.scrollTo(last.id, anchor: .bottom) }
                     }
                 }
-                .onChange(of: isSending) { sending in
+                .onChange(of: isSending) { _, sending in
                     if sending {
                         withAnimation { proxy.scrollTo("typing", anchor: .bottom) }
                     }

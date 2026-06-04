@@ -91,7 +91,7 @@ struct HQExternalVictimMapDisplayView: View {
                     locationProvider.start()
                     fitMapToPins()
                 }
-                .onChange(of: mapCameraKey) { _ in fitMapToPins() }
+                .onChange(of: mapCameraKey) { _, _ in fitMapToPins() }
 
                 if mapPins.isEmpty {
                     emptyState(icon: locationProvider.emptyStateIcon, title: locationProvider.statusText)

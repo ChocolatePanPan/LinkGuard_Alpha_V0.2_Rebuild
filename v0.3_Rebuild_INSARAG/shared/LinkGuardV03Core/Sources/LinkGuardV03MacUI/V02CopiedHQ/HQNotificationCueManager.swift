@@ -118,7 +118,7 @@ struct HQNotificationFlashOverlay: View {
             .padding(5)
             .allowsHitTesting(false)
             .animation(.easeOut(duration: 0.12), value: isVisible)
-            .onChange(of: manager.flashToken) { _ in
+            .onChange(of: manager.flashToken) { _, _ in
                 pulse()
             }
             .onDisappear {

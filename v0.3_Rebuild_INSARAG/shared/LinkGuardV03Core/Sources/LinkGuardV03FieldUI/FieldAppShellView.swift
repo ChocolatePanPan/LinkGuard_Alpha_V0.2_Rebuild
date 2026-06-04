@@ -58,13 +58,13 @@ public struct FieldAppShellView: View {
                 }
             )
         }
-        .onChange(of: locationService.lastFix) { fix in
+        .onChange(of: locationService.lastFix) { _, fix in
             guard let fix else { return }
             controller.recordGPSFix(fix)
             statusText = "GPS 已更新"
             statusAccent = FieldTheme.green
         }
-        .onChange(of: locationService.lastErrorMessage) { message in
+        .onChange(of: locationService.lastErrorMessage) { _, message in
             guard message != nil else { return }
             statusText = "GPS 受限"
             statusAccent = FieldTheme.warning

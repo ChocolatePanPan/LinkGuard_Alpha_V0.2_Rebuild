@@ -482,7 +482,7 @@ private struct VictimDetailPanel: View {
                         .textFieldStyle(.roundedBorder)
                         .lineLimit(3...8)
                         .onAppear { editingDescription = record.description }
-                        .onChange(of: record.id) { _ in editingDescription = vm.victimDescriptions[record.id] ?? "" }
+                        .onChange(of: record.id) { _, _ in editingDescription = vm.victimDescriptions[record.id] ?? "" }
                     Button(L("儲存描述")) {
                         vm.setVictimDescription(record.id, editingDescription)
                     }
@@ -499,7 +499,7 @@ private struct VictimDetailPanel: View {
                         .textFieldStyle(.roundedBorder)
                         .lineLimit(2...5)
                         .onAppear { editingNote = record.note }
-                        .onChange(of: record.id) { _ in editingNote = vm.victimNotes[record.id] ?? "" }
+                        .onChange(of: record.id) { _, _ in editingNote = vm.victimNotes[record.id] ?? "" }
                         .onSubmit { vm.setVictimNote(record.id, editingNote) }
                     Button(L("儲存備註")) {
                         vm.setVictimNote(record.id, editingNote)

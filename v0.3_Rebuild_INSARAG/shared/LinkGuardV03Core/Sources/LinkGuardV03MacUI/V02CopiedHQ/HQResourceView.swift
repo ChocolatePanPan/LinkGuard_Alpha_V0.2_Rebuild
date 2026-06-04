@@ -105,8 +105,8 @@ struct HQResourceView: View {
                 refreshResources()
             }
         }
-        .onChange(of: zoneNames) { _ in ensureSelections() }
-        .onChange(of: deployableResources.map(\.resourceID)) { _ in ensureSelections() }
+        .onChange(of: zoneNames) { _, _ in ensureSelections() }
+        .onChange(of: deployableResources.map(\.resourceID)) { _, _ in ensureSelections() }
     }
 
     private var resourceSummarySection: some View {
