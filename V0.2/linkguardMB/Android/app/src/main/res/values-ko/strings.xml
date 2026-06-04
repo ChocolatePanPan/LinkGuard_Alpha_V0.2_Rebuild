@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">LinkGuard</string>
+
+    <string name="nav_ops">작전</string>
+    <string name="nav_comms">통신</string>
+    <string name="nav_support">지원</string>
+    <string name="nav_tools">도구</string>
+
+    <string name="title_dashboard">대시보드</string>
+    <string name="title_victims">구조 대상자</string>
+    <string name="title_sos">SOS</string>
+    <string name="title_disaster">재난 상황</string>
+    <string name="title_chat">통신</string>
+    <string name="title_radio">무선</string>
+    <string name="title_commands">지휘 명령</string>
+    <string name="title_notifications">알림</string>
+    <string name="title_team">팀</string>
+    <string name="title_reinforcement">증원</string>
+    <string name="title_patient">부상자 보고</string>
+    <string name="title_decision">HQ 결정</string>
+    <string name="title_translator">번역</string>
+    <string name="title_photo_report">사진 보고</string>
+    <string name="title_connection">연결 설정</string>
+
+    <string name="dashboard_victims">구조 대상자</string>
+    <string name="dashboard_sos">SOS</string>
+    <string name="dashboard_team">팀</string>
+    <string name="dashboard_uptime">가동 시간</string>
+    <string name="dashboard_battery">배터리</string>
+    <string name="dashboard_ble">블루투스</string>
+    <string name="dashboard_wifi">WiFi</string>
+    <string name="dashboard_connected">연결됨</string>
+    <string name="dashboard_disconnected">연결 안 됨</string>
+    <string name="dashboard_no_data">데이터 없음</string>
+
+    <string name="sos_send">SOS 전송</string>
+    <string name="sos_cancel">SOS 취소</string>
+    <string name="sos_emergency">긴급 SOS</string>
+    <string name="sos_confirm_title">SOS 확인</string>
+    <string name="sos_confirm_msg">모든 노드 및 HQ에 긴급 SOS를 전송하시겠습니까?</string>
+    <string name="sos_no_records">SOS 기록 없음</string>
+
+    <string name="disaster_no_reports">재난 보고 없음</string>
+    <string name="disaster_report">위험 보고</string>
+    <string name="disaster_subtitle">보고를 활성화하여 위험을 기록하세요</string>
+
+    <string name="chat_title">현장 통신</string>
+    <string name="chat_send">전송</string>
+    <string name="chat_placeholder">메시지 입력…</string>
+    <string name="chat_no_messages">메시지 없음</string>
+
+    <string name="radio_live">실시간 방송</string>
+    <string name="radio_briefing">정기 브리핑</string>
+    <string name="radio_text">문자 방송</string>
+    <string name="radio_priority">우선순위</string>
+    <string name="radio_normal">일반</string>
+    <string name="radio_urgent">긴급</string>
+    <string name="radio_placeholder">방송 내용 입력…</string>
+    <string name="radio_send">방송 전송</string>
+    <string name="radio_no_broadcasts">문자 방송 없음</string>
+
+    <string name="notif_title">알림</string>
+    <string name="notif_empty">알림 없음</string>
+    <string name="notif_empty_subtitle">새 알림이 여기에 표시됩니다</string>
+
+    <string name="patient_title">부상자 평가 양식</string>
+    <string name="patient_submit">평가 제출</string>
+
+    <string name="decision_title">HQ 결정</string>
+    <string name="decision_empty">결정 없음</string>
+    <string name="decision_empty_subtitle">HQ 지시사항이 여기에 표시됩니다</string>
+
+    <string name="translator_detect">자동 감지</string>
+    <string name="translator_swap">교환</string>
+    <string name="translator_translate">번역</string>
+    <string name="translator_placeholder">번역할 텍스트 입력…</string>
+    <string name="translator_quick">의료 용어 모음</string>
+    <string name="translator_original">원문</string>
+    <string name="translator_result">번역</string>
+    <string name="translator_copy">복사</string>
+    <string name="translator_speak">읽기</string>
+
+    <string name="photo_title">사진 보고</string>
+    <string name="photo_select">사진 선택 또는 촬영</string>
+    <string name="photo_camera">카메라</string>
+    <string name="photo_gallery">갤러리</string>
+    <string name="photo_location">위치 설명（예: B구역 3층 복도）</string>
+    <string name="photo_caption">사진 설명</string>
+    <string name="photo_upload">사진 보고 업로드</string>
+    <string name="photo_uploading">업로드 중…</string>
+    <string name="photo_reported">보고된 사진（%1$d 장）</string>
+
+    <string name="voice_input">음성 입력</string>
+    <string name="voice_recording">녹음 중… 탭하여 중지</string>
+    <string name="voice_transcribing">텍스트 변환 중…</string>
+    <string name="voice_done">변환 완료</string>
+
+    <string name="conn_ble">블루투스</string>
+    <string name="conn_wifi">WiFi</string>
+    <string name="conn_gps">GPS</string>
+    <string name="conn_retry">재시도</string>
+
+    <string name="onboarding_welcome">LinkGuard에 오신 것을 환영합니다</string>
+    <string name="onboarding_welcome_desc">현장 구조 통신 및 관리 플랫폼</string>
+    <string name="onboarding_role">역할 선택</string>
+    <string name="onboarding_role_search">수색</string>
+    <string name="onboarding_role_rescue">구조</string>
+    <string name="onboarding_role_medical">의료</string>
+    <string name="onboarding_role_logistics">군수</string>
+    <string name="onboarding_role_commander">지휘관</string>
+    <string name="onboarding_dept">부서 코드</string>
+    <string name="onboarding_tour">기능 둘러보기</string>
+    <string name="onboarding_ready">준비 완료</string>
+    <string name="onboarding_skip">건너뛰기</string>
+    <string name="onboarding_next">다음</string>
+    <string name="onboarding_start">시작하기</string>
+
+    <string name="confirm">확인</string>
+    <string name="cancel">취소</string>
+    <string name="send">전송</string>
+    <string name="retry">재시도</string>
+    <string name="back_to_dashboard">대시보드로 돌아가기</string>
+    <string name="no_connection">HQ에 연결되지 않음</string>
+    <string name="upload_success">업로드 성공</string>
+    <string name="upload_failed">업로드 실패</string>
+
+    <string name="title_nfc_reader">NFC 리더</string>
+    <string name="title_hospital">병원 목록</string>
+    <string name="title_usar_role">USAR 지휘</string>
+    <string name="title_ai_chat">AI 보조</string>
+    <string name="title_activity_log">활동 기록</string>
+    <string name="title_personnel">인원 배치</string>
+    <string name="personnel_add">인원 추가</string>
+    <string name="personnel_name">이름</string>
+    <string name="personnel_role">직무</string>
+    <string name="personnel_zone">구역</string>
+    <string name="personnel_floor">층</string>
+    <string name="nfc_ready">NFC 태그 스캔 준비</string>
+    <string name="nfc_success">NFC 태그 스캔 완료</string>
+    <string name="nfc_unavailable">이 기기는 NFC를 지원하지 않습니다</string>
+    <string name="hospital_search">병원 검색…</string>
+    <string name="hospital_icu">중환자실</string>
+    <string name="hospital_or">수술실</string>
+    <string name="hospital_beds">총 병상</string>
+    <string name="ai_placeholder">AI 보조에게 질문…</string>
+    <string name="ai_send">전송</string>
+    <string name="ai_clear">대화 지우기</string>
+    <string name="ai_thinking">AI가 생각 중…</string>
+    <string name="ai_include_context">현장 상황 포함</string>
+</resources>

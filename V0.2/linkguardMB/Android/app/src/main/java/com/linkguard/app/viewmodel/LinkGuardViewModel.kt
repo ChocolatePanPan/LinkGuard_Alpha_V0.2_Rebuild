@@ -316,6 +316,22 @@ class LinkGuardViewModel(application: Application) : AndroidViewModel(applicatio
         _themeMode.value = mode
     }
 
+    // 雷達掃描特效設定（預設開啟）
+    private val _showRadarEffect = MutableStateFlow(
+        application.getSharedPreferences("linkguard_prefs", Application.MODE_PRIVATE)
+            .getBoolean("show_radar_effect", true)
+    )
+    val showRadarEffect: StateFlow<Boolean> = _showRadarEffect
+
+    fun setShowRadarEffect(enabled: Boolean) {
+        getApplication<Application>()
+            .getSharedPreferences("linkguard_prefs", Application.MODE_PRIVATE)
+            .edit()
+            .putBoolean("show_radar_effect", enabled)
+            .apply()
+        _showRadarEffect.value = enabled
+    }
+
     // 離線/低電量追蹤
     private val previousOnlineStates = mutableMapOf<String, Boolean>()
     private val lowBatteryNotified = mutableSetOf<String>()

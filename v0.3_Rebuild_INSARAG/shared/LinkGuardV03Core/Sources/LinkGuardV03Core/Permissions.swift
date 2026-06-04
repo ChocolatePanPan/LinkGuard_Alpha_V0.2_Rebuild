@@ -21,6 +21,11 @@ public enum LinkGuardPermission: String, Codable, CaseIterable, Sendable {
     case manageFinance
     case exportAAR
     case monitorRadio
+    case useFieldAI
+    case useTranslation
+    case writeNFCTag
+    case viewMedicalDirectory
+    case manageBackupReplay
     case provisionDevice
 }
 
@@ -74,6 +79,8 @@ public enum RoleProfileCatalog {
             .manageLogistics,
             .exportAAR,
             .monitorRadio,
+            .viewMedicalDirectory,
+            .manageBackupReplay,
             .provisionDevice
         ])
         let teamLeaderPermissions = Set<LinkGuardPermission>([
@@ -87,7 +94,9 @@ public enum RoleProfileCatalog {
             .sendSOS,
             .viewMedicalSummary,
             .managePatientReport,
-            .monitorRadio
+            .monitorRadio,
+            .useFieldAI,
+            .useTranslation
         ])
         let teamMemberPermissions = Set<LinkGuardPermission>([
             .viewIncident,
@@ -95,13 +104,16 @@ public enum RoleProfileCatalog {
             .updateTask,
             .submitReport,
             .sendSOS,
-            .managePatientReport
+            .managePatientReport,
+            .useFieldAI,
+            .useTranslation
         ])
         let volunteerPermissions = Set<LinkGuardPermission>([
             .viewIncident,
             .acknowledgeAlert,
             .submitReport,
-            .sendSOS
+            .sendSOS,
+            .useTranslation
         ])
         let emtPermissions = Set<LinkGuardPermission>([
             .viewIncident,
@@ -112,7 +124,10 @@ public enum RoleProfileCatalog {
             .manageMedicalPatient,
             .managePatientReport,
             .manageEvacuation,
-            .submitReport
+            .submitReport,
+            .useTranslation,
+            .writeNFCTag,
+            .viewMedicalDirectory
         ])
 
         return [

@@ -13,6 +13,7 @@
 - `LinkGuardV03Core` 已包含 incident、sector、sub-sector、worksite、task、map、personnel、photo、safety、communication、medical、AAR、finance 等核心模型。
 - `SyncEnvelope`、`OperationSnapshot`、`OfflineQueue`、transport topology、local cache/recovery sync coordinator 已建立資料鏈骨架，並具備 offline flush planning、retry interval gating、manual retry 與 receipt failure handling。
 - `RoleProfileCatalog`、`AppBlueprintCatalog`、`LinkGuardFeatureAccessMatrix` 已定義 UCC/SCC/TL/TE/EMT/VO 的權限與功能可見性。
+- `ModuleActivationCatalog` 已補上登入後模組啟用契約，可從 `LoginSession` 推導 Mobile、Command 與 Admin Provisioning shell 的 enabled/hidden modules，支援「同一安裝包，依帳號權限啟用模組」。V0.25/V0.2 既有功能已先以 source mapping 掛回 v0.3：前線 AI、照片證據、PTT/語音轉錄、現場翻譯、START 檢傷、NFC 傷患標籤、醫院/收容查詢、個人通知、USB 備份/回放。
 - CEOC/EMIC-compatible 資料契約已進入 shared core：`DisasterReport` 支援來源機關、查證狀態、受影響範圍、傷亡估計與 EMIC reference；`AgencyMessage`、`CEOCMission`、`OperationalPeriod` 的開設層級/IAP 摘要，以及 `PatientOperationalSummary` 已可透過 sync envelope 進入同一個 incident snapshot。
 - `SCCPhaseCatalog` 已將 LinkGuard-SCC 的 25 phase 固定為 shared core 產品契約；Phase 1-16、18、19、21、25 由現有 core/feature gate/snapshot 骨架覆蓋，Phase 17/22 為通訊整合待接，Phase 20/23/24 為產品化與上下層協同待接。
 - Mac `LinkGuard-UCC` / `LinkGuard-SCC` 已有可 build project，並包入 copied v0.2 HQ UI。
@@ -27,7 +28,7 @@
 ## Productization Gaps
 
 - iOS/iPad 現場端已有角色化 shell 與本地 snapshot 閉環，但仍需要接上真實系統能力與完整 field drill 後才能視為正式產品頁面。
-- field app 尚未接入實際 `CLLocationManager`、相機/照片 picker、麥克風/PTT、語音轉錄、地圖 SDK、NFC 讀寫、背景上傳與系統通知。
+- field app 已有模擬器啟動參數可切分頁與自動排隊核心 action，但正式產品仍需接入實際 `CLLocationManager`、相機/照片 picker、麥克風/PTT、語音轉錄、地圖 SDK、NFC 讀寫、背景上傳與系統通知。
 - Mac UCC/SCC 目前主要仍是 copied v0.2 HQ UI；UCC 已有第一版 ICS architecture panel，但各 ICS lane 尚未完整替換成 v0.3 專用指揮流程。
 - SCC 的 25 phase 產品契約已補入 shared core，但 Phase 17 電台監聽、Phase 22 LoRa 中繼、Phase 23 多裝置同步、Phase 24 UCC 同步仍未串成正式產品流程，Phase 20 AI 風險分析仍缺專用模型與驗證。
 - UCC Phase 6/8/9/12/13 已有 shared core roadmap 與 feature gate，但仍待接入實際 PTT/PWS/EMIC、備援切換與國際協作流程。
@@ -35,7 +36,7 @@
 - HQ/UCC/SCC 與 field apps 的實際 HTTP/WebSocket/Bonjour/LoRa/MQTT/離線轉送鏈路尚未以產品流程串起；目前已完成 client-side offline retry 行為，尚缺 server endpoint、device provisioning 與真實網路 field drill。
 - TE Phase 11 的 LoRa 仍待 iPhone field app 接入實際 LoRa/BLE gateway、封包轉換與弱網演練。
 - EMT Phase 10/12 仍待接入 AI 惡化預測模型與 Apple Watch/其他穿戴式生命徵象來源。
-- conflict handling、device provisioning、role assignment、manual/config sync 尚未做成完整端上流程。
+- module activation 已有 shared core 契約，並已將 V0.25/V0.2 功能來源掛回可測模組；但 device provisioning、role assignment、manual/config sync、權限快照落地 UI 與 server 簽發流程尚未做成完整端上流程。
 - 醫療流程需要正式 EMT UI：傷患卡、START、生命徵象、後送、醫院容量、交接與歷史時間軸。
 - 地圖流程需要正式點線面工具、離線地圖下載/選區、危險區、搜救進度著色與 worksite layers。
 - 目前尚未完成 field drill 驗證，因此不能宣稱為完整 INSARAG 現場系統。

@@ -15,6 +15,7 @@ public enum AccountAccessError: Error, Equatable, Sendable {
     case sessionNotFound(LinkGuardID)
     case sessionExpired(LinkGuardID)
     case permissionDenied(sessionID: LinkGuardID, permission: LinkGuardPermission)
+    case moduleNotEnabled(sessionID: LinkGuardID, moduleID: LinkGuardModuleID)
 }
 
 public struct UserAccount: Codable, Hashable, Sendable {
@@ -210,6 +211,23 @@ public struct AccountDirectory: Codable, Sendable {
         }
         guard session.permissions.contains(permission) else {
             throw AccountAccessError.permissionDenied(sessionID: sessionID, permission: permission)
+        }
+    }
+
+    public func moduleActivationSnapshot(sessionID: LinkGuardID, at date: Date) throws -> ModuleActivationSnapshot {
+        guard let session = sessions[sessionID] else {
+            throw AccountAccessError.sessionNotFound(sessionID)
+        }
+        guard session.isActive(at: date) else {
+            throw AccountAccessError.sessionExpired(sessionID)
+        }
+        return session.moduleActivationSnapshot
+    }
+
+    public func authorize(sessionID: LinkGuardID, moduleID: LinkGuardModuleID, at date: Date) throws {
+        let activation = try moduleActivationSnapshot(sessionID: sessionID, at: date)
+        guard activation.enables(moduleID) else {
+            throw AccountAccessError.moduleNotEnabled(sessionID: sessionID, moduleID: moduleID)
         }
     }
 }

@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">LinkGuard</string>
+
+    <string name="nav_ops">Operasi</string>
+    <string name="nav_comms">Komunikasi</string>
+    <string name="nav_support">Dukungan</string>
+    <string name="nav_tools">Alat</string>
+
+    <string name="title_dashboard">Dasbor</string>
+    <string name="title_victims">Korban</string>
+    <string name="title_sos">SOS</string>
+    <string name="title_disaster">Situasi Bencana</string>
+    <string name="title_chat">Komunikasi</string>
+    <string name="title_radio">Radio</string>
+    <string name="title_commands">Komando</string>
+    <string name="title_notifications">Notifikasi</string>
+    <string name="title_team">Tim</string>
+    <string name="title_reinforcement">Bala Bantuan</string>
+    <string name="title_patient">Laporan Korban</string>
+    <string name="title_decision">Keputusan HQ</string>
+    <string name="title_translator">Penerjemah</string>
+    <string name="title_photo_report">Laporan Foto</string>
+    <string name="title_connection">Pengaturan Koneksi</string>
+
+    <string name="dashboard_victims">Korban</string>
+    <string name="dashboard_sos">SOS</string>
+    <string name="dashboard_team">Tim</string>
+    <string name="dashboard_uptime">Waktu Aktif</string>
+    <string name="dashboard_battery">Baterai</string>
+    <string name="dashboard_ble">Bluetooth</string>
+    <string name="dashboard_wifi">WiFi</string>
+    <string name="dashboard_connected">Terhubung</string>
+    <string name="dashboard_disconnected">Tidak Terhubung</string>
+    <string name="dashboard_no_data">Belum ada data</string>
+
+    <string name="sos_send">Kirim SOS</string>
+    <string name="sos_cancel">Batal SOS</string>
+    <string name="sos_emergency">SOS Darurat</string>
+    <string name="sos_confirm_title">Konfirmasi SOS</string>
+    <string name="sos_confirm_msg">Kirim SOS darurat ke semua node dan HQ?</string>
+    <string name="sos_no_records">Tidak ada catatan SOS</string>
+
+    <string name="disaster_no_reports">Belum ada laporan bencana</string>
+    <string name="disaster_report">Laporkan Bahaya</string>
+    <string name="disaster_subtitle">Aktifkan pelaporan untuk merekam bahaya</string>
+
+    <string name="chat_title">Komunikasi Lapangan</string>
+    <string name="chat_send">Kirim</string>
+    <string name="chat_placeholder">Masukkan pesan…</string>
+    <string name="chat_no_messages">Belum ada pesan</string>
+
+    <string name="radio_live">Siaran Langsung</string>
+    <string name="radio_briefing">Briefing Rutin</string>
+    <string name="radio_text">Siaran Teks</string>
+    <string name="radio_priority">Prioritas</string>
+    <string name="radio_normal">Normal</string>
+    <string name="radio_urgent">Mendesak</string>
+    <string name="radio_placeholder">Masukkan pesan siaran…</string>
+    <string name="radio_send">Kirim Siaran</string>
+    <string name="radio_no_broadcasts">Tidak ada siaran teks</string>
+
+    <string name="notif_title">Notifikasi</string>
+    <string name="notif_empty">Tidak ada notifikasi</string>
+    <string name="notif_empty_subtitle">Peringatan baru akan muncul di sini</string>
+
+    <string name="patient_title">Formulir Penilaian Korban</string>
+    <string name="patient_submit">Kirim Penilaian</string>
+
+    <string name="decision_title">Keputusan HQ</string>
+    <string name="decision_empty">Belum ada keputusan</string>
+    <string name="decision_empty_subtitle">Arahan HQ akan muncul di sini</string>
+
+    <string name="translator_detect">Deteksi Otomatis</string>
+    <string name="translator_swap">Tukar</string>
+    <string name="translator_translate">Terjemahkan</string>
+    <string name="translator_placeholder">Masukkan teks yang akan diterjemahkan…</string>
+    <string name="translator_quick">Frasa Medis Cepat</string>
+    <string name="translator_original">Asli</string>
+    <string name="translator_result">Terjemahan</string>
+    <string name="translator_copy">Salin</string>
+    <string name="translator_speak">Baca Keras</string>
+
+    <string name="photo_title">Laporan Foto</string>
+    <string name="photo_select">Pilih atau ambil foto</string>
+    <string name="photo_camera">Kamera</string>
+    <string name="photo_gallery">Galeri</string>
+    <string name="photo_location">Deskripsi lokasi（mis: Zona B Lantai 3 koridor）</string>
+    <string name="photo_caption">Keterangan foto</string>
+    <string name="photo_upload">Unggah Laporan Foto</string>
+    <string name="photo_uploading">Mengunggah…</string>
+    <string name="photo_reported">Foto Dilaporkan（%1$d foto）</string>
+
+    <string name="voice_input">Input Suara</string>
+    <string name="voice_recording">Merekam… Ketuk untuk berhenti</string>
+    <string name="voice_transcribing">Mentranskrip…</string>
+    <string name="voice_done">Transkripsi selesai</string>
+
+    <string name="conn_ble">Bluetooth</string>
+    <string name="conn_wifi">WiFi</string>
+    <string name="conn_gps">GPS</string>
+    <string name="conn_retry">Coba Lagi</string>
+
+    <string name="onboarding_welcome">Selamat Datang di LinkGuard</string>
+    <string name="onboarding_welcome_desc">Platform komunikasi dan manajemen penyelamatan lapangan</string>
+    <string name="onboarding_role">Pilih Peran Anda</string>
+    <string name="onboarding_role_search">Pencarian</string>
+    <string name="onboarding_role_rescue">Penyelamatan</string>
+    <string name="onboarding_role_medical">Medis</string>
+    <string name="onboarding_role_logistics">Logistik</string>
+    <string name="onboarding_role_commander">Komandan</string>
+    <string name="onboarding_dept">Kode Departemen</string>
+    <string name="onboarding_tour">Tur Fitur</string>
+    <string name="onboarding_ready">Siap Digunakan</string>
+    <string name="onboarding_skip">Lewati</string>
+    <string name="onboarding_next">Berikutnya</string>
+    <string name="onboarding_start">Mulai</string>
+
+    <string name="confirm">Konfirmasi</string>
+    <string name="cancel">Batal</string>
+    <string name="send">Kirim</string>
+    <string name="retry">Coba Lagi</string>
+    <string name="back_to_dashboard">Kembali ke Dasbor</string>
+    <string name="no_connection">Tidak terhubung ke HQ</string>
+    <string name="upload_success">Unggah berhasil</string>
+    <string name="upload_failed">Unggah gagal</string>
+
+    <string name="title_nfc_reader">Pembaca NFC</string>
+    <string name="title_hospital">Direktori Rumah Sakit</string>
+    <string name="title_usar_role">Komando USAR</string>
+    <string name="title_ai_chat">Asisten AI</string>
+    <string name="title_activity_log">Log Aktivitas</string>
+    <string name="title_personnel">Penugasan Personel</string>
+    <string name="personnel_add">Tambah Personel</string>
+    <string name="personnel_name">Nama</string>
+    <string name="personnel_role">Peran</string>
+    <string name="personnel_zone">Zona</string>
+    <string name="personnel_floor">Lantai</string>
+    <string name="nfc_ready">Siap memindai tag NFC</string>
+    <string name="nfc_success">Tag NFC berhasil dipindai</string>
+    <string name="nfc_unavailable">Perangkat ini tidak mendukung NFC</string>
+    <string name="hospital_search">Cari rumah sakit…</string>
+    <string name="hospital_icu">ICU</string>
+    <string name="hospital_or">Kamar Operasi</string>
+    <string name="hospital_beds">Total Tempat Tidur</string>
+    <string name="ai_placeholder">Tanya asisten AI…</string>
+    <string name="ai_send">Kirim</string>
+    <string name="ai_clear">Hapus percakapan</string>
+    <string name="ai_thinking">AI sedang berpikir…</string>
+    <string name="ai_include_context">Sertakan konteks lapangan</string>
+</resources>

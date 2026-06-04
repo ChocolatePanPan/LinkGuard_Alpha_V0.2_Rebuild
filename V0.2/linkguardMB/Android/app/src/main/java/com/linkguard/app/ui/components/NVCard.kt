@@ -49,19 +49,10 @@ fun NVCard(
                 spotColor = Color.Black.copy(alpha = 0.3f)
             )
             .clip(NVShape.card)
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(NV.card, Color(0xFF131920))
-                )
-            )
+            .background(NV.card)
             .border(
                 width = 1.dp,
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        borderColor.copy(alpha = 0.6f),
-                        borderColor.copy(alpha = 0.2f)
-                    )
-                ),
+                color = NV.cardBorder,
                 shape = NVShape.card
             )
             .padding(16.dp),
@@ -88,19 +79,10 @@ fun NVAlertCard(
                 spotColor = Color.Black.copy(alpha = 0.3f)
             )
             .clip(NVShape.card)
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(NV.card, Color(0xFF131920))
-                )
-            )
+            .background(NV.card)
             .border(
                 width = 1.dp,
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        NV.cardBorder.copy(alpha = 0.6f),
-                        NV.cardBorder.copy(alpha = 0.2f)
-                    )
-                ),
+                color = NV.cardBorder,
                 shape = NVShape.card
             )
     ) {
@@ -142,11 +124,7 @@ fun NVStatCard(
                 spotColor = color.copy(alpha = 0.1f)
             )
             .clip(NVShape.card)
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(NV.card, Color(0xFF131920))
-                )
-            )
+            .background(NV.card)
             .drawBehind { drawRect(color = color.copy(alpha = 0.07f)) }
             .border(
                 width = 1.dp,

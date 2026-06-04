@@ -1329,6 +1329,227 @@ final class LinkGuardV03CoreTests: XCTestCase {
         }
     }
 
+    func testLoginActivatesCommandModulesFromAccountPermissions() throws {
+        let account = UserAccount(
+            id: "ACCOUNT-UCC-MODULES",
+            personID: "PERSON-UCC-MODULES",
+            displayName: "CEOC/UCC Commander",
+            callSign: "UCC-MOD",
+            allowedAppIDs: [.ucc],
+            defaultPosition: .incidentCommander,
+            credentialDigest: "digest-ucc",
+            revokedPermissions: [.provisionDevice]
+        )
+        var directory = AccountDirectory(accounts: [account])
+        let device = DeviceIdentity(id: "DEVICE-UCC-MODULES", appID: .ucc, platform: .mac, displayName: "UCC Command")
+
+        let session = try directory.login(
+            accountID: account.id,
+            credentialDigest: "digest-ucc",
+            device: device,
+            issuedAt: fixedDate,
+            sessionID: "SESSION-UCC-MODULES"
+        )
+        let activation = session.moduleActivationSnapshot
+
+        XCTAssertEqual(activation.shell, .command)
+        XCTAssertTrue(activation.enables(.ceocDashboard))
+        XCTAssertTrue(activation.enables(.agencyMessaging))
+        XCTAssertTrue(activation.enables(.resourceCoordination))
+        XCTAssertTrue(activation.enables(.aarReplay))
+        XCTAssertFalse(activation.enables(.adminProvisioning))
+        XCTAssertFalse(activation.enables(.teamMemberOperations))
+    }
+
+    func testLoginActivatesMobileModulesWithoutCrossRoleLeakage() throws {
+        let teamMemberAccount = UserAccount(
+            id: "ACCOUNT-TE-MODULES",
+            personID: "PERSON-TE-MODULES",
+            displayName: "Search Team Member",
+            callSign: "TE-MOD",
+            allowedAppIDs: [.teamMember],
+            defaultPosition: .teamMember,
+            credentialDigest: "digest-te"
+        )
+        let emtAccount = UserAccount(
+            id: "ACCOUNT-EMT-MODULES",
+            personID: "PERSON-EMT-MODULES",
+            displayName: "EMT",
+            callSign: "EMT-MOD",
+            allowedAppIDs: [.emt],
+            defaultPosition: .emtLead,
+            credentialDigest: "digest-emt"
+        )
+        var directory = AccountDirectory(accounts: [teamMemberAccount, emtAccount])
+
+        let teSession = try directory.login(
+            accountID: teamMemberAccount.id,
+            credentialDigest: "digest-te",
+            device: DeviceIdentity(id: "DEVICE-TE-MODULES", appID: .teamMember, platform: .iPhone, displayName: "TE Phone"),
+            issuedAt: fixedDate,
+            sessionID: "SESSION-TE-MODULES"
+        )
+        let emtSession = try directory.login(
+            accountID: emtAccount.id,
+            credentialDigest: "digest-emt",
+            device: DeviceIdentity(id: "DEVICE-EMT-MODULES", appID: .emt, platform: .iPhone, displayName: "EMT Phone"),
+            issuedAt: fixedDate,
+            sessionID: "SESSION-EMT-MODULES"
+        )
+
+        let teActivation = teSession.moduleActivationSnapshot
+        XCTAssertEqual(teActivation.shell, .mobile)
+        XCTAssertTrue(teActivation.enables(.teamMemberOperations))
+        XCTAssertTrue(teActivation.enables(.fieldAIAssistant))
+        XCTAssertTrue(teActivation.enables(.photoEvidence))
+        XCTAssertTrue(teActivation.enables(.voicePTT))
+        XCTAssertTrue(teActivation.enables(.fieldTranslation))
+        XCTAssertTrue(teActivation.enables(.patientTriage))
+        XCTAssertTrue(teActivation.enables(.personalNotifications))
+        XCTAssertFalse(teActivation.enables(.emtMedical))
+        XCTAssertFalse(teActivation.enables(.nfcPatientTagging))
+        XCTAssertFalse(teActivation.enables(.hospitalDirectory))
+        XCTAssertFalse(teActivation.enables(.ceocDashboard))
+
+        let emtActivation = emtSession.moduleActivationSnapshot
+        XCTAssertEqual(emtActivation.shell, .mobile)
+        XCTAssertTrue(emtActivation.enables(.emtMedical))
+        XCTAssertTrue(emtActivation.enables(.photoEvidence))
+        XCTAssertTrue(emtActivation.enables(.fieldTranslation))
+        XCTAssertTrue(emtActivation.enables(.patientTriage))
+        XCTAssertTrue(emtActivation.enables(.nfcPatientTagging))
+        XCTAssertTrue(emtActivation.enables(.hospitalDirectory))
+        XCTAssertTrue(emtActivation.enables(.personalNotifications))
+        XCTAssertFalse(emtActivation.enables(.fieldAIAssistant))
+        XCTAssertFalse(emtActivation.enables(.voicePTT))
+        XCTAssertFalse(emtActivation.enables(.teamMemberOperations))
+        XCTAssertFalse(emtActivation.enables(.ceocDashboard))
+    }
+
+    func testV025ModulesKeepLegacySourceMappingAndFeatureLinks() throws {
+        let modules = Dictionary(uniqueKeysWithValues: ModuleActivationCatalog.entitlements.map { ($0.id, $0) })
+
+        let fieldAI = try XCTUnwrap(modules[.fieldAIAssistant])
+        XCTAssertEqual(fieldAI.sourceVersion, "V0.25/V0.2")
+        XCTAssertTrue(fieldAI.sourceFeatureNames.contains("FieldAIReportView"))
+        XCTAssertTrue(fieldAI.linkedFeatures.contains(.aiFieldRiskAnalysis))
+        XCTAssertTrue(fieldAI.linkedFeatures.contains(.disasterReport))
+
+        let photo = try XCTUnwrap(modules[.photoEvidence])
+        XCTAssertTrue(photo.sourceFeatureNames.contains("PhotoReportView"))
+        XCTAssertTrue(photo.sourceFeatureNames.contains("photo_server.py"))
+        XCTAssertTrue(photo.linkedFeatures.contains(.photoReport))
+        XCTAssertTrue(photo.linkedFeatures.contains(.liveFieldPhoto))
+
+        let triage = try XCTUnwrap(modules[.patientTriage])
+        XCTAssertTrue(triage.sourceFeatureNames.contains("start_triage.py"))
+        XCTAssertTrue(triage.linkedFeatures.contains(.startTriage))
+
+        let backupReplay = try XCTUnwrap(modules[.backupReplay])
+        XCTAssertEqual(backupReplay.shell, .command)
+        XCTAssertTrue(backupReplay.sourceFeatureNames.contains("usb_backup.py"))
+        XCTAssertTrue(backupReplay.linkedFeatures.contains(.aarReplay))
+    }
+
+    func testProvisioningModuleRequiresExplicitAccountPermission() throws {
+        let adminAccount = UserAccount(
+            id: "ACCOUNT-ADMIN-MODULES",
+            personID: "PERSON-ADMIN-MODULES",
+            displayName: "Provisioning Admin",
+            callSign: "ADMIN-MOD",
+            allowedAppIDs: [.ucc],
+            defaultPosition: .liaisonOfficer,
+            credentialDigest: "digest-admin",
+            extraPermissions: [.provisionDevice]
+        )
+        let regularAccount = UserAccount(
+            id: "ACCOUNT-NONADMIN-MODULES",
+            personID: "PERSON-NONADMIN-MODULES",
+            displayName: "Command Staff",
+            callSign: "NOADMIN-MOD",
+            allowedAppIDs: [.ucc],
+            defaultPosition: .liaisonOfficer,
+            credentialDigest: "digest-regular",
+            revokedPermissions: [.provisionDevice]
+        )
+        var directory = AccountDirectory(accounts: [adminAccount, regularAccount])
+        let commandDevice = DeviceIdentity(id: "DEVICE-PROVISIONING-MODULES", appID: .ucc, platform: .mac, displayName: "UCC Command")
+
+        let adminSession = try directory.login(
+            accountID: adminAccount.id,
+            credentialDigest: "digest-admin",
+            device: commandDevice,
+            issuedAt: fixedDate,
+            sessionID: "SESSION-ADMIN-MODULES"
+        )
+        let regularSession = try directory.login(
+            accountID: regularAccount.id,
+            credentialDigest: "digest-regular",
+            device: commandDevice,
+            issuedAt: fixedDate,
+            sessionID: "SESSION-NONADMIN-MODULES"
+        )
+
+        XCTAssertTrue(adminSession.moduleActivationSnapshot.enables(.adminProvisioning))
+        XCTAssertFalse(regularSession.moduleActivationSnapshot.enables(.adminProvisioning))
+    }
+
+    func testAccountDirectoryAuthorizesActivatedModules() throws {
+        let account = UserAccount(
+            id: "ACCOUNT-UCC-AUTHZ-MODULES",
+            personID: "PERSON-UCC-AUTHZ-MODULES",
+            displayName: "UCC Module Operator",
+            callSign: "UCC-AUTHZ",
+            allowedAppIDs: [.ucc],
+            defaultPosition: .incidentCommander,
+            credentialDigest: "digest-ucc-authz"
+        )
+        var directory = AccountDirectory(accounts: [account])
+        let session = try directory.login(
+            accountID: account.id,
+            credentialDigest: "digest-ucc-authz",
+            device: DeviceIdentity(id: "DEVICE-UCC-AUTHZ-MODULES", appID: .ucc, platform: .mac, displayName: "UCC Command"),
+            issuedAt: fixedDate,
+            sessionID: "SESSION-UCC-AUTHZ-MODULES"
+        )
+
+        let activation = try directory.moduleActivationSnapshot(sessionID: session.id, at: fixedDate)
+        XCTAssertTrue(activation.enables(.ceocDashboard))
+        XCTAssertNoThrow(try directory.authorize(sessionID: session.id, moduleID: .ceocDashboard, at: fixedDate))
+        XCTAssertThrowsError(
+            try directory.authorize(sessionID: session.id, moduleID: .teamMemberOperations, at: fixedDate)
+        ) { error in
+            XCTAssertEqual(error as? AccountAccessError, .moduleNotEnabled(sessionID: session.id, moduleID: .teamMemberOperations))
+        }
+    }
+
+    func testAccountDirectoryRejectsExpiredModuleActivationSession() throws {
+        let account = UserAccount(
+            id: "ACCOUNT-EXPIRED-MODULES",
+            personID: "PERSON-EXPIRED-MODULES",
+            displayName: "Expired Module Operator",
+            callSign: "EXP-MOD",
+            allowedAppIDs: [.ucc],
+            defaultPosition: .incidentCommander,
+            credentialDigest: "digest-expired"
+        )
+        var directory = AccountDirectory(accounts: [account])
+        let session = try directory.login(
+            accountID: account.id,
+            credentialDigest: "digest-expired",
+            device: DeviceIdentity(id: "DEVICE-EXPIRED-MODULES", appID: .ucc, platform: .mac, displayName: "Expired Command"),
+            issuedAt: fixedDate,
+            expiresAt: fixedDate.addingTimeInterval(60),
+            sessionID: "SESSION-EXPIRED-MODULES"
+        )
+
+        XCTAssertThrowsError(
+            try directory.moduleActivationSnapshot(sessionID: session.id, at: fixedDate.addingTimeInterval(61))
+        ) { error in
+            XCTAssertEqual(error as? AccountAccessError, .sessionExpired(session.id))
+        }
+    }
+
     func testAccountLoginSupportsIdentifierLookupAndAmbiguityGuard() throws {
         let sccAccount = UserAccount(
             id: "ACCOUNT-SCC-2",
