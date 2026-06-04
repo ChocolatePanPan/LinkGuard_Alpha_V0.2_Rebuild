@@ -3,6 +3,7 @@ import SwiftUI
 import Combine
 import AVFoundation
 import CoreLocation
+import UserNotifications
 #if canImport(UIKit)
 import UIKit
 #endif
@@ -394,6 +395,166 @@ class LinkGuardViewModel: ObservableObject {
         sosAutoDowngradeTimer?.invalidate()
         countdownRefreshTimer?.invalidate()
         commandClient.stop()
+    }
+
+    // MARK: - 身份重啟 / 本機資料清除
+
+    func applyLaunchIdentity(_ identity: V02LaunchIdentity) {
+        nodeStatus.nodeID = identity.nodeID
+        nodeStatus.deptCode = identity.deptCode
+        userNickname = identity.nickname
+        lastReportedBattery = -1
+        lastReportedBLE = nil
+        lastReportedVictimCount = -1
+        lastReportedSOSCount = -1
+
+        if !commandClient.isConnected {
+            commandClient.startBrowsing()
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+            Task { @MainActor in
+                self?.sendStatusReport()
+            }
+        }
+    }
+
+    func resetForIdentityRestart() {
+        stopSimulation()
+        stopWiFiCommandMode()
+        bluetoothManager.stopScanning()
+        bluetoothManager.disconnect()
+        commandClient.stop()
+
+        simulationTimer?.invalidate()
+        simulationTimer = nil
+        commandTimer?.invalidate()
+        commandTimer = nil
+        countdownRefreshTimer?.invalidate()
+        countdownRefreshTimer = nil
+        sosAutoDowngradeTimer?.invalidate()
+        sosAutoDowngradeTimer = nil
+        radioAudioPlayer?.stop()
+        radioAudioPlayer = nil
+        playingReportId = nil
+        currentBroadcaster = nil
+        clearTransientAlarmPresentations()
+
+        fieldAIChatStore.clear()
+        fieldAIChatManager.clear()
+        PersistenceManager.shared.clearAll()
+        clearGeneratedLocalFiles()
+        clearUserDefaultsForIdentityRestart()
+        resetRuntimeStateForIdentityRestart()
+        UNUserNotificationCenter.current().removeAllDeliveredNotifications()
+        UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
+    }
+
+    private func resetRuntimeStateForIdentityRestart() {
+        victims = []
+        sosRecords = []
+        nodeStatus = RescueNodeStatus(nodeID: "", deptCode: "", battery: 0, loraLevel: 4, isConnected: false, pairCode: "0000")
+        userNickname = ""
+        isSimulating = false
+        isWiFiCommandMode = false
+        latestSOSVictim = nil
+        commandOrders = []
+        latestCriticalCommand = nil
+        isBluetoothConnected = false
+        bluetoothDeviceName = nil
+        reinforcementRequests = []
+        latestReinforcementRequest = nil
+        teamMembers = []
+        disasterSite = nil
+        chatMessages = []
+        chatDraft = ""
+        chatReadCounts = [:]
+        personnelAssignments = []
+        pwsAlerts = []
+        briefings = []
+        personalNotifications = []
+        unreadNotificationCount = 0
+        activityLog = []
+        quickStatuses = []
+        teamCapabilityReports = []
+        pendingTeamCapabilityReportIDs = []
+        tasks = []
+        usarStoreRelay?.cancel()
+        usarStore = USAROperationStore()
+        bindUSARStoreRelay()
+        usarMessageLog = []
+        currentUSARRoleScope = nil
+        countdownTimers = []
+        hazardReports = []
+        decisions = []
+        radioReports = []
+        autoPlayRadio = true
+        photoReports = []
+        resourceStatus = nil
+        latestStats = nil
+        textBroadcasts = []
+        patientWarnings = []
+        localPatients = []
+        patientIDConfig = PatientIDConfig()
+        latestTranslation = nil
+        isTranslating = false
+        translationErrorMessage = nil
+        readStatuses = [:]
+        urgentBroadcast = nil
+        activePatientWarning = nil
+        isSOSActive = false
+        currentSOSId = nil
+        previousOnlineStates = [:]
+        lowBatteryNotified = []
+        processedSlots = []
+        lastReportedLocation = nil
+        stationaryCount = 0
+        isStationaryMode = false
+        lastReportedBattery = -1
+        lastReportedBLE = nil
+        lastReportedVictimCount = -1
+        lastReportedSOSCount = -1
+    }
+
+    private func clearUserDefaultsForIdentityRestart() {
+        let defaults = UserDefaults.standard
+        let preservedKeys = ["appLanguage", "appColorScheme", "commSplitEnabled"]
+        let preservedValues = preservedKeys.reduce(into: [String: Any]()) { result, key in
+            if let value = defaults.object(forKey: key) {
+                result[key] = value
+            }
+        }
+
+        if let bundleID = Bundle.main.bundleIdentifier {
+            defaults.removePersistentDomain(forName: bundleID)
+        } else {
+            for key in defaults.dictionaryRepresentation().keys where key.hasPrefix("linkguard") || key == "device_id" {
+                defaults.removeObject(forKey: key)
+            }
+        }
+        for (key, value) in preservedValues {
+            defaults.set(value, forKey: key)
+        }
+        defaults.synchronize()
+    }
+
+    private func clearGeneratedLocalFiles() {
+        let fm = FileManager.default
+        let generatedPrefixes = [
+            "voice_input", "briefing_", "ptt_", "video_", "camera_video_", "photo_report_video_"
+        ]
+
+        clearFiles(in: fm.temporaryDirectory, matchingPrefixes: generatedPrefixes)
+        if let caches = fm.urls(for: .cachesDirectory, in: .userDomainMask).first {
+            clearFiles(in: caches, matchingPrefixes: generatedPrefixes + ["LinkGuard"])
+        }
+    }
+
+    private func clearFiles(in directory: URL, matchingPrefixes prefixes: [String]) {
+        let fm = FileManager.default
+        guard let files = try? fm.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil) else { return }
+        for file in files where prefixes.contains(where: { file.lastPathComponent.hasPrefix($0) }) {
+            try? fm.removeItem(at: file)
+        }
     }
 
     // MARK: - BLE 回呼綁定

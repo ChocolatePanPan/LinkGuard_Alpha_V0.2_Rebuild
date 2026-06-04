@@ -199,6 +199,7 @@ struct ContentView: View {
                 }
             }
             .onChange(of: selectedIdentityID) { _, _ in
+                applySelectedIdentityToViewModel()
                 if !isTabAllowed(selectedTab) {
                     selectedTab = .dashboard
                     cameFromDashboard = false
@@ -302,6 +303,14 @@ struct ContentView: View {
         .animation(.easeInOut(duration: 0.3), value: viewModel.activePatientWarning != nil)
         .animation(.easeInOut(duration: 0.3), value: externalAlarm != nil)
         .dismissKeyboardOnBlankTap()
+        .onAppear {
+            applySelectedIdentityToViewModel()
+        }
+    }
+
+    private func applySelectedIdentityToViewModel() {
+        guard let identity = V02LaunchIdentity.find(selectedIdentityID) else { return }
+        viewModel.applyLaunchIdentity(identity)
     }
 
     private func handleNotificationRoute(_ notification: Notification) {
@@ -631,8 +640,11 @@ struct DashboardView: View {
     let role: V02FieldRole
     @Environment(\.horizontalSizeClass) private var sizeClass
     @EnvironmentObject private var l10n: L10n
+    @AppStorage(V02LaunchIdentity.selectedIDKey) private var selectedIdentityID = ""
+    @AppStorage(V02LaunchIdentity.shouldShowPickerKey) private var shouldShowIdentityPicker = true
     @State private var showHandoverSummary = false
     @State private var showQuickGuide = false
+    @State private var showRestartConfirmation = false
 
     private var isWide: Bool { sizeClass == .regular }
     private var isEnglish: Bool { l10n.language.hasPrefix("en") }
@@ -656,6 +668,16 @@ struct DashboardView: View {
                         Spacer()
                         VStack(alignment: .trailing, spacing: 4) {
                             HStack(spacing: 8) {
+                                Button {
+                                    showRestartConfirmation = true
+                                } label: {
+                                    Image(systemName: "arrow.counterclockwise.circle.fill")
+                                        .font(.title3)
+                                        .foregroundColor(NV.danger)
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityLabel(L("重啟並清除資料"))
+
                                 // 快速操作手冊按鈕
                                 Button {
                                     showQuickGuide = true
@@ -1052,6 +1074,24 @@ struct DashboardView: View {
             .sheet(isPresented: $showQuickGuide) {
                 QuickGuideView()
             }
+            .alert(L("重啟並刪除所有資料？"), isPresented: $showRestartConfirmation) {
+                Button(L("取消"), role: .cancel) {}
+                Button(L("刪除並重啟"), role: .destructive) {
+                    restartAndClearAllData()
+                }
+            } message: {
+                Text(L("這會清除本機身份、節點設定、傷患、任務、聊天、警報、照片、AI 對話與暫存資料，並返回角色選擇頁。"))
+            }
+        }
+    }
+
+    private func restartAndClearAllData() {
+        withAnimation(.easeInOut(duration: 0.25)) {
+            selectedTab = .dashboard
+            cameFromDashboard = false
+            vm.resetForIdentityRestart()
+            selectedIdentityID = ""
+            shouldShowIdentityPicker = true
         }
     }
 }

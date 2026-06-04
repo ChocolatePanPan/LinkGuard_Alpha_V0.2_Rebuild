@@ -487,6 +487,8 @@ class LinkGuardViewModel: ObservableObject {
         hazardReports = []
         decisions = []
         radioReports = []
+        autoPlayRadio = true
+        photoReports = []
         resourceStatus = nil
         latestStats = nil
         textBroadcasts = []
@@ -515,12 +517,22 @@ class LinkGuardViewModel: ObservableObject {
 
     private func clearUserDefaultsForIdentityRestart() {
         let defaults = UserDefaults.standard
+        let preservedKeys = ["appLanguage", "appColorScheme", "commSplitEnabled"]
+        let preservedValues = preservedKeys.reduce(into: [String: Any]()) { result, key in
+            if let value = defaults.object(forKey: key) {
+                result[key] = value
+            }
+        }
+
         if let bundleID = Bundle.main.bundleIdentifier {
             defaults.removePersistentDomain(forName: bundleID)
         } else {
             for key in defaults.dictionaryRepresentation().keys where key.hasPrefix("linkguard") || key == "device_id" {
                 defaults.removeObject(forKey: key)
             }
+        }
+        for (key, value) in preservedValues {
+            defaults.set(value, forKey: key)
         }
         defaults.synchronize()
     }

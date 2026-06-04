@@ -1386,6 +1386,15 @@ final class FieldAIChatManager: ObservableObject {
         messages = PersistenceManager.shared.load(key: Self.messagesPersistenceKey) ?? []
     }
 
+    func clear() {
+        messages = []
+        draft = ""
+        isLoading = false
+        activeEscalation = nil
+        pendingEscalationHint = false
+        PersistenceManager.shared.delete(key: Self.messagesPersistenceKey)
+    }
+
     /// 後端 session_id：前線裝置一律為 "field_{deviceID}"
     private var sessionId: String {
         let safe = senderName.replacingOccurrences(of: " ", with: "_")
