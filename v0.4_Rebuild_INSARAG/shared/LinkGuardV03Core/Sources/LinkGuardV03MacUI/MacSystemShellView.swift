@@ -5,21 +5,18 @@ import AppKit
 #endif
 
 public struct MacSystemShellView: View {
-    @State private var macState: MacSystemUIState
     @StateObject private var viewModel = HQViewModel()
     @StateObject private var l10n = L10n.shared
     #if os(macOS)
     @StateObject private var externalDashboardManager = HQExternalDashboardWindowManager()
     @StateObject private var notificationCueManager = HQNotificationCueManager.shared
     @StateObject private var spacebarPTT = HQSpacebarPTTMonitor()
-    @StateObject private var syncReceiver = MacSyncReceiver()
     #endif
     @AppStorage("appColorScheme") private var appColorScheme: String = "dark"
     @AppStorage("hq.uiScale") private var uiScale: Double = 1.0
     @AppStorage("hq.externalDisplayEnabled") private var externalDisplayEnabled: Bool = true
 
     public init(state: MacSystemUIState) {
-        _macState = State(initialValue: state)
     }
 
     private var colorScheme: ColorScheme? {
@@ -39,17 +36,11 @@ public struct MacSystemShellView: View {
                             viewModel.startServer()
                         }
                         #if os(macOS)
-                        startSyncReceiverIfNeeded()
                         externalDashboardManager.start(viewModel: viewModel, l10n: l10n, colorScheme: colorScheme)
                         externalDashboardManager.setEnabled(externalDisplayEnabled)
                         spacebarPTT.attach(viewModel: viewModel)
                         #endif
                     }
-                    #if os(macOS)
-                    .onDisappear {
-                        syncReceiver.stop()
-                    }
-                    #endif
                     #if os(macOS)
                     .onChange(of: appColorScheme) { _, _ in
                         externalDashboardManager.refresh(colorScheme: colorScheme)
@@ -68,56 +59,12 @@ public struct MacSystemShellView: View {
                     .environmentObject(l10n)
             }
             #if os(macOS)
-            .overlay(alignment: .topLeading) {
-                if let architecture = macState.uccICSArchitecture {
-                    MacUCCICSArchitecturePanel(architecture: architecture)
-                        .frame(width: 390)
-                        .padding(.top, 18)
-                        .padding(.leading, 18)
-                }
-            }
-            .overlay(alignment: .topTrailing) {
-                HStack(alignment: .top, spacing: 12) {
-                    if let session = macState.loginSession {
-                        MacSystemSessionStatusPanel(session: session) {
-                            macState.loginSession = nil
-                        }
-                    }
-
-                    if macState.runtime.device.appID == .scc {
-                        MacSOSAlertPanelView(
-                            items: macState.sosAlertItems,
-                            isReceiverRunning: syncReceiver.isRunning,
-                            receiverPort: syncReceiver.port,
-                            receiverError: syncReceiver.lastError
-                        )
-                    }
-                }
-                .padding(.top, 18)
-                .padding(.trailing, 18)
-            }
             .overlay {
                 HQNotificationFlashOverlay(manager: notificationCueManager)
             }
             #endif
-
-            #if os(macOS)
-            if macState.loginSession == nil {
-                MacSystemIdentityPickerOverlayView(macState: $macState)
-            }
-            #endif
         }
     }
-
-    #if os(macOS)
-    private func startSyncReceiverIfNeeded() {
-        guard macState.runtime.device.appID == .scc else { return }
-        syncReceiver.start { batch, receivedAt in
-            macState.receive(batch, receivedAt: receivedAt)
-        }
-    }
-    #endif
-
 }
 
 public struct MacSystemSettingsView: View {
@@ -129,7 +76,7 @@ public struct MacSystemSettingsView: View {
 
     public var body: some View {
         HQPage(maxWidth: NV.readablePageMaxWidth, spacing: NV.pageSpacing) {
-            HQPageTitleBar("v0.3 設定", icon: "gearshape.fill", accent: NV.info)
+            HQPageTitleBar("設定", icon: "gearshape.fill", accent: NV.info)
             HQPanel(title: "版本", icon: "tag.fill", accent: NV.green) {
                 Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 18, verticalSpacing: 8) {
                     ForEach(settingsInfo.items) { item in

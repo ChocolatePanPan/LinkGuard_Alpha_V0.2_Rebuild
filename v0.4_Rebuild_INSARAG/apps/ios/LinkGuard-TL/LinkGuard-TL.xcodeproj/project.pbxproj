@@ -8,12 +8,10 @@
 
 /* Begin PBXBuildFile section */
 		A10000000000000000000001 /* LinkGuardV03FieldUI in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000002 /* LinkGuardV03FieldUI */; };
-		A10000000000000000000013 /* LinkGuard-TL/LinkGuardTLApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000014 /* LinkGuard-TL/LinkGuardTLApp.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		A10000000000000000000003 /* LinkGuard-TL.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "LinkGuard-TL.app"; sourceTree = BUILT_PRODUCTS_DIR; };
-		A10000000000000000000014 /* LinkGuard-TL/LinkGuardTLApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LinkGuard-TL/LinkGuardTLApp.swift"; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -39,7 +37,6 @@
 		79AEE17B2FC1A32A0080F408 /* Recovered References */ = {
 			isa = PBXGroup;
 			children = (
-				A10000000000000000000014 /* LinkGuard-TL/LinkGuardTLApp.swift */,
 			);
 			name = "Recovered References";
 			sourceTree = "<group>";
@@ -140,7 +137,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A10000000000000000000013 /* LinkGuard-TL/LinkGuardTLApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -155,7 +151,7 @@
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_TESTABILITY = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
@@ -173,7 +169,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_C_LANGUAGE_STANDARD = gnu17;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				SDKROOT = iphoneos;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -195,12 +191,15 @@
 				ENABLE_DEBUG_DYLIB = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "LinkGuard TL";
-				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "LinkGuard uses Bluetooth to connect nearby field devices.";
-				INFOPLIST_KEY_NSCameraUsageDescription = "LinkGuard uses the camera for making porn:)";
-				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "LinkGuard uses the local network to sync field reports.";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "LinkGuard uses location for GPS-tagged field reports and SOS.";
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "LinkGuard uses the microphone for voice reports.";
-				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "LinkGuard can attach photos from the library to field reports.";
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "LinkGuard 需要藍牙來連線搜救人員的 LoRa 裝置，實時監測生命徵象與傳輸指揮命令";
+				INFOPLIST_KEY_NSCameraUsageDescription = "LinkGuard 需要相機來拍攝現場照片回報";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "LinkGuard 需要區域網路來連線 Mac HQ 指揮中心、上傳照片回報、以及接收即時語音廣播";
+				INFOPLIST_KEY_NFCReaderUsageDescription = "LinkGuard 需要 NFC 來讀取與寫入傷患識別標籤，協助現場快速回報傷患資訊";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "LinkGuard 在背景執行時持續回報您的位置給指揮中心，確保搜救任務的即時定位追蹤";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "LinkGuard 需要定位服務來回報您的位置給指揮中心";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "LinkGuard 需要麥克風來進行語音輸入，以快速填寫傷員回報資訊";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "LinkGuard 需要存取相簿來選取現場照片進行回報";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "LinkGuard 需要語音辨識權限以進行即時語音轉文字";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				MARKETING_VERSION = 0.3.1;
@@ -225,12 +224,15 @@
 				DEVELOPMENT_TEAM = BXXFZS6XJ3;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "LinkGuard TL";
-				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "LinkGuard uses Bluetooth to connect nearby field devices.";
-				INFOPLIST_KEY_NSCameraUsageDescription = "LinkGuard uses the camera for making porn:)";
-				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "LinkGuard uses the local network to sync field reports.";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "LinkGuard uses location for GPS-tagged field reports and SOS.";
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "LinkGuard uses the microphone for voice reports.";
-				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "LinkGuard can attach photos from the library to field reports.";
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "LinkGuard 需要藍牙來連線搜救人員的 LoRa 裝置，實時監測生命徵象與傳輸指揮命令";
+				INFOPLIST_KEY_NSCameraUsageDescription = "LinkGuard 需要相機來拍攝現場照片回報";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "LinkGuard 需要區域網路來連線 Mac HQ 指揮中心、上傳照片回報、以及接收即時語音廣播";
+				INFOPLIST_KEY_NFCReaderUsageDescription = "LinkGuard 需要 NFC 來讀取與寫入傷患識別標籤，協助現場快速回報傷患資訊";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "LinkGuard 在背景執行時持續回報您的位置給指揮中心，確保搜救任務的即時定位追蹤";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "LinkGuard 需要定位服務來回報您的位置給指揮中心";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "LinkGuard 需要麥克風來進行語音輸入，以快速填寫傷員回報資訊";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "LinkGuard 需要存取相簿來選取現場照片進行回報";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "LinkGuard 需要語音辨識權限以進行即時語音轉文字";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				MARKETING_VERSION = 0.3.1;
