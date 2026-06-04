@@ -7,11 +7,12 @@ public struct FieldAppShellView: View {
     private let identityPickerSubtitle: String
 
     @State private var controller: FieldAppController
+    @StateObject private var localization = FieldLocalization.shared
     @StateObject private var mapMarkup = MapMarkupViewModel()
     @StateObject private var locationService = FieldLocationService()
     @State private var selectedTab: FieldAppTab = .overview
     @State private var selectedIdentity: FieldLaunchIdentityOption? = nil
-    @State private var statusText = "Ready"
+    @State private var statusMessage: FieldStatusMessage = .ready(code: nil)
     @State private var statusAccent = FieldTheme.green
     @State private var showingTeamCapabilityForm = false
     @State private var teamCapabilityDraft: USARTeamCapabilityReport?
@@ -22,15 +23,15 @@ public struct FieldAppShellView: View {
 
     public init(appID: LinkGuardAppID, platform: AppPlatform, deviceID: LinkGuardID, displayName: String) {
         self.startupIdentityOptions = FieldLaunchIdentityOption.options(for: appID)
-        self.identityPickerTitle = "選擇啟動身分"
+        self.identityPickerTitle = "choose_identity"
         self.identityPickerSubtitle = FieldLaunchIdentityOption.pickerSubtitle(for: appID)
         _controller = State(initialValue: Self.makeController(appID: appID, platform: platform, deviceID: deviceID, displayName: displayName))
     }
 
     public init(unifiedIPhoneDisplayName: String = "LinkGuard iPhone") {
         self.startupIdentityOptions = FieldLaunchIdentityOption.unifiedIPhoneOptions
-        self.identityPickerTitle = "選擇 iPhone 現場身份"
-        self.identityPickerSubtitle = "同一個 App 可進入 TL / TE / EMT / VO"
+        self.identityPickerTitle = "choose_iphone_identity"
+        self.identityPickerSubtitle = "iphone_identity_subtitle"
         _controller = State(initialValue: Self.makeController(appID: .teamMember, platform: .iPhone, deviceID: "IOS-FIELD-LOCAL", displayName: unifiedIPhoneDisplayName))
     }
 
@@ -61,14 +62,15 @@ public struct FieldAppShellView: View {
         .onChange(of: locationService.lastFix) { fix in
             guard let fix else { return }
             controller.recordGPSFix(fix)
-            statusText = "GPS Updated"
+            statusMessage = .gpsUpdated
             statusAccent = FieldTheme.green
         }
         .onChange(of: locationService.lastErrorMessage) { message in
             guard message != nil else { return }
-            statusText = "GPS Blocked"
+            statusMessage = .gpsBlocked
             statusAccent = FieldTheme.warning
         }
+        .environment(\.locale, Locale(identifier: localization.localeIdentifier))
     }
 
     private var shellRoot: some View {
@@ -92,7 +94,7 @@ public struct FieldAppShellView: View {
                         } label: {
                             Image(systemName: "person.crop.circle.badge.checkmark")
                         }
-                        .help("Switch identity")
+                        .help(l("Switch identity"))
                     }
                     ToolbarItem(placement: .primaryAction) {
                         Text(LinkGuardVersionInfo.current.displayVersion)
@@ -115,7 +117,7 @@ public struct FieldAppShellView: View {
                 }
                 .background(FieldTheme.pageBackground.ignoresSafeArea())
                 .tag(tab)
-                .tabItem { Label(tab.title, systemImage: tab.systemImage) }
+                .tabItem { Label(tab.title(localization), systemImage: tab.systemImage) }
             }
         }
     }
@@ -123,8 +125,9 @@ public struct FieldAppShellView: View {
     private var identityOverlay: some View {
         FieldIdentityPickerOverlay(
             options: identityOptions,
-            title: identityPickerTitle,
-            subtitle: identityPickerSubtitle,
+            title: l(identityPickerTitle),
+            subtitle: l(identityPickerSubtitle),
+            localization: localization,
             accent: roleAccent
         ) { identity in
             activateIdentity(identity)
@@ -135,11 +138,15 @@ public struct FieldAppShellView: View {
         startupIdentityOptions.isEmpty ? FieldLaunchIdentityOption.options(for: controller.runtime.device.appID) : startupIdentityOptions
     }
 
+    private func l(_ key: String) -> String {
+        localization.text(key)
+    }
+
     private func activateIdentity(_ identity: FieldLaunchIdentityOption) {
         controller = Self.makeController(appID: identity.appID, platform: identity.platform, deviceID: identity.deviceID, displayName: identity.displayName)
         selectedIdentity = identity
         selectedTab = .overview
-        statusText = "Ready \(identity.code)"
+        statusMessage = .ready(code: identity.code)
         statusAccent = Self.roleAccent(for: identity.appID)
     }
 
@@ -189,11 +196,11 @@ public struct FieldAppShellView: View {
                             .font(.title3.weight(.bold))
                             .lineLimit(2)
                             .minimumScaleFactor(0.82)
-                        Text(controller.roleWorkflowTitle)
+                        Text(l(controller.roleWorkflowTitle))
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(roleAccent)
                         if let selectedIdentity {
-                            Text(selectedIdentity.displayLabel)
+                            Text(selectedIdentity.displayLabel(localization))
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(.secondary)
                         }
@@ -203,7 +210,7 @@ public struct FieldAppShellView: View {
                     }
                     Spacer(minLength: 0)
                     VStack(alignment: .trailing, spacing: 5) {
-                        Text("OUTBOX")
+                        Text(l("OUTBOX"))
                             .font(.caption2.weight(.semibold))
                             .foregroundStyle(.secondary)
                         Text("\(controller.pendingEnvelopeCount)")
@@ -219,19 +226,19 @@ public struct FieldAppShellView: View {
                         }
                         .buttonStyle(.plain)
                         .disabled(locationService.canRequestFix == false)
-                        .help("Refresh GPS")
+                        .help(l("Refresh GPS"))
                     }
                 }
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
-                        FieldStatusPill(title: statusText, systemImage: "checkmark.seal.fill", accent: statusAccent)
+                        FieldStatusPill(title: statusMessage.text(localization), systemImage: "checkmark.seal.fill", accent: statusAccent)
                         if let selectedIdentity {
                             FieldStatusPill(title: selectedIdentity.code, systemImage: "person.crop.circle.fill", accent: roleAccent)
                         }
-                        FieldStatusPill(title: controller.latestGPSFix == nil ? "No GPS" : "GPS Ready", systemImage: "location.fill", accent: controller.latestGPSFix == nil ? FieldTheme.warning : FieldTheme.green)
+                        FieldStatusPill(title: controller.latestGPSFix == nil ? l("No GPS") : l("GPS Ready"), systemImage: "location.fill", accent: controller.latestGPSFix == nil ? FieldTheme.warning : FieldTheme.green)
                         FieldStatusPill(title: LinkGuardVersionInfo.current.displayVersion, systemImage: "tag.fill", accent: FieldTheme.info)
-                        FieldStatusPill(title: controller.blueprint.homeSurface.fieldDisplayName, systemImage: "rectangle.3.group.fill", accent: FieldTheme.info)
-                        FieldStatusPill(title: controller.profile.commandAuthority.fieldDisplayName, systemImage: "person.badge.key.fill", accent: FieldTheme.command)
+                        FieldStatusPill(title: l(controller.blueprint.homeSurface.fieldDisplayName), systemImage: "rectangle.3.group.fill", accent: FieldTheme.info)
+                        FieldStatusPill(title: l(controller.profile.commandAuthority.fieldDisplayName), systemImage: "person.badge.key.fill", accent: FieldTheme.command)
                     }
                 }
             }
@@ -317,19 +324,41 @@ public struct FieldAppShellView: View {
 
     private var settingsTab: some View {
         VStack(alignment: .leading, spacing: FieldTheme.panelSpacing) {
+            languageSettingsPanel
             appSettingsPanel
             roleContractPanel
             featureReadinessPanel
         }
     }
 
+    private var languageSettingsPanel: some View {
+        FieldPanel(l("language_panel_title"), systemImage: "globe", accent: FieldTheme.info) {
+            VStack(alignment: .leading, spacing: 10) {
+                Picker(l("App Language"), selection: $localization.language) {
+                    ForEach(FieldAppLanguage.allCases) { language in
+                        Text(language.displayName).tag(language)
+                    }
+                }
+                .pickerStyle(.segmented)
+
+                FieldTimelineRow(
+                    title: l("language_current_title"),
+                    detail: l("language_current_detail"),
+                    systemImage: "checkmark.circle.fill",
+                    accent: FieldTheme.green,
+                    trailing: localization.language.shortLabel
+                )
+            }
+        }
+    }
+
     private var appSettingsPanel: some View {
         let settingsInfo = LinkGuardAppSettingsInfo(device: controller.runtime.device)
-        return FieldPanel("App Settings", systemImage: "gearshape.fill", accent: FieldTheme.command) {
+        return FieldPanel(l("App Settings"), systemImage: "gearshape.fill", accent: FieldTheme.command) {
             VStack(spacing: 8) {
                 ForEach(settingsInfo.items) { item in
                     FieldTimelineRow(
-                        title: item.title,
+                        title: l(item.title),
                         detail: item.value,
                         systemImage: settingsIcon(for: item.key),
                         accent: settingsAccent(for: item.key),
@@ -337,7 +366,7 @@ public struct FieldAppShellView: View {
                     )
                 }
                 FieldTimelineRow(
-                    title: "Notes",
+                    title: l("Notes"),
                     detail: settingsInfo.versionInfo.notes,
                     systemImage: "doc.text.fill",
                     accent: FieldTheme.info,
@@ -349,20 +378,20 @@ public struct FieldAppShellView: View {
 
     private var roleContractPanel: some View {
         let permissions = controller.profile.permissions.sorted { $0.rawValue < $1.rawValue }
-        return FieldPanel("Role Contract", systemImage: "person.badge.key.fill", accent: roleAccent) {
+        return FieldPanel(l("Role Contract"), systemImage: "person.badge.key.fill", accent: roleAccent) {
             VStack(alignment: .leading, spacing: 12) {
                 FieldAdaptiveGrid(minimum: 142) {
-                    FieldMetricTile(title: "Authority", value: controller.profile.commandAuthority.fieldDisplayName, systemImage: "person.badge.key.fill", accent: FieldTheme.command)
-                    FieldMetricTile(title: "Medical", value: controller.profile.medicalAccess.fieldDisplayName, systemImage: "cross.case.fill", accent: FieldTheme.medical)
-                    FieldMetricTile(title: "Required", value: "\(controller.blueprint.requiredPermissions.count)", systemImage: "checkmark.shield.fill", accent: FieldTheme.green)
-                    FieldMetricTile(title: "Granted", value: "\(permissions.count)", systemImage: "key.fill", accent: FieldTheme.team)
+                    FieldMetricTile(title: l("Authority"), value: l(controller.profile.commandAuthority.fieldDisplayName), systemImage: "person.badge.key.fill", accent: FieldTheme.command)
+                    FieldMetricTile(title: l("Medical"), value: l(controller.profile.medicalAccess.fieldDisplayName), systemImage: "cross.case.fill", accent: FieldTheme.medical)
+                    FieldMetricTile(title: l("Required"), value: "\(controller.blueprint.requiredPermissions.count)", systemImage: "checkmark.shield.fill", accent: FieldTheme.green)
+                    FieldMetricTile(title: l("Granted"), value: "\(permissions.count)", systemImage: "key.fill", accent: FieldTheme.team)
                 }
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
                         ForEach(permissions, id: \.self) { permission in
                             let isRequired = controller.blueprint.requiredPermissions.contains(permission)
                             FieldStatusPill(
-                                title: permission.fieldDisplayName,
+                                title: l(permission.fieldDisplayName),
                                 systemImage: isRequired ? "checkmark.shield.fill" : "key.fill",
                                 accent: isRequired ? FieldTheme.green : FieldTheme.info
                             )
@@ -377,19 +406,19 @@ public struct FieldAppShellView: View {
         let features = LinkGuardFeatureAccessMatrix.features(for: controller.runtime.device.appID)
             .sorted { lhs, rhs in lhs.rawValue < rhs.rawValue }
             .prefix(12)
-        return FieldPanel("Field Readiness", systemImage: "antenna.radiowaves.left.and.right", accent: FieldTheme.green) {
+        return FieldPanel(l("Field Readiness"), systemImage: "antenna.radiowaves.left.and.right", accent: FieldTheme.green) {
             VStack(spacing: 8) {
                 FieldAdaptiveGrid(minimum: 142) {
-                    FieldMetricTile(title: "Local Queue", value: "\(controller.pendingEnvelopeCount)", systemImage: "tray.full.fill", accent: controller.pendingEnvelopeCount == 0 ? FieldTheme.green : FieldTheme.warning)
-                    FieldMetricTile(title: "GPS", value: controller.latestGPSFix == nil ? "Missing" : "Ready", systemImage: "location.fill", accent: controller.latestGPSFix == nil ? FieldTheme.warning : FieldTheme.green)
-                    FieldMetricTile(title: "Runtime", value: controller.runtime.pendingOutboundCount == 0 ? "Clear" : "Queued", systemImage: "arrow.triangle.2.circlepath", accent: controller.runtime.pendingOutboundCount == 0 ? FieldTheme.green : FieldTheme.info)
-                    FieldMetricTile(title: "Storage", value: controller.localCacheStore == nil ? "Memory" : (controller.lastPersistenceError == nil ? "Saved" : "Error"), systemImage: "externaldrive.fill", accent: controller.lastPersistenceError == nil ? FieldTheme.green : FieldTheme.warning)
+                    FieldMetricTile(title: l("Local Queue"), value: "\(controller.pendingEnvelopeCount)", systemImage: "tray.full.fill", accent: controller.pendingEnvelopeCount == 0 ? FieldTheme.green : FieldTheme.warning)
+                    FieldMetricTile(title: l("GPS"), value: controller.latestGPSFix == nil ? l("Missing") : l("Ready"), systemImage: "location.fill", accent: controller.latestGPSFix == nil ? FieldTheme.warning : FieldTheme.green)
+                    FieldMetricTile(title: l("Runtime"), value: controller.runtime.pendingOutboundCount == 0 ? l("Clear") : l("Queued"), systemImage: "arrow.triangle.2.circlepath", accent: controller.runtime.pendingOutboundCount == 0 ? FieldTheme.green : FieldTheme.info)
+                    FieldMetricTile(title: l("Storage"), value: controller.localCacheStore == nil ? l("Memory") : (controller.lastPersistenceError == nil ? l("Saved") : l("Error")), systemImage: "externaldrive.fill", accent: controller.lastPersistenceError == nil ? FieldTheme.green : FieldTheme.warning)
                 }
                 ForEach(Array(features), id: \.self) { feature in
                     let access = controller.accessLevel(for: feature)
                     FieldTimelineRow(
-                        title: feature.fieldDisplayName,
-                        detail: access.fieldDisplayName,
+                        title: l(feature.fieldDisplayName),
+                        detail: l(access.fieldDisplayName),
                         systemImage: feature.fieldIconName,
                         accent: access.fieldAccentColor,
                         trailing: access.fieldShortLabel
@@ -401,23 +430,23 @@ public struct FieldAppShellView: View {
 
     private var missionOverview: some View {
         let summary = controller.missionSummary
-        return FieldPanel("Mission", systemImage: "scope", accent: roleAccent) {
+        return FieldPanel(l("Mission"), systemImage: "scope", accent: roleAccent) {
             VStack(alignment: .leading, spacing: 12) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(summary.incidentName)
                         .font(.headline)
-                    Text(controller.roleWorkflowSubtitle)
+                    Text(l(controller.roleWorkflowSubtitle))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
                 FieldAdaptiveGrid(minimum: 142) {
-                    FieldMetricTile(title: "Open Tasks", value: "\(summary.openTaskCount)", systemImage: "checklist.checked", accent: FieldTheme.green)
+                    FieldMetricTile(title: l("Open Tasks"), value: "\(summary.openTaskCount)", systemImage: "checklist.checked", accent: FieldTheme.green)
                     if controller.canUseFeature(.personnelOverview) {
-                        FieldMetricTile(title: "Online", value: "\(summary.onlinePersonnelCount)/\(summary.personnelCount)", systemImage: "person.3.fill", accent: FieldTheme.team)
+                        FieldMetricTile(title: l("Online"), value: "\(summary.onlinePersonnelCount)/\(summary.personnelCount)", systemImage: "person.3.fill", accent: FieldTheme.team)
                     }
-                    FieldMetricTile(title: "Safety", value: "\(summary.safetyZoneCount)", systemImage: "shield.lefthalf.filled", accent: FieldTheme.warning)
-                    FieldMetricTile(title: "Reports", value: "\(summary.photoReportCount + summary.disasterReportCount + summary.teamCapabilityReportCount)", systemImage: "camera.fill", accent: FieldTheme.info)
-                    FieldMetricTile(title: "Patients", value: "\(summary.patientCount)", systemImage: "cross.case.fill", accent: FieldTheme.medical)
+                    FieldMetricTile(title: l("Safety"), value: "\(summary.safetyZoneCount)", systemImage: "shield.lefthalf.filled", accent: FieldTheme.warning)
+                    FieldMetricTile(title: l("Reports"), value: "\(summary.photoReportCount + summary.disasterReportCount + summary.teamCapabilityReportCount)", systemImage: "camera.fill", accent: FieldTheme.info)
+                    FieldMetricTile(title: l("Patients"), value: "\(summary.patientCount)", systemImage: "cross.case.fill", accent: FieldTheme.medical)
                     FieldMetricTile(title: "SOS", value: "\(summary.sosCount)", systemImage: "sos.circle.fill", accent: FieldTheme.danger)
                 }
             }
@@ -425,7 +454,7 @@ public struct FieldAppShellView: View {
     }
 
     private var priorityActionPanel: some View {
-        FieldPanel("Priority Actions", systemImage: "bolt.fill", accent: FieldTheme.danger) {
+        FieldPanel(l("Priority Actions"), systemImage: "bolt.fill", accent: FieldTheme.danger) {
             FieldAdaptiveGrid(minimum: 158) {
                 fieldAction("SOS", detail: "Queue location + danger report", systemImage: "sos.circle.fill", feature: .sosSending, messageType: .sosReportUpsert, accent: FieldTheme.danger) {
                     try controller.queueSOS(dangerType: controller.runtime.device.appID == .emt ? .injured : .trapped, note: "Field SOS", now: Date())
@@ -441,7 +470,7 @@ public struct FieldAppShellView: View {
     }
 
     private var roleOperationsPanel: some View {
-        FieldPanel(roleOperationsTitle, systemImage: "rectangle.3.group.fill", accent: roleAccent) {
+        FieldPanel(l(roleOperationsTitle), systemImage: "rectangle.3.group.fill", accent: roleAccent) {
             FieldAdaptiveGrid(minimum: 158) {
                 ForEach(roleActionDefinitions) { definition in
                     fieldAction(definition.title, detail: definition.detail, systemImage: definition.systemImage, feature: definition.feature, messageType: definition.messageType, accent: definition.accent) {
@@ -457,7 +486,7 @@ public struct FieldAppShellView: View {
             if lhs.priority != rhs.priority { return lhs.priority > rhs.priority }
             return lhs.createdAt > rhs.createdAt
         }
-        return FieldPanel("Tasks", systemImage: "checklist.checked", accent: FieldTheme.green) {
+        return FieldPanel(l("Tasks"), systemImage: "checklist.checked", accent: FieldTheme.green) {
             VStack(spacing: 8) {
                 if tasks.isEmpty {
                     emptyRow("No task assigned", systemImage: "checklist.unchecked")
@@ -468,7 +497,7 @@ public struct FieldAppShellView: View {
                             detail: "\(task.type.rawValue) / \(task.status.rawValue) / \(task.worksiteID?.rawValue ?? controller.context.worksiteID.rawValue)",
                             systemImage: "checklist.checked",
                             accent: task.priority.fieldAccentColor,
-                            trailing: task.priority.fieldLabel
+                            trailing: l(task.priority.fieldLabel)
                         )
                     }
                 }
@@ -477,7 +506,7 @@ public struct FieldAppShellView: View {
     }
 
     private var phasePanel: some View {
-        FieldPanel("Workflow", systemImage: "point.topleft.down.curvedto.point.bottomright.up", accent: FieldTheme.info) {
+        FieldPanel(l("Workflow"), systemImage: "point.topleft.down.curvedto.point.bottomright.up", accent: FieldTheme.info) {
             VStack(alignment: .leading, spacing: 10) {
                 if controller.runtime.device.appID == .emt || controller.runtime.device.appID == .emtIPad {
                     ForEach(controller.emtMedicalPhases) { phase in
@@ -493,13 +522,13 @@ public struct FieldAppShellView: View {
     }
 
     private var inboxPanel: some View {
-        FieldPanel("Received", systemImage: "tray.full", accent: FieldTheme.info) {
+        FieldPanel(l("Received"), systemImage: "tray.full", accent: FieldTheme.info) {
             VStack(spacing: 8) {
                 if controller.inboxItems.isEmpty {
                     emptyRow("No incoming items", systemImage: "tray")
                 } else {
                     ForEach(controller.inboxItems) { item in
-                        FieldTimelineRow(title: item.title, detail: item.detail, systemImage: item.systemImageName, accent: item.priority.fieldAccentColor, trailing: item.priority.fieldLabel)
+                        FieldTimelineRow(title: item.title, detail: item.detail, systemImage: item.systemImageName, accent: item.priority.fieldAccentColor, trailing: l(item.priority.fieldLabel))
                     }
                 }
             }
@@ -508,7 +537,7 @@ public struct FieldAppShellView: View {
 
     private var personnelPanel: some View {
         let statuses = controller.runtime.snapshot.latestPersonnelStatuses(onlineWithin: 300, now: Date())
-        return FieldPanel("Personnel", systemImage: "person.3.fill", accent: FieldTheme.team) {
+        return FieldPanel(l("Personnel"), systemImage: "person.3.fill", accent: FieldTheme.team) {
             VStack(spacing: 8) {
                 if statuses.isEmpty {
                     emptyRow("No personnel heartbeat", systemImage: "person.crop.circle.badge.questionmark")
@@ -516,7 +545,7 @@ public struct FieldAppShellView: View {
                     ForEach(Array(statuses.prefix(6)), id: \.id) { status in
                         FieldTimelineRow(
                             title: status.deviceID.rawValue,
-                            detail: "\(status.role.rawValue) / \(status.operationalState.rawValue) / \(status.currentWorksiteID?.rawValue ?? "no worksite")",
+                            detail: "\(status.role.rawValue) / \(status.operationalState.rawValue) / \(status.currentWorksiteID?.rawValue ?? l("no worksite"))",
                             systemImage: status.connectivity == .online ? "dot.radiowaves.left.and.right" : "wifi.slash",
                             accent: status.connectivity == .online ? FieldTheme.green : FieldTheme.warning,
                             trailing: batteryLabel(status.batteryLevel)
@@ -528,11 +557,11 @@ public struct FieldAppShellView: View {
     }
 
     private var mapStatusPanel: some View {
-        FieldPanel("Map", systemImage: "map.fill", accent: FieldTheme.green) {
+        FieldPanel(l("Map"), systemImage: "map.fill", accent: FieldTheme.green) {
             VStack(alignment: .leading, spacing: 12) {
                 if let fix = controller.latestGPSFix {
                     FieldTimelineRow(
-                        title: "Current GPS fix",
+                        title: l("Current GPS fix"),
                         detail: "\(fix.coordinate.latitude.formatted(.number.precision(.fractionLength(4)))), \(fix.coordinate.longitude.formatted(.number.precision(.fractionLength(4)))) / \(fix.source.rawValue)",
                         systemImage: "location.fill",
                         accent: FieldTheme.green,
@@ -567,11 +596,11 @@ public struct FieldAppShellView: View {
                 .frame(width: 28, height: 28)
                 .background(locationAccent.opacity(0.14), in: Circle())
             VStack(alignment: .leading, spacing: 3) {
-                Text(locationService.statusTitle)
+                Text(l(locationService.statusTitle))
                     .font(.subheadline.weight(.semibold))
                     .lineLimit(1)
                     .minimumScaleFactor(0.82)
-                Text(locationService.statusDetail)
+                Text(l(locationService.statusDetail))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
@@ -580,7 +609,7 @@ public struct FieldAppShellView: View {
             Button {
                 locationService.requestCurrentFix()
             } label: {
-                Label(locationService.isRequestingFix ? "Locating" : "Refresh", systemImage: "location.fill.viewfinder")
+                Label(locationService.isRequestingFix ? l("Locating") : l("Refresh"), systemImage: "location.fill.viewfinder")
                     .font(.caption.weight(.semibold))
                     .lineLimit(1)
                     .minimumScaleFactor(0.82)
@@ -606,9 +635,9 @@ public struct FieldAppShellView: View {
 
     private var mapMarkupControls: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Picker("Mode", selection: $mapMarkup.drawingMode) {
+            Picker(l("Mode"), selection: $mapMarkup.drawingMode) {
                 ForEach(MapDrawingMode.allCases) { mode in
-                    Label(mode.fieldTitle, systemImage: mode.fieldIconName).tag(mode)
+                    Label(l(mode.fieldTitle), systemImage: mode.fieldIconName).tag(mode)
                 }
             }
             .pickerStyle(.segmented)
@@ -617,7 +646,7 @@ public struct FieldAppShellView: View {
                 HStack(spacing: 8) {
                     ForEach([MapDrawingMode.point, .polyline, .polygon]) { mode in
                         mapControlButton(
-                            mode.fieldTitle,
+                            l(mode.fieldTitle),
                             systemImage: mode.fieldIconName,
                             accent: mapMarkup.visibleLayers.contains(mode) ? mode.fieldAccent : .secondary,
                             isEnabled: true
@@ -625,16 +654,16 @@ public struct FieldAppShellView: View {
                             mapMarkup.toggleLayer(mode)
                         }
                     }
-                    mapControlButton("Undo", systemImage: "arrow.uturn.backward.circle.fill", accent: FieldTheme.info, isEnabled: mapMarkup.canUndo) {
+                    mapControlButton(l("Undo"), systemImage: "arrow.uturn.backward.circle.fill", accent: FieldTheme.info, isEnabled: mapMarkup.canUndo) {
                         mapMarkup.undo()
                     }
-                    mapControlButton("Redo", systemImage: "arrow.uturn.forward.circle.fill", accent: FieldTheme.info, isEnabled: mapMarkup.canRedo) {
+                    mapControlButton(l("Redo"), systemImage: "arrow.uturn.forward.circle.fill", accent: FieldTheme.info, isEnabled: mapMarkup.canRedo) {
                         mapMarkup.redo()
                     }
-                    mapControlButton("Cancel", systemImage: "xmark.circle.fill", accent: FieldTheme.warning, isEnabled: mapMarkup.draftGeometry != nil) {
+                    mapControlButton(l("Cancel"), systemImage: "xmark.circle.fill", accent: FieldTheme.warning, isEnabled: mapMarkup.draftGeometry != nil) {
                         mapMarkup.cancelDraft()
                     }
-                    mapControlButton("Commit", systemImage: "checkmark.circle.fill", accent: FieldTheme.green, isEnabled: mapMarkup.draftGeometry != nil) {
+                    mapControlButton(l("Commit"), systemImage: "checkmark.circle.fill", accent: FieldTheme.green, isEnabled: mapMarkup.draftGeometry != nil) {
                         commitMapDraft()
                     }
                 }
@@ -650,7 +679,7 @@ public struct FieldAppShellView: View {
                 ForEach(Array(mapMarkup.features.suffix(5).reversed()), id: \.id) { feature in
                     FieldTimelineRow(
                         title: feature.title,
-                        detail: "\(mapGeometryLabel(feature.geometry)) / \(feature.sectionID.displayName) / \(feature.searchState.displayName)",
+                        detail: "\(l(mapGeometryLabel(feature.geometry))) / \(feature.sectionID.displayName) / \(feature.searchState.displayName)",
                         systemImage: mapIconName(feature.geometry),
                         accent: mapAccent(feature.geometry),
                         trailing: shortTime(feature.updatedAt)
@@ -661,7 +690,7 @@ public struct FieldAppShellView: View {
     }
 
     private var safetyPanel: some View {
-        FieldPanel("Safety Control", systemImage: "shield.lefthalf.filled", accent: FieldTheme.warning) {
+        FieldPanel(l("Safety Control"), systemImage: "shield.lefthalf.filled", accent: FieldTheme.warning) {
             FieldAdaptiveGrid(minimum: 158) {
                 fieldAction("Hot Zone", detail: "Publish active danger zone", systemImage: "exclamationmark.triangle.fill", feature: .hazardZoneManagement, messageType: .safetyZoneUpsert, accent: FieldTheme.warning) {
                     try controller.queueSafetyZone(now: Date())
@@ -677,7 +706,7 @@ public struct FieldAppShellView: View {
     }
 
     private var communicationPanel: some View {
-        FieldPanel("Comms", systemImage: "message.fill", accent: FieldTheme.team) {
+        FieldPanel(l("Comms"), systemImage: "message.fill", accent: FieldTheme.team) {
             FieldAdaptiveGrid(minimum: 158) {
                 fieldAction("Chat", detail: "Queue group message", systemImage: "message.fill", feature: .communicationChannel, messageType: .groupChatMessageAppend, accent: FieldTheme.team) {
                     try controller.queueGroupChat(body: chatMessageForRole, now: Date())
@@ -693,9 +722,9 @@ public struct FieldAppShellView: View {
     }
 
     private var reportPanel: some View {
-        FieldPanel("Field Reports", systemImage: "doc.text.image.fill", accent: FieldTheme.info) {
+        FieldPanel(l("Field Reports"), systemImage: "doc.text.image.fill", accent: FieldTheme.info) {
             FieldAdaptiveGrid(minimum: 158) {
-                FieldActionCard(title: "Photo", detail: "Capture and queue photo evidence", systemImage: "camera.fill", accent: FieldTheme.info, isEnabled: controller.canUseFeature(.photoReport) && controller.canSend(.photoReportUpsert)) {
+                FieldActionCard(title: l("Photo"), detail: l("Capture and queue photo evidence"), systemImage: "camera.fill", accent: FieldTheme.info, isEnabled: controller.canUseFeature(.photoReport) && controller.canSend(.photoReportUpsert)) {
                     openPhotoCapture(.scene)
                 }
                 fieldAction("Collapse", detail: "Report structural collapse", systemImage: "exclamationmark.bubble.fill", feature: .disasterReport, messageType: .disasterReportUpsert, accent: FieldTheme.warning) {
@@ -717,8 +746,8 @@ public struct FieldAppShellView: View {
         return Group {
             if visible {
                 FieldActionCard(
-                    title: "USAR Profile",
-                    detail: "Fill A/B/C/D team capability profile",
+                    title: l("USAR Profile"),
+                    detail: l("Fill A/B/C/D team capability profile"),
                     systemImage: "person.3.sequence.fill",
                     accent: FieldTheme.green,
                     isEnabled: enabled
@@ -730,7 +759,7 @@ public struct FieldAppShellView: View {
     }
 
     private var medicalOverviewPanel: some View {
-        FieldPanel("Medical Flow", systemImage: "cross.case.fill", accent: FieldTheme.medical) {
+        FieldPanel(l("Medical Flow"), systemImage: "cross.case.fill", accent: FieldTheme.medical) {
             VStack(spacing: 8) {
                 ForEach(controller.emtMedicalPhases) { phase in
                     FieldTimelineRow(title: phase.moduleName, detail: phase.capability, systemImage: "cross.case.fill", accent: FieldTheme.medical, trailing: phase.label)
@@ -740,7 +769,7 @@ public struct FieldAppShellView: View {
     }
 
     private var medicalActionPanel: some View {
-        FieldPanel("Patient Actions", systemImage: "heart.text.square.fill", accent: FieldTheme.medical) {
+        FieldPanel(l("Patient Actions"), systemImage: "heart.text.square.fill", accent: FieldTheme.medical) {
             FieldAdaptiveGrid(minimum: 158) {
                 fieldAction("Patient", detail: "Create field patient record", systemImage: "cross.case.fill", feature: .patientCreation, messageType: .patientUpsert, accent: FieldTheme.medical) {
                     try controller.queuePatientUpload(displayCode: "A023", triageCategory: .red, injurySummary: "Leg bleed", now: Date())
@@ -765,16 +794,16 @@ public struct FieldAppShellView: View {
     }
 
     private var outboxPanel: some View {
-        FieldPanel("Offline Queue", systemImage: "tray.full", accent: FieldTheme.green) {
+        FieldPanel(l("Offline Queue"), systemImage: "tray.full", accent: FieldTheme.green) {
             VStack(spacing: 8) {
                 HStack(spacing: 8) {
-                    TextField("Sync endpoint", text: $syncEndpointText)
+                    TextField(l("Sync endpoint"), text: $syncEndpointText)
                         .font(.caption.monospaced())
                         .textFieldStyle(.roundedBorder)
                     Button {
                         runSyncNow()
                     } label: {
-                        Label(isSyncing ? "Syncing" : "Sync Now", systemImage: "arrow.triangle.2.circlepath")
+                        Label(isSyncing ? l("Syncing") : l("Sync Now"), systemImage: "arrow.triangle.2.circlepath")
                             .lineLimit(1)
                             .minimumScaleFactor(0.82)
                     }
@@ -783,29 +812,29 @@ public struct FieldAppShellView: View {
                 }
                 if let syncResult = controller.lastSyncResult {
                     FieldTimelineRow(
-                        title: syncResult.attempted ? "Last Sync" : "Sync Idle",
-                        detail: "Delivered \(syncResult.deliveredEnvelopeIDs.count) / Failed \(syncResult.failedEnvelopeIDs.count) / Remaining \(syncResult.remainingPendingCount)",
+                        title: syncResult.attempted ? l("Last Sync") : l("Sync Idle"),
+                        detail: "\(l("Delivered")) \(syncResult.deliveredEnvelopeIDs.count) / \(l("Failed")) \(syncResult.failedEnvelopeIDs.count) / \(l("Remaining")) \(syncResult.remainingPendingCount)",
                         systemImage: syncResult.failedEnvelopeIDs.isEmpty ? "checkmark.icloud.fill" : "exclamationmark.icloud.fill",
                         accent: syncResult.failedEnvelopeIDs.isEmpty ? FieldTheme.green : FieldTheme.warning,
-                        trailing: syncResult.attempted ? "SYNC" : "IDLE"
+                        trailing: syncResult.attempted ? l("SYNC") : l("IDLE")
                     )
                 }
                 if let syncError = controller.lastSyncError {
                     FieldTimelineRow(
-                        title: "Sync Error",
+                        title: l("Sync Error"),
                         detail: syncError,
                         systemImage: "wifi.exclamationmark",
                         accent: FieldTheme.warning,
-                        trailing: "FAILED"
+                        trailing: l("FAILED")
                     )
                 }
                 if let persistenceError = controller.lastPersistenceError {
                     FieldTimelineRow(
-                        title: "Outbox Storage",
+                        title: l("Outbox Storage"),
                         detail: persistenceError,
                         systemImage: "externaldrive.badge.exclamationmark",
                         accent: FieldTheme.warning,
-                        trailing: "ERROR"
+                        trailing: l("ERROR")
                     )
                 }
                 if controller.queuedSummaries.isEmpty {
@@ -814,10 +843,10 @@ public struct FieldAppShellView: View {
                     ForEach(controller.queuedSummaries) { item in
                         FieldTimelineRow(
                             title: item.messageType.rawValue,
-                            detail: "Queued for sync / \(item.id.rawValue)",
+                            detail: "\(l("Queued for sync")) / \(item.id.rawValue)",
                             systemImage: iconName(for: item.messageType),
                             accent: item.priority.fieldAccentColor,
-                            trailing: item.priority.fieldLabel
+                            trailing: l(item.priority.fieldLabel)
                         )
                     }
                 }
@@ -826,7 +855,7 @@ public struct FieldAppShellView: View {
     }
 
     private var eventLogPanel: some View {
-        FieldPanel("Event Log", systemImage: "clock.arrow.circlepath", accent: FieldTheme.info) {
+        FieldPanel(l("Event Log"), systemImage: "clock.arrow.circlepath", accent: FieldTheme.info) {
             VStack(spacing: 8) {
                 let events = controller.runtime.snapshot.auditEvents.suffix(8).reversed()
                 if events.isEmpty {
@@ -859,7 +888,7 @@ public struct FieldAppShellView: View {
         let enabled = visible && controller.canUseFeature(feature) && controller.canSend(messageType)
         return Group {
             if visible {
-                FieldActionCard(title: title, detail: detail, systemImage: systemImage, accent: accent, isEnabled: enabled) {
+                FieldActionCard(title: l(title), detail: l(detail), systemImage: systemImage, accent: accent, isEnabled: enabled) {
                     runAction(title, action)
                 }
             }
@@ -869,17 +898,17 @@ public struct FieldAppShellView: View {
     private func runAction(_ title: String, _ action: () throws -> SyncEnvelope) {
         do {
             _ = try action()
-            statusText = "Queued \(title)"
+            statusMessage = .queued(title)
             statusAccent = FieldTheme.green
         } catch {
-            statusText = "Blocked \(title)"
+            statusMessage = .blocked(title)
             statusAccent = FieldTheme.warning
         }
     }
 
     private func openTeamCapabilityForm() {
         guard controller.canUseFeature(.teamCapabilityOverview), controller.canSend(.teamCapabilityReportUpsert) else {
-            statusText = "Blocked USAR Profile"
+            statusMessage = .blocked("USAR Profile")
             statusAccent = FieldTheme.warning
             return
         }
@@ -890,19 +919,19 @@ public struct FieldAppShellView: View {
     private func submitTeamCapabilityReport(_ report: USARTeamCapabilityReport) {
         do {
             _ = try controller.queueTeamCapabilityReport(report, now: report.createdAt)
-            statusText = "Queued USAR Profile"
+            statusMessage = .queued("USAR Profile")
             statusAccent = FieldTheme.green
             showingTeamCapabilityForm = false
             teamCapabilityDraft = nil
         } catch {
-            statusText = "Blocked USAR Profile"
+            statusMessage = .blocked("USAR Profile")
             statusAccent = FieldTheme.warning
         }
     }
 
     private func openPhotoCapture(_ preset: FieldPhotoCapturePreset) {
         guard controller.canUseFeature(.photoReport), controller.canSend(.photoReportUpsert) else {
-            statusText = "Blocked Photo"
+            statusMessage = .blocked("Photo")
             statusAccent = FieldTheme.warning
             return
         }
@@ -920,12 +949,12 @@ public struct FieldAppShellView: View {
                 now: Date()
             )
             controller = updatingController
-            statusText = "Queued Photo"
+            statusMessage = .queued("Photo")
             statusAccent = FieldTheme.green
             showingPhotoCaptureSheet = false
         } catch {
             controller = updatingController
-            statusText = "Blocked Photo"
+            statusMessage = .blocked("Photo")
             statusAccent = FieldTheme.warning
         }
     }
@@ -937,13 +966,13 @@ public struct FieldAppShellView: View {
             let scheme = endpointURL.scheme?.lowercased(),
             scheme == "http" || scheme == "https"
         else {
-            statusText = "Bad Endpoint"
+            statusMessage = .badEndpoint
             statusAccent = FieldTheme.warning
             return
         }
 
         isSyncing = true
-        statusText = "Syncing"
+        statusMessage = .syncing
         statusAccent = FieldTheme.info
         Task { @MainActor in
             defer { isSyncing = false }
@@ -951,11 +980,11 @@ public struct FieldAppShellView: View {
             do {
                 let result = try await syncingController.syncQueuedEnvelopes(endpointURL: endpointURL, now: Date())
                 controller = syncingController
-                statusText = result.attempted ? "Synced \(result.deliveredEnvelopeIDs.count)" : "Sync Idle"
+                statusMessage = result.attempted ? .synced(result.deliveredEnvelopeIDs.count) : .syncIdle
                 statusAccent = result.failedEnvelopeIDs.isEmpty ? FieldTheme.green : FieldTheme.warning
             } catch {
                 controller = syncingController
-                statusText = "Sync Failed"
+                statusMessage = .syncFailed
                 statusAccent = FieldTheme.warning
             }
         }
@@ -1015,7 +1044,7 @@ public struct FieldAppShellView: View {
             polygonType: mapPolygonTypeForRole,
             now: Date()
         ) else {
-            statusText = "Map draft incomplete"
+            statusMessage = .mapDraftIncomplete
             statusAccent = FieldTheme.warning
             return
         }
@@ -1026,10 +1055,10 @@ public struct FieldAppShellView: View {
                 featureType: mapFeatureType(for: feature.geometry),
                 now: Date()
             )
-            statusText = "Queued Map"
+            statusMessage = .queued("Map")
             statusAccent = FieldTheme.green
         } catch {
-            statusText = "Saved Map"
+            statusMessage = .savedMap
             statusAccent = FieldTheme.warning
         }
     }
@@ -1206,7 +1235,7 @@ public struct FieldAppShellView: View {
         HStack(spacing: 10) {
             Image(systemName: systemImage)
                 .foregroundStyle(.secondary)
-            Text(title)
+                Text(l(title))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
             Spacer(minLength: 0)
@@ -1437,6 +1466,51 @@ public struct FieldAppShellView: View {
     }()
 }
 
+private enum FieldStatusMessage: Equatable {
+    case ready(code: String?)
+    case gpsUpdated
+    case gpsBlocked
+    case queued(String)
+    case blocked(String)
+    case badEndpoint
+    case syncing
+    case synced(Int)
+    case syncIdle
+    case syncFailed
+    case mapDraftIncomplete
+    case savedMap
+
+    func text(_ localization: FieldLocalization) -> String {
+        switch self {
+        case .ready(let code):
+            guard let code else { return localization.text("Ready") }
+            return "\(localization.text("Ready")) \(code)"
+        case .gpsUpdated:
+            return localization.text("GPS Updated")
+        case .gpsBlocked:
+            return localization.text("GPS Blocked")
+        case .queued(let title):
+            return "\(localization.text("Queued")) \(localization.text(title))"
+        case .blocked(let title):
+            return "\(localization.text("Blocked")) \(localization.text(title))"
+        case .badEndpoint:
+            return localization.text("Bad Endpoint")
+        case .syncing:
+            return localization.text("Syncing")
+        case .synced(let count):
+            return "\(localization.text("Synced")) \(count)"
+        case .syncIdle:
+            return localization.text("Sync Idle")
+        case .syncFailed:
+            return localization.text("Sync Failed")
+        case .mapDraftIncomplete:
+            return localization.text("Map draft incomplete")
+        case .savedMap:
+            return localization.text("Saved Map")
+        }
+    }
+}
+
 private enum FieldAppTab: String, Identifiable, Hashable {
     case overview
     case operations
@@ -1448,22 +1522,22 @@ private enum FieldAppTab: String, Identifiable, Hashable {
 
     var id: String { rawValue }
 
-    var title: String {
+    func title(_ localization: FieldLocalization) -> String {
         switch self {
         case .overview:
-            return "Overview"
+            return localization.text("Overview")
         case .operations:
-            return "Ops"
+            return localization.text("Ops")
         case .mapSafety:
-            return "Map"
+            return localization.text("Map")
         case .medical:
-            return "Medical"
+            return localization.text("Medical")
         case .comms:
-            return "Comms"
+            return localization.text("Comms")
         case .queue:
-            return "Queue"
+            return localization.text("Queue")
         case .settings:
-            return "Settings"
+            return localization.text("Settings")
         }
     }
 
@@ -1516,6 +1590,10 @@ public struct FieldLaunchIdentityOption: Identifiable, Equatable, Sendable {
 
     public var id: String { "\(appID.rawValue)-\(code)" }
     public var displayLabel: String { "\(code) / \(title)" }
+
+    public func displayLabel(_ localization: FieldLocalization) -> String {
+        "\(code) / \(localization.text(title))"
+    }
 
     public static let unifiedIPhoneOptions: [FieldLaunchIdentityOption] = [
         FieldLaunchIdentityOption(appID: .teamLeader, platform: .iPhone, deviceID: "IOS-TL-01", displayName: "LinkGuard TL / 分隊長", code: "TL-01", title: "分隊長", detail: "小隊指揮與任務派遣"),
@@ -1579,6 +1657,7 @@ private struct FieldIdentityPickerOverlay: View {
     let options: [FieldLaunchIdentityOption]
     let title: String
     let subtitle: String
+    @ObservedObject var localization: FieldLocalization
     let accent: Color
     let onSelect: (FieldLaunchIdentityOption) -> Void
 
@@ -1616,10 +1695,10 @@ private struct FieldIdentityPickerOverlay: View {
                                     .padding(.vertical, 7)
                                     .background(accent, in: RoundedRectangle(cornerRadius: 6))
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text(option.title)
+                                    Text(localization.text(option.title))
                                         .font(.subheadline.weight(.semibold))
                                         .foregroundStyle(.primary)
-                                    Text(option.detail)
+                                    Text(localization.text(option.detail))
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                 }
