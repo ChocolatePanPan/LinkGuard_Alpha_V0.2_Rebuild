@@ -4,11 +4,14 @@ import SwiftUI
 
 struct FieldDisasterView: View {
     @ObservedObject var vm: LinkGuardViewModel
+    var role: V02FieldRole = .current
     @State private var showHazardReport = false
 
     var body: some View {
         ScrollView {
-            if let site = vm.disasterSite {
+            if !role.can(.overallDisaster) {
+                limitedReportContent
+            } else if let site = vm.disasterSite {
                 VStack(alignment: .leading, spacing: 16) {
                     // 建物資訊
                     GroupBox(label: Label(L("建物資訊"), systemImage: "building.2")) {
@@ -152,6 +155,7 @@ struct FieldDisasterView: View {
         .outerNavigationTitle(L("全區災情概況"))
         #if os(iOS)
         .toolbar {
+            if role.can(.hazardReport) {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button {
                     showHazardReport = true
@@ -160,12 +164,45 @@ struct FieldDisasterView: View {
                 }
                 .disabled(!vm.commandClient.isConnected)
             }
+            }
         }
         #endif
         .contentMargins(.top, 0, for: .scrollContent)
         .sheet(isPresented: $showHazardReport) {
             HazardReportSheet(vm: vm)
         }
+    }
+
+    private var limitedReportContent: some View {
+        VStack(spacing: 16) {
+            Image(systemName: role == .vo ? "hands.sparkles.fill" : "figure.run.circle.fill")
+                .font(.system(size: 52))
+                .foregroundColor(NV.warning)
+
+            VStack(spacing: 6) {
+                Text(role == .vo ? L("志工災情回報") : L("第一線危險回報"))
+                    .font(.title3.bold())
+                Text(role == .vo ? L("可回報火災、倒塌、危險或照片位置；完整戰術資訊由指揮端控管。") : L("可回報危險點與現場狀況；分區、路線與戰術資訊由小隊長或指揮端控管。"))
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
+            }
+
+            Button {
+                showHazardReport = true
+            } label: {
+                Label(L("回報危險 / 災情"), systemImage: "exclamationmark.triangle.fill")
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(NV.warning)
+            .disabled(!vm.commandClient.isConnected)
+            .padding(.horizontal, 24)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 100)
     }
 }
 

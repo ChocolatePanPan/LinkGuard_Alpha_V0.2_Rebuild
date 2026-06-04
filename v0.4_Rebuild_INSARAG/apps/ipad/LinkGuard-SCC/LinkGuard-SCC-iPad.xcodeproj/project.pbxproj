@@ -180,7 +180,8 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 301023;
 				ENABLE_DEBUG_DYLIB = NO;
-				GENERATE_INFOPLIST_FILE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "../../../shared/Info-Field.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "LinkGuard SCC iPad";
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "LinkGuard 需要藍牙來連線搜救人員的 LoRa 裝置，實時監測生命徵象與傳輸指揮命令";
 				INFOPLIST_KEY_NSCameraUsageDescription = "LinkGuard 需要相機來拍攝現場照片回報";
@@ -213,7 +214,8 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 301023;
-				GENERATE_INFOPLIST_FILE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "../../../shared/Info-Field.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "LinkGuard SCC iPad";
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "LinkGuard 需要藍牙來連線搜救人員的 LoRa 裝置，實時監測生命徵象與傳輸指揮命令";
 				INFOPLIST_KEY_NSCameraUsageDescription = "LinkGuard 需要相機來拍攝現場照片回報";

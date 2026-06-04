@@ -39,7 +39,21 @@ private enum USARFieldRoleMode: String, CaseIterable, Identifiable {
 
 struct USARFieldRoleView: View {
     @ObservedObject var vm: LinkGuardViewModel
+    var launchRole: V02FieldRole = .current
     @State private var roleMode: USARFieldRoleMode = .squadLeader
+
+    private var availableModes: [USARFieldRoleMode] {
+        switch launchRole {
+        case .ucc:
+            return [.sectorCommander]
+        case .scc:
+            return USARFieldRoleMode.allCases
+        case .tl:
+            return [.squadLeader]
+        case .te, .emt, .vo:
+            return []
+        }
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -48,7 +62,7 @@ struct USARFieldRoleView: View {
             }
 
             Picker(L("角色"), selection: $roleMode) {
-                ForEach(USARFieldRoleMode.allCases) { mode in
+                ForEach(availableModes) { mode in
                     Label(mode.title, systemImage: mode.icon).tag(mode)
                 }
             }
@@ -71,6 +85,7 @@ struct USARFieldRoleView: View {
         .outerNavigationTitle(L("USAR 指揮鏈"))
         .onAppear { syncRoleModeFromAssignment() }
         .onChange(of: vm.currentUSARRoleScope?.role) { _, _ in syncRoleModeFromAssignment() }
+        .onChange(of: launchRole) { _, _ in syncRoleModeFromAssignment() }
     }
 
     private func activeRoleBanner(_ scope: USARRoleScope) -> some View {
@@ -94,8 +109,11 @@ struct USARFieldRoleView: View {
     }
 
     private func syncRoleModeFromAssignment() {
-        if let assigned = USARFieldRoleMode(role: vm.currentUSARRoleScope?.role) {
+        if let assigned = USARFieldRoleMode(role: vm.currentUSARRoleScope?.role),
+           availableModes.contains(assigned) {
             roleMode = assigned
+        } else if let firstMode = availableModes.first {
+            roleMode = firstMode
         }
     }
 }

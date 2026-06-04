@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>CFBundleDisplayName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleVersion</key>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>NFCReaderUsageDescription</key>
+	<string>LinkGuard 需要 NFC 來讀取與寫入傷患識別標籤，協助現場快速回報傷患資訊</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>LinkGuard 需要藍牙來連線搜救人員的 LoRa 裝置，實時監測生命徵象與傳輸指揮命令</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_linkguard-hq._tcp</string>
+		<string>_linkguardpy._tcp</string>
+	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>LinkGuard 需要相機來拍攝現場照片回報</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>LinkGuard 需要區域網路來連線 Mac HQ 指揮中心、上傳照片回報、以及接收即時語音廣播</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>LinkGuard 在背景執行時持續回報您的位置給指揮中心，確保搜救任務的即時定位追蹤</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>LinkGuard 需要定位服務來回報您的位置給指揮中心</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>LinkGuard 需要麥克風來進行語音輸入，以快速填寫傷員回報資訊</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>LinkGuard 需要存取相簿來選取現場照片進行回報</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>LinkGuard 需要語音辨識權限以進行即時語音轉文字</string>
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<false/>
+	</dict>
+	<key>UIApplicationSupportsIndirectInputEvents</key>
+	<true/>
+	<key>UILaunchScreen</key>
+	<dict/>
+</dict>
+</plist>

@@ -9,44 +9,67 @@ enum AppTab: Hashable {
 struct ContentView: View {
     @StateObject private var viewModel = LinkGuardViewModel()
     @EnvironmentObject private var l10n: L10n
+    @AppStorage(V02LaunchIdentity.selectedIDKey) private var selectedIdentityID = ""
     @State private var selectedTab: AppTab = .dashboard
     @State private var cameFromDashboard = false
     @State private var externalAlarm: ExternalAlarmPresentation?
 
+    private var currentRole: V02FieldRole {
+        if let identity = V02LaunchIdentity.find(selectedIdentityID) {
+            return identity.role
+        }
+        return .current
+    }
+
     private func navLabel(_ zh: String, en: String) -> String {
         l10n.language.hasPrefix("en") ? en : zh
+    }
+
+    private func isTabAllowed(_ tab: AppTab) -> Bool {
+        currentRole.canAccessTab(tab)
     }
 
     var body: some View {
         ZStack {
             TabView(selection: $selectedTab) {
                     Tab(L("總覽"), systemImage: "gauge.with.dots.needle.33percent", value: AppTab.dashboard) {
-                        DashboardView(vm: viewModel, selectedTab: $selectedTab, cameFromDashboard: $cameFromDashboard)
+                        DashboardView(vm: viewModel, selectedTab: $selectedTab, cameFromDashboard: $cameFromDashboard, role: currentRole)
                     }
-                    TabSection("AI") {
-                        Tab("AI", systemImage: viewModel.isAIServicePaused ? "pause.circle" : "sparkles", value: AppTab.ai) {
-                            AIHubView(vm: viewModel)
-                                .navigationBarTitleDisplayMode(.inline)
+                    if isTabAllowed(.ai) {
+                        TabSection("AI") {
+                            Tab("AI", systemImage: viewModel.isAIServicePaused ? "pause.circle" : "sparkles", value: AppTab.ai) {
+                                AIHubView(vm: viewModel, role: currentRole)
+                                    .navigationBarTitleDisplayMode(.inline)
+                            }
                         }
                     }
-                    TabSection(navLabel("通訊", en: "Messages")) {
+                    if isTabAllowed(.notifications) || isTabAllowed(.communication) {
+                        TabSection(navLabel("通訊", en: "Messages")) {
+                        if isTabAllowed(.notifications) {
                         Tab(L("通知"), systemImage: "bell.fill", value: AppTab.notifications) {
                             FieldNotificationView(vm: viewModel)
                                 .navigationBarTitleDisplayMode(.inline)
                         }
                         .badge(viewModel.unreadNotificationCount)
+                        }
+                        if isTabAllowed(.communication) {
                         Tab(navLabel("通訊", en: "Comms"), systemImage: "antenna.radiowaves.left.and.right", value: AppTab.communication) {
-                            CommunicationHubView(vm: viewModel)
+                            CommunicationHubView(vm: viewModel, role: currentRole)
                                 .navigationBarTitleDisplayMode(.inline)
                         }
                         .badge(viewModel.chatMessages.count)
+                        }
+                        }
                     }
+                    if isTabAllowed(.disaster) {
                     Tab(L("災情"), systemImage: "building.2", value: AppTab.disaster) {
-                        FieldDisasterView(vm: viewModel)
+                        FieldDisasterView(vm: viewModel, role: currentRole)
                             .navigationTitle(L("全區災情概況"))
                             .navigationBarTitleDisplayMode(.inline)
                             .toolbarBackground(.visible, for: .navigationBar)
                     }
+                    }
+                    if isTabAllowed(.sos) {
                     Tab("SOS", systemImage: "sos.circle.fill", value: AppTab.sos) {
                         SOSRecordListView(vm: viewModel)
                             .navigationTitle(L("SOS 警報"))
@@ -54,6 +77,8 @@ struct ContentView: View {
                             .toolbarBackground(.visible, for: .navigationBar)
                     }
                     .badge(viewModel.unacknowledgedSOSCount)
+                    }
+                    if isTabAllowed(.decision) {
                     Tab(navLabel("指揮命令", en: "Orders"), systemImage: "brain.head.profile", value: AppTab.decision) {
                         DecisionView(vm: viewModel)
                             .navigationTitle(L("指揮決策"))
@@ -61,20 +86,26 @@ struct ContentView: View {
                             .toolbarBackground(.visible, for: .navigationBar)
                     }
                     .badge(viewModel.decisions.count + viewModel.unreadCommandCount)
+                    }
+                    if isTabAllowed(.squadLeader) {
                     Tab("USAR", systemImage: "figure.run.circle.fill", value: AppTab.squadLeader) {
-                        USARFieldRoleView(vm: viewModel)
+                        USARFieldRoleView(vm: viewModel, launchRole: currentRole)
                             .navigationTitle(L("USAR 指揮鏈"))
                             .navigationBarTitleDisplayMode(.inline)
                             .toolbarBackground(.visible, for: .navigationBar)
                     }
                     .badge(viewModel.visibleUSARTasks.count)
+                    }
                     TabSection(L("其他")) {
+                        if isTabAllowed(.victims) {
                         Tab(L("受困者"), systemImage: "person.fill.questionmark", value: AppTab.victims) {
                             VictimListView(vm: viewModel)
                                 .navigationTitle(L("受困者列表"))
                                 .navigationBarTitleDisplayMode(.inline)
                                 .toolbarBackground(.visible, for: .navigationBar)
                         }
+                        }
+                        if isTabAllowed(.reinforcement) {
                         Tab(L("增援"), systemImage: "person.badge.plus", value: AppTab.reinforcement) {
                             ReinforcementListView(vm: viewModel)
                                 .navigationTitle(L("增援請求"))
@@ -82,55 +113,72 @@ struct ContentView: View {
                                 .toolbarBackground(.visible, for: .navigationBar)
                         }
                         .badge(viewModel.pendingReinforcementCount)
+                        }
+                        if isTabAllowed(.team) {
                         Tab(L("團隊"), systemImage: "person.3.sequence.fill", value: AppTab.team) {
                             TeamListView(vm: viewModel)
                                 .navigationTitle(L("分隊通訊群組"))
                                 .navigationBarTitleDisplayMode(.inline)
                                 .toolbarBackground(.visible, for: .navigationBar)
                         }
+                        }
+                        if isTabAllowed(.personnelAssignment) {
                         Tab(L("人員指派"), systemImage: "person.badge.key.fill", value: AppTab.personnelAssignment) {
                             PersonnelAssignmentView(vm: viewModel)
                                 .navigationTitle(L("人員指派"))
                                 .navigationBarTitleDisplayMode(.inline)
                                 .toolbarBackground(.visible, for: .navigationBar)
                         }
+                        }
+                        if isTabAllowed(.patientForm) {
                         Tab(L("傷員回報"), systemImage: "heart.text.square", value: AppTab.patientForm) {
                             PatientFormView(vm: viewModel)
                                 .navigationTitle(L("傷員回報"))
                                 .navigationBarTitleDisplayMode(.inline)
                                 .toolbarBackground(.visible, for: .navigationBar)
                         }
+                        }
+                        if isTabAllowed(.capabilityReport) {
                         Tab(L("能力概況"), systemImage: "person.3.fill", value: AppTab.capabilityReport) {
                             TeamCapabilityReportView(vm: viewModel)
                                 .navigationTitle(L("隊伍能力概況表"))
                                 .navigationBarTitleDisplayMode(.inline)
                                 .toolbarBackground(.visible, for: .navigationBar)
                         }
+                        }
+                        if isTabAllowed(.nfcReader) {
                         Tab(L("NFC 讀取"), systemImage: "wave.3.right.circle.fill", value: AppTab.nfcReader) {
                             NFCReaderView(vm: viewModel)
                                 .navigationTitle(L("NFC 讀取"))
                                 .navigationBarTitleDisplayMode(.inline)
                                 .toolbarBackground(.visible, for: .navigationBar)
                         }
+                        }
+                        if isTabAllowed(.translator) {
                         Tab(L("翻譯"), systemImage: "globe", value: AppTab.translator) {
                             TranslatorView(vm: viewModel)
                                 .navigationTitle(L("翻譯"))
                                 .navigationBarTitleDisplayMode(.inline)
                                 .toolbarBackground(.visible, for: .navigationBar)
                         }
+                        }
+                        if isTabAllowed(.hospitals) {
                         Tab(L("救援點位"), systemImage: "mappin.and.ellipse", value: AppTab.hospitals) {
                             FieldHospitalView()
                             .navigationTitle(L("救援點位"))
                                 .navigationBarTitleDisplayMode(.inline)
                                 .toolbarBackground(.visible, for: .navigationBar)
                         }
+                        }
                     }
                     TabSection(navLabel("工具", en: "Tools")) {
+                        if isTabAllowed(.photo) {
                         Tab(L("照片"), systemImage: "photo.on.rectangle.angled", value: AppTab.photo) {
                             PhotoReportView(vm: viewModel)
                                 .navigationTitle(L("照片/影片回報"))
                                 .navigationBarTitleDisplayMode(.inline)
                                 .toolbarBackground(.visible, for: .navigationBar)
+                        }
                         }
                         Tab(L("設定"), systemImage: "gearshape", value: AppTab.connection) {
                             ConnectionView(vm: viewModel)
@@ -143,6 +191,16 @@ struct ContentView: View {
             .id("tabview-lang-\(l10n.language)")
             .onChange(of: selectedTab) { oldValue, newValue in
                 if newValue == .dashboard {
+                    cameFromDashboard = false
+                }
+                if !isTabAllowed(newValue) {
+                    selectedTab = .dashboard
+                    cameFromDashboard = false
+                }
+            }
+            .onChange(of: selectedIdentityID) { _, _ in
+                if !isTabAllowed(selectedTab) {
+                    selectedTab = .dashboard
                     cameFromDashboard = false
                 }
             }
@@ -255,7 +313,10 @@ struct ContentView: View {
             body: notification.userInfo?["body"] as? String ?? "",
             categoryIdentifier: notification.userInfo?["categoryIdentifier"] as? String ?? ""
         )
-        selectedTab = alarm.targetTab
+        selectedTab = isTabAllowed(alarm.targetTab) ? alarm.targetTab : .notifications
+        if !isTabAllowed(selectedTab) {
+            selectedTab = .dashboard
+        }
         externalAlarm = alarm
     }
 }
@@ -379,12 +440,23 @@ struct ExternalAlarmOverlay: View {
 
 struct CommunicationHubView: View {
     @ObservedObject var vm: LinkGuardViewModel
+    var role: V02FieldRole = .current
     @EnvironmentObject private var l10n: L10n
     @State private var mode: CommunicationHubMode = .message
     @AppStorage("commSplitEnabled") private var commSplitEnabled = false
     @Environment(\.horizontalSizeClass) private var sizeClass
 
-    private var isSplitMode: Bool { commSplitEnabled && sizeClass == .regular }
+    private var isSplitMode: Bool { commSplitEnabled && sizeClass == .regular && role.can(.radioMonitor) }
+    private var availableModes: [CommunicationHubMode] {
+        var modes: [CommunicationHubMode] = [.message]
+        if role.can(.radioMonitor) {
+            modes.append(.live)
+        }
+        if role.can(.voiceReport) {
+            modes.append(.report)
+        }
+        return modes
+    }
 
     private enum CommunicationHubMode: Hashable, CaseIterable {
         case message, live, report
@@ -409,7 +481,7 @@ struct CommunicationHubView: View {
             } else {
                 VStack(spacing: 0) {
                     Picker(L("通訊"), selection: $mode) {
-                        ForEach(CommunicationHubMode.allCases, id: \.self) { item in
+                        ForEach(availableModes, id: \.self) { item in
                             Text(modeTitle(item)).tag(item)
                         }
                     }
@@ -435,6 +507,14 @@ struct CommunicationHubView: View {
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbarBackground(.visible, for: .navigationBar)
             }
+        }
+        .onAppear { clampMode() }
+        .onChange(of: role) { _, _ in clampMode() }
+    }
+
+    private func clampMode() {
+        if !availableModes.contains(mode) {
+            mode = availableModes.first ?? .message
         }
     }
 
@@ -468,11 +548,25 @@ struct CommunicationHubView: View {
 
 struct AIHubView: View {
     @ObservedObject var vm: LinkGuardViewModel
+    var role: V02FieldRole = .current
     @EnvironmentObject private var l10n: L10n
     @State private var mode: AIHubMode = .communication
 
     private enum AIHubMode: Hashable, CaseIterable {
         case communication, assistant, report
+    }
+
+    private var availableModes: [AIHubMode] {
+        var modes: [AIHubMode] = []
+        if role.can(.aiStrategic) || role.can(.aiField) {
+            modes.append(.communication)
+            modes.append(.assistant)
+            modes.append(.report)
+        } else if role.can(.aiPatient) {
+            modes.append(.assistant)
+            modes.append(.report)
+        }
+        return modes.isEmpty ? [.assistant] : modes
     }
 
     private func navLabel(_ zh: String, en: String) -> String {
@@ -491,7 +585,7 @@ struct AIHubView: View {
         NavigationStack {
             VStack(spacing: 0) {
                 Picker("AI", selection: $mode) {
-                    ForEach(AIHubMode.allCases, id: \.self) { item in
+                    ForEach(availableModes, id: \.self) { item in
                         Text(modeTitle(item)).tag(item)
                     }
                 }
@@ -517,6 +611,14 @@ struct AIHubView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.visible, for: .navigationBar)
         }
+        .onAppear { clampMode() }
+        .onChange(of: role) { _, _ in clampMode() }
+    }
+
+    private func clampMode() {
+        if !availableModes.contains(mode) {
+            mode = availableModes.first ?? .assistant
+        }
     }
 }
 
@@ -526,11 +628,14 @@ struct DashboardView: View {
     @ObservedObject var vm: LinkGuardViewModel
     @Binding var selectedTab: AppTab
     @Binding var cameFromDashboard: Bool
+    let role: V02FieldRole
     @Environment(\.horizontalSizeClass) private var sizeClass
+    @EnvironmentObject private var l10n: L10n
     @State private var showHandoverSummary = false
     @State private var showQuickGuide = false
 
     private var isWide: Bool { sizeClass == .regular }
+    private var isEnglish: Bool { l10n.language.hasPrefix("en") }
     private var gridColumns: [GridItem] {
         Array(repeating: GridItem(.flexible()), count: isWide ? 4 : 2)
     }
@@ -590,9 +695,13 @@ struct DashboardView: View {
                     }
                     .padding([.horizontal, .bottom])
 
+                    RoleCapabilityBanner(role: role, isEnglish: isEnglish)
+                        .padding(.horizontal)
+
                     // 統計卡片（iPad 4欄，iPhone 2欄）
                     GlassEffectContainer(spacing: 8) {
                         LazyVGrid(columns: gridColumns, spacing: 12) {
+                            if role.canAccessTab(.victims) {
                             StatCard(title: L("受困者"),
                                      value: "\(vm.onlineVictimCount)/\(vm.victims.count)",
                                      icon: "person.wave.2")
@@ -601,22 +710,32 @@ struct DashboardView: View {
                                      value: "\(vm.localPatients.count)",
                                      icon: "heart.text.square")
                             .onTapGesture { cameFromDashboard = true; selectedTab = .victims }
+                            }
+                            if role.canAccessTab(.sos) {
                             StatCard(title: "SOS",
                                      value: "\(vm.sosVictimCount)",
                                      icon: "sos.circle.fill")
                             .onTapGesture { cameFromDashboard = true; selectedTab = .sos }
+                            }
+                            if role.canAccessTab(.team) {
                             StatCard(title: L("團隊"),
                                      value: "\(vm.onlineTeamCount)/\(vm.teamMembers.count)",
                                      icon: "person.3.fill")
                             .onTapGesture { cameFromDashboard = true; selectedTab = .team }
+                            }
+                            if role.canAccessTab(.reinforcement) {
                             StatCard(title: L("增援"),
                                      value: "\(vm.pendingReinforcementCount)",
                                      icon: "person.badge.plus")
                             .onTapGesture { cameFromDashboard = true; selectedTab = .reinforcement }
+                            }
+                            if role.canAccessTab(.communication) {
                             StatCard(title: L("訊息"),
                                      value: "\(vm.chatMessages.count)",
                                      icon: "bubble.left.and.bubble.right.fill")
                             .onTapGesture { cameFromDashboard = true; selectedTab = .communication }
+                            }
+                            if role.canAccessTab(.decision) {
                             StatCard(title: L("命令"),
                                      value: "\(vm.unreadCommandCount)",
                                      icon: "megaphone.fill")
@@ -624,6 +743,7 @@ struct DashboardView: View {
                             StatCard(title: L("任務"),
                                      value: "\(vm.activeTaskCount)",
                                      icon: "checklist")
+                            }
                         }
                     }
                     .padding(.horizontal)
@@ -653,6 +773,7 @@ struct DashboardView: View {
                     .padding(.horizontal)
 
                     // 快速狀態回報
+                    if role != .ucc {
                     VStack(alignment: .leading, spacing: 10) {
                         Text(L("快速狀態回報"))
                             .font(.headline)
@@ -678,8 +799,10 @@ struct DashboardView: View {
                         }
                         .padding(.horizontal)
                     }
+                    }
 
                     // SOS 緊急按鈕
+                    if role.can(.sosCreate) {
                     VStack(spacing: 10) {
                         if vm.isSOSActive {
                             Button {
@@ -713,9 +836,10 @@ struct DashboardView: View {
                         }
                     }
                     .padding(.horizontal)
+                    }
 
                     // 全員撤離警報（連線 HQ 時顯示）
-                    if vm.commandClient.isConnected {
+                    if vm.commandClient.isConnected && (role == .scc || role == .tl) {
                         EvacuationAlertButton(vm: vm)
                             .padding(.horizontal)
                     }
@@ -751,7 +875,7 @@ struct DashboardView: View {
                     }
 
                     // 待處理任務
-                    if !vm.tasks.filter(\.isActive).isEmpty {
+                    if !vm.tasks.filter(\.isActive).isEmpty && (role.can(.taskReceive) || role.can(.taskManagement)) {
                         VStack(alignment: .leading, spacing: 10) {
                             Text(L("待處理任務 (%lld)", vm.activeTaskCount))
                                 .font(.headline)
@@ -797,7 +921,7 @@ struct DashboardView: View {
                     }
 
                     // 危險標記警示
-                    if !vm.hazardReports.isEmpty {
+                    if !vm.hazardReports.isEmpty && role.can(.hazardReport) {
                         VStack(alignment: .leading, spacing: 10) {
                             Text(L("危險標記 (%lld)", vm.hazardReports.count))
                                 .font(.headline)
@@ -833,6 +957,7 @@ struct DashboardView: View {
                     }
 
                     // 受困者即時狀態（iPad 顯示全部，用 Grid；iPhone 顯示前 3 個）
+                    if role.can(.teamOverview) || role.can(.patientMonitoring) || role == .ucc {
                     VStack(alignment: .leading, spacing: 10) {
                         Text(L("受困者即時狀態"))
                             .font(.headline)
@@ -865,9 +990,10 @@ struct DashboardView: View {
                             }
                         }
                     }
+                    }
 
                     // 已回報傷患（表單填寫的詳細傷患資料）
-                    if !vm.localPatients.isEmpty {
+                    if !vm.localPatients.isEmpty && (role.can(.patientCreate) || role.can(.patientMonitoring)) {
                         VStack(alignment: .leading, spacing: 10) {
                             HStack {
                                 Text(L("已回報傷患"))
@@ -899,6 +1025,7 @@ struct DashboardView: View {
                     }
 
                     // 交班摘要
+                    if role.can(.eventLog) {
                     Button {
                         showHandoverSummary = true
                     } label: {
@@ -914,6 +1041,7 @@ struct DashboardView: View {
                     }
                     .tint(.primary)
                     .padding(.horizontal)
+                    }
                 }
                 .padding(.bottom)
             }
@@ -924,6 +1052,60 @@ struct DashboardView: View {
             .sheet(isPresented: $showQuickGuide) {
                 QuickGuideView()
             }
+        }
+    }
+}
+
+private struct RoleCapabilityBanner: View {
+    let role: V02FieldRole
+    let isEnglish: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 10) {
+                Image(systemName: roleIcon)
+                    .font(.title3)
+                    .foregroundColor(NV.green)
+                    .frame(width: 34, height: 34)
+                    .background(NV.green.opacity(0.16), in: RoundedRectangle(cornerRadius: 9))
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("\(role.rawValue) · \(role.title(isEnglish: isEnglish))")
+                        .font(.headline)
+                    Text(role.summary(isEnglish: isEnglish))
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+            }
+
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 92), spacing: 8)], spacing: 8) {
+                ForEach(role.coreFocus(isEnglish: isEnglish), id: \.self) { item in
+                    Text(item)
+                        .font(.caption.bold())
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                        .frame(maxWidth: .infinity)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 6)
+                        .background(NV.green.opacity(0.12), in: Capsule())
+                        .foregroundColor(NV.green)
+                }
+            }
+        }
+        .padding(14)
+        .glassEffect(.regular.tint(NV.green.opacity(0.08)), in: .rect(cornerRadius: 14))
+    }
+
+    private var roleIcon: String {
+        switch role {
+        case .ucc: return "network"
+        case .scc: return "building.2.crop.circle.fill"
+        case .tl: return "person.2.badge.gearshape.fill"
+        case .te: return "figure.run.circle.fill"
+        case .emt: return "cross.case.fill"
+        case .vo: return "hands.sparkles.fill"
         }
     }
 }

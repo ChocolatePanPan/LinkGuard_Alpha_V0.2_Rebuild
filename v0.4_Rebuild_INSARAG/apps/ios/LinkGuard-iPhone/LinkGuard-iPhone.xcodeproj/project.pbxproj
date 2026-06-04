@@ -181,7 +181,8 @@
 				CURRENT_PROJECT_VERSION = 400001;
 				DEVELOPMENT_TEAM = BXXFZS6XJ3;
 				ENABLE_DEBUG_DYLIB = NO;
-				GENERATE_INFOPLIST_FILE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "../../../shared/Info-Field.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "LinkGuard iPhone";
 				INFOPLIST_KEY_NFCReaderUsageDescription = "LinkGuard 需要 NFC 來讀取與寫入傷患識別標籤，協助現場快速回報傷患資訊";
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "LinkGuard 需要藍牙來連線搜救人員的 LoRa 裝置，實時監測生命徵象與傳輸指揮命令";
@@ -214,7 +215,8 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 400001;
 				DEVELOPMENT_TEAM = BXXFZS6XJ3;
-				GENERATE_INFOPLIST_FILE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "../../../shared/Info-Field.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "LinkGuard iPhone";
 				INFOPLIST_KEY_NFCReaderUsageDescription = "LinkGuard 需要 NFC 來讀取與寫入傷患識別標籤，協助現場快速回報傷患資訊";
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "LinkGuard 需要藍牙來連線搜救人員的 LoRa 裝置，實時監測生命徵象與傳輸指揮命令";
