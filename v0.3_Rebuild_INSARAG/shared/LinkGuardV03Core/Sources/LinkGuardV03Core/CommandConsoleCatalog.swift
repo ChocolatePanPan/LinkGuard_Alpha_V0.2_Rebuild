@@ -196,7 +196,7 @@ public enum CommandConsoleCatalog {
     public static func positioning(for appID: LinkGuardAppID) -> (title: String, role: String, summary: String)? {
         switch appID {
         case .ucc:
-            return ("LinkGuard-UCC", "聯合指揮中心",
+            return ("Lifeline-HQ", "聯合指揮中心",
                     "全區域戰略指揮平台：跨災區協調、資源調度、災情總覽與多 SCC 管理。")
         case .scc, .sccIPad:
             return ("LinkGuard-SCC", "現場指揮中心",

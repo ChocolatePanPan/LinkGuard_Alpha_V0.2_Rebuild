@@ -1,6 +1,6 @@
-# LinkGuard-UCC
+# Lifeline-HQ
 
-聯合指揮中心版本。
+聯合指揮中心版本。Xcode project 仍位於 `LinkGuard-UCC.xcodeproj`，產品外顯名稱與輸出 app 為 `Lifeline-HQ`。
 
 ## 適用對象
 
@@ -49,11 +49,11 @@ UCC/SCC 權限分工以 `docs/architecture/role-feature-access/README.md` 的「
 | UCC Phase 11 | 電台監聽 | PTT 轉錄與監控 | 通訊管理 |
 | UCC Phase 12 | 多裝置同步 | Mac/iPad 同步 | 指揮協同 |
 
-`CommandConsoleCatalog.uccModules` 是此表的 shared core 來源。UCC Mac console 採 v0.2 相容功能面，v0.3 擴充模組不會出現在左側操作清單。
+`CommandConsoleCatalog.uccModules` 是此表的 shared core 來源。Lifeline-HQ / UCC Mac console 採 v0.2 相容功能面，v0.3 擴充模組不會出現在左側操作清單。
 
 ## UI 實作
 
-UCC Mac app 使用 `LinkGuardV03MacUI` 的 `MacCommandConsoleView`。畫面狀態由 `MacSystemUIFactory.makeState(appID: .ucc, ...)` 產生，繼承 shared core 的權限、指揮層級、事件快照、離線佇列、傳輸拓撲與版本資訊。
+Lifeline-HQ Mac app 使用 `LinkGuardV03MacUI` 的 `MacCommandConsoleView`。畫面狀態由 `MacSystemUIFactory.makeState(appID: .ucc, ...)` 產生，繼承 shared core 的權限、指揮層級、事件快照、離線佇列、傳輸拓撲與版本資訊。
 
 目前 UCC 已導入第一版 ICS 架構模組：
 
@@ -63,4 +63,4 @@ UCC Mac app 使用 `LinkGuardV03MacUI` 的 `MacCommandConsoleView`。畫面狀�
 
 詳細產品邊界見 `docs/architecture/ucc-ics/README.md`。
 
-`LinkGuard-UCC.xcodeproj` 已包含 macOS SwiftUI app target，並透過本地 Swift package dependency 引用 `LinkGuardV03MacUI`。
+`LinkGuard-UCC.xcodeproj` 已包含 macOS SwiftUI app target，並透過本地 Swift package dependency 引用 `LinkGuardV03MacUI`。target / scheme 名稱保留 `LinkGuard-UCC`，build product 為 `Lifeline-HQ.app`。

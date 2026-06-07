@@ -4,10 +4,10 @@ Mac 端負責高層指揮、現場總指揮、跨區協調、資料彙整與復�
 
 ## 規劃版本
 
-- `LinkGuard-UCC`：聯合指揮中心，跨區域戰略指揮平台。
+- `LinkGuard-UCC`：聯合指揮中心 project，產品外顯名稱為 `Lifeline-HQ`。
 - `LinkGuard-SCC`：現場總指揮中心。
 
-`LinkGuard-UCC` 的 Mac console 由 shared core 的 `CommandConsoleCatalog.uccModules` 固定為 12 個 v0.2 相容模組：基礎登入、全區戰情、多災區地圖、ICS 指揮架構、全區 SOS、全區傷患統計、AI 戰略分析、資源管理、PWS、事件日誌、電台監聽與多裝置同步。
+`LinkGuard-UCC` / `Lifeline-HQ` 的 Mac console 由 shared core 的 `CommandConsoleCatalog.uccModules` 固定為 12 個 v0.2 相容模組：基礎登入、全區戰情、多災區地圖、ICS 指揮架構、全區 SOS、全區傷患統計、AI 戰略分析、資源管理、PWS、事件日誌、電台監聽與多裝置同步。
 
 ## UI 繼承方式
 

@@ -11,7 +11,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		UCC000000000000000000003 /* LinkGuard-UCC.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "LinkGuard-UCC.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		UCC000000000000000000003 /* Lifeline-HQ.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Lifeline-HQ.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -45,7 +45,7 @@
 		UCC000000000000000000007 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				UCC000000000000000000003 /* LinkGuard-UCC.app */,
+				UCC000000000000000000003 /* Lifeline-HQ.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -72,8 +72,8 @@
 			packageProductDependencies = (
 				UCC000000000000000000002 /* LinkGuardV03MacUI */,
 			);
-			productName = "LinkGuard-UCC";
-			productReference = UCC000000000000000000003 /* LinkGuard-UCC.app */;
+			productName = "Lifeline-HQ";
+			productReference = UCC000000000000000000003 /* Lifeline-HQ.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -255,15 +255,15 @@
 				CURRENT_PROJECT_VERSION = 301024;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "LinkGuard UCC";
+				INFOPLIST_KEY_CFBundleDisplayName = "Lifeline-HQ";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
-				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "LinkGuard uses Bluetooth to connect nearby field devices.";
-				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "LinkGuard uses the local network to discover and communicate with field devices and HQ services.";
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "LinkGuard uses the microphone for push-to-talk and radio voice reports.";
-				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "LinkGuard uses speech recognition to transcribe field radio and briefing audio.";
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Lifeline-HQ uses Bluetooth to connect nearby field devices.";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Lifeline-HQ uses the local network to discover and communicate with Lifeline field devices.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Lifeline-HQ uses the microphone for push-to-talk and radio voice reports.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Lifeline-HQ uses speech recognition to transcribe field radio and briefing audio.";
 				MARKETING_VERSION = 0.3.1;
-				PRODUCT_BUNDLE_IDENTIFIER = tw.linkguard.v03.ucc;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = tw.lifeline.hq;
+				PRODUCT_NAME = "Lifeline-HQ";
 				SDKROOT = macosx;
 				SUPPORTED_PLATFORMS = macosx;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -282,15 +282,15 @@
 				CURRENT_PROJECT_VERSION = 301024;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "LinkGuard UCC";
+				INFOPLIST_KEY_CFBundleDisplayName = "Lifeline-HQ";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
-				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "LinkGuard uses Bluetooth to connect nearby field devices.";
-				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "LinkGuard uses the local network to discover and communicate with field devices and HQ services.";
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "LinkGuard uses the microphone for push-to-talk and radio voice reports.";
-				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "LinkGuard uses speech recognition to transcribe field radio and briefing audio.";
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Lifeline-HQ uses Bluetooth to connect nearby field devices.";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Lifeline-HQ uses the local network to discover and communicate with Lifeline field devices.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Lifeline-HQ uses the microphone for push-to-talk and radio voice reports.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Lifeline-HQ uses speech recognition to transcribe field radio and briefing audio.";
 				MARKETING_VERSION = 0.3.1;
-				PRODUCT_BUNDLE_IDENTIFIER = tw.linkguard.v03.ucc;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = tw.lifeline.hq;
+				PRODUCT_NAME = "Lifeline-HQ";
 				SDKROOT = macosx;
 				SUPPORTED_PLATFORMS = macosx;
 				SWIFT_EMIT_LOC_STRINGS = YES;

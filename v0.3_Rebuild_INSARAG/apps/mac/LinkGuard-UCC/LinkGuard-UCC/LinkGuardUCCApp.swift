@@ -10,10 +10,10 @@ struct LinkGuardUCCApp: App {
             self.shellState = try MacSystemUIFactory.makeState(
                 appID: .ucc,
                 deviceID: "MAC-UCC-LOCAL",
-                displayName: "LinkGuard UCC Console"
+                displayName: "Lifeline-HQ Console"
             )
         } catch {
-            fatalError("Unable to initialize LinkGuard-UCC: \(error)")
+            fatalError("Unable to initialize Lifeline-HQ: \(error)")
         }
     }
 
