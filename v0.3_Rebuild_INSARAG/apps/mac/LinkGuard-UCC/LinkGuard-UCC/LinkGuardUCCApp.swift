@@ -19,7 +19,7 @@ struct LinkGuardUCCApp: App {
 
     var body: some Scene {
         WindowGroup {
-            MacSystemShellView(state: shellState)
+            MacCommandConsoleView(state: shellState)
                 .frame(minWidth: 1120, minHeight: 720)
         }
         Settings {

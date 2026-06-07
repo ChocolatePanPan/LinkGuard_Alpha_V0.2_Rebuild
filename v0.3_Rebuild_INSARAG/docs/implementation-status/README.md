@@ -16,7 +16,7 @@
 - `ModuleActivationCatalog` 已補上登入後模組啟用契約，可從 `LoginSession` 推導 Mobile、Command 與 Admin Provisioning shell 的 enabled/hidden modules，支援「同一安裝包，依帳號權限啟用模組」。V0.25/V0.2 既有功能已先以 source mapping 掛回 v0.3：前線 AI、照片證據、PTT/語音轉錄、現場翻譯、START 檢傷、NFC 傷患標籤、醫院/收容查詢、個人通知、USB 備份/回放。
 - CEOC/EMIC-compatible 資料契約已進入 shared core：`DisasterReport` 支援來源機關、查證狀態、受影響範圍、傷亡估計與 EMIC reference；`AgencyMessage`、`CEOCMission`、`OperationalPeriod` 的開設層級/IAP 摘要，以及 `PatientOperationalSummary` 已可透過 sync envelope 進入同一個 incident snapshot。
 - `SCCPhaseCatalog` 已將 LinkGuard-SCC 的 25 phase 固定為 shared core 產品契約；Phase 1-16、18、19、21、25 由現有 core/feature gate/snapshot 骨架覆蓋，Phase 17/22 為通訊整合待接，Phase 20/23/24 為產品化與上下層協同待接。
-- Mac `LinkGuard-UCC` / `LinkGuard-SCC` 已有可 build project，並包入 copied v0.2 HQ UI。
+- Mac `LinkGuard-UCC` / `LinkGuard-SCC` 已升級為全新 v0.3 角色化指揮主控台 (`MacCommandConsoleView`)，不再以 copied v0.2 HQ dashboard 作為產品介面。`CommandConsoleCatalog` 依開發流程總表固定 UCC 20 個與 SCC 22 個模組，側邊欄依角色與 `LinkGuardFeatureAccessMatrix` 顯示 ●/○/✕ 權限，每個模組為直接讀取 `OperationSnapshot` 的 v0.3 專用畫面，並透過 `MacSyncReceiver` 即時接收現場/iPad 同步狀態。
 - iPhone `LinkGuard-TL` / `LinkGuard-TE` / `LinkGuard-VO` / `LinkGuard-EMT` 與 iPad `LinkGuard-SCC-iPad` / `LinkGuard-TL-iPad` / `LinkGuard-EMT-iPad` 已有 target/scheme 與 shared FieldUI shell。
 - `LinkGuardV03FieldUI` 可依角色矩陣排隊地圖標記、人員狀態、任務回報、照片、傷患/START/後送、安全進出、聊天、語音與 SOS envelopes。
 - FieldUI 已加入角色化 Phase 2 本地閉環：TL 分區/Worksite/任務派遣，TE/VO 任務接收/GPS/照片/SOS/回報，SCC-iPad 分區管理/人員總覽/安全管制，EMT 傷患/START/生命徵象/後送。
@@ -29,7 +29,7 @@
 
 - iOS/iPad 現場端已有角色化 shell 與本地 snapshot 閉環，但仍需要接上真實系統能力與完整 field drill 後才能視為正式產品頁面。
 - field app 已有模擬器啟動參數可切分頁與自動排隊核心 action，但正式產品仍需接入實際 `CLLocationManager`、相機/照片 picker、麥克風/PTT、語音轉錄、地圖 SDK、NFC 讀寫、背景上傳與系統通知。
-- Mac UCC/SCC 目前主要仍是 copied v0.2 HQ UI；UCC 已有第一版 ICS architecture panel，但各 ICS lane 尚未完整替換成 v0.3 專用指揮流程。
+- Mac UCC/SCC 已替換為 v0.3 指揮主控台，42 個 phase 模組皆有可導航、依權限裁切、由 snapshot 驅動的 v0.3 畫面；但部分需外部能力的模組（電台/PTT、LoRa、PWS、EMIC、UAV、AI 戰略/風險/決策模型、多裝置 provisioning）目前呈現的是已進入快照的即時資料與整合範圍說明，實際硬體/endpoint/模型推論仍為待接整合。
 - SCC 的 25 phase 產品契約已補入 shared core，但 Phase 17 電台監聽、Phase 22 LoRa 中繼、Phase 23 多裝置同步、Phase 24 UCC 同步仍未串成正式產品流程，Phase 20 AI 風險分析仍缺專用模型與驗證。
 - UCC Phase 6/8/9/12/13 已有 shared core roadmap 與 feature gate，但仍待接入實際 PTT/PWS/EMIC、備援切換與國際協作流程。
 - UCC Phase 9 已具備 CEOC/EMIC 資料契約與 sync message 類型，但尚未接正式消防署 EMIC endpoint、token、簽章、查證 API 或政府端 payload schema。
