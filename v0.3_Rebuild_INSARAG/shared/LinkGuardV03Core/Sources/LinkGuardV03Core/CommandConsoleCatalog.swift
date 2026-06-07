@@ -105,7 +105,7 @@ public struct CommandConsoleModule: Identifiable, Hashable, Sendable {
 }
 
 public enum CommandConsoleCatalog {
-    /// LinkGuard-UCC – 聯合指揮中心：全區域戰略指揮平台 (20 phases).
+    /// LinkGuard-UCC – 聯合指揮中心：v0.2-compatible command surface without international coordination modules.
     public static let uccModules: [CommandConsoleModule] = [
         .init(appID: .ucc, phaseNumber: 1, title: "基礎登入系統", capability: "帳號、權限、角色管理", purpose: "建立系統基礎",
               systemImageName: "person.badge.key.fill", section: .command, primaryFeature: .accountIdentity, kind: .identityAccess),
@@ -121,32 +121,16 @@ public enum CommandConsoleCatalog {
               systemImageName: "cross.case.fill", section: .medical, primaryFeature: .medicalOperationalSummary, kind: .casualtyStatistics),
         .init(appID: .ucc, phaseNumber: 7, title: "AI 戰略分析", capability: "AI 資源調度建議", purpose: "降低指揮負荷",
               systemImageName: "brain.head.profile", section: .planning, primaryFeature: .aiStrategicAnalysis, kind: .aiStrategy),
-        .init(appID: .ucc, phaseNumber: 8, title: "熱區分析", capability: "災情熱區分析", purpose: "戰略判斷",
-              systemImageName: "flame.fill", section: .planning, primaryFeature: .globalHeatAnalysis, kind: .heatmap),
-        .init(appID: .ucc, phaseNumber: 9, title: "資源管理", capability: "人力與物資調度", purpose: "後勤管理",
+        .init(appID: .ucc, phaseNumber: 8, title: "資源管理", capability: "人力與物資調度", purpose: "後勤管理",
               systemImageName: "shippingbox.fill", section: .logistics, primaryFeature: .resourceManagement, kind: .resourceManagement),
-        .init(appID: .ucc, phaseNumber: 10, title: "EMT 跨區派遣", capability: "醫療支援調度", purpose: "醫療協調",
-              systemImageName: "cross.case.circle.fill", section: .medical, primaryFeature: .emtCrossRegionDispatch, kind: .emtDispatch),
-        .init(appID: .ucc, phaseNumber: 11, title: "重型隊調度", capability: "USAR 調派", purpose: "大型救援",
-              systemImageName: "figure.2.and.child.holdinghands", section: .logistics, primaryFeature: .heavyTeamDispatch, kind: .heavyTeamDispatch),
-        .init(appID: .ucc, phaseNumber: 12, title: "空拍機管理", capability: "UAV 資訊整合", purpose: "空中支援",
-              systemImageName: "airplane.circle.fill", section: .operations, primaryFeature: .droneDispatch, kind: .uavManagement),
-        .init(appID: .ucc, phaseNumber: 13, title: "PWS 整合", capability: "地震警報整合", purpose: "提前應變",
+        .init(appID: .ucc, phaseNumber: 9, title: "PWS 整合", capability: "地震警報整合", purpose: "提前應變",
               systemImageName: "antenna.radiowaves.left.and.right.circle.fill", section: .command, primaryFeature: .pwsIntegration, kind: .pwsIntegration),
-        .init(appID: .ucc, phaseNumber: 14, title: "EMIC 整合", capability: "政府災情平台同步", purpose: "跨機關整合",
-              systemImageName: "building.2.crop.circle.fill", section: .planning, primaryFeature: .emicIntegration, kind: .emicIntegration),
-        .init(appID: .ucc, phaseNumber: 15, title: "事件日誌", capability: "全區事件記錄", purpose: "AAR 檢討",
+        .init(appID: .ucc, phaseNumber: 10, title: "事件日誌", capability: "全區事件記錄", purpose: "AAR 檢討",
               systemImageName: "clock.arrow.circlepath", section: .afterActionReview, primaryFeature: .eventLog, kind: .eventLog),
-        .init(appID: .ucc, phaseNumber: 16, title: "電台監聽", capability: "PTT 轉錄與監控", purpose: "通訊管理",
+        .init(appID: .ucc, phaseNumber: 11, title: "電台監聽", capability: "PTT 轉錄與監控", purpose: "通訊管理",
               systemImageName: "antenna.radiowaves.left.and.right", section: .command, primaryFeature: .radioMonitoring, kind: .radioMonitoring),
-        .init(appID: .ucc, phaseNumber: 17, title: "多裝置同步", capability: "Mac/iPad 同步", purpose: "指揮協同",
-              systemImageName: "rectangle.connected.to.line.below", section: .logistics, primaryFeature: .commandCenterRedundancy, kind: .deviceSync),
-        .init(appID: .ucc, phaseNumber: 18, title: "多 SCC 監控", capability: "SCC 狀態監控", purpose: "全區掌握",
-              systemImageName: "rectangle.3.group.fill", section: .command, primaryFeature: .multiSCCMonitoring, kind: .multiSCCMonitor),
-        .init(appID: .ucc, phaseNumber: 19, title: "AI 風險預測", capability: "二次災害預測", purpose: "安全管理",
-              systemImageName: "exclamationmark.triangle.fill", section: .planning, primaryFeature: .secondaryCollapseWarning, kind: .aiRiskPrediction),
-        .init(appID: .ucc, phaseNumber: 20, title: "災後回放系統", capability: "AAR 重播", purpose: "訓練與檢討",
-              systemImageName: "play.rectangle.on.rectangle.fill", section: .afterActionReview, primaryFeature: .aarReplay, kind: .aarReplay)
+        .init(appID: .ucc, phaseNumber: 12, title: "多裝置同步", capability: "Mac/iPad 同步", purpose: "指揮協同",
+              systemImageName: "rectangle.connected.to.line.below", section: .logistics, primaryFeature: .commandCenterRedundancy, kind: .deviceSync)
     ]
 
     /// LinkGuard-SCC – 現場指揮中心：災區現場戰術指揮平台 (22 phases).

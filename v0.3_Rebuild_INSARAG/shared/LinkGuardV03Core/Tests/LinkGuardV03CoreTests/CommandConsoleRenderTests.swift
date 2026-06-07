@@ -6,7 +6,7 @@ import AppKit
 @testable import LinkGuardV03MacUI
 
 /// Proves the v0.3 command console actually renders: seeds a realistic two-incident
-/// scenario, then renders EVERY UCC (20) and SCC (22) module to a PNG via
+/// scenario, then renders EVERY UCC (12) and SCC (22) module to a PNG via
 /// ImageRenderer. Rendering forces each view's `body` to evaluate, so a trap in any
 /// module fails the test. PNGs are written to /tmp/console_render for inspection.
 final class CommandConsoleRenderTests: XCTestCase {
@@ -17,7 +17,7 @@ final class CommandConsoleRenderTests: XCTestCase {
     func testRenderAllUCCModules() throws {
         let state = try seededState(appID: .ucc)
         let count = try renderModules(CommandConsoleCatalog.uccModules, state: state)
-        XCTAssertEqual(count, 20, "All 20 UCC modules must render")
+        XCTAssertEqual(count, 12, "All 12 UCC modules must render")
         renderFullConsole(state, name: "UCC-console")
     }
 

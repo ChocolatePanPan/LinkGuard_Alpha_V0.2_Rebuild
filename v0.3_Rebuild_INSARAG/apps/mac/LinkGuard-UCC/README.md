@@ -36,31 +36,30 @@ UCC/SCC 權限分工以 `docs/architecture/role-feature-access/README.md` 的「
 
 | Phase | 功能模組 | 功能內容 | 開發目的 |
 | --- | --- | --- | --- |
-| UCC Phase 1 | 全區儀表板 | 全災區監控 | 戰情中心 |
-| UCC Phase 2 | ICS架構 | UCC/SCC/TL管理 | 指揮體系 |
-| UCC Phase 3 | 跨區調度 | 區域派遣 | 資源協同 |
-| UCC Phase 4 | AI分析 | AI決策建議 | 高階指揮 |
-| UCC Phase 5 | 災情統計 | 搜救統計 | 決策依據 |
-| UCC Phase 6 | 電台監聽 | PTT轉錄 | 通訊掌握 |
-| UCC Phase 7 | 事件日誌 | AAR紀錄 | 災後檢討 |
-| UCC Phase 8 | PWS整合 | 地震警報 | 提前應變 |
-| UCC Phase 9 | EMIC整合 | 災情同步 | 政府協同 |
-| UCC Phase 10 | 資源總控 | 人力物資管理 | 戰略配置 |
-| UCC Phase 11 | 安全管制 | 危險區總覽 | 全區安全 |
-| UCC Phase 12 | 多指揮中心 | 備援切換 | 容錯能力 |
-| UCC Phase 13 | 國際協作 | INSARAG模式 | 國際接軌 |
+| UCC Phase 1 | 基礎登入系統 | 帳號、權限、角色管理 | 建立系統基礎 |
+| UCC Phase 2 | 全區戰情儀表板 | 全縣市災情總覽 | 建立戰情中心 |
+| UCC Phase 3 | 多災區地圖 | 多 SCC 顯示 | 跨區管理 |
+| UCC Phase 4 | ICS 指揮架構 | UCC/SCC/TL 權限管理 | 指揮層級建立 |
+| UCC Phase 5 | 全區 SOS 總覽 | 所有 SOS 事件統整 | 緊急事件掌握 |
+| UCC Phase 6 | 全區傷患統計 | 傷患總數與狀態 | 醫療資源分析 |
+| UCC Phase 7 | AI 戰略分析 | AI 資源調度建議 | 降低指揮負荷 |
+| UCC Phase 8 | 資源管理 | 人力與物資調度 | 後勤管理 |
+| UCC Phase 9 | PWS 整合 | 地震警報整合 | 提前應變 |
+| UCC Phase 10 | 事件日誌 | 全區事件記錄 | AAR 檢討 |
+| UCC Phase 11 | 電台監聽 | PTT 轉錄與監控 | 通訊管理 |
+| UCC Phase 12 | 多裝置同步 | Mac/iPad 同步 | 指揮協同 |
 
-`UCCPhaseCatalog` 是此表的 shared core 來源；Phase 1-5、7、10、11 已對應現有 shared core 權限、功能矩陣與 sync message 類型。Phase 9 已具備 CEOC/EMIC 資料契約（`DisasterReport` 查證欄位、`AgencyMessage`、`CEOCMission`、`OperationalPeriod`、`PatientOperationalSummary`），但仍標為外部整合待接，因為正式 EMIC endpoint、token、簽章與政府端 schema 尚未接入。Phase 6、8 同樣為外部整合待接，Phase 12、13 標為戰略產品規劃。
+`CommandConsoleCatalog.uccModules` 是此表的 shared core 來源。UCC Mac console 採 v0.2 相容功能面，v0.3 擴充模組不會出現在左側操作清單。
 
 ## UI 實作
 
-UCC Mac app 使用 `LinkGuardV03MacUI` 的 `MacSystemShellView`。畫面狀態由 `MacSystemUIFactory.makeState(appID: .ucc, ...)` 產生，繼承 shared core 的權限、指揮層級、事件快照、離線佇列、傳輸拓撲與版本資訊。
+UCC Mac app 使用 `LinkGuardV03MacUI` 的 `MacCommandConsoleView`。畫面狀態由 `MacSystemUIFactory.makeState(appID: .ucc, ...)` 產生，繼承 shared core 的權限、指揮層級、事件快照、離線佇列、傳輸拓撲與版本資訊。
 
-目前 UCC 已導入第一版 ICS 架構面板：
+目前 UCC 已導入第一版 ICS 架構模組：
 
 - `MacUCCICSArchitecture` 定義 UCC 的 ICS lanes、指揮權限與邊界規則。
 - `MacSystemUIState.uccICSArchitecture` 僅在 UCC 產生，SCC 不會套用。
-- `MacUCCICSArchitecturePanel` 先以 overlay 呈現在 UCC Mac 畫面左上方，作為後續替換 copied v0.2 HQ UI 的入口。
+- `MacCommandConsoleView` 透過 `ICSArchitectureModule` 呈現 UCC 的指揮架構與邊界規則。
 
 詳細產品邊界見 `docs/architecture/ucc-ics/README.md`。
 
